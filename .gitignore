@@ -1,40 +1,14 @@
-# Build directories
-build/
-bin/
-out/
-release/
-release_pkg/
-*.zip
-*.tar.gz
-
-# IDE and Editor files
-.vscode/
-.vs/
-*.user
-*.suo
-*.sln
-*.vcxproj*
-.idea/
-*.swp
-
-# Compiled binaries and libraries
-*.exe
-*.dll
-*.so
-*.dylib
-*.obj
-*.o
-*.a
-*.lib
-
-# Databases & Runtime logs
-*.db
-*.sqlite
-*.sqlite3
+# Logs and Temporary files
 *.log
-modules/*.dll
-modules/*.so
+*.tmp
+scratch/
+.system_generated/
+.vscode/
+.idea/
 
-# OS specific files
+# OS generated files
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .DS_Store
+

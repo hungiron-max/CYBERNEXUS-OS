@@ -1,0 +1,12 @@
+X:/My Drive/Code dev/cybernexus-os/build/CMakeFiles/cybernexus_host.dir
+X:/My Drive/Code dev/cybernexus-os/build/CMakeFiles/edit_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/CMakeFiles/rebuild_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_pos_core/CMakeFiles/mod_pos_core.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_pos_core/CMakeFiles/edit_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_pos_core/CMakeFiles/rebuild_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_network_qos/CMakeFiles/mod_network_qos.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_network_qos/CMakeFiles/edit_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_network_qos/CMakeFiles/rebuild_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_media_stream/CMakeFiles/mod_media_stream.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_media_stream/CMakeFiles/edit_cache.dir
+X:/My Drive/Code dev/cybernexus-os/build/modules/mod_media_stream/CMakeFiles/rebuild_cache.dir
