@@ -1,0 +1,101 @@
+.saleapp-theme-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, .55);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, .88);
+  color: #f8fafc;
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+.saleapp-theme-toggle:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.saleapp-theme-login-toggle { margin-top: 12px; }
+.saleapp-theme-toggle-floating {
+  position: fixed;
+  left: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 45;
+}
+
+@media screen {
+  html[data-theme="light"] {
+    color-scheme: light;
+    --glass-bg: rgba(255, 255, 255, .76);
+    --glass-bg-card: rgba(255, 255, 255, .78);
+    --glass-bg-card-hover: rgba(255, 255, 255, .95);
+    --glass-border: rgba(100, 116, 139, .25);
+    --glass-shadow: 0 12px 30px rgba(67, 91, 128, .15), inset 0 1px rgba(255, 255, 255, .9);
+  }
+  html[data-theme="light"] body {
+    background: radial-gradient(at 5% 0%, #d7edff, transparent 50%),
+      radial-gradient(at 95% 0%, #ebdfff, transparent 48%),
+      radial-gradient(at 50% 100%, #d9f6ec, transparent 48%), #eef4fa !important;
+    color: #17243b !important;
+  }
+  html[data-theme="light"] .sa-login-wrap { background: transparent !important; }
+  html[data-theme="light"] header h1.bg-clip-text {
+    background-image: none !important;
+    color: #17243b !important;
+    -webkit-text-fill-color: #17243b;
+  }
+  html[data-theme="light"] :is(.liquid-glass, .liquid-glass-card, .liquid-card, .liquid-header, .liquid-modal-content, .online-payment-dialog, .c, .sa-card) {
+    background: rgba(255, 255, 255, .84) !important;
+    border-color: rgba(100, 116, 139, .26) !important;
+    color: #17243b;
+    box-shadow: var(--glass-shadow) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  html[data-theme="light"] :is([class*="bg-slate-950"], [class*="bg-slate-900"], [class*="bg-slate-800"], [class*="bg-black/"]) {
+    background-color: rgba(235, 242, 250, .88) !important;
+  }
+  html[data-theme="light"] :is(.liquid-modal-overlay, .online-payment-modal) {
+    background: rgba(30, 41, 59, .48) !important;
+  }
+  html[data-theme="light"] :is(.liquid-input, input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    background: rgba(255, 255, 255, .9) !important;
+    border-color: #9aaec3 !important;
+    color: #17243b !important;
+  }
+  html[data-theme="light"] :is(input, textarea)::placeholder { color: #64748b !important; }
+  html[data-theme="light"] :is(.sa-field label, .sa-sub, .sa-foot a, .sub, .row span:first-child) { color: #475569 !important; }
+  html[data-theme="light"] .sa-title {
+    background-image: linear-gradient(90deg, #6b21a8, #0369a1, #047857) !important;
+  }
+  html[data-theme="light"] :is(.btn-glass, .category-pill, .table-card.free, .online-payment-method, .online-order-action, .online-order-action-button, .online-order-state, .box, .b2) {
+    background: rgba(241, 247, 253, .95) !important;
+    border-color: rgba(100, 116, 139, .35) !important;
+    color: #243b55 !important;
+  }
+  html[data-theme="light"] :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500) {
+    color: #33475e !important;
+  }
+  html[data-theme="light"] :is(.text-sky-200, .text-sky-300, .text-sky-400, .text-cyan-200, .text-cyan-300, .text-cyan-400, [class*="text-sky-300/"]) { color: #075985 !important; }
+  html[data-theme="light"] :is(.text-emerald-200, .text-emerald-300, .text-emerald-400, .text-green-400, [class*="text-emerald-300/"]) { color: #04705a !important; }
+  html[data-theme="light"] :is(.text-amber-200, .text-amber-300, .text-amber-400, .text-yellow-400) { color: #865000 !important; }
+  html[data-theme="light"] :is(.text-rose-200, .text-rose-300, .text-rose-400, .text-red-400) { color: #a21c3b !important; }
+  html[data-theme="light"] :is(.text-purple-200, .text-purple-300, .text-purple-400, .text-indigo-300) { color: #6b21a8 !important; }
+  html[data-theme="light"] :is(.btn-glass-primary, .btn-glass-success, .btn-glass-danger, .btn-glass-warning, .b1),
+  html[data-theme="light"] :is(.btn-glass-primary, .btn-glass-success, .btn-glass-danger, .btn-glass-warning, .b1) *,
+  html[data-theme="light"] :is(button, a)[class*="bg-gradient-to-"],
+  html[data-theme="light"] :is(button, a)[class*="bg-gradient-to-"] * {
+    color: #fff !important;
+  }
+  html[data-theme="light"] #login-modal .from-red-600 { color: #fff !important; }
+  html[data-theme="light"] .customer-store-promo { background: rgba(255, 247, 215, .95) !important; color: #704300 !important; }
+  html[data-theme="light"] :is(th, td) { border-color: rgba(100, 116, 139, .2); }
+  html[data-theme="light"] .table-row-scroll thead th { background: #e8f0f9 !important; }
+  html[data-theme="light"] .saleapp-theme-toggle {
+    background: rgba(255, 255, 255, .9) !important;
+    border-color: #9aaec3 !important;
+    color: #243b55 !important;
+  }
+}
+@media print {
+  .saleapp-theme-toggle { display: none !important; }
+}

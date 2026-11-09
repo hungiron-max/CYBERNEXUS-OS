@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> - Trung Tâm Chỉ Huy Super Admin</title>
+
+    <!-- Precompiled Offline Tailwind CSS & FontAwesome -->
+    <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+    <!-- Chart.js for SaaS Metrics -->
+    <script src="assets/js/chart.min.js"></script>
+    <!-- Liquid Glass Custom Styles -->
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
+
+    <style>
+        @media print {
+            @page { size: auto; margin: 12mm; }
+
+            body > #modal-print-invoice.open {
+                display: block !important;
+                position: static !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                background: none !important;
+                backdrop-filter: none !important;
+            }
+            #modal-print-invoice .liquid-modal-content {
+                display: block !important;
+                width: 100% !important;
+                max-width: 180mm !important;
+                max-height: none !important;
+                overflow: visible !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                color: #000 !important;
+                background: #fff !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                transform: none !important;
+            }
+            #printable-receipt-content,
+            #printable-receipt-content * {
+                visibility: visible !important;
+                color: #000 !important;
+            }
+            #modal-print-invoice .receipt-actions {
+                display: none !important;
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(147, 51, 234, 0.4); border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(147, 51, 234, 0.7); }
+        
+        .sa-module-row {
+            border: 1px solid rgba(255, 255, 255, .08);
+            background: rgba(15, 23, 42, .78);
+            transition: background-color .18s ease, border-color .18s ease;
+        }
+        .sa-module-row.is-enabled {
+            border-color: rgba(168, 85, 247, .4);
+            background: rgba(88, 28, 135, .18);
+        }
+        .sa-module-row.is-disabled {
+            opacity: .78;
+        }
+        .sa-module-switch {
+            position: relative;
+            display: inline-flex;
+            width: 42px;
+            height: 24px;
+            flex: 0 0 42px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .sa-module-switch__input {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .sa-module-switch__track {
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+            border: 1px solid rgba(148, 163, 184, .65);
+            border-radius: 999px;
+            background: #252b35;
+            transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .sa-module-switch__thumb {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #d1d5db;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+            transition: transform .18s ease, background-color .18s ease;
+        }
+        .sa-module-switch__input:checked + .sa-module-switch__track {
+            border-color: #34d399;
+            background: #059669;
+        }
+        .sa-module-switch__input:checked + .sa-module-switch__track .sa-module-switch__thumb {
+            transform: translateX(18px);
+            background: #fff;
+        }
+        .sa-module-switch__input:focus-visible + .sa-module-switch__track {
+            outline: 3px solid rgba(56, 189, 248, .75);
+            outline-offset: 3px;
+        }
+        .sa-module-switch__input:disabled + .sa-module-switch__track {
+            cursor: wait;
+        }
+
+        .sa-settings-actions {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 16px;
+        }
+        .sa-settings-actions__note {
+            min-width: 0;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sa-settings-actions__button {
+            width: auto !important;
+            min-width: 0;
+            height: 42px;
+            padding: 0 18px !important;
+        }
+        .sa-password-panel {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(340px, 1.15fr);
+            align-items: center;
+            gap: 24px;
+        }
+        .sa-password-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            min-width: 0;
+        }
+        .sa-password-form input {
+            width: 100%;
+            min-width: 0;
+            height: 44px;
+        }
+        .sa-password-form button {
+            width: auto !important;
+            min-width: 0;
+            min-height: 44px;
+            white-space: nowrap;
+        }
+        @media (max-width: 700px) {
+            .sa-settings-actions {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 10px;
+            }
+            .sa-settings-actions__note {
+                white-space: normal;
+            }
+            .sa-settings-actions__button {
+                justify-self: end;
+            }
+            .sa-password-panel {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 16px;
+            }
+        }
+        @media (max-width: 420px) {
+            .sa-password-form {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .sa-password-form button {
+                justify-self: end;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="assets/css/theme.css?v=4">
+    <script src="assets/js/theme.js?v=3"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased overflow-x-hidden selection:bg-purple-500 selection:text-white">
+
+
+    <!-- ==================================================== -->
+    <!-- SUPER ADMIN LOGIN PORTAL SCREEN -->
+    <!-- ==================================================== -->
+    <style>
+        .sa-login-wrap{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;position:relative;overflow:hidden;background:radial-gradient(circle at 20% 15%,rgba(147,51,234,.28),transparent 45%),radial-gradient(circle at 85% 90%,rgba(14,165,233,.25),transparent 45%),#070b17}
+        .sa-card{width:100%;max-width:420px;padding:36px 32px 26px;border-radius:24px;background:rgba(17,24,39,.72);border:1px solid rgba(168,85,247,.28);box-shadow:0 25px 60px -15px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04) inset;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);position:relative;z-index:2}
+        .sa-logo{width:72px;height:72px;margin:0 auto 18px;border-radius:20px;background:linear-gradient(135deg,#9333ea,#0ea5e9);display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;box-shadow:0 12px 30px -6px rgba(147,51,234,.6)}
+        .sa-title{text-align:center;font-size:22px;font-weight:800;margin:0;background:linear-gradient(90deg,#c084fc,#7dd3fc,#6ee7b7);-webkit-background-clip:text;background-clip:text;color:transparent}
+        .sa-sub{text-align:center;font-size:13px;color:#94a3b8;margin:6px 0 26px}
+        .sa-field{margin-bottom:16px}
+        .sa-field label{display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px}
+        .sa-input-box{position:relative}
+        .sa-input-box>i.sa-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:14px;pointer-events:none}
+        .sa-input{width:100%;box-sizing:border-box;height:46px;padding:0 44px 0 42px;border-radius:12px;background:rgba(2,6,23,.65);border:1px solid rgba(148,163,184,.22);color:#f1f5f9;font-size:15px;outline:none;transition:.2s}
+        .sa-input:focus{border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,.25)}
+        .sa-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;background:transparent;color:#94a3b8;cursor:pointer;border-radius:8px}
+        .sa-eye:hover{color:#fff;background:rgba(255,255,255,.08)}
+        .sa-btn{width:100%;height:48px;margin-top:6px;border:0;border-radius:12px;cursor:pointer;color:#fff;font-size:14px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,#9333ea,#3b82f6);box-shadow:0 10px 25px -8px rgba(99,102,241,.7);transition:.2s}
+        .sa-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+        .sa-btn:disabled{opacity:.6;cursor:wait}
+        .sa-err{display:none;margin-bottom:16px;padding:11px 14px;border-radius:12px;background:rgba(127,29,29,.45);border:1px solid rgba(244,63,94,.4);color:#fecdd3;font-size:13px;gap:8px;align-items:center}
+        .sa-err.show,#login-error-alert:not(.hidden){display:flex}
+        .sa-foot{display:flex;justify-content:space-between;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);font-size:12px}
+        .sa-foot a{color:#94a3b8;text-decoration:none}.sa-foot a:hover{color:#7dd3fc}
+    </style>
+    <div class="sa-login-wrap">
+        <div class="sa-card">
+            <div class="sa-logo"><i class="fas fa-shield-halved"></i></div>
+            <h1 class="sa-title"></h1>
+            <p class="sa-sub">Cổng quản trị &amp; cấp quyền phân hệ</p>
+
+            <div id="login-error-alert" class="sa-err hidden">
+                <i class="fas fa-circle-exclamation"></i>
+                <span id="login-error-msg"></span>
+            </div>
+
+            <form onsubmit="SuperAdmin.handleLogin(event)" autocomplete="on">
+                <div class="sa-field">
+                    <label for="login-username">Tài khoản</label>
+                    <div class="sa-input-box">
+                        <i class="fas fa-user sa-ico"></i>
+                        <input type="text" id="login-username" class="sa-input" placeholder="Tên đăng nhập" required autocomplete="username" autocapitalize="off" />
+                    </div>
+                </div>
+                <div class="sa-field">
+                    <label for="login-password">Mật khẩu</label>
+                    <div class="sa-input-box">
+                        <i class="fas fa-lock sa-ico"></i>
+                        <input type="password" id="login-password" class="sa-input" placeholder="Nhập mật khẩu" required autocomplete="current-password" />
+                        <button type="button" class="sa-eye" onclick="SuperAdmin.togglePasswordView('login-password', this)" aria-label="Hiện/ẩn mật khẩu"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="submit" id="btn-login-submit" class="sa-btn">
+                    <i class="fas fa-right-to-bracket"></i><span>Đăng nhập</span>
+                </button>
+            </form>
+
+            
+            <div class="sa-foot">
+                <a href="admin.php"><i class="fas fa-store"></i> Quản trị quán</a>
+                <a href="index.php"><i class="fas fa-cash-register"></i> Màn hình POS</a>
+            </div>
+            
+        </div>
+    </div>
+
+
+    <!-- ==================================================== -->
+    <!-- SUPER ADMIN DASHBOARD & CONTROLLER APPLICATION -->
+    <!-- ==================================================== -->
+    
+    <!-- Top Header Navigation Bar -->
+    <header class="h-14 liquid-glass border-b border-purple-500/20 px-4 sm:px-6 flex items-center justify-between shrink-0 z-30 sticky top-0">
+        <!-- Left: Logo & System Badge -->
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-sky-500 p-0.5 shadow-md shadow-purple-500/20 flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-purple-400">
+                    <i class="fas fa-shield-halved text-sm"></i>
+                </div>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-black text-sm tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-sky-300 to-emerald-400">
+                        SUPER ADMIN SAAS
+                    </span>
+                    <span class="px-2 py-0.2 rounded-full text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        v1.0-Cloud
+                    </span>
+                </div>
+                <div class="text-[10px] text-slate-400 hidden sm:block">
+                    Hệ thống cấp quyền module & thu phí bản quyền
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Quick Store Jump Links -->
+        
+        <div class="hidden md:flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-white/10 text-xs">
+            <a href="index.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình POS bán hàng">
+                <i class="fas fa-cash-register text-sky-400"></i> <span>POS Bán Hàng</span>
+            </a>
+            <a href="admin.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở trang Quản trị Back-office quán">
+                <i class="fas fa-store text-emerald-400"></i> <span>Quản Trị Quán</span>
+            </a>
+            <a href="kitchen.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình Bếp KDS">
+                <i class="fas fa-utensils text-amber-400"></i> <span>Bếp KDS</span>
+            </a>
+            <a href="customer.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở giao diện khách tự gọi món">
+                <i class="fas fa-mobile-screen-button text-purple-400"></i> <span>QR Order</span>
+            </a>
+        </div>
+        
+
+        <!-- Right: Admin Profile & Logout -->
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-purple-950/40 border border-purple-500/30 py-1 px-3 rounded-xl">
+                <div class="w-6 h-6 rounded-full bg-purple-600/30 text-purple-300 flex items-center justify-center text-xs">
+                    <i class="fas fa-user-gear"></i>
+                </div>
+                <div class="text-left hidden sm:block">
+                    <div class="text-[11px] font-bold text-white leading-none">Super Admin</div>
+                    <div class="text-[9px] text-emerald-400 font-mono">ONLINE</div>
+                </div>
+            </div>
+
+            <button type="button" onclick="SuperAdmin.handleLogout()" class="btn-glass text-xs py-1.5 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5 transition-all" title="Đăng xuất Super Admin">
+                <i class="fas fa-power-off"></i> <span class="hidden sm:inline">Thoát</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="w-56 liquid-glass border-r border-purple-500/20 flex flex-col justify-between shrink-0 p-3 z-20">
+            <nav class="space-y-1">
+                <button type="button" onclick="SuperAdmin.switchTab('dashboard')" id="nav-tab-dashboard" class="saas-nav-btn active w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <i class="fas fa-chart-line text-purple-400 w-4 text-center"></i>
+                    <span>Dashboard Chỉ Huy</span>
+                </button>
+
+                <button type="button" onclick="SuperAdmin.switchTab('tenants')" id="nav-tab-tenants" class="saas-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-2.5">
+                        <i class="fas fa-shop text-sky-400 w-4 text-center"></i>
+                        <span>Quản Lý Cửa Hàng</span>
+                    </div>
+                    <span id="badge-total-tenants" class="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/30">0</span>
+                </button>
+
+                <button type="button" onclick="SuperAdmin.switchTab('plans')" id="nav-tab-plans" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <i class="fas fa-gem text-amber-400 w-4 text-center"></i>
+                    <span>Gói Cước & Phí Dịch Vụ</span>
+                </button>
+
+                <button type="button" onclick="SuperAdmin.switchTab('billing')" id="nav-tab-billing" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <i class="fas fa-receipt text-emerald-400 w-4 text-center"></i>
+                    <span>Thu Phí & Hóa Đơn</span>
+                </button>
+
+                <button type="button" onclick="SuperAdmin.switchTab('settings')" id="nav-tab-settings" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <i class="fas fa-sliders text-rose-400 w-4 text-center"></i>
+                    <span>Cài Đặt SaaS & VietQR</span>
+                </button>
+            </nav>
+
+            <!-- Bottom Hotline Card -->
+            <div class="p-3 rounded-2xl bg-gradient-to-b from-purple-900/30 to-slate-900/60 border border-purple-500/20 space-y-2 text-[11px]">
+                <div class="flex items-center gap-2 text-amber-300 font-bold">
+                    <i class="fas fa-headset"></i> <span>Tổng Đài Hỗ Trợ:</span>
+                </div>
+                <div class="font-mono font-bold text-white text-xs pl-5"></div>
+                <div class="text-[10px] text-slate-400 pl-5">Hỗ trợ kích hoạt bản quyền 24/7</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area (Dynamic Tabs) -->
+        <main class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-6">
+
+            <!-- ============================================== -->
+            <!-- TAB 1: DASHBOARD OVERVIEW -->
+            <!-- ============================================== -->
+            <section id="tab-content-dashboard" class="saas-tab-section space-y-6">
+                <!-- Page Title -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-gauge-high text-purple-400"></i> Bảng Chỉ Huy Tổng Quan
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Theo dõi số lượng cửa hàng, doanh thu thu phí SaaS và các gói sắp hết hạn</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="SuperAdmin.openNewTenantModal()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-purple-600 to-sky-600 hover:from-purple-500 hover:to-sky-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/20">
+                            <i class="fas fa-plus-circle"></i> <span>Tạo Cửa Hàng Mới</span>
+                        </button>
+                        <button type="button" onclick="SuperAdmin.loadDashboard()" class="btn-glass text-xs py-2 px-3 text-slate-300 hover:text-white flex items-center gap-1" title="Làm mới dữ liệu">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 Metrics Cards Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Metric 1: Total Tenants -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Tổng Cửa Hàng</div>
+                            <div id="stat-total-tenants" class="text-2xl font-black text-sky-400 font-mono">0</div>
+                            <div class="text-[10px] text-slate-500">Đăng ký hệ thống</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-xl">
+                            <i class="fas fa-store"></i>
+                        </div>
+                    </div>
+
+                    <!-- Metric 2: Active Tenants -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-emerald-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Đang Hoạt Động</div>
+                            <div id="stat-active-tenants" class="text-2xl font-black text-emerald-400 font-mono">0</div>
+                            <div class="text-[10px] text-emerald-400/80">Có bản quyền hợp lệ</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl">
+                            <i class="fas fa-circle-check"></i>
+                        </div>
+                    </div>
+
+                    <!-- Metric 3: Expiring Soon (Urgent) -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-amber-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Sắp Hết Hạn (&le; 7 ngày)</div>
+                            <div id="stat-expiring-tenants" class="text-2xl font-black text-amber-400 font-mono">0</div>
+                            <div class="text-[10px] text-amber-400/80">Cần liên hệ gia hạn</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl">
+                            <i class="fas fa-clock-rotate-left"></i>
+                        </div>
+                    </div>
+
+                    <!-- Metric 4: Revenue Month -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-purple-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Doanh Thu Thu Phí</div>
+                            <div id="stat-revenue-month" class="text-2xl font-black text-purple-400 font-mono">0 đ</div>
+                            <div id="stat-revenue-year" class="text-[10px] text-purple-300/80 font-mono">Năm: 0 đ</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl">
+                            <i class="fas fa-sack-dollar"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Urgent Renewals Alert Box -->
+                <div class="liquid-glass p-5 rounded-2xl border border-amber-500/30 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                            <i class="fas fa-triangle-exclamation text-amber-400 animate-pulse"></i>
+                            Danh Sách Cửa Hàng Cần Chăm Sóc & Thu Tiền Gia Hạn (Hết hạn hoặc sắp hết hạn &le; 7 ngày)
+                        </h3>
+                        <span class="text-[11px] text-slate-400">Gia hạn 1-Click tự động</span>
+                    </div>
+
+                    <div id="urgent-tenants-list" class="space-y-2">
+                        <!-- Dynamic rendered list of urgent renewals -->
+                        <div class="text-center py-4 text-xs text-slate-400">Đang tải dữ liệu cảnh báo...</div>
+                    </div>
+                </div>
+
+                <!-- Revenue Chart & Plan Breakdown Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <div class="lg:col-span-2 liquid-glass p-5 rounded-2xl border border-white/10 space-y-3">
+                        <h3 class="font-bold text-xs uppercase tracking-wider text-sky-400 flex items-center gap-2">
+                            <i class="fas fa-chart-column"></i> Biểu Đồ Doanh Thu Phí SaaS 6 Tháng Gần Nhất
+                        </h3>
+                        <div class="h-64 relative">
+                            <canvas id="saasRevenueChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="liquid-glass p-5 rounded-2xl border border-white/10 space-y-3">
+                        <h3 class="font-bold text-xs uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                            <i class="fas fa-chart-pie"></i> Cơ Cấu Gói Dịch Vụ
+                        </h3>
+                        <div id="plan-distribution-container" class="space-y-3 pt-2">
+                            <!-- Dynamic plan breakdown -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 2: TENANTS MANAGEMENT & MODULE LICENSING -->
+            <!-- ============================================== -->
+            <section id="tab-content-tenants" class="saas-tab-section hidden space-y-5">
+                <!-- Toolbar: Search & Filters -->
+                <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-3">
+                    <div class="flex flex-1 items-center gap-2 w-full md:w-auto">
+                        <div class="relative flex-1 max-w-md">
+                            <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="tenant-search-input" oninput="SuperAdmin.filterTenants()" placeholder="Tìm tên quán, chủ quán, SĐT, mã quán..." class="liquid-input w-full pl-9 py-1.5 text-xs" />
+                        </div>
+                        <select id="tenant-filter-status" onchange="SuperAdmin.loadTenants()" class="liquid-input py-1.5 px-3 text-xs w-36">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="active">Đang hoạt động</option>
+                            <option value="expiring_soon">Sắp hết hạn (&le; 7 ngày)</option>
+                            <option value="expired">Đã hết hạn</option>
+                            <option value="suspended">Đã tạm khóa</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                        <button type="button" onclick="SuperAdmin.openNewTenantModal()" class="btn-glass text-xs py-2 px-4 bg-gradient-to-r from-purple-600 to-sky-600 hover:from-purple-500 hover:to-sky-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/20">
+                            <i class="fas fa-plus-circle"></i> <span>Thêm Cửa Hàng Mới</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tenants Table -->
+                <div class="liquid-glass rounded-2xl border border-white/10 overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/10">
+                                <tr>
+                                    <th class="py-3 px-4">Mã Quán</th>
+                                    <th class="py-3 px-4">Tên Cửa Hàng / Quán</th>
+                                    <th class="py-3 px-4">Chủ Quán & Hotline</th>
+                                    <th class="py-3 px-4">Gói Bản Quyền</th>
+                                    <th class="py-3 px-4">Hạn Sử Dụng</th>
+                                    <th class="py-3 px-4 text-center">Module Cho Phép</th>
+                                    <th class="py-3 px-4 text-center">Trạng Thái</th>
+                                    <th class="py-3 px-4 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tenants-table-body" class="divide-y divide-white/5 font-medium">
+                                <tr>
+                                    <td colspan="8" class="text-center py-8 text-slate-400">
+                                        <i class="fas fa-spinner fa-spin text-lg mb-2"></i>
+                                        <div>Đang tải danh sách cửa hàng...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 3: PRICING PLANS -->
+            <!-- ============================================== -->
+            <section id="tab-content-plans" class="saas-tab-section hidden space-y-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-gem text-amber-400"></i> Bảng Gói Cước & Phí Bản Quyền Phần Mềm
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Thiết lập các mức giá thuê bao và danh mục module mặc định khi gán gói</p>
+                    </div>
+                </div>
+
+                <div id="plans-grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- Dynamic plans rendered here -->
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 4: BILLING & INVOICES -->
+            <!-- ============================================== -->
+            <section id="tab-content-billing" class="saas-tab-section hidden space-y-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-file-invoice-dollar text-emerald-400"></i> Lịch Sử Thu Phí & Hóa Đơn Bản Quyền
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Danh sách các lần gia hạn, phiếu thu và giao dịch thanh toán từ các cửa hàng</p>
+                    </div>
+                </div>
+
+                <div class="liquid-glass rounded-2xl border border-white/10 overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/10">
+                                <tr>
+                                    <th class="py-3 px-4">Mã Phiếu Thu</th>
+                                    <th class="py-3 px-4">Cửa Hàng</th>
+                                    <th class="py-3 px-4">Gói Gia Hạn</th>
+                                    <th class="py-3 px-4">Thời Hạn</th>
+                                    <th class="py-3 px-4">Số Tiền Thu</th>
+                                    <th class="py-3 px-4">Phương Thức</th>
+                                    <th class="py-3 px-4">Ngày Thu</th>
+                                    <th class="py-3 px-4">Người Thu</th>
+                                    <th class="py-3 px-4 text-center">Trạng Thái</th>
+                                    <th class="py-3 px-4 text-right">In Phiếu</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoices-table-body" class="divide-y divide-white/5">
+                                <tr>
+                                    <td colspan="10" class="text-center py-8 text-slate-400">
+                                        Đang tải dữ liệu hóa đơn...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 5: SAAS SETTINGS & VIETQR -->
+            <!-- ============================================== -->
+            <section id="tab-content-settings" class="saas-tab-section hidden space-y-5">
+                <div class="max-w-6xl mx-auto space-y-5">
+                    <div class="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/70 p-5 sm:p-7 shadow-2xl shadow-slate-950/30">
+                        <div class="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-purple-500/10 blur-3xl pointer-events-none"></div>
+                        <div class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <span class="inline-flex items-center gap-2 rounded-full border border-purple-400/20 bg-purple-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[.16em] text-purple-200">
+                                    <i class="fas fa-sliders"></i> Cấu hình nền tảng
+                                </span>
+                                <h2 class="mt-3 text-xl sm:text-2xl font-black tracking-tight text-white">Cài đặt SaaS & thanh toán</h2>
+                                <p class="mt-1 max-w-2xl text-sm leading-relaxed text-slate-400">Quản lý nhận diện, thông tin hỗ trợ, tài khoản nhận phí và chính sách gia hạn.</p>
+                            </div>
+                            <div class="flex items-center gap-2 self-start rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-200 sm:self-auto">
+                                <span class="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.8)]"></span>
+                                Cấu hình trung tâm
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="saas-settings-alert" class="hidden p-3.5 rounded-2xl text-sm font-semibold"></div>
+
+                    <form onsubmit="SuperAdmin.saveSaasSettings(event)" class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                        <div class="lg:col-span-2 space-y-5">
+                            <section class="liquid-glass rounded-3xl border border-white/10 p-5 sm:p-6 space-y-5">
+                                <div class="flex items-start gap-3 border-b border-white/10 pb-4">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300"><i class="fas fa-building"></i></div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white">Nhận diện & hỗ trợ</h3>
+                                        <p class="mt-1 text-xs text-slate-400">Thông tin thương hiệu và liên hệ hiển thị trong hệ thống.</p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="sm:col-span-2">
+                                        <label for="cfg-saas-app-name" class="mb-1.5 block text-xs font-semibold text-slate-300">Tên ứng dụng / nền tảng</label>
+                                        <input type="text" id="cfg-saas-app-name" value="" maxlength="120" class="liquid-input w-full text-sm" required />
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label for="cfg-saas-subtitle" class="mb-1.5 block text-xs font-semibold text-slate-300">Mô tả ngắn</label>
+                                        <input type="text" id="cfg-saas-subtitle" value="" maxlength="180" class="liquid-input w-full text-sm" />
+                                    </div>
+                                    <div>
+                                        <label for="cfg-saas-hotline" class="mb-1.5 block text-xs font-semibold text-slate-300">Hotline hỗ trợ</label>
+                                        <input type="tel" id="cfg-saas-hotline" value="" maxlength="30" class="liquid-input w-full text-sm" required />
+                                    </div>
+                                    <div>
+                                        <label for="cfg-saas-email" class="mb-1.5 block text-xs font-semibold text-slate-300">Email hỗ trợ</label>
+                                        <input type="email" id="cfg-saas-email" value="" maxlength="160" class="liquid-input w-full text-sm" />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="liquid-glass rounded-3xl border border-emerald-400/15 p-5 sm:p-6 space-y-5">
+                                <div class="flex items-start gap-3 border-b border-white/10 pb-4">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-300"><i class="fas fa-money-bill-transfer"></i></div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white">Tài khoản nhận thanh toán VietQR</h3>
+                                        <p class="mt-1 text-xs leading-relaxed text-slate-400">QR xem trước sử dụng số tiền 0 đồng; người chuyển tự nhập số tiền gia hạn và kiểm tra đúng người nhận.</p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="cfg-saas-bank-id" class="mb-1.5 block text-xs font-semibold text-slate-300">Ngân hàng / mã BIN</label>
+                                        <input type="text" id="cfg-saas-bank-id" value="" placeholder="OCB, MB, VCB..." maxlength="20" autocomplete="off" class="liquid-input w-full text-sm font-mono font-bold uppercase" oninput="SuperAdmin.updateSaasQrPreview()" required />
+                                    </div>
+                                    <div>
+                                        <label for="cfg-saas-bank-acc" class="mb-1.5 block text-xs font-semibold text-slate-300">Số tài khoản</label>
+                                        <input type="text" id="cfg-saas-bank-acc" value="" placeholder="Nhập số tài khoản" maxlength="40" autocomplete="off" class="liquid-input w-full text-sm font-mono font-bold" oninput="SuperAdmin.updateSaasQrPreview()" required />
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label for="cfg-saas-bank-name" class="mb-1.5 block text-xs font-semibold text-slate-300">Tên chủ tài khoản</label>
+                                        <input type="text" id="cfg-saas-bank-name" value="" placeholder="NGUYEN VAN A" maxlength="100" autocomplete="off" class="liquid-input w-full text-sm font-mono font-bold uppercase" oninput="SuperAdmin.updateSaasQrPreview()" required />
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2 rounded-2xl border border-amber-400/15 bg-amber-400/5 px-3.5 py-3 text-xs leading-relaxed text-amber-100/80">
+                                    <i class="fas fa-circle-info mt-0.5 text-amber-300"></i>
+                                    <span>Luôn đối chiếu tên người nhận trên ứng dụng ngân hàng trước khi xác nhận giao dịch. QR không cố định số tiền và không tự xác nhận thanh toán.</span>
+                                </div>
+                            </section>
+
+                            <section class="liquid-glass rounded-3xl border border-white/10 p-5 sm:p-6 space-y-5">
+                                <div class="flex items-start gap-3 border-b border-white/10 pb-4">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-300"><i class="fas fa-calendar-check"></i></div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white">Chính sách nhắc hạn</h3>
+                                        <p class="mt-1 text-xs text-slate-400">Điều chỉnh khoảng thời gian nhắc gia hạn và gia hạn sau hạn.</p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="cfg-saas-warning-days" class="mb-1.5 block text-xs font-semibold text-slate-300">Cảnh báo trước ngày hết hạn</label>
+                                        <div class="relative">
+                                            <input type="number" id="cfg-saas-warning-days" value="7" min="1" max="30" class="liquid-input w-full pr-16 text-sm" />
+                                            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">ngày</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="cfg-saas-grace-days" class="mb-1.5 block text-xs font-semibold text-slate-300">Thời gian gia hạn thanh toán</label>
+                                        <div class="relative">
+                                            <input type="number" id="cfg-saas-grace-days" value="3" min="0" max="15" class="liquid-input w-full pr-16 text-sm" />
+                                            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">ngày</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div class="sa-settings-actions rounded-3xl border border-white/10 bg-slate-900/65 p-4 sm:px-5">
+                                <p class="sa-settings-actions__note text-xs text-slate-400"><i class="fas fa-shield-halved mr-1.5 text-slate-400"></i>Thay đổi được áp dụng sau khi lưu.</p>
+                                <button type="submit" class="sa-settings-actions__button btn-glass text-sm bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
+                                    <i class="fas fa-floppy-disk"></i><span>Lưu cài đặt</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <aside class="space-y-5">
+                            <section class="liquid-glass rounded-3xl border border-emerald-400/20 p-5 sm:p-6 lg:sticky lg:top-5">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <span class="text-[10px] font-bold uppercase tracking-[.16em] text-emerald-300">QR preview</span>
+                                        <h3 class="mt-1 text-sm font-bold text-white">Quét thử VietQR</h3>
+                                    </div>
+                                    <button type="button" onclick="SuperAdmin.updateSaasQrPreview()" class="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300 transition hover:bg-emerald-400/20" title="Tải lại mã QR" aria-label="Tải lại mã QR">
+                                        <i class="fas fa-rotate"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-5 flex min-h-[250px] items-center justify-center rounded-2xl border border-slate-200/10 bg-white p-3" role="status" aria-live="polite">
+                                    <img id="cfg-saas-qr-image" alt="Mã QR chuyển khoản VietQR" class="hidden h-auto w-full max-w-[240px] object-contain" onload="SuperAdmin.onSaasQrLoaded()" onerror="SuperAdmin.onSaasQrError()" />
+                                    <div id="cfg-saas-qr-loading" class="text-center text-slate-500">
+                                        <i class="fas fa-spinner fa-spin text-2xl text-emerald-600"></i>
+                                        <p class="mt-2 text-xs">Đang tạo mã QR...</p>
+                                    </div>
+                                    <div id="cfg-saas-qr-error" class="hidden max-w-[220px] text-center text-slate-500">
+                                        <i class="fas fa-triangle-exclamation text-2xl text-amber-500"></i>
+                                        <p class="mt-2 text-xs font-semibold text-slate-700">Chưa tải được mã QR</p>
+                                        <p class="mt-1 text-[11px] leading-relaxed">Kiểm tra mã ngân hàng, số tài khoản và kết nối Internet.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Người nhận</div>
+                                    <div id="cfg-saas-qr-account-name" class="mt-1 break-words text-sm font-bold text-white"></div>
+                                    <div class="mt-3 flex items-center justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ngân hàng · số tài khoản</div>
+                                            <div id="cfg-saas-qr-account-details" class="mt-1 break-all font-mono text-xs font-semibold text-emerald-200"></div>
+                                        </div>
+                                        <button type="button" onclick="SuperAdmin.copySaasBankAccount()" class="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white" title="Sao chép số tài khoản">
+                                            <i class="far fa-copy mr-1"></i>Sao chép
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="mt-3 text-[11px] leading-relaxed text-slate-500">Mã QR mẫu không chứa số tiền. Hãy kiểm tra thông tin người nhận và nhập đúng số tiền cần thanh toán.</p>
+                            </section>
+
+                            <section class="rounded-3xl border border-sky-400/15 bg-sky-400/5 p-5">
+                                <div class="flex gap-3">
+                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300"><i class="fas fa-circle-check"></i></span>
+                                    <div>
+                                        <h3 class="text-xs font-bold text-sky-100">Quy trình an toàn</h3>
+                                        <p class="mt-1.5 text-xs leading-relaxed text-slate-400">QR chỉ hỗ trợ tạo lệnh chuyển khoản. Super Admin vẫn cần xác nhận giao dịch trước khi ghi nhận gia hạn cho cửa hàng.</p>
+                                    </div>
+                                </div>
+                            </section>
+                        </aside>
+                    </form>
+
+                    
+                    <section class="liquid-glass rounded-3xl border border-white/10 p-5 sm:p-6">
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300"><i class="fas fa-folder"></i></div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">Thư mục lưu gói quán</h3>
+                                <p class="mt-1 text-xs leading-relaxed text-slate-400">Đường dẫn trên máy chủ phải tồn tại, có quyền ghi và được bảo vệ. Gói và yêu cầu trước đó giữ nguyên vị trí cũ.</p>
+                            </div>
+                        </div>
+                        <form onsubmit="SuperAdmin.savePackageStorage(event)" class="mt-4 flex flex-col gap-3 sm:flex-row">
+                            <label for="cfg-package-storage" class="sr-only">Đường dẫn lưu gói quán</label>
+                            <input id="cfg-package-storage" type="text" maxlength="1024" autocomplete="off" class="liquid-input min-w-0 flex-1 text-sm font-mono" required disabled />
+                            <button id="cfg-package-storage-save" type="submit" class="btn-glass px-4 py-2 text-sm font-bold text-sky-200" disabled>Lưu thư mục gói</button>
+                        </form>
+                    </section>
+                    
+
+                    <section class="liquid-glass rounded-3xl border border-white/10 p-5 sm:p-6">
+                        <div class="sa-password-panel">
+                            <div class="flex items-start gap-3">
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-purple-400/10 text-purple-300"><i class="fas fa-lock"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-white">Bảo mật tài khoản Super Admin</h3>
+                                    <p class="mt-1 text-xs leading-relaxed text-slate-400">Dùng mật khẩu dài và duy nhất để bảo vệ quyền quản trị.</p>
+                                </div>
+                            </div>
+                            <form onsubmit="SuperAdmin.changePassword(event)" class="sa-password-form">
+                                <input type="password" id="cfg-new-password" placeholder="Mật khẩu mới (ít nhất 6 ký tự)" minlength="6" autocomplete="new-password" class="liquid-input text-sm" required />
+                                <button type="submit" class="btn-glass border border-purple-400/20 bg-purple-500/10 px-5 py-3 text-sm font-bold text-purple-100 transition hover:bg-purple-500/20">
+                                    Cập nhật mật khẩu
+                                </button>
+                            </form>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL 1: MA TRẬN CẤP QUYỀN MODULE (ON/OFF SWITCHES) -->
+    <!-- ==================================================== -->
+    <div id="modal-module-permissions" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[750px] max-w-full text-white shadow-2xl border border-purple-500/30 space-y-5 my-auto max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-3 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg">
+                        <i class="fas fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-white flex items-center gap-2">
+                            <span>Phân Quyền Module Chi Tiết:</span>
+                            <span id="modal-perm-store-name" class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-sky-300">...</span>
+                        </h3>
+                        <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                            <span>Mã Quán: <b id="modal-perm-code" class="text-sky-300 font-mono">...</b></span>
+                            <span>&bull;</span>
+                            <span>Gói: <b id="modal-perm-plan" class="text-amber-300">...</b></span>
+                            <span>&bull;</span>
+                            <span>Hạn dùng: <b id="modal-perm-expire" class="text-emerald-400 font-mono">...</b></span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-module-permissions')">&times;</button>
+            </div>
+
+            <!-- Quick Action Toolbar -->
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-white/5 text-xs shrink-0">
+                <span class="text-slate-400">Thao tác nhanh:</span>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="SuperAdmin.setAllModules('all')" class="btn-glass text-[11px] py-1 px-3 bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/30 font-semibold flex items-center gap-1">
+                        <i class="fas fa-check-double text-purple-400"></i> Bật Tất Cả (Full VIP)
+                    </button>
+                    <button type="button" onclick="SuperAdmin.setAllModules('plan_default')" class="btn-glass text-[11px] py-1 px-3 bg-sky-600/20 hover:bg-sky-600/30 text-sky-200 border border-sky-500/30 font-semibold flex items-center gap-1">
+                        <i class="fas fa-rotate-left text-sky-400"></i> Khôi Phục Theo Gói
+                    </button>
+                </div>
+            </div>
+
+            <!-- Module Matrix Scrollable List -->
+            <div id="modal-perm-matrix-container" class="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 pr-1">
+                <!-- Dynamically rendered licensed modules with ON/OFF switches -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="pt-3 border-t border-white/10 flex items-center justify-between shrink-0">
+                <span class="text-[11px] text-slate-400 italic">
+                    <i class="fas fa-circle-info text-sky-400 mr-1"></i> Công tắc ON/OFF lưu tự động ngay khi gạt.
+                </span>
+                <button type="button" onclick="SuperAdmin.closeModal('modal-module-permissions')" class="btn-glass text-xs py-2 px-5 font-bold">
+                    Hoàn Tất & Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL 2: GIA HẠN THU PHÍ (QUICK EXTEND) -->
+    <!-- ==================================================== -->
+    <div id="modal-quick-extend" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[500px] max-w-full text-white shadow-2xl border border-emerald-500/30 space-y-4 my-auto">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-calendar-plus text-emerald-400 text-lg"></i>
+                    <h3 class="font-bold text-sm text-emerald-300">Gia Hạn Bản Quyền & Thu Tiền</h3>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-quick-extend')">&times;</button>
+            </div>
+
+            <form onsubmit="SuperAdmin.submitQuickExtend(event)" class="space-y-3.5">
+                <input type="hidden" id="extend-tenant-id" />
+
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 text-xs space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Cửa hàng:</span>
+                        <span id="extend-store-name" class="font-bold text-white">...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Gói hiện tại:</span>
+                        <span id="extend-plan-name" class="font-bold text-purple-300">...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Hạn dùng hiện tại:</span>
+                        <span id="extend-current-expire" class="font-mono text-amber-300 font-bold">...</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Thời Gian Gia Hạn Thêm:</label>
+                    <select id="extend-duration" onchange="SuperAdmin.calculateExtendFee()" class="liquid-input w-full text-xs">
+                        <option value="1">Gia hạn +1 Tháng (30 ngày)</option>
+                        <option value="3">Gia hạn +3 Tháng (90 ngày)</option>
+                        <option value="6">Gia hạn +6 Tháng (180 ngày)</option>
+                        <option value="12" selected>Gia hạn +1 Năm (12 tháng - Tiết kiệm 20%)</option>
+                        <option value="999">Bản Quyền Trọn Đời (Lifetime VIP)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Số Tiền Thu Phí (VNĐ):</label>
+                    <input type="number" id="extend-amount" value="3990000" class="liquid-input w-full text-xs font-mono font-bold text-emerald-400" required />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Phương Thức Thanh Toán:</label>
+                    <select id="extend-payment-method" class="liquid-input w-full text-xs">
+                        <option value="vietqr">Chuyển khoản VietQR Ngân Hàng</option>
+                        <option value="bank_transfer">Chuyển khoản thường (Internet Banking)</option>
+                        <option value="cash">Tiền mặt trực tiếp</option>
+                        <option value="card">Thẻ POS / Thẻ tín dụng</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Ghi Chú Hóa Đơn / Hợp Đồng:</label>
+                    <input type="text" id="extend-note" placeholder="Ví dụ: Đã nhận tiền qua VietQR OCB..." class="liquid-input w-full text-xs" />
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="SuperAdmin.closeModal('modal-quick-extend')" class="btn-glass text-xs py-2 px-4 font-semibold">Hủy</button>
+                    <button type="submit" class="btn-glass-success text-xs py-2 px-5 font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                        <i class="fas fa-check"></i> <span>Xác Nhận & Tạo Phiếu Thu</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL 3: THÊM / SỬA CỬA HÀNG (ADD/EDIT TENANT) -->
+    <!-- ==================================================== -->
+    <div id="modal-tenant-form" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[600px] max-w-full text-white shadow-2xl border border-sky-500/30 space-y-4 my-auto">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-store text-sky-400 text-lg"></i>
+                    <h3 id="tenant-modal-title" class="font-bold text-sm text-sky-300">Thêm Cửa Hàng / Khách Hàng Mới</h3>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-tenant-form')">&times;</button>
+            </div>
+
+            <form onsubmit="SuperAdmin.submitTenantForm(event)" class="space-y-3.5">
+                <input type="hidden" id="form-tenant-id" value="0" />
+
+                <div class="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 p-3 sm:flex-row sm:items-center">
+                    <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-white/95 p-1 shadow-inner">
+                        <img id="form-tenant-logo-preview" class="hidden h-full w-full object-contain" alt="Logo cửa hàng xem trước" />
+                        <span id="form-tenant-logo-placeholder" class="text-2xl text-slate-400"><i class="fas fa-store"></i></span>
+                    </div>
+                    <div class="min-w-0 flex-1 text-center sm:text-left">
+                        <label for="form-tenant-logo" class="mb-1 block text-xs font-semibold text-slate-300">Logo cửa hàng</label>
+                        <input type="file" id="form-tenant-logo" accept="image/png,image/jpeg,image/webp" onchange="SuperAdmin.previewTenantLogo(this)" class="block w-full text-xs text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500/20 file:px-3 file:py-1.5 file:font-semibold file:text-sky-200 hover:file:bg-sky-500/30" />
+                        <p class="mt-1 text-[10px] text-slate-500">PNG, JPG hoặc WebP · tự chuẩn hóa WebP 512×512, tối đa 256 KB · giữ nguyên tỷ lệ.</p>
+                        <label class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-rose-300">
+                            <input type="checkbox" id="form-tenant-remove-logo" onchange="SuperAdmin.clearTenantLogo()" class="rounded border-white/20 bg-slate-900 text-rose-500 focus:ring-rose-500" />
+                            Xóa logo hiện tại
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Mã Quán (Unique):</label>
+                        <input type="text" id="form-tenant-code" data-central="" placeholder="" class="liquid-input w-full text-xs font-mono" />
+                        
+                        <p class="mt-1 text-[10px] text-slate-400">Tối đa 32 ký tự: chữ thường, số, gạch ngang. Mã cũng là tên database và tài khoản MySQL.</p>
+                        
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Tên Cửa Hàng / Quán Cafe:</label>
+                        <input type="text" id="form-tenant-store-name" placeholder="Tên cửa hàng..." class="liquid-input w-full text-xs font-bold" required />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Họ Tên Chủ Quán / Quản Lý:</label>
+                        <input type="text" id="form-tenant-owner-name" placeholder="Nguyễn Văn A..." class="liquid-input w-full text-xs" required />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Số Điện Thoại / Hotline:</label>
+                        <input type="text" id="form-tenant-phone" placeholder="0988.xxx.xxx..." class="liquid-input w-full text-xs font-mono font-bold" required />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Email Liên Hệ:</label>
+                        <input type="email" id="form-tenant-email" placeholder="owner@example.invalid" class="liquid-input w-full text-xs" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Địa Chỉ Quán:</label>
+                        <input type="text" id="form-tenant-address" placeholder="Số nhà, đường, quận/huyện..." class="liquid-input w-full text-xs" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Gói Cước Đăng Ký:</label>
+                        <select id="form-tenant-plan" class="liquid-input w-full text-xs">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Ngày Hết Hạn Bản Quyền:</label>
+                        <input type="date" id="form-tenant-expire-date" class="liquid-input w-full text-xs font-mono font-bold" required />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Ghi Chú Hợp Đồng:</label>
+                    <input type="text" id="form-tenant-note" placeholder="Ghi chú thêm về khách hàng..." class="liquid-input w-full text-xs" />
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="SuperAdmin.closeModal('modal-tenant-form')" class="btn-glass text-xs py-2 px-4 font-semibold">Hủy</button>
+                    <button type="submit" class="btn-glass text-xs py-2 px-5 bg-gradient-to-r from-purple-600 to-sky-600 hover:from-purple-500 hover:to-sky-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/20">
+                        <i class="fas fa-save"></i> <span>Lưu Thông Tin Cửa Hàng</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Printable Receipt Modal -->
+    <div id="modal-print-invoice" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[420px] max-w-full text-slate-900 bg-white rounded-3xl shadow-2xl space-y-4 my-auto">
+            <div id="printable-receipt-content" class="text-xs space-y-3 font-sans">
+                <!-- Dynamic receipt rendered for thermal or A5 print -->
+            </div>
+            <div class="receipt-actions flex justify-end gap-2 pt-2 border-t border-slate-200">
+                <button type="button" onclick="SuperAdmin.closeModal('modal-print-invoice')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg">Đóng</button>
+                <button type="button" onclick="window.print()" class="px-4 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-1">
+                    <i class="fas fa-print"></i> <span>In Phiếu Thu</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+<!-- Super Admin Core Javascript Logic -->
+<script src="assets/js/image_processor.js?v=1"></script>
+<script src="assets/js/super_admin.js?v=2.1.8"></script>
+<script>
+(function() {
+    function hideLogin() {
+        const wrap = document.querySelector('.sa-login-wrap');
+        if (wrap) wrap.style.display = 'none';
+    }
+    function showLogin() {
+        const wrap = document.querySelector('.sa-login-wrap');
+        if (wrap) wrap.style.display = 'flex';
+    }
+
+    if (sessionStorage.getItem('sa_logged_in') === '1' || document.cookie.includes('sa_token')) {
+        hideLogin();
+    }
+
+    if (typeof SuperAdmin !== 'undefined') {
+        SuperAdmin.handleLogin = async function(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errBox = document.getElementById('login-error-alert');
+            const errMsg = document.getElementById('login-error-msg');
+            const submitBtn = document.getElementById('btn-login-submit');
+
+            if (errBox) errBox.classList.add('hidden');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                const res = await fetch('api/super_admin.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    sessionStorage.setItem('sa_logged_in', '1');
+                    hideLogin();
+                    if (typeof SuperAdmin.init === 'function') SuperAdmin.init();
+                } else {
+                    if (errBox && errMsg) {
+                        errMsg.innerText = data.message || 'Tài khoản hoặc mật khẩu không chính xác';
+                        errBox.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                if (errBox && errMsg) {
+                    errMsg.innerText = 'Lỗi kết nối máy chủ';
+                    errBox.classList.remove('hidden');
+                }
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        };
+
+        SuperAdmin.handleLogout = async function() {
+            if (!confirm('Bạn có muốn đăng xuất khỏi Super Admin?')) return;
+            try {
+                await fetch('api/super_admin.php?action=logout');
+            } catch (e) {}
+            sessionStorage.removeItem('sa_logged_in');
+            document.cookie = 'sa_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            showLogin();
+        };
+    }
+})();
+</script>
+</body>
+</html>
