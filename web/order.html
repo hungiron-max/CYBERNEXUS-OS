@@ -23,6 +23,16 @@
     </style>
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
+    <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            if (!u) {
+                alert('Vui lòng đăng nhập trước khi sử dụng màn hình Phục Vụ!');
+                window.location.replace('index.html?need_login=true');
+            }
+        })();
+    </script>
 </head>
 <body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100 bg-slate-950">
 
@@ -66,22 +76,22 @@
                 <i class="fas fa-qrcode text-xs"></i>
             </button>
 
-            <a href="online_orders.php" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-indigo-500/20 text-indigo-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Xử lý đơn đặt online">
+            <a href="online_orders.html" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-indigo-500/20 text-indigo-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Xử lý đơn đặt online">
                 <i class="fas fa-bag-shopping text-xs"></i>
                 <span class="hidden lg:inline">Đơn Online</span>
             </a>
 
             <!-- Links for Admin Only (Icon gọn gàng trên màn hình hẹp, đầy đủ chữ trên PC lg:) -->
             
-                <a href="admin.php" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-indigo-500/20 text-indigo-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Quản Trị">
+                <a href="admin.html" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-indigo-500/20 text-indigo-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Quản Trị">
                     <i class="fas fa-chart-pie text-xs"></i>
                     <span class="hidden lg:inline">Quản Trị</span>
                 </a>
-                <a href="index.php?pos=1" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-emerald-500/20 text-emerald-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="POS Thu Ngân">
+                <a href="index.html" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-emerald-500/20 text-emerald-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="POS Thu Ngân">
                     <i class="fas fa-cash-register text-xs"></i>
                     <span class="hidden lg:inline">Thu Ngân</span>
                 </a>
-                <a href="kitchen.php" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-amber-500/20 text-amber-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Bếp / Bar">
+                <a href="kitchen.html" class="btn-glass text-xs py-1.5 px-2 lg:px-2.5 bg-amber-500/20 text-amber-300 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Bếp / Bar">
                     <i class="fas fa-fire-burner text-xs"></i>
                     <span class="hidden lg:inline">Bếp</span>
                 </a>
@@ -140,7 +150,7 @@
                     <div id="online-kitchen-ready-text" class="mt-0.5 truncate text-xs font-bold text-white">Đơn đã sẵn sàng bàn giao</div>
                 </div>
             </div>
-            <a href="online_orders.php" class="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-cyan-200/35 bg-slate-950/75 px-3 text-[11px] font-black text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,.12)] transition hover:border-cyan-100/60 hover:text-white">
+            <a href="online_orders.html" class="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-cyan-200/35 bg-slate-950/75 px-3 text-[11px] font-black text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,.12)] transition hover:border-cyan-100/60 hover:text-white">
                 <i class="fas fa-box-open"></i><span>Xử lý đơn</span>
             </a>
         </div>
@@ -1502,7 +1512,7 @@
         async function handleLogout() {
             if (!confirm('Đăng xuất khỏi tài khoản phục vụ?')) return;
             await fetch('api/auth.php?action=logout');
-            window.location = 'index.php';
+            window.location = 'index.html';
         }
 
         document.addEventListener('DOMContentLoaded', () => {

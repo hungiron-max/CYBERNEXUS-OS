@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GÓC PHỐ COFFEE & TEA - Chào Mừng Quý Khách</title>
     <link rel="icon" href="favicon.ico">
+    
+    <!-- Local Precompiled Tailwind CSS (100% Offline, Instant Rendering) -->
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <!-- Local FontAwesome 6 Icons (Offline) -->
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     
+    <!-- Liquid Glass Custom Styles -->
     <style>
         body {
             background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
@@ -15,12 +19,14 @@
             color: #f8fafc;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+
         .liquid-glass {
             background: rgba(15, 23, 42, 0.75);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.12);
         }
+
         .liquid-card {
             background: rgba(30, 41, 59, 0.6);
             backdrop-filter: blur(12px);
@@ -31,8 +37,9 @@
         .liquid-card:hover {
             transform: translateY(-2px);
             border-color: rgba(56, 189, 248, 0.4);
-            box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.2);
+            box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.15);
         }
+
         .btn-glass {
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(8px);
@@ -44,6 +51,7 @@
             background: rgba(255, 255, 255, 0.16);
             transform: translateY(-1px);
         }
+
         .liquid-blob {
             position: fixed;
             border-radius: 50%;
@@ -51,26 +59,6 @@
             opacity: 0.18;
             pointer-events: none;
             z-index: 0;
-        }
-        #cart-floating-btn {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            z-index: 50;
-            width: 56px;
-            height: 56px;
-            border-radius: 28px;
-            background: linear-gradient(135deg, #0ea5e9, #3b82f6);
-            box-shadow: 0 8px 24px rgba(14, 165, 233, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        #cart-floating-btn:hover {
-            transform: scale(1.08);
-            box-shadow: 0 12px 28px rgba(14, 165, 233, 0.55);
         }
     </style>
 </head>
@@ -81,140 +69,109 @@
     <div class="liquid-blob w-96 h-96 bg-sky-600 top-1/3 -right-20"></div>
     <div class="liquid-blob w-96 h-96 bg-pink-600 bottom-10 left-1/4"></div>
 
-    <!-- Header Navigation (Chuẩn theo hình 2) -->
+    <!-- Header Navigation -->
     <header class="sticky top-0 z-40 liquid-glass border-b border-white/10 px-4 py-3 sm:px-8">
         <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
             <!-- Brand -->
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-500/20 shrink-0">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-500/20">
                     <i class="fas fa-mug-hot"></i>
                 </div>
                 <div>
                     <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
                         GÓC PHỐ COFFEE & TEA
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider hidden sm:inline">Online / Offline</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider hidden sm:inline">Khách Hàng</span>
                     </h1>
-                    <p class="text-[11px] text-slate-400 hidden sm:block">Hệ Thống Bán Hàng & Quản Trị Trà Sữa - Cafe</p>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Hệ Thống Phục Vụ Bán Hàng & Thực Đơn Điện Tử</p>
                 </div>
             </div>
 
-            <!-- Wi-Fi, Hotline, Login -->
-            <div class="flex items-center gap-2 sm:gap-4 text-xs">
-                <div class="hidden md:flex items-center gap-2 bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/10 text-slate-300 font-mono text-[11px]">
+            <!-- Wi-Fi & Contact Pill -->
+            <div class="flex items-center gap-2">
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/70 border border-white/10 text-xs text-slate-300 font-mono">
                     <i class="fas fa-wifi text-sky-400"></i>
-                    <span>Wi-Fi: <b class="text-sky-300">GocPho_Guest</b> | pass: <b class="text-emerald-300">88888888</b></span>
+                    <span>Wi-Fi: <b class="text-white">GocPho_Guest</b> (pass: <b class="text-amber-400">88888888</b>)</span>
                 </div>
 
-                <a href="tel:0901234567" class="btn-glass px-2.5 sm:px-3 py-1.5 font-bold text-sky-300 flex items-center gap-1.5 whitespace-nowrap">
-                    <i class="fas fa-phone-alt text-xs"></i>
-                    <span class="hidden sm:inline">0901.234.567</span>
+                <a href="tel:0903100001" class="btn-glass px-3 py-1.5 text-xs text-emerald-300 hover:text-white flex items-center gap-1.5 font-bold" title="Gọi Hotline">
+                    <i class="fas fa-phone-alt"></i>
+                    <span class="hidden sm:inline">0903 100 001</span>
                 </a>
 
-                <a href="index.html" class="btn-glass px-3 py-1.5 font-bold text-slate-200 flex items-center gap-1.5 whitespace-nowrap">
-                    <i class="fas fa-sign-in-alt text-xs text-emerald-400"></i>
-                    <span>Đăng Nhập</span>
-                </a>
+                <div id="user-nav-zone" class="flex items-center gap-1.5">
+                    <a href="index.html" class="btn-glass px-3 py-1.5 text-xs text-sky-300 hover:text-white font-bold flex items-center gap-1">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Đăng Nhập</span>
+                    </a>
+                </div>
             </div>
         </div>
     </header>
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 z-10">
-
-        <!-- Hero Section: Quảng Cáo & Địa Chỉ Quán (Chuẩn 100% như hình 2) -->
-        <section class="liquid-glass rounded-3xl p-4 sm:p-6 border border-white/10 shadow-2xl relative overflow-hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                <!-- Cột trái: Slide Ảnh Món Ăn Quảng Cáo Nổi Bật -->
-                <div class="lg:col-span-8 relative rounded-2xl overflow-hidden bg-slate-950/80 border border-white/10 min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
-                    <img id="hero-banner-img" src="uploads/dishes/69b2d354ce10e_1773327188.jpg" alt="Món đặc trưng Góc Phố" class="w-full h-full object-cover object-center max-h-[320px] transition-all duration-500" onerror="this.src='uploads/dishes/69b2d2f33c072_1773327091.jpg';" />
-                    
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-4 sm:p-6">
-                        <div class="inline-flex items-center gap-2 bg-amber-500/90 text-slate-950 text-[11px] font-black uppercase px-2.5 py-1 rounded-lg w-max mb-1.5 shadow">
-                            <i class="fas fa-fire"></i> Món Đặc Trưng • Bán Chạy Nhất
-                        </div>
-                        <h2 id="hero-banner-title" class="text-lg sm:text-2xl font-black text-white drop-shadow-md">
-                            Bánh Mì Chảo Đặc Biệt & Trà Sữa Đậm Vị
-                        </h2>
-                        <p class="text-xs text-slate-300 drop-shadow hidden sm:block mt-0.5">
-                            Thưởng thức trọn vẹn hương vị truyền thống kết hợp nguyên liệu cao cấp tươi mới mỗi ngày.
-                        </p>
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6 z-10">
+        
+        <!-- Hero Promotional Banner (Chuẩn Hình 2 / sale-app) -->
+        <section class="liquid-glass rounded-3xl p-6 sm:p-8 border border-white/15 relative overflow-hidden shadow-2xl">
+            <div class="absolute -right-12 -top-12 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="space-y-3 max-w-2xl">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
+                        <i class="fas fa-sparkles"></i> Ưu Đãi Đặc Biệt Hôm Nay
                     </div>
-
-                    <!-- Slide Controls -->
-                    <div class="absolute top-3 right-3 flex items-center gap-1.5 bg-slate-950/70 backdrop-blur-md px-2 py-1 rounded-xl border border-white/10 text-xs">
-                        <button type="button" onclick="CustomerApp.prevSlide()" class="w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-white"><i class="fas fa-chevron-left text-[10px]"></i></button>
-                        <button type="button" onclick="CustomerApp.toggleSlideAuto()" class="w-6 h-6 rounded flex items-center justify-center text-amber-300"><i id="slide-play-icon" class="fas fa-pause text-[10px]"></i></button>
-                        <button type="button" onclick="CustomerApp.nextSlide()" class="w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-white"><i class="fas fa-chevron-right text-[10px]"></i></button>
+                    <h2 class="text-2xl sm:text-4xl font-black text-white leading-tight">
+                        Thưởng Thức Hương Vị Đậm Đà Tại <span class="bg-gradient-to-r from-amber-400 via-rose-400 to-sky-400 bg-clip-text text-transparent">Góc Phố</span>
+                    </h2>
+                    <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+                        Cà phê pha phin truyền thống, trà sữa thơm béo cùng các món điểm tâm bánh mì chảo, bò bít tết hảo hạng. Không gian thoáng mát, Wi-Fi tốc độ cao phục vụ quý khách.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-3 pt-2 text-xs font-semibold">
+                        <span class="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                            <i class="fas fa-check-circle"></i> Giảm 10% khi thanh toán VietQR
+                        </span>
+                        <span class="px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+                            <i class="fas fa-gift"></i> Tặng topping Flan cho hóa đơn từ 50k
+                        </span>
                     </div>
                 </div>
 
-                <!-- Cột phải: Thông Tin Quán & Nút VietQR (Chuẩn theo hình 2) -->
-                <div class="lg:col-span-4 rounded-2xl bg-slate-900/80 border border-white/10 p-5 flex flex-col justify-between space-y-4">
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-2 text-xs font-bold text-sky-400 uppercase tracking-wider">
-                            <i class="fas fa-location-dot"></i> Địa Chỉ Quán
-                        </div>
-                        <div class="text-sm font-bold text-white leading-relaxed">
-                            123 Đường Số 1, Phường 5, TP.HCM
-                        </div>
-                        <div class="border-t border-white/10 pt-2 text-xs text-slate-400 flex items-center justify-between">
-                            <span>Giờ mở cửa:</span>
-                            <b class="text-emerald-400 font-mono">06:30 – 22:30</b>
-                        </div>
-                        <div class="text-xs text-slate-400 flex items-center justify-between">
-                            <span>Trạng thái:</span>
-                            <span class="inline-flex items-center gap-1 text-emerald-400 font-bold"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Đang phục vụ</span>
-                        </div>
-                    </div>
-
+                <!-- Fast Contact & Info Card -->
+                <div class="shrink-0 p-4 rounded-2xl bg-slate-900/80 border border-white/10 text-center space-y-2 min-w-[220px]">
+                    <div class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Địa Chỉ Quán</div>
+                    <div class="text-xs text-slate-300 font-medium">123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
+                    <div class="text-xs text-amber-400 font-mono">Giờ mở cửa: <b>06:00 - 22:30</b></div>
                     <div class="pt-2">
-                        <button type="button" onclick="showQuickVietQr()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 via-indigo-600 to-purple-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:brightness-110 active:scale-95 transition-all">
-                            <i class="fas fa-qrcode text-base"></i>
-                            <span>Mã Thanh Toán VietQR</span>
+                        <button type="button" onclick="showQuickVietQr()" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 hover:opacity-95">
+                            <i class="fas fa-qrcode"></i> Mã Thanh Toán VietQR
                         </button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Trạng thái kết nối & tìm kiếm nhanh -->
-        <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 px-1">
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span class="font-semibold text-slate-300">Đang kết nối</span>
-                <span>•</span>
-                <span>Thực đơn được lưu tự động để xem offline</span>
-            </div>
-            <div class="relative w-full sm:w-72">
-                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="search" id="customer-search-input" oninput="CustomerApp.searchProducts(this.value)" autocomplete="off" placeholder="Tìm món trong thực đơn..." class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-900/90 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400" />
-            </div>
-        </div>
-
         <!-- Digital Menu Section -->
         <section class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/10">
                 <div>
                     <h3 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
                         <i class="fas fa-book-open text-sky-400"></i> THỰC ĐƠN ĐIỆN TỬ
                     </h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Menu cập nhật từ quán • Giá niêm yết bằng VNĐ</p>
+                    <p class="text-xs text-slate-400">Khám phá các món nước & điểm tâm hấp dẫn tại quán</p>
                 </div>
 
-                <!-- Category Filter Pills (Cuộn ngang phẳng) -->
+                <!-- Category Filter Pills -->
                 <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none" id="category-filter-pills">
-                    <button type="button" onclick="CustomerApp.filterCategory('all')" id="cat-pill-all" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0">
-                        Tất Cả (<span id="total-product-count">0</span>)
+                    <button type="button" onclick="filterMenuCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0">
+                        Tất Cả (<span id="total-product-count">42</span>)
                     </button>
-                    <!-- Categories will be injected here via JS -->
                 </div>
             </div>
 
-            <!-- Products Grid (Lưới 5 cột Touch-Friendly) -->
+            <!-- Products Grid -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4" id="products-grid">
-                <div class="col-span-full py-16 text-center text-slate-400">
-                    <i class="fas fa-spinner fa-spin text-3xl mb-2 text-sky-400"></i>
-                    <p class="text-xs">Đang tải danh sách món ăn từ máy chủ...</p>
+                <div class="col-span-full py-12 text-center text-slate-400">
+                    <i class="fas fa-circle-notch fa-spin text-2xl text-sky-400 mb-2"></i>
+                    <p class="text-xs font-semibold">Đang tải thực đơn...</p>
                 </div>
             </div>
         </section>
@@ -226,20 +183,23 @@
                     <i class="fas fa-info-circle"></i>
                 </span>
                 <div>
-                    <span class="font-bold text-slate-200">Kênh dành cho khách hàng:</span> Xem thông tin quảng cáo, thực đơn và quét mã thanh toán. Quý khách vui lòng gọi nhân viên hoặc quét QR tại bàn để order.
+                    <span class="font-bold text-slate-200">Kênh dành cho khách hàng (Mã USR):</span> Xem thông tin quảng cáo, thực đơn và quét mã thanh toán. Tính năng tự gọi món tại bàn đang tiếp tục được hoàn thiện trong phiên bản kế tiếp.
                 </div>
             </div>
-            <a href="order.html" class="btn-glass px-3 py-1.5 text-xs text-sky-300 hover:text-white shrink-0 font-bold whitespace-nowrap">
+            <a href="order.html" class="btn-glass px-3 py-1.5 text-xs text-sky-300 hover:text-white shrink-0 font-bold">
                 <i class="fas fa-clipboard-list mr-1"></i> Nhân Viên Nhận Order
             </a>
         </section>
     </main>
 
-    <!-- Floating Cart Button -->
-    <div id="cart-floating-btn" onclick="CustomerApp.openCartModal()" title="Xem giỏ món">
-        <i class="fas fa-shopping-bag text-white text-lg"></i>
-        <span id="cart-badge-count" class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center hidden">0</span>
-    </div>
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-white/10 liquid-glass py-5 px-4 text-center text-xs text-slate-500 z-10">
+        <div class="max-w-6xl mx-auto space-y-1">
+            <div class="font-bold text-slate-400">GÓC PHỐ COFFEE & TEA • Hotline: 0903 100 001</div>
+            <div>123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
+            <div class="text-[11px] text-slate-600 pt-1">Hệ thống POS Góc Phố Liquid Glass • Phiên bản v2.5 C++ Native</div>
+        </div>
+    </footer>
 
     <!-- Quick VietQR Modal -->
     <div id="quick-vietqr-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
@@ -254,13 +214,13 @@
             <p class="text-xs text-slate-300">Quét mã bằng ứng dụng Ngân hàng (MB, VCB, BIDV, Techcombank, MoMo,...):</p>
             
             <div class="bg-white p-3 rounded-2xl inline-block shadow-xl border border-slate-200">
-                <img src="https://img.vietqr.io/image/MB-0901234567-compact2.png?amount=0&addInfo=THANH%20TOAN%20GOC%20PHO&accountName=CHU%20QUAN%20GOC%20PHO" alt="VietQR" class="w-56 h-56 mx-auto object-contain" />
+                <img src="https://img.vietqr.io/image/MB-0903100001-compact2.png?amount=0&addInfo=THANH%20TOAN%20GOC%20PHO&accountName=GOC%20PHO%20COFFEE" alt="VietQR" class="w-56 h-56 mx-auto object-contain" />
             </div>
 
             <div class="text-xs text-left p-3 rounded-xl bg-slate-900/80 border border-white/10 space-y-1 font-mono">
-                <div>Ngân hàng: <b class="text-slate-200">MBBank (Quân Đội)</b></div>
-                <div>Số tài khoản: <b class="text-sky-400">0901234567</b></div>
-                <div>Chủ tài khoản: <b class="text-emerald-400">CHU QUAN GOC PHO</b></div>
+                <div>Ngân hàng: <b class="text-slate-200">MB Bank</b></div>
+                <div>Số tài khoản: <b class="text-sky-400">0903100001</b></div>
+                <div>Chủ tài khoản: <b class="text-emerald-400">GOC PHO COFFEE</b></div>
             </div>
 
             <button type="button" class="btn-glass w-full py-2 text-xs font-bold text-slate-300" onclick="closeQuickVietQr()">
@@ -269,242 +229,134 @@
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="mt-auto border-t border-white/10 liquid-glass py-5 px-4 text-center text-xs text-slate-500 z-10">
-        <div class="max-w-6xl mx-auto space-y-1">
-            <div class="font-bold text-slate-400">GÓC PHỐ COFFEE & TEA • Hotline: 0901.234.567</div>
-            <div>123 Đường Số 1, Phường 5, TP.HCM</div>
-            <div class="text-[11px] text-slate-600 pt-1">Hệ thống POS Góc Phố Liquid Glass • 100% C++ Native Microkernel (Port 8500)</div>
-        </div>
-    </footer>
-
-    <!-- Customer Application JavaScript Engine -->
+    <!-- JavaScript Data Loading & Filter -->
     <script>
-        const CustomerApp = {
-            products: [],
-            categories: [],
-            activeCategory: 'all',
-            searchQuery: '',
-            cart: [],
-            slides: [
-                {
-                    img: 'uploads/dishes/69b2d354ce10e_1773327188.jpg',
-                    title: 'Bánh Mì Chảo Đặc Biệt & Mì Gói Bò Trứng'
-                },
-                {
-                    img: 'uploads/dishes/69b2d2f33c072_1773327091.jpg',
-                    title: 'Bánh Mì Giòn Rụm Kèm Nước Sốt Đậm Đà'
-                },
-                {
-                    img: 'uploads/dishes/69b2d3e0cb95a_1773327328.jpg',
-                    title: 'Bò Bít Tết Thơm Lừng Phục Vụ Nóng Hổi'
+        let allCategories = [];
+        let allProducts = [];
+        let currentCatId = 0;
+
+        async function initMenu() {
+            try {
+                // Kiểm tra trạng thái đăng nhập
+                const savedUser = localStorage.getItem('pos_user');
+                if (savedUser) {
+                    try {
+                        const u = JSON.parse(savedUser);
+                        const zone = document.getElementById('user-nav-zone');
+                        if (zone && u) {
+                            zone.innerHTML = `
+                                <div class="flex items-center gap-1.5 pl-2 border-l border-white/10">
+                                    <span class="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 border border-pink-500/30 text-xs font-bold flex items-center gap-1">
+                                        <i class="fas fa-user-circle"></i>
+                                        <span class="max-w-[120px] truncate">${u.fullname || u.username}</span>
+                                    </span>
+                                    ${u.role === 'admin' ? '<a href="admin.html" class="btn-glass px-2.5 py-1 text-xs text-indigo-300" title="Trang Quản Trị"><i class="fas fa-chart-pie"></i></a>' : ''}
+                                    <button type="button" onclick="handleLogout()" class="w-8 h-8 rounded-xl btn-glass bg-rose-500/20 text-rose-300 hover:text-white flex items-center justify-center p-0" title="Đăng xuất">
+                                        <i class="fas fa-sign-out-alt text-xs"></i>
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    } catch(e) {}
                 }
-            ],
-            currentSlideIndex: 0,
-            slideInterval: null,
 
-            async init() {
-                this.initSlideshow();
-                await this.loadCategories();
-                await this.loadProducts();
-            },
+                const [catRes, prodRes] = await Promise.all([
+                    fetch('api/categories'),
+                    fetch('api/products')
+                ]);
+                const catData = await catRes.json();
+                const prodData = await prodRes.json();
 
-            initSlideshow() {
-                this.slideInterval = setInterval(() => this.nextSlide(), 4500);
-            },
-
-            nextSlide() {
-                this.currentSlideIndex = (this.currentSlideIndex + 1) % this.slides.length;
-                this.updateSlideView();
-            },
-
-            prevSlide() {
-                this.currentSlideIndex = (this.currentSlideIndex - 1 + this.slides.length) % this.slides.length;
-                this.updateSlideView();
-            },
-
-            toggleSlideAuto() {
-                const icon = document.getElementById('slide-play-icon');
-                if (this.slideInterval) {
-                    clearInterval(this.slideInterval);
-                    this.slideInterval = null;
-                    if (icon) icon.className = 'fas fa-play text-[10px]';
-                } else {
-                    this.slideInterval = setInterval(() => this.nextSlide(), 4500);
-                    if (icon) icon.className = 'fas fa-pause text-[10px]';
+                if (catData.success && Array.isArray(catData.data)) {
+                    allCategories = catData.data;
                 }
-            },
-
-            updateSlideView() {
-                const imgEl = document.getElementById('hero-banner-img');
-                const titleEl = document.getElementById('hero-banner-title');
-                const slide = this.slides[this.currentSlideIndex];
-                if (imgEl && slide) {
-                    imgEl.src = slide.img;
+                if (prodData.success && Array.isArray(prodData.data)) {
+                    allProducts = prodData.data.filter(p => !p.is_topping);
                 }
-                if (titleEl && slide) {
-                    titleEl.innerText = slide.title;
-                }
-            },
 
-            async loadCategories() {
-                try {
-                    const res = await fetch('api/categories');
-                    const json = await res.json();
-                    if (json.success && Array.isArray(json.data)) {
-                        this.categories = json.data;
-                        this.renderCategories();
-                    }
-                } catch (e) {
-                    console.error('Error loading categories:', e);
-                }
-            },
+                renderPills();
+                renderProducts();
+            } catch(e) {
+                console.error('Lỗi nạp thực đơn:', e);
+            }
+        }
 
-            async loadProducts() {
-                try {
-                    const res = await fetch('api/products');
-                    const json = await res.json();
-                    if (json.success && Array.isArray(json.data)) {
-                        this.products = json.data.filter(p => !p.is_topping);
-                        const countEl = document.getElementById('total-product-count');
-                        if (countEl) countEl.innerText = this.products.length;
-                        this.renderCategories();
-                        this.renderProducts();
-                    }
-                } catch (e) {
-                    console.error('Error loading products:', e);
-                }
-            },
+        function renderPills() {
+            const container = document.getElementById('category-filter-pills');
+            if (!container) return;
 
-            renderCategories() {
-                const container = document.getElementById('category-filter-pills');
-                if (!container) return;
+            let html = `
+                <button type="button" onclick="filterMenuCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold ${currentCatId === 0 ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:text-white border border-white/10'} transition-all shrink-0">
+                    Tất Cả (${allProducts.length})
+                </button>
+            `;
 
-                let html = `
-                    <button type="button" onclick="CustomerApp.filterCategory('all')" id="cat-pill-all" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold ${this.activeCategory === 'all' ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:text-white border border-white/10'} transition-all shrink-0">
-                        Tất Cả (${this.products.length})
+            allCategories.forEach(cat => {
+                const count = allProducts.filter(p => p.category_id == cat.id).length;
+                if (count === 0) return;
+                const isActive = currentCatId === cat.id;
+                html += `
+                    <button type="button" onclick="filterMenuCategory(${cat.id})" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold ${isActive ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:text-white border border-white/10'} transition-all shrink-0">
+                        ${cat.name} (${count})
                     </button>
                 `;
+            });
 
-                this.categories.forEach(cat => {
-                    const count = this.products.filter(p => p.category_id == cat.id).length;
-                    if (count === 0) return;
-                    const isActive = this.activeCategory == cat.id;
-                    html += `
-                        <button type="button" onclick="CustomerApp.filterCategory(${cat.id})" id="cat-pill-${cat.id}" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold ${isActive ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:text-white border border-white/10'} transition-all shrink-0">
-                            ${cat.name} (${count})
-                        </button>
-                    `;
-                });
+            container.innerHTML = html;
+            const cntEl = document.getElementById('total-product-count');
+            if (cntEl) cntEl.innerText = allProducts.length;
+        }
 
-                container.innerHTML = html;
-            },
+        function renderProducts() {
+            const grid = document.getElementById('products-grid');
+            if (!grid) return;
 
-            filterCategory(catId) {
-                this.activeCategory = catId;
-                this.renderCategories();
-                this.renderProducts();
-            },
-
-            searchProducts(query) {
-                this.searchQuery = (query || '').toLowerCase().trim();
-                this.renderProducts();
-            },
-
-            renderProducts() {
-                const grid = document.getElementById('products-grid');
-                if (!grid) return;
-
-                let list = this.products;
-
-                if (this.activeCategory !== 'all') {
-                    list = list.filter(p => p.category_id == this.activeCategory);
-                }
-
-                if (this.searchQuery) {
-                    list = list.filter(p => 
-                        p.name.toLowerCase().includes(this.searchQuery) ||
-                        (p.code && p.code.toLowerCase().includes(this.searchQuery))
-                    );
-                }
-
-                if (list.length === 0) {
-                    grid.innerHTML = `
-                        <div class="col-span-full py-16 text-center text-slate-400">
-                            <i class="fas fa-mug-hot text-4xl mb-3 text-slate-600 block"></i>
-                            <p class="text-sm font-semibold">Không tìm thấy món ăn phù hợp</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                grid.innerHTML = list.map(p => {
-                    const priceFormatted = new Intl.NumberFormat('vi-VN').format(p.sale_price);
-                    const imgUrl = p.image || 'uploads/dishes/default_dish.jpg';
-                    return `
-                        <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group">
-                            <div class="space-y-2">
-                                <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-102 transition-all flex items-center justify-center">
-                                    <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src='uploads/dishes/default_dish.jpg';" loading="lazy" />
-                                    <div class="absolute top-1.5 left-1.5">
-                                        <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">${p.code || ''}</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug group-hover:text-sky-300 transition-colors">${p.name}</h4>
-                                </div>
-                            </div>
-
-                            <div class="pt-2 mt-2 border-t border-white/10">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="text-[11px] text-slate-400 font-medium">/ ${p.unit || 'Phần'}</span>
-                                    <span class="text-sm sm:text-base font-black font-mono text-emerald-400">${priceFormatted} đ</span>
-                                </div>
-                                <button type="button" onclick="CustomerApp.addToCart(${p.id})" class="w-full py-1.5 px-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/30 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all">
-                                    <i class="fas fa-plus text-[10px]"></i> Thêm vào giỏ
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            },
-
-            addToCart(productId) {
-                const p = this.products.find(item => item.id == productId);
-                if (!p) return;
-                const existing = this.cart.find(c => c.id == productId);
-                if (existing) {
-                    existing.quantity++;
-                } else {
-                    this.cart.push({ id: p.id, name: p.name, price: p.sale_price, quantity: 1, unit: p.unit });
-                }
-                this.updateCartBadge();
-            },
-
-            updateCartBadge() {
-                const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-                const badge = document.getElementById('cart-badge-count');
-                if (badge) {
-                    badge.innerText = totalItems;
-                    if (totalItems > 0) {
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
-                    }
-                }
-            },
-
-            openCartModal() {
-                const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-                if (totalItems === 0) {
-                    alert('Giỏ món hiện tại đang trống. Vui lòng chọn món trên thực đơn!');
-                    return;
-                }
-                const totalPrice = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const formatted = new Intl.NumberFormat('vi-VN').format(totalPrice);
-                alert(`🛒 Giỏ món của bạn có ${totalItems} món (Tổng: ${formatted} đ).\n\nQuý khách vui lòng đưa danh sách món cho nhân viên phục vụ để lên đơn vào bếp nhé!`);
+            let list = allProducts;
+            if (currentCatId !== 0) {
+                list = list.filter(p => p.category_id == currentCatId);
             }
-        };
+
+            if (list.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-16 text-center text-slate-400">
+                        <i class="fas fa-mug-hot text-4xl mb-3 text-slate-600 block"></i>
+                        <p class="text-sm font-semibold">Chưa có món ăn trong danh mục này</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = list.map(p => {
+                const priceFormatted = new Intl.NumberFormat('vi-VN').format(p.sale_price);
+                const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
+                return `
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="${p.category_id}">
+                        <div class="space-y-2">
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">${p.code || ''}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">${p.name}</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ${p.unit || 'Phần'}</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">${priceFormatted} đ</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterMenuCategory(catId) {
+            currentCatId = catId;
+            renderPills();
+            renderProducts();
+        }
 
         function showQuickVietQr() {
             const modal = document.getElementById('quick-vietqr-modal');
@@ -520,9 +372,16 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            CustomerApp.init();
-        });
+        async function handleLogout() {
+            if (!confirm('Đăng xuất khỏi tài khoản khách hàng?')) return;
+            localStorage.removeItem('pos_user');
+            try {
+                await fetch('api/auth.php?action=logout');
+            } catch(e) {}
+            window.location.reload();
+        }
+
+        document.addEventListener('DOMContentLoaded', initMenu);
     </script>
 </body>
 </html>

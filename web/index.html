@@ -49,17 +49,17 @@
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
                 <!-- Nút Quản Trị (Icon trên màn hình hẹp, có chữ trên máy tính lg:) -->
-                <a href="admin.php" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border-indigo-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-md shadow-indigo-600/20" title="Trang Quản Trị Hệ Thống">
+                <a href="admin.html" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border-indigo-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-md shadow-indigo-600/20" title="Trang Quản Trị Hệ Thống">
                     <i class="fas fa-chart-pie text-xs text-indigo-400"></i>
                     <span class="hidden lg:inline">Quản Trị</span>
                 </a>
 
-                <a href="kitchen.php" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Màn hình chế biến bếp & pha chế">
+                <a href="kitchen.html" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Màn hình chế biến bếp & pha chế">
                     <i class="fas fa-fire-burner text-xs text-amber-400"></i>
                     <span class="hidden lg:inline">Bếp<span class="hidden xl:inline"> / Bar</span></span>
                 </a>
 
-                <a href="order.php" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Màn hình nhận order cho nhân viên bàn">
+                <a href="order.html" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Màn hình nhận order cho nhân viên bàn">
                     <i class="fas fa-clipboard-list text-xs text-sky-400"></i>
                     <span class="hidden lg:inline">Order<span class="hidden xl:inline"> Phục Vụ</span></span>
                 </a>
@@ -83,7 +83,7 @@
             </button>
 
             
-                <a href="online_orders.php" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Xử lý đơn đặt online">
+                <a href="online_orders.html" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Xử lý đơn đặt online">
                     <i class="fas fa-bag-shopping text-indigo-300 text-xs"></i>
                     <span class="hidden lg:inline">Đơn Online</span>
                 </a>
@@ -286,13 +286,13 @@
         </section>
     </main>
 
-    <!-- Liquid Glass Modal: Login Screen (Modeled after legacy machine) -->
-    <div id="login-modal" class="liquid-modal-overlay ">
+    <!-- Liquid Glass Modal: Login Screen (Bắt buộc phải đăng nhập mới vào trang trong được) -->
+    <div id="login-modal" class="liquid-modal-overlay open" style="z-index: 99999;">
         <div class="liquid-glass liquid-modal-content w-[510px] max-w-[95vw] p-6 text-white border border-sky-500/40 shadow-2xl relative">
             
             <!-- Banner Header -->
             <div class="bg-gradient-to-r from-red-600 to-rose-700 text-center py-2 px-4 rounded-xl font-extrabold text-sm uppercase tracking-wider mb-5 shadow-lg border border-red-400/40">
-                MỜI BẠN NHẬP THÔNG TIN ĐỂ ĐĂNG NHẬP
+                MỜI BẠN ĐĂNG NHẬP ĐỂ VÀO HỆ THỐNG
             </div>
 
             <div class="flex gap-4 sm:gap-5 items-stretch">
@@ -349,11 +349,7 @@
                         <button type="button" onclick="resetLoginForm()" class="btn-glass bg-slate-700/60 text-slate-300 text-sm py-2.5 px-4 font-semibold">
                             <span>Nhập lại</span>
                         </button>
-                        
-                            <button type="button" onclick="closeLoginModal()" class="btn-glass text-xs py-2 px-3 text-slate-400">
-                                Đóng
-                            </button>
-                        
+
                     </div>
                 </div>
 
@@ -377,11 +373,7 @@
                             <i class="fas fa-bolt"></i>
                             <span>Đăng Nhập Nhanh</span>
                         </button>
-                        
-                            <button type="button" onclick="closeLoginModal()" class="btn-glass text-xs py-2 px-3 text-slate-400">
-                                Đóng
-                            </button>
-                        
+
                     </div>
                 </div>
             </div>
@@ -818,9 +810,11 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    if (btnSubmit) {
-                        btnSubmit.innerHTML = '<i class="fas fa-check"></i> <span>Thành công!</span>';
+                    if (data.user) {
+                        window.currentUser = data.user;
+                        localStorage.setItem('pos_user', JSON.stringify(data.user));
                     }
+                    updateAuthHeaderUI();
 
                     // Đóng modal ngay lập tức
                     const modalEl = document.getElementById('login-modal');
@@ -829,12 +823,16 @@
                         modalEl.style.display = 'none';
                     }
 
-                    const target = data.redirect || 'index.php';
-                    if (target.indexOf('order.php') !== -1 || target.indexOf('kitchen.php') !== -1 || target.indexOf('admin.php') !== -1) {
-                        window.location.replace(target);
-                    } else {
-                        // Dùng replace để Safari trên iPad tải mới dứt điểm không bị kẹt cache
-                        window.location.replace('index.php?auth=' + Date.now());
+                    if (btnSubmit) {
+                        btnSubmit.innerHTML = originalBtnHtml;
+                        btnSubmit.disabled = false;
+                    }
+
+                    const target = data.redirect || 'index.html';
+                    if (target.indexOf('order') !== -1) {
+                        window.location.replace('order.html');
+                    } else if (target.indexOf('kitchen') !== -1) {
+                        window.location.replace('kitchen.html');
                     }
                 } else {
                     if (btnSubmit) {
@@ -858,26 +856,6 @@
             }
         }
 
-        function openLoginModal() {
-            const modalEl = document.getElementById('login-modal');
-            if (modalEl) {
-                modalEl.style.display = '';
-                modalEl.classList.add('open');
-            }
-        }
-
-        function closeLoginModal() {
-            const modalEl = document.getElementById('login-modal');
-            if (modalEl) {
-                modalEl.classList.remove('open');
-            }
-        }
-
-        function resetLoginForm() {
-            document.getElementById('login-username').value = '';
-            document.getElementById('login-password').value = '';
-            document.getElementById('login-error-msg').classList.add('hidden');
-        }
 
         function updateAuthHeaderUI() {
             const zone = document.getElementById('user-auth-zone');
@@ -1055,6 +1033,12 @@
             // BẮT BUỘC PHẢI LOGIN: Nếu chưa đăng nhập thì bật Modal ngay lập tức!
             if (!window.currentUser) {
                 openLoginModal();
+            } else {
+                const modalEl = document.getElementById('login-modal');
+                if (modalEl) {
+                    modalEl.classList.remove('open');
+                    modalEl.style.display = 'none';
+                }
             }
 
             // Xử lý nút Quản Trị trên Header: Bắt buộc phải là Admin

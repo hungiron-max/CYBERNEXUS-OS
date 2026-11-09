@@ -16,6 +16,16 @@
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
+    <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            if (!u || u.role !== 'admin') {
+                alert('Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.');
+                window.location.replace('index.html?need_login=admin');
+            }
+        })();
+    </script>
 </head>
 <body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100">
 
@@ -1308,7 +1318,7 @@
                                     <i class="fas fa-lock mt-0.5 text-amber-300"></i>
                                     <div><b class="text-xs text-amber-100">Module chưa được kích hoạt</b><p class="mt-1 text-[11px] text-slate-400">Liên hệ Super Admin để thêm Quảng Cáo & Khuyến Mãi vào gói của quán.</p></div>
                                 </div>
-                                <a href="customer.php" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-center text-[10px] font-bold text-slate-200 hover:bg-white/10">Xem trang khách hàng</a>
+                                <a href="customer.html" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-center text-[10px] font-bold text-slate-200 hover:bg-white/10">Xem trang khách hàng</a>
                             </div>
                         
                             

@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="assets/css/liquid-glass.css">
+    <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            if (!u) {
+                alert('Vui lòng đăng nhập trước khi xử lý Đơn Online!');
+                window.location.replace('index.html?need_login=true');
+            }
+        })();
+    </script>
     <style>
         .online-payment-modal {
             position: fixed;

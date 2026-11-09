@@ -254,8 +254,8 @@
 
             
             <div class="sa-foot">
-                <a href="admin.php"><i class="fas fa-store"></i> Quản trị quán</a>
-                <a href="index.php"><i class="fas fa-cash-register"></i> Màn hình POS</a>
+                <a href="admin.html"><i class="fas fa-store"></i> Quản trị quán</a>
+                <a href="index.html"><i class="fas fa-cash-register"></i> Màn hình POS</a>
             </div>
             
         </div>
@@ -293,16 +293,16 @@
         <!-- Center: Quick Store Jump Links -->
         
         <div class="hidden md:flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-white/10 text-xs">
-            <a href="index.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình POS bán hàng">
+            <a href="index.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình POS bán hàng">
                 <i class="fas fa-cash-register text-sky-400"></i> <span>POS Bán Hàng</span>
             </a>
-            <a href="admin.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở trang Quản trị Back-office quán">
+            <a href="admin.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở trang Quản trị Back-office quán">
                 <i class="fas fa-store text-emerald-400"></i> <span>Quản Trị Quán</span>
             </a>
-            <a href="kitchen.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình Bếp KDS">
+            <a href="kitchen.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình Bếp KDS">
                 <i class="fas fa-utensils text-amber-400"></i> <span>Bếp KDS</span>
             </a>
-            <a href="customer.php" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở giao diện khách tự gọi món">
+            <a href="customer.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở giao diện khách tự gọi món">
                 <i class="fas fa-mobile-screen-button text-purple-400"></i> <span>QR Order</span>
             </a>
         </div>
@@ -1080,7 +1080,7 @@
             if (submitBtn) submitBtn.disabled = true;
 
             try {
-                const res = await fetch('api/super_admin.php?action=login', {
+                const res = await fetch('api/super_admin.html?action=login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -1109,7 +1109,7 @@
         SuperAdmin.handleLogout = async function() {
             if (!confirm('Bạn có muốn đăng xuất khỏi Super Admin?')) return;
             try {
-                await fetch('api/super_admin.php?action=logout');
+                await fetch('api/super_admin.html?action=logout');
             } catch (e) {}
             sessionStorage.removeItem('sa_logged_in');
             document.cookie = 'sa_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
