@@ -1,11 +1,4 @@
 #pragma once
-/**
- * ============================================================================
- * CYBERNEXUS OS — HIGH PERFORMANCE EMBEDDED SQLITE3 ENGINE
- * ============================================================================
- * Thread-safe SQLite3 wrapper with WAL mode, JSON serialization and transactions.
- * ============================================================================
- */
 
 #include <string>
 #include <vector>
@@ -15,7 +8,7 @@
 #include <sqlite3.h>
 #include "nlohmann/json.hpp"
 
-namespace CyberNexus {
+namespace SaleApp::Backend {
 
 using json = nlohmann::json;
 
@@ -40,15 +33,11 @@ public:
     // Query scalar value (e.g. SELECT COUNT(*) or SELECT setting_value)
     json queryScalar(const std::string& sql, const std::vector<std::pair<std::string, json>>& params = {});
 
-    // Initialize or verify Unified Schema
-    bool initUnifiedSchema();
-
     // Transactions
     bool beginTransaction();
     bool commit();
     bool rollback();
 
-    sqlite3* getRawHandle() const { return m_db; }
     std::string getLastError() const;
 
 private:
@@ -64,4 +53,9 @@ private:
     std::string m_lastError;
 };
 
-} // namespace CyberNexus
+} // namespace SaleApp::Backend
+
+namespace CyberNexus {
+    using Database = SaleApp::Backend::Database;
+}
+

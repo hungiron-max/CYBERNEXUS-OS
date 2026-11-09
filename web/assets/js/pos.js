@@ -4,7 +4,7 @@
 
 const POS = {
     // State
-    currentTable: null,
+    currentTable: { id: 1, code: 'MV1', area_type: 'MANG_VE', name: 'Mang Về 01' },
     activeOrderId: null,
     cart: [],
     categories: [],
@@ -38,12 +38,6 @@ const POS = {
         } catch (e) {
             return (Math.round(amount || 0) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         }
-    },
-
-    escapeHtml(value) {
-        return String(value || '').replace(/[&<>"']/g, char => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-        })[char]);
     },
 
     // Check if current session has Cashier restrictions (Thu ngân không xóa món, không thêm topping)
@@ -233,14 +227,8 @@ const POS = {
                     const wasOcc = oldT ? (oldT.status === 'occupied' || Boolean(oldT.active_order_id || oldT.order_id)) : false;
                     return isNowOcc && !wasOcc;
                 });
-                const newCustomerQrOrder = this.tables.some(t => {
-                    if (!t.customer_order_pending) return false;
-                    const oldT = oldTables.find(ot => ot.id === t.id);
-                    return !oldT || !oldT.customer_order_pending
-                        || Number(oldT.active_order_id) !== Number(t.active_order_id);
-                });
 
-                if ((newlyOccupied || newCustomerQrOrder) && oldTables.length > 0) {
+                if (newlyOccupied && oldTables.length > 0) {
                     this.playNotificationChime();
                 }
 
@@ -279,14 +267,11 @@ const POS = {
             const isOccupied = tbl.status === 'occupied' || Boolean(tbl.active_order_id || tbl.order_id);
             const isPaid = (tbl.payment_status === 'paid' || Boolean(tbl.paid_at));
             const isActive = this.currentTable && this.currentTable.id === tbl.id ? 'active-table' : '';
-            const isCustomerQrPending = Boolean(tbl.customer_order_pending);
-            const statusClass = `${isOccupied ? (isPaid ? 'occupied-paid' : 'occupied') : 'free'} ${isCustomerQrPending ? 'animate-pulse border-rose-500 ring-2 ring-rose-500/60' : ''}`;
+            const statusClass = isOccupied ? (isPaid ? 'occupied-paid' : 'occupied') : 'free';
 
             let kitchenBadge = '';
             if (isOccupied) {
-                if (isCustomerQrPending) {
-                    kitchenBadge = '<span class="text-[9px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-black ml-1 animate-pulse">QR · CHỜ PHỤC VỤ</span>';
-                } else if (isPaid) {
+                if (isPaid) {
                     kitchenBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-300 font-bold ml-1 border border-teal-500/40">💰 Đã TT</span>';
                 }
                 if (tbl.kitchen_status === 'ready') {
@@ -301,9 +286,7 @@ const POS = {
 
             let subtitle = 'Bàn trống';
             if (isOccupied) {
-                if (isCustomerQrPending) {
-                    subtitle = `${amountText} • Khách đặt QR · Chờ phục vụ`;
-                } else if (isPaid) {
+                if (isPaid) {
                     if (tbl.kitchen_status === 'ready') {
                         subtitle = `${amountText} • Chờ bưng`;
                     } else if (tbl.kitchen_status === 'served') {
@@ -427,9 +410,6 @@ const POS = {
             const bOcc = b.status === 'occupied' || Boolean(b.active_order_id || b.order_id);
             if (aOcc && !bOcc) return -1;
             if (!aOcc && bOcc) return 1;
-            if (Boolean(a.customer_order_pending) !== Boolean(b.customer_order_pending)) {
-                return a.customer_order_pending ? -1 : 1;
-            }
 
             const aUnpaid = aOcc && a.payment_status !== 'paid' && !Boolean(a.paid_at);
             const bUnpaid = bOcc && b.payment_status !== 'paid' && !Boolean(b.paid_at);
@@ -460,14 +440,11 @@ const POS = {
             const isPaid = (tbl.payment_status === 'paid' || Boolean(tbl.paid_at));
             const isReady = tbl.kitchen_status === 'ready';
             const isServed = tbl.kitchen_status === 'served';
-            const isCustomerQrPending = Boolean(tbl.customer_order_pending);
             const isCurrent = this.currentTable && this.currentTable.id === tbl.id;
 
             if (isOccupied) {
                 let borderGlow = 'border-white/10';
-                if (isCustomerQrPending) {
-                    borderGlow = 'border-rose-500/80 shadow-rose-500/30 shadow-lg ring-2 ring-rose-500/60 animate-pulse';
-                } else if (!isPaid) {
+                if (!isPaid) {
                     borderGlow = 'border-amber-500/50 shadow-amber-500/10 shadow-lg';
                 } else if (isReady) {
                     borderGlow = 'border-yellow-400 shadow-yellow-400/20 shadow-lg';
@@ -485,7 +462,6 @@ const POS = {
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-sm font-black text-white px-2.5 py-0.5 rounded-lg bg-slate-800 border border-white/15">${tbl.code}</span>
                                 <span class="text-xs font-semibold text-slate-300 truncate max-w-[110px]">${tbl.name}</span>
-                                ${isCustomerQrPending ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white font-black border border-rose-300/50 animate-pulse">📲 KHÁCH ĐẶT QR · CHỜ PHỤC VỤ</span>' : ''}
                                 ${isPaid ? `
                                     <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/40">💰 Đã TT</span>
                                 ` : `
@@ -509,7 +485,7 @@ const POS = {
                                 <span class="font-mono text-sky-400 font-semibold">${tbl.order_code || 'Chưa có mã'}</span>
                                 ${tbl.customer_name ? ` • <span class="text-slate-300 font-medium">${tbl.customer_name}</span>` : ''}
                             </div>
-                            <span class="font-bold ${isCustomerQrPending ? 'text-rose-200' : 'text-slate-300'} shrink-0 ml-2">${isCustomerQrPending ? 'QR CHỜ XÁC NHẬN · ' : ''}${tbl.item_count || 0} món</span>
+                            <span class="font-bold text-slate-300 shrink-0 ml-2">${tbl.item_count || 0} món</span>
                         </div>
 
                         <div class="grid grid-cols-2 gap-2 pt-0.5">
@@ -661,10 +637,6 @@ const POS = {
 
     // Cart Operations
     addToCart(productId) {
-        if (!this.currentTable) {
-            alert('Vui lòng tạo và chọn bàn hoặc khu vực mang về trước khi thêm món.');
-            return;
-        }
         const prod = this.products.find(p => p.id === productId);
         if (!prod) return;
         if (prod.status === 'locked') {
@@ -1393,18 +1365,12 @@ const POS = {
                 const tbl = document.getElementById('pos-vietqr-table');
                 const code = document.getElementById('pos-vietqr-code');
                 const note = document.getElementById('pos-vietqr-note');
-                const bank = document.getElementById('pos-vietqr-bank');
-                const account = document.getElementById('pos-vietqr-account');
-                const accountName = document.getElementById('pos-vietqr-account-name');
 
                 if (img) img.src = data.vietqr_url;
                 if (amt) amt.innerText = this.formatMoney(data.amount);
                 if (tbl) tbl.innerText = this.currentTable ? `${this.currentTable.code} (${this.currentTable.name})` : 'Mang Về';
                 if (code) code.innerText = data.order_code;
                 if (note) note.innerText = data.note;
-                if (bank) bank.innerText = data.bank_id;
-                if (account) account.innerText = data.account_no;
-                if (accountName) accountName.innerText = data.account_name;
 
                 const modal = document.getElementById('pos-vietqr-modal');
                 if (modal) modal.classList.add('open');
@@ -1482,6 +1448,11 @@ const POS = {
         const vatAmount = (afterDiscount * Math.max(0, this.vatPercent)) / 100;
         const total = afterDiscount + vatAmount;
 
+        const bankId = this.storeSettings.bank_id || 'MB';
+        const accountNo = this.storeSettings.bank_account_no || '0967041111';
+        const accountName = this.storeSettings.bank_account_name || 'GOC PHO POS';
+        const vietQrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${Math.round(total)}&addInfo=TT%20${this.currentTable ? this.currentTable.code : 'DON'}&accountName=${encodeURIComponent(accountName)}`;
+
         modal.innerHTML = `
             <div class="liquid-glass liquid-modal-content p-6 w-[520px] max-w-full text-white shadow-2xl border border-sky-500/30">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
@@ -1505,9 +1476,9 @@ const POS = {
                         <button type="button" id="paymethod-cash" class="btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('cash', ${total})">
                             <i class="fas fa-money-bill-wave"></i> Tiền mặt
                         </button>
-                        ${window.SALEAPP_VIETQR_ENABLED ? `<button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('banking', ${total})">
+                        <button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('banking', ${total})">
                             <i class="fas fa-qrcode"></i> Chuyển khoản QR
-                        </button>` : ''}
+                        </button>
                         <button type="button" id="paymethod-card" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('card', ${total})">
                             <i class="fas fa-credit-card"></i> Thẻ POS
                         </button>
@@ -1544,7 +1515,12 @@ const POS = {
                 <!-- Method Content: VietQR Banking -->
                 <div id="payment-banking-section" class="hidden text-center mb-4 p-4 rounded-xl bg-slate-900/80 border border-sky-500/20">
                     <p class="text-xs text-sky-300 font-semibold mb-2">Quét mã QR bằng App Ngân Hàng để thanh toán tự động</p>
-                    <div id="payment-bank-details"></div>
+                    <div class="flex justify-center mb-2">
+                        <img src="${vietQrUrl}" alt="VietQR" class="w-48 h-48 rounded-lg bg-white p-2 shadow-lg object-contain" />
+                    </div>
+                    <div class="text-xs text-slate-400">
+                        <span class="text-slate-300 font-bold">${bankId}</span> - STK: <span class="font-mono text-sky-400 font-bold">${accountNo}</span> (${accountName})
+                    </div>
                 </div>
 
                 <!-- Footer buttons -->
@@ -1559,40 +1535,9 @@ const POS = {
 
         modal.classList.add('open');
         this.selectedPaymentMethod = 'cash';
-        this.paymentBankVerified = false;
-        this.paymentRequestId = (this.paymentRequestId || 0) + 1;
     },
 
-    async selectPaymentMethod(method, total) {
-        const requestId = ++this.paymentRequestId;
-        this.paymentBankVerified = false;
-        if (method === 'banking') {
-            try {
-                const note = this.currentTable ? this.currentTable.code : 'DON';
-                const res = await fetch(`api/orders.php?action=vietqr&amount=${Math.round(total)}&order_code=${encodeURIComponent(note)}`);
-                const data = await res.json();
-                if (requestId !== this.paymentRequestId) return;
-                if (!res.ok || !data.success || !data.vietqr_url || !data.bank_id || !data.account_no || !data.account_name) {
-                    alert(data.message || 'Không thể tạo mã VietQR. Kiểm tra cấu hình và giấy phép.');
-                    return;
-                }
-                document.getElementById('payment-bank-details').innerHTML = `
-                    <div class="flex justify-center mb-2">
-                        <img src="${this.escapeHtml(data.vietqr_url)}" alt="VietQR" class="w-48 h-48 rounded-lg bg-white p-2 shadow-lg object-contain" />
-                    </div>
-                    <div class="text-xs text-slate-400">
-                        <span class="text-slate-300 font-bold">${this.escapeHtml(data.bank_id)}</span> - STK:
-                        <span class="font-mono text-sky-400 font-bold">${this.escapeHtml(data.account_no)}</span> (${this.escapeHtml(data.account_name)})
-                    </div>`;
-                this.paymentBankVerified = true;
-            } catch (e) {
-                if (requestId === this.paymentRequestId) {
-                    console.error('Error fetching payment VietQR:', e);
-                    alert('Không thể tải mã VietQR. Vui lòng kiểm tra kết nối tới ứng dụng.');
-                }
-                return;
-            }
-        }
+    selectPaymentMethod(method, total) {
         this.selectedPaymentMethod = method;
         const btnCash = document.getElementById('paymethod-cash');
         const btnBank = document.getElementById('paymethod-banking');
@@ -1600,7 +1545,7 @@ const POS = {
         const secCash = document.getElementById('payment-cash-section');
         const secBank = document.getElementById('payment-banking-section');
 
-        [btnCash, btnBank, btnCard].filter(Boolean).forEach(btn => btn.className = 'btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5');
+        [btnCash, btnBank, btnCard].forEach(btn => btn.className = 'btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5');
 
         if (method === 'cash') {
             btnCash.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
@@ -1636,10 +1581,6 @@ const POS = {
     },
 
     async confirmCheckout(total) {
-        if (this.selectedPaymentMethod === 'banking' && !this.paymentBankVerified) {
-            alert('Chưa xác nhận được thông tin nhận tiền.');
-            return;
-        }
         const cashInput = document.getElementById('cash-received-input');
         const cashReceived = cashInput ? (parseFloat(cashInput.value) || total) : total;
 
@@ -1741,10 +1682,10 @@ const POS = {
     },
 
     generateReceiptHtml(order, items, store) {
-        const storeName = this.escapeHtml(store ? store.name : (this.storeSettings.store_name || 'CỬA HÀNG'));
-        const hotline = this.escapeHtml(store ? store.hotline : this.storeSettings.store_hotline);
-        const address = this.escapeHtml(store ? store.address : this.storeSettings.store_address);
-        const wifi = this.escapeHtml(store ? store.wifi : this.storeSettings.store_wifi);
+        const storeName = store ? store.name : (this.storeSettings['store_name'] || 'GÓC PHỐ COFFEE & TEA');
+        const hotline = store ? store.hotline : (this.storeSettings['store_hotline'] || '0967.041.111');
+        const address = store ? store.address : (this.storeSettings['store_address'] || '123 Đường Số 5, P. Linh Trung, TP. Thủ Đức, TP.HCM');
+        const wifi = store ? store.wifi : (this.storeSettings['store_wifi'] || 'GocPho_Guest / pass: 88888888');
 
         let itemsHtml = '';
         (items || []).forEach((it, i) => {
@@ -1846,7 +1787,7 @@ const POS = {
             <div style="text-align: center; font-size: 11px; color: #333; margin-top: 6px;">
                 <div>Wifi: <b>${wifi}</b></div>
                 <div style="font-weight: bold; margin-top: 4px; font-size: 12px;">CẢM ƠN VÀ HẸN GẶP LẠI QUÝ KHÁCH!</div>
-                <div style="font-size: 9px; color: #777; margin-top: 2px;">Hệ thống POS</div>
+                <div style="font-size: 9px; color: #777; margin-top: 2px;">Hệ thống POS Góc Phố</div>
             </div>
         `;
     },
@@ -2472,7 +2413,7 @@ const POS = {
                 </style>
             </head>
             <body>
-                <div class="center bold" style="font-size: 14px;">${this.escapeHtml(this.storeSettings.store_name || 'CỬA HÀNG')}</div>
+                <div class="center bold" style="font-size: 14px;">GÓC PHỐ COFFEE & TEA</div>
                 <div class="center bold border-bottom">BÁO CÁO DOANH THU BÀN GIAO CA</div>
                 <div style="font-size: 11px;">
                     <div>Ngày: ${d.date_from} ${d.date_from !== d.date_to ? 'đến ' + d.date_to : ''}</div>
@@ -2683,3 +2624,4 @@ const POS = {
 document.addEventListener('DOMContentLoaded', () => {
     POS.init();
 });
+

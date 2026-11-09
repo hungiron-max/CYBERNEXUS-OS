@@ -284,7 +284,7 @@ const DishCropper = {
         this.confirmCrop();
     },
 
-    async confirmCrop() {
+    confirmCrop() {
         if (!this.imageLoaded || !this.canvas) return;
 
         // Render to offscreen canvas to guarantee pristine 640x480 resolution
@@ -296,15 +296,17 @@ const DishCropper = {
         expCtx.imageSmoothingQuality = 'high';
         expCtx.drawImage(this.canvas, 0, 0);
 
+        let base64;
         try {
-            const base64 = await ImageProcessor.canvasToDataUrl(exportCanvas, 0.82, 256 * 1024);
-            this.close();
-            if (typeof this.onSaveCallback === 'function') {
-                this.onSaveCallback(base64);
-            }
+            base64 = exportCanvas.toDataURL('image/jpeg', 0.90);
         } catch (e) {
             console.error('Canvas export error:', e);
-            alert(e.message || 'Không thể xử lý ảnh món ăn.');
+            base64 = this.canvas.toDataURL('image/jpeg', 0.90);
+        }
+
+        this.close();
+        if (typeof this.onSaveCallback === 'function') {
+            this.onSaveCallback(base64);
         }
     }
 };
@@ -381,7 +383,6 @@ const Admin = {
         if (tab === 'orders') this.loadOrderHistory();
         if (tab === 'analytics') this.loadAnalyticsData();
         if (tab === 'operations') this.loadOperationsTab();
-        if (tab === 'finance') this.loadFinance();
     },
 
     // 1. Dashboard & Reports
@@ -1116,7 +1117,6 @@ const Admin = {
             const data = await res.json();
             if (data.success) {
                 this.tables = data.data;
-                this.tableQrError = data.qr_error || '';
                 this.renderTablesList();
             }
         } catch (e) {
@@ -1128,230 +1128,53 @@ const Admin = {
         const container = document.getElementById('admin-tables-container');
         if (!container) return;
 
-        const tableGroups = [
-            { key: 'TAI_QUAN', title: 'Bàn tại quán', icon: 'fa-chair', accent: 'text-cyan-300', badge: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200' },
-            { key: 'MANG_VE', title: 'Bàn mang về', icon: 'fa-bag-shopping', accent: 'text-violet-300', badge: 'border-violet-400/20 bg-violet-400/10 text-violet-200' }
-        ];
-        const groupedTables = new Map(tableGroups.map(group => [group.key, []]));
-        const otherTables = [];
-
-        this.tables.forEach(table => {
-            const group = groupedTables.get(table.area_type || 'TAI_QUAN');
-            if (group) group.push(table);
-            else otherTables.push(table);
-        });
-
-        const renderTableCard = t => {
+        let html = '';
+        this.tables.forEach(t => {
             const isOccupied = t.status === 'occupied';
-            const hasQr = t.area_type === 'TAI_QUAN' && window.SALEAPP_TABLE_QR_ENABLED && t.qr_url;
-            const tableCode = this.escapeHtml(t.code);
-            const tableName = this.escapeHtml(t.name);
-            const tableOrderCode = this.escapeHtml(t.order_code || '');
-            return `
-                <article class="liquid-glass-card rounded-2xl border border-white/10 p-3 shadow-lg">
-                    <div class="mb-2 flex items-center justify-between gap-2">
-                        <span class="font-mono text-base font-extrabold text-white">${tableCode}</span>
+            html += `
+                <div class="liquid-glass-card p-4 flex flex-col justify-between border border-white/10">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-extrabold text-base text-white font-mono">${t.code}</span>
                         <span class="text-xs px-2 py-0.5 rounded-full font-bold ${isOccupied ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'}">
                             ${isOccupied ? 'Có khách' : 'Trống'}
                         </span>
                     </div>
-                    <div class="flex min-h-[92px] items-center justify-between gap-2">
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate text-xs font-semibold text-slate-300">${tableName}</div>
-                            <div class="mt-1 text-[10px] text-slate-500">${t.area_type === 'MANG_VE' ? 'Mang về' : 'Tại quán'}</div>
-                            <div class="mt-2 truncate text-[10px] text-slate-400">${isOccupied ? `HĐ: ${tableOrderCode}` : 'Chưa có đơn'}</div>
-                        </div>
-                        ${hasQr ? `
-                            <button type="button" class="group shrink-0 rounded-xl border border-sky-300/25 bg-white p-1 shadow-[0_0_16px_rgba(56,189,248,.12)] transition hover:border-cyan-300/70 hover:shadow-[0_0_22px_rgba(34,211,238,.28)]" onclick="Admin.showTableQr(${Number(t.id)})" title="Mở hoặc tải QR đặt món ${tableCode}" aria-label="Mã QR đặt món ${tableCode}">
-                                <span id="admin-table-qr-thumb-${Number(t.id)}" class="flex h-[76px] w-[76px] items-center justify-center overflow-hidden rounded-lg bg-white"></span>
-                                <span class="mt-0.5 block text-center text-[9px] font-black uppercase tracking-wide text-sky-700">QR ĐẶT MÓN</span>
+                    <div class="text-xs text-slate-400 mb-4">${t.name} (${t.area_type === 'MANG_VE' ? 'Mang Về' : 'Tại Quán'})</div>
+                    <div class="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                        <span class="text-slate-400">${isOccupied ? 'HĐ: ' + t.order_code : 'Chưa có đơn'}</span>
+                        ${!isOccupied ? `
+                            <button type="button" class="text-rose-400 hover:text-rose-300" onclick="Admin.deleteTable(${t.id})">
+                                <i class="fas fa-trash"></i>
                             </button>
                         ` : ''}
                     </div>
-                    <div class="mt-2 flex items-center justify-between border-t border-white/5 pt-2 text-xs">
-                        <span class="text-slate-500">${t.area_type === 'MANG_VE' ? 'Mang về' : 'Sơ đồ bàn'}</span>
-                        <div class="flex items-center gap-3">
-                            ${!isOccupied ? `
-                                <button type="button" class="text-rose-400 hover:text-rose-300" onclick="Admin.deleteTable(${Number(t.id)})" title="Xóa bàn">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                </article>
+                </div>
             `;
-        };
+        });
 
-        const renderGroup = (group, tables) => {
-            if (!tables.length) return '';
-            const sortedTables = [...tables].sort((a, b) => {
-                const byCode = String(a.code || '').localeCompare(String(b.code || ''), 'vi', { numeric: true, sensitivity: 'base' });
-                return byCode || Number(a.id) - Number(b.id);
-            });
-            return `
-                <section class="space-y-2.5" aria-label="${group.title}">
-                    <div class="flex items-center gap-2 border-b border-white/10 pb-2">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg border ${group.badge}">
-                            <i class="fas ${group.icon} text-xs"></i>
-                        </span>
-                        <h4 class="text-sm font-bold ${group.accent}">${group.title}</h4>
-                        <span class="rounded-full border ${group.badge} px-2 py-0.5 text-[10px] font-bold">${tables.length}</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                        ${sortedTables.map(renderTableCard).join('')}
-                    </div>
-                </section>
-            `;
-        };
-        let html = tableGroups
-            .map(group => renderGroup(group, groupedTables.get(group.key)))
-            .join('');
-        if (otherTables.length) {
-            html += renderGroup({
-                title: 'Khu vực khác',
-                icon: 'fa-layer-group',
-                accent: 'text-slate-300',
-                badge: 'border-slate-400/20 bg-slate-400/10 text-slate-200'
-            }, otherTables);
-        }
-
-        const qrWarning = this.tableQrError
-            ? `<div class="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">${this.escapeHtml(this.tableQrError)}</div>`
-            : '';
-        container.innerHTML = qrWarning + html;
-        if (typeof QRCode !== 'undefined') {
-            this.tables.forEach(table => {
-                if (table.area_type !== 'TAI_QUAN' || !table.qr_url) return;
-                const qrContainer = document.getElementById(`admin-table-qr-thumb-${Number(table.id)}`);
-                if (!qrContainer) return;
-                qrContainer.replaceChildren();
-                new QRCode(qrContainer, {
-                    text: new URL(table.qr_url, window.location.href).href,
-                    width: 76,
-                    height: 76,
-                    correctLevel: QRCode.CorrectLevel.M
-                });
-            });
-        }
+        container.innerHTML = html;
     },
 
-    async showTableQr(tableId) {
-        if (!window.SALEAPP_TABLE_QR_ENABLED) {
-            alert('Module Đặt Món QR Theo Bàn chưa được cấp phép.');
-            return;
-        }
-        if (typeof QRCode === 'undefined') {
-            alert('Không tải được thư viện tạo mã QR. Hãy tải lại trang khi có mạng.');
-            return;
-        }
-        try {
-            const response = await fetch('api/tables.php?action=get_table_qr', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ table_id: tableId })
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tạo mã QR cho bàn.');
-
-            const container = document.getElementById('admin-table-qr-code');
-            const modal = document.getElementById('admin-table-qr-modal');
-            container.replaceChildren();
-            new QRCode(container, {
-                text: new URL(data.qr_url, window.location.href).href,
-                width: 224,
-                height: 224,
-                correctLevel: QRCode.CorrectLevel.M
-            });
-            document.getElementById('admin-table-qr-title').textContent = `Mã QR đặt món · ${data.table.name} (${data.table.code})`;
-            document.getElementById('admin-table-qr-url').textContent = new URL(data.qr_url, window.location.href).href;
-            modal.dataset.filename = `QR-${String(data.table.code).replace(/[^a-z0-9_-]/gi, '-')}.png`;
-            modal.classList.add('open');
-        } catch (error) {
-            console.error('Could not load table QR code:', error);
-            alert(error.message || 'Không thể tạo mã QR cho bàn.');
-        }
-    },
-
-    downloadTableQr() {
-        const container = document.getElementById('admin-table-qr-code');
-        const modal = document.getElementById('admin-table-qr-modal');
-        const canvas = container?.querySelector('canvas');
-        const image = container?.querySelector('img');
-        const dataUrl = canvas?.toDataURL('image/png') || image?.src || '';
-        if (!dataUrl.startsWith('data:image/')) {
-            alert('Mã QR chưa sẵn sàng để tải. Vui lòng thử lại.');
-            return;
-        }
-        const download = document.createElement('a');
-        download.href = dataUrl;
-        download.download = modal?.dataset.filename || 'table-order-qr.png';
-        download.click();
-    },
-
-    openAddTableModal() {
-        const form = document.getElementById('admin-table-form');
-        const message = document.getElementById('admin-table-form-message');
-        form?.reset();
-        if (message) {
-            message.textContent = '';
-            message.classList.add('hidden');
-        }
-        document.getElementById('admin-table-area').value = 'TAI_QUAN';
-        document.getElementById('admin-table-code')?.focus();
-        document.getElementById('admin-table-modal')?.classList.add('open');
-    },
-
-    closeAddTableModal() {
-        document.getElementById('admin-table-modal')?.classList.remove('open');
-    },
-
-    async addTable(event) {
-        event?.preventDefault();
-        const codeInput = document.getElementById('admin-table-code');
-        const nameInput = document.getElementById('admin-table-name');
-        const areaInput = document.getElementById('admin-table-area');
-        const message = document.getElementById('admin-table-form-message');
-        const submit = document.getElementById('admin-table-submit');
-        const code = codeInput?.value.trim() || '';
-        const name = nameInput?.value.trim() || '';
-        const area = areaInput?.value || 'TAI_QUAN';
-
-        if (!code || !name) {
-            if (message) {
-                message.textContent = 'Vui lòng nhập mã bàn và tên hiển thị.';
-                message.classList.remove('hidden');
-            }
-            return;
-        }
+    async addTable() {
+        const code = prompt('Nhập mã bàn (ví dụ: MV6, TQ9, B10...):');
+        if (!code) return;
+        const name = prompt('Nhập tên hiển thị bàn (ví dụ: Bàn 10, Mang về 06):', code);
+        const area = confirm('Bàn này thuộc khu vực MANG VỀ (OK) hay TẠI QUÁN (Cancel)?') ? 'MANG_VE' : 'TAI_QUAN';
 
         try {
-            if (submit) {
-                submit.disabled = true;
-                submit.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang tạo bàn...';
-            }
-            if (message) message.classList.add('hidden');
             const res = await fetch('api/tables.php?action=add_table', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, name, area_type: area })
+                body: JSON.stringify({ code: code.trim(), name: name.trim(), area_type: area })
             });
             const data = await res.json();
             if (data.success) {
-                this.closeAddTableModal();
                 await this.loadTables();
             } else {
-                throw new Error(data.message || 'Không thể tạo bàn.');
+                alert(data.message || 'Lỗi thêm bàn');
             }
-        } catch (error) {
-            if (message) {
-                message.textContent = error.message || 'Không thể tạo bàn.';
-                message.classList.remove('hidden');
-            }
-        } finally {
-            if (submit) {
-                submit.disabled = false;
-                submit.innerHTML = '<i class="fas fa-plus mr-1"></i>Tạo bàn';
-            }
+        } catch (e) {
+            console.error('Error adding table:', e);
         }
     },
 
@@ -1514,10 +1337,10 @@ const Admin = {
 
             const o = data.order;
             const items = data.items || [];
-            const storeName = this.escapeHtml(data.store?.name || 'CỬA HÀNG');
-            const hotline = this.escapeHtml(data.store?.hotline || '');
-            const address = this.escapeHtml(data.store?.address || '');
-            const wifi = this.escapeHtml(data.store?.wifi || '');
+            const storeName = 'GÓC PHỐ COFFEE & TEA';
+            const hotline = '0967.041.111';
+            const address = '123 Đường Số 5, P. Linh Trung, TP. Thủ Đức, TP.HCM';
+            const wifi = 'GocPho_Guest / pass: 88888888';
 
             let itemsHtml = '';
             items.forEach((it, i) => {
@@ -1604,7 +1427,7 @@ const Admin = {
                 <div style="text-align: center; font-size: 11px; color: #333; margin-top: 6px;">
                     <div>Wifi: <b>${wifi}</b></div>
                     <div style="font-weight: bold; margin-top: 4px; font-size: 12px;">CẢM ƠN VÀ HẸN GẶP LẠI QUÝ KHÁCH!</div>
-                    <div style="font-size: 9px; color: #777; margin-top: 2px;">In lại từ Quản trị POS</div>
+                    <div style="font-size: 9px; color: #777; margin-top: 2px;">In lại từ Quản trị POS Góc Phố</div>
                 </div>
             `;
 
@@ -2114,8 +1937,6 @@ const Admin = {
         this.hideSyncAlert();
         const resBox = document.getElementById('sync-result-box');
         if (resBox) resBox.classList.add('hidden');
-        this.invalidateCloudSnapshots();
-        this.loadBackupSchedule();
 
         // Fetch current config
         try {
@@ -2139,75 +1960,6 @@ const Admin = {
     closeCloudSyncModal() {
         const modal = document.getElementById('cloud-sync-modal');
         if (modal) modal.classList.remove('open');
-    },
-
-    async createLocalBackup() {
-        const button = document.getElementById('btn-local-backup');
-        if (button) button.disabled = true;
-        this.showSyncAlert('info', 'Đang tạo bản sao local, vui lòng chờ.');
-        try {
-            const response = await fetch('api/local_backup.php?action=create', { method: 'POST' });
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                this.showSyncAlert('error', this.escapeHtml(data.message || 'Không thể tạo bản sao local.'));
-                return;
-            }
-            this.showSyncAlert('success', `Đã sao lưu local trong <b>${this.escapeHtml(data.backup.directory)}</b>\nTệp: <b>${this.escapeHtml(data.backup.name)}</b>\nKích thước: ${data.backup.bytes} byte.`);
-        } catch (error) {
-            console.error('Local backup error:', error);
-            this.showSyncAlert('error', 'Không thể gửi yêu cầu sao lưu local.');
-        } finally {
-            if (button) button.disabled = false;
-        }
-    },
-
-    async loadBackupSchedule() {
-        const status = document.getElementById('backup-schedule-status');
-        const button = document.getElementById('btn-backup-schedule');
-        if (button) button.disabled = true;
-        try {
-            const response = await fetch('api/local_backup.php?action=schedule_status', { cache: 'no-store' });
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                if (status) status.textContent = data.message || 'Không thể đọc lịch sao lưu.';
-                return;
-            }
-            if (!data.state) {
-                if (status) status.textContent = 'Chưa bật lịch sao lưu.';
-                if (button) button.disabled = false;
-                return;
-            }
-            const state = data.state;
-            const due = new Date(state.next_due * 1000).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-            const workerActive = state.last_tick_at > 0 && state.last_tick_at <= data.server_time + 300
-                && data.server_time - state.last_tick_at <= 90;
-            const worker = workerActive ? 'Bộ lập lịch đang hoạt động.' : 'Chưa thấy bộ lập lịch hoạt động; cần khởi động lại POS bằng bộ chạy mới.';
-            if (status) status.textContent = `Đã bật • Hạn kế tiếp: ${due} • ${worker}${state.last_error ? ' Lỗi: ' + state.last_error : ''}`;
-            if (button) button.textContent = 'Lịch đã được kích hoạt';
-        } catch (error) {
-            console.error('Backup schedule status error:', error);
-            if (status) status.textContent = 'Không thể kiểm tra lịch sao lưu.';
-        }
-    },
-
-    async activateBackupSchedule() {
-        if (!confirm('Tạo bản sao mốc đầu tiên và bật sao lưu theo quý? Với quán mới, hãy hoàn tất setup trước.')) return;
-        const button = document.getElementById('btn-backup-schedule');
-        if (button) button.disabled = true;
-        try {
-            const response = await fetch('api/local_backup.php?action=activate_schedule', { method: 'POST' });
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                this.showSyncAlert('error', this.escapeHtml(data.message || 'Không thể bật lịch sao lưu.'));
-            } else {
-                this.showSyncAlert('success', `Đã tạo mốc đầu: <b>${this.escapeHtml(data.backup.name)}</b>.`);
-            }
-        } catch (error) {
-            console.error('Backup schedule activation error:', error);
-            this.showSyncAlert('error', 'Không thể gửi yêu cầu bật lịch sao lưu.');
-        } finally {
-            await this.loadBackupSchedule();
-        }
     },
 
     toggleSyncPasswordVisibility() {
@@ -2292,6 +2044,7 @@ const Admin = {
         const userEl = document.getElementById('sync-user');
         const pwdEl = document.getElementById('sync-password');
         const autoCreateEl = document.getElementById('sync-auto-create-db');
+        const saveCfgEl = document.getElementById('sync-save-config');
         return {
             host: hostEl && hostEl.value ? hostEl.value.trim() : '127.0.0.1',
             port: parseInt(portEl && portEl.value ? portEl.value : '3306'),
@@ -2299,116 +2052,8 @@ const Admin = {
             user: userEl && userEl.value ? userEl.value.trim() : 'root',
             password: pwdEl && pwdEl.value ? pwdEl.value : '',
             auto_create_db: autoCreateEl ? autoCreateEl.checked : true,
-            save_config: false
+            save_config: saveCfgEl ? saveCfgEl.checked : true
         };
-    },
-
-    cloudSnapshotTarget(payload) {
-        return JSON.stringify([payload.host, payload.port, payload.database, payload.user]);
-    },
-
-    invalidateCloudSnapshots() {
-        this.cloudSnapshotGeneration = (this.cloudSnapshotGeneration || 0) + 1;
-        this.cloudSnapshotPage = 1;
-        this.cloudSnapshotPages = 1;
-        this.cloudSnapshotTargetKey = null;
-        const select = document.getElementById('cloud-snapshot-select');
-        if (select) {
-            select.replaceChildren(new Option('Chưa tải danh sách', ''));
-            select.disabled = true;
-        }
-        const pageInfo = document.getElementById('cloud-snapshot-page');
-        if (pageInfo) pageInfo.textContent = 'Chưa tải danh sách';
-        this.updateCloudSnapshotButtons();
-    },
-
-    updateCloudSnapshotButtons() {
-        const select = document.getElementById('cloud-snapshot-select');
-        const prev = document.getElementById('btn-cloud-prev');
-        const next = document.getElementById('btn-cloud-next');
-        const download = document.getElementById('btn-cloud-download');
-        if (prev) prev.disabled = !this.cloudSnapshotTargetKey || this.cloudSnapshotPage <= 1;
-        if (next) next.disabled = !this.cloudSnapshotTargetKey || this.cloudSnapshotPage >= this.cloudSnapshotPages;
-        if (download) download.disabled = !this.cloudSnapshotTargetKey || !select || !select.value;
-    },
-
-    async listCloudSnapshots(page) {
-        const payload = this.getSyncFormData();
-        payload.page = page;
-        const target = this.cloudSnapshotTarget(payload);
-        const generation = (this.cloudSnapshotGeneration || 0) + 1;
-        this.cloudSnapshotGeneration = generation;
-        this.cloudSnapshotTargetKey = null;
-        const select = document.getElementById('cloud-snapshot-select');
-        if (select) {
-            select.replaceChildren(new Option('Đang tải danh sách', ''));
-            select.disabled = true;
-        }
-        this.updateCloudSnapshotButtons();
-        const button = document.getElementById('btn-cloud-list');
-        if (button) button.disabled = true;
-        this.showSyncAlert('info', 'Đang tải danh sách snapshot đầy đủ từ MySQL.');
-        try {
-            const response = await fetch('api/sync_mysql.php?action=list_snapshots', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (generation !== this.cloudSnapshotGeneration) return;
-            if (!response.ok || !data.success) {
-                this.showSyncAlert('error', this.escapeHtml(data.message || 'Không thể tải danh sách snapshot.'));
-                return;
-            }
-            select.replaceChildren(new Option(data.snapshots.length ? 'Chọn một snapshot' : 'Không có snapshot đầy đủ', ''));
-            for (const snapshot of data.snapshots) {
-                select.add(new Option(`${snapshot.created_at} UTC — ${snapshot.byte_size} byte — ${snapshot.snapshot_id}`, snapshot.snapshot_id));
-            }
-            select.disabled = !data.snapshots.length;
-            this.cloudSnapshotTargetKey = target;
-            this.cloudSnapshotPage = data.page;
-            this.cloudSnapshotPages = data.pages;
-            document.getElementById('cloud-snapshot-page').textContent = `Trang ${data.page}/${data.pages} • ${data.total} bản`;
-            this.updateCloudSnapshotButtons();
-            this.showSyncAlert('success', 'Đã tải danh sách snapshot đầy đủ. Hãy xác nhận đúng nguồn trước khi tải.');
-        } catch (error) {
-            console.error('Cloud snapshot list error:', error);
-            if (generation === this.cloudSnapshotGeneration) this.showSyncAlert('error', 'Không thể tải danh sách snapshot.');
-        } finally {
-            if (button) button.disabled = false;
-        }
-    },
-
-    async downloadCloudSnapshot() {
-        const payload = this.getSyncFormData();
-        const select = document.getElementById('cloud-snapshot-select');
-        if (!select || !select.value || this.cloudSnapshotTargetKey !== this.cloudSnapshotTarget(payload)) {
-            this.invalidateCloudSnapshots();
-            this.showSyncAlert('error', 'Thông tin MySQL đã thay đổi. Hãy tải lại danh sách và chọn snapshot.');
-            return;
-        }
-        payload.snapshot_id = select.value;
-        const button = document.getElementById('btn-cloud-download');
-        if (button) button.disabled = true;
-        this.showSyncAlert('info', 'Đang tải và kiểm tra snapshot. CSDL hiện tại không bị thay đổi.');
-        try {
-            const response = await fetch('api/sync_mysql.php?action=download_snapshot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                this.showSyncAlert('error', this.escapeHtml(data.message || 'Không thể tải snapshot.'));
-                return;
-            }
-            this.showSyncAlert('success', `Đã tải snapshot vào <b>${this.escapeHtml(data.backup.directory)}</b>\nTệp: <b>${this.escapeHtml(data.backup.name)}</b>\nCSDL đang sử dụng không bị thay đổi.`);
-        } catch (error) {
-            console.error('Cloud snapshot download error:', error);
-            this.showSyncAlert('error', 'Không thể tải snapshot.');
-        } finally {
-            this.updateCloudSnapshotButtons();
-        }
     },
 
     async testCloudConnection() {
@@ -2463,7 +2108,7 @@ const Admin = {
         const startBtn = document.getElementById('btn-sync-start');
         const origBtnText = startBtn ? startBtn.innerHTML : '';
 
-        if (!confirm(`Đồng bộ các bảng hỗ trợ và tạo bản sao đầy đủ SQLite lên MySQL tại ${payload.host}:${payload.port} [DB: ${payload.database}]?\n\nẢnh và video không được sao lưu.`)) {
+        if (!confirm(`Bạn có chắc chắn muốn đồng bộ toàn bộ cơ sở dữ liệu lên MySQL tại ${payload.host}:${payload.port} [DB: ${payload.database}] không?`)) {
             return;
         }
 
@@ -2472,7 +2117,7 @@ const Admin = {
                 startBtn.disabled = true;
                 startBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-white"></i><span>Đang đồng bộ...</span>';
             }
-            this.showSyncAlert('info', 'Đang đồng bộ các bảng hỗ trợ và tạo bản sao đầy đủ SQLite... Vui lòng chờ.');
+            this.showSyncAlert('info', `Đang sao lưu và đồng bộ toàn bộ bảng dữ liệu lên MySQL... Vui lòng chờ vài giây...`);
 
             const res = await fetch('api/sync_mysql.php?action=sync_data', {
                 method: 'POST',
@@ -2484,7 +2129,7 @@ const Admin = {
             if (data.success) {
                 this.showSyncAlert(
                     'success',
-                    `🎉 <b>${this.escapeHtml(data.message)}</b>\n• Máy chủ: <b>${this.escapeHtml(data.host)} (${this.escapeHtml(data.server_version)})</b> | CSDL: <b>${this.escapeHtml(data.database)}</b>\n• Bản sao: <b>${this.escapeHtml(data.snapshot.id)}</b> (${data.snapshot.bytes} byte)\n• Số bản ghi ở các bảng đồng bộ cũ: <b>${data.total_records} dòng</b>\n• Thời gian hoàn thành: <b>${data.synced_at}</b>`
+                    `🎉 <b>${data.message}</b>\n• Máy chủ: <b>${data.host} (${data.server_version})</b> | CSDL: <b>${data.database}</b>\n• Tổng số bản ghi đã đồng bộ: <b>${data.total_records} dòng</b>\n• Thời gian hoàn thành: <b>${data.synced_at}</b>`
                 );
 
                 // Render itemized tables breakdown
@@ -2516,7 +2161,7 @@ const Admin = {
                     resBox.classList.remove('hidden');
                 }
             } else {
-                this.showSyncAlert('error', this.escapeHtml(data.message || 'Đồng bộ dữ liệu thất bại!'), data.technical);
+                this.showSyncAlert('error', data.message || 'Đồng bộ dữ liệu thất bại!', data.technical);
             }
         } catch (err) {
             console.error('Start sync error:', err);
@@ -2537,11 +2182,7 @@ const Admin = {
     realtimeTimer: null,
 
     loadOperationsTab() {
-        const selected = document.getElementById(`ops-subtab-${this.currentOpsSubtab}`)
-            ? this.currentOpsSubtab
-            : ['realtime', 'inventory', 'payroll', 'kpi'].find(s => document.getElementById(`ops-subtab-${s}`));
-        if (!selected) return;
-        this.switchOpsSubtab(selected);
+        this.switchOpsSubtab(this.currentOpsSubtab || 'realtime');
         // Setup realtime poll if not already running
         if (!this.realtimeTimer) {
             this.realtimeTimer = setInterval(() => {
@@ -2556,7 +2197,7 @@ const Admin = {
         this.currentOpsSubtab = subtab;
 
         // Update sub-tab buttons
-        ['realtime', 'inventory', 'payroll', 'kpi'].forEach(s => {
+        ['realtime', 'inventory', 'payroll'].forEach(s => {
             const btn = document.getElementById(`ops-subtab-${s}`);
             const view = document.getElementById(`ops-subview-${s}`);
             if (btn) {
@@ -2578,338 +2219,6 @@ const Admin = {
         if (subtab === 'realtime') this.loadRealtimeStaff();
         if (subtab === 'inventory') this.loadMaterials();
         if (subtab === 'payroll') this.loadPayroll();
-        if (subtab === 'kpi') this.loadKpi();
-    },
-
-    // 8.7 Báo cáo tài chính (module finance_reports)
-    finData: null,
-    finExpenses: [],
-    finChart: null,
-
-    finMonth() {
-        const input = document.getElementById('fin-month-input');
-        if (input && !input.value) {
-            const now = new Date();
-            input.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-        return input?.value || '';
-    },
-
-    async loadFinance() {
-        const month = this.finMonth();
-        try {
-            const [rep, exp] = await Promise.all([
-                fetch(`api/finance.php?action=get_report&month=${encodeURIComponent(month)}`).then(r => r.json()),
-                fetch(`api/finance.php?action=list_expenses&month=${encodeURIComponent(month)}`).then(r => r.json()),
-            ]);
-            if (!rep.success) return;
-            this.finData = rep;
-            this.finExpenses = exp.success ? exp.data : [];
-            this.renderFinance(rep);
-        } catch (e) {
-            console.error('loadFinance error:', e);
-        }
-    },
-
-    renderFinance(data) {
-        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        const money = v => `${this.formatMoney(v)} đ`;
-        const s = data.summary, prev = data.previous;
-        const delta = (cur, old) => {
-            if (!old) return '';
-            const pct = Math.round((cur - old) / Math.abs(old) * 100);
-            return `<span class="${pct >= 0 ? 'text-emerald-400' : 'text-rose-400'} text-[10px] font-bold">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% so với kỳ trước</span>`;
-        };
-        const card = (label, value, cls, extra = '') => `
-            <div class="liquid-glass rounded-xl border border-white/10 p-3">
-                <div class="text-[11px] text-slate-400">${label}</div>
-                <div class="font-mono font-black text-base ${cls}">${value}</div>
-                <div>${extra}</div>
-            </div>`;
-        document.getElementById('fin-kpi-cards').innerHTML =
-            card('Doanh thu bán hàng', money(s.gross_revenue), 'text-sky-300', delta(s.gross_revenue, prev.gross_revenue)) +
-            card('Giá vốn', money(s.cogs), 'text-amber-300', `<span class="text-[10px] text-slate-400">${s.cogs_ratio}% doanh thu thuần</span>`) +
-            card('Lợi nhuận gộp', money(s.gross_profit), 'text-emerald-300', `<span class="text-[10px] text-slate-400">Biên ${s.gross_margin}%</span>`) +
-            card('Lợi nhuận trước thuế', money(s.profit_before_tax), s.profit_before_tax >= 0 ? 'text-emerald-300' : 'text-rose-400', delta(s.profit_before_tax, prev.profit_before_tax)) +
-            card(s.net_profit >= 0 ? 'Lãi ròng sau thuế' : 'Lỗ ròng', money(s.net_profit), s.net_profit >= 0 ? 'text-emerald-400' : 'text-rose-400', `<span class="text-[10px] text-slate-400">Biên ${s.net_margin}% · ${s.orders} đơn</span>`);
-
-        const pct = v => s.net_revenue > 0 ? `${(v / s.net_revenue * 100).toFixed(1)}%` : '';
-        // sub: dòng tổng (nền nhấn); minus: dòng trừ thụt vào
-        const row = (label, value, cls = 'text-slate-100', bold = false, hint = '', rawVal = null) =>
-            `<tr style="${bold ? 'background:rgba(148,163,184,.10);border-top:1px solid rgba(148,163,184,.25)' : 'border-bottom:1px solid rgba(148,163,184,.08)'}">
-                <td class="py-2 px-2 ${bold ? 'font-bold text-white' : 'text-slate-300'}" style="${bold ? '' : 'padding-left:1.25rem'}">${label}${hint ? `<div class="text-[10px] text-slate-500 font-normal">${hint}</div>` : ''}</td>
-                <td class="py-2 px-2 text-right text-[10px] text-slate-500 font-mono whitespace-nowrap">${rawVal === null ? '' : pct(rawVal)}</td>
-                <td class="py-2 px-2 text-right font-mono whitespace-nowrap ${bold ? 'font-black' : ''} ${cls}">${value}</td>
-            </tr>`;
-        const t = s.taxes;
-        const payrollNote = s.payroll_source === 'kpi' ? 'Lương giờ + phụ cấp + thưởng - phạt (module KPI)' : (s.payroll_source === 'attendance' ? 'Theo chấm công' : (s.payroll_source === 'manual' ? 'Nhập tay (tháng chưa có chấm công)' : ''));
-        const pbtCls = s.profit_before_tax >= 0 ? 'text-emerald-300' : 'text-rose-400';
-        document.getElementById('fin-pnl').innerHTML =
-            `<thead><tr class="text-[10px] uppercase text-slate-500"><th class="px-2 pb-1 text-left font-semibold">Chỉ tiêu</th><th class="px-2 pb-1 text-right font-semibold">% DT thuần</th><th class="px-2 pb-1 text-right font-semibold">Số tiền</th></tr></thead><tbody>` +
-            row('Doanh thu bán hàng', money(s.gross_revenue), 'text-sky-300', true, `${s.orders} đơn · TB ${money(s.avg_order)}/đơn · giảm giá ${money(s.discount)}`, s.gross_revenue) +
-            (s.tax_method === 'deduction' ? row('(-) VAT đầu ra', money(t.vat_output), 'text-slate-400', false, '', t.vat_output) : '') +
-            row('Doanh thu thuần', money(s.net_revenue), 'text-sky-300', true, '', s.net_revenue) +
-            row('(-) Giá vốn hàng bán', money(s.cogs), 'text-amber-300', false, s.cogs_estimated_orders ? `${s.cogs_estimated_orders} đơn chưa có chi tiết món, giá vốn ước tính` : '', s.cogs) +
-            row('Lợi nhuận gộp', money(s.gross_profit), 'text-emerald-300', true, '', s.gross_profit) +
-            row('(-) Chi phí vận hành', money(s.opex), 'text-slate-100', false, '', s.opex) +
-            row('(-) Chi phí nhân sự', money(s.payroll), 'text-slate-100', false, payrollNote, s.payroll) +
-            row('Lợi nhuận trước thuế', money(s.profit_before_tax), pbtCls, true, '', s.profit_before_tax) +
-            (s.tax_method === 'deduction'
-                ? row('(-) Thuế TNDN', money(t.cit), 'text-rose-300', false, '', t.cit)
-                : row('(-) Thuế GTGT + TNCN', money(t.total), 'text-rose-300', false, '', t.total)) +
-            row(s.net_profit >= 0 ? 'Lãi ròng sau thuế' : 'Lỗ ròng', money(s.net_profit), s.net_profit >= 0 ? 'text-emerald-400' : 'text-rose-400', true, '', s.net_profit) +
-            '</tbody>';
-
-        const groups = data.expense_groups;
-        const gTotal = groups.reduce((a, g) => a + g.amount, 0) || 1;
-        document.getElementById('fin-expense-groups').innerHTML = groups.map(g => `
-            <div>
-                <div class="flex justify-between"><span class="text-slate-300">${esc(g.label)}</span><span class="font-mono text-amber-300">${money(g.amount)}</span></div>
-                <div class="h-1.5 rounded mt-0.5" style="background:rgba(148,163,184,.15)"><div class="h-1.5 rounded" style="background:rgba(251,191,36,.75);width:${Math.round(g.amount / gTotal * 100)}%"></div></div>
-            </div>`).join('') || '<div class="text-slate-400">Chưa có khoản chi nào.</div>';
-
-        const line = (l, v, cls = 'text-slate-100') => `<div class="flex justify-between gap-2"><span class="text-slate-300">${l}</span><span class="font-mono ${cls}">${v}</span></div>`;
-        const r = s.tax_rates;
-        document.getElementById('fin-tax').innerHTML = (s.tax_method === 'deduction'
-            ? line(`VAT đầu ra (${r.vat}%)`, money(t.vat_output)) + line('VAT đầu vào được khấu trừ', money(t.vat_input)) +
-              line(t.vat_payable >= 0 ? 'VAT phải nộp' : 'VAT được khấu trừ chuyển kỳ sau', money(Math.abs(t.vat_payable)), 'text-rose-300') +
-              line(`Thuế TNDN (${r.cit}%)`, money(t.cit), 'text-rose-300')
-            : line(`GTGT trên doanh thu (${r.rev_vat}%)`, money(t.vat_revenue), 'text-rose-300') +
-              line(`TNCN trên doanh thu (${r.rev_pit}%)`, money(t.pit_revenue), 'text-rose-300')) +
-            line('<b>Tổng thuế phải nộp</b>', `<b>${money(t.total)}</b>`, 'text-rose-300') +
-            '<div class="border-t border-white/10 my-2"></div>' +
-            line('Doanh thu hòa vốn', s.break_even_revenue !== null ? money(s.break_even_revenue) : 'n/a', 'text-sky-300') +
-            (s.break_even_revenue !== null ? `<div class="text-[10px] text-slate-500">${s.net_revenue >= s.break_even_revenue ? 'Đã vượt' : 'Chưa đạt'} điểm hòa vốn (chi phí vận hành + nhân sự coi là cố định)</div>` : '');
-
-        const pmLabels = { cash: 'Tiền mặt', transfer: 'Chuyển khoản', banking: 'Chuyển khoản', card: 'Thẻ' };
-        const pmTotals = {};
-        data.by_method.forEach(m => {
-            const label = pmLabels[m.method] || esc(m.method);
-            pmTotals[label] = (pmTotals[label] || 0) + Number(m.revenue);
-        });
-        document.getElementById('fin-breakdown').innerHTML =
-            data.by_category.map(c => line(esc(c.name) + ` <span class="text-slate-500">(${c.qty})</span>`, money(c.revenue), 'text-emerald-300')).join('') +
-            '<div class="border-t border-white/10 my-2"></div>' +
-            Object.entries(pmTotals).map(([label, rev]) => line(label, money(rev), 'text-sky-300')).join('');
-
-        const days = data.daily;
-        if (this.finChart) { this.finChart.destroy(); this.finChart = null; }
-        const canvas = document.getElementById('fin-daily-chart');
-        if (canvas && window.Chart) {
-            this.finChart = new Chart(canvas, {
-                type: 'bar',
-                data: { labels: days.map(d => d.d.slice(8)), datasets: [{ label: 'Doanh thu', data: days.map(d => Math.round(d.revenue)), backgroundColor: 'rgba(20,184,166,0.6)', borderRadius: 3 }] },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${this.formatMoney(c.parsed.y)} đ` } } },
-                    scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8', callback: v => `${Math.round(v / 1000000)}tr` } } } },
-            });
-        }
-
-        const cats = data.categories;
-        document.getElementById('fin-expense-tbody').innerHTML = this.finExpenses.map(e => `
-            <tr class="hover:bg-white/5">
-                <td class="py-2 px-3 font-mono">${esc(e.expense_date)}</td>
-                <td class="py-2 px-3">${esc(cats[e.category] || e.category)}</td>
-                <td class="py-2 px-3 max-w-[280px] truncate" title="${esc(e.description)}">${esc(e.description)}</td>
-                <td class="py-2 px-3 text-slate-400">${esc(e.supplier)}</td>
-                <td class="py-2 px-3 text-right font-mono text-amber-300">${money(e.amount)}</td>
-                <td class="py-2 px-3 text-right font-mono text-slate-400">${money(e.vat_amount)}</td>
-                <td class="py-2 px-3 text-right">
-                    <button type="button" onclick="Admin.openFinExpenseModal(${Number(e.id)})" class="text-sky-400 hover:text-sky-300 px-1" title="Sửa"><i class="fas fa-pen"></i></button>
-                    <button type="button" onclick="Admin.deleteFinExpense(${Number(e.id)})" class="text-rose-400 hover:text-rose-300 px-1" title="Xóa"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>`).join('') || '<tr><td colspan="7" class="text-center py-6 text-slate-400">Chưa có khoản chi trong kỳ.</td></tr>';
-    },
-
-    openFinExpenseModal(id) {
-        const e = id ? this.finExpenses.find(x => Number(x.id) === id) : null;
-        const sel = document.getElementById('fin-exp-category');
-        sel.innerHTML = Object.entries(this.finData?.categories || {}).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-        const month = this.finMonth();
-        document.getElementById('fin-exp-id').value = e ? e.id : '';
-        document.getElementById('fin-exp-date').value = e ? e.expense_date : `${month}-01`;
-        sel.value = e ? e.category : 'other';
-        document.getElementById('fin-exp-desc').value = e ? e.description : '';
-        document.getElementById('fin-exp-supplier').value = e ? e.supplier : '';
-        document.getElementById('fin-exp-amount').value = e ? e.amount : '';
-        document.getElementById('fin-exp-vat').value = e ? e.vat_amount : 0;
-        document.getElementById('modal-fin-expense').classList.add('open');
-    },
-
-    openFinTaxModal() {
-        const t = this.finData?.tax_settings || {};
-        document.getElementById('fin-tax-method').value = t.finance_tax_method || 'deduction';
-        document.getElementById('fin-tax-vat').value = t.finance_vat_rate ?? 8;
-        document.getElementById('fin-tax-cit').value = t.finance_cit_rate ?? 20;
-        document.getElementById('fin-tax-rev-vat').value = t.finance_rev_vat_rate ?? 3;
-        document.getElementById('fin-tax-rev-pit').value = t.finance_rev_pit_rate ?? 1.5;
-        document.getElementById('modal-fin-tax').classList.add('open');
-    },
-
-    closeFinModals() {
-        ['modal-fin-expense', 'modal-fin-tax'].forEach(id => document.getElementById(id)?.classList.remove('open'));
-    },
-
-    async finPost(action, body) {
-        const res = await fetch(`api/finance.php?action=${action}`, {
-            method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (!data.success) alert(data.message || 'Có lỗi xảy ra.');
-        return data.success;
-    },
-
-    async saveFinExpense(ev) {
-        ev.preventDefault();
-        const v = id => document.getElementById(id).value;
-        const ok = await this.finPost('save_expense', {
-            id: v('fin-exp-id'), expense_date: v('fin-exp-date'), category: v('fin-exp-category'), description: v('fin-exp-desc'),
-            supplier: v('fin-exp-supplier'), amount: v('fin-exp-amount'), vat_amount: v('fin-exp-vat'),
-        });
-        if (ok) { this.closeFinModals(); this.loadFinance(); }
-    },
-
-    async deleteFinExpense(id) {
-        if (!confirm('Xóa khoản chi này?')) return;
-        if (await this.finPost('delete_expense', { id })) this.loadFinance();
-    },
-
-    async saveFinTax(ev) {
-        ev.preventDefault();
-        const v = id => document.getElementById(id).value;
-        const ok = await this.finPost('save_tax_settings', {
-            finance_tax_method: v('fin-tax-method'), finance_vat_rate: v('fin-tax-vat'), finance_cit_rate: v('fin-tax-cit'),
-            finance_rev_vat_rate: v('fin-tax-rev-vat'), finance_rev_pit_rate: v('fin-tax-rev-pit'),
-        });
-        if (ok) { this.closeFinModals(); this.loadFinance(); }
-    },
-
-    exportFinanceCsv() {
-        window.location.href = `api/finance.php?action=export_csv&month=${encodeURIComponent(this.finMonth())}`;
-    },
-
-    // 8.6 KPI, phụ cấp, thưởng/phạt
-    kpiData: null,
-
-    async loadKpi() {
-        const input = document.getElementById('kpi-month-input');
-        if (input && !input.value) {
-            const now = new Date();
-            input.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-        try {
-            const res = await fetch(`api/kpi.php?action=get_kpi&month=${encodeURIComponent(input?.value || '')}`);
-            const data = await res.json();
-            if (!data.success) return;
-            this.kpiData = data;
-            this.renderKpi(data);
-        } catch (e) {
-            console.error('loadKpi error:', e);
-        }
-    },
-
-    renderKpi(data) {
-        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        const money = v => `${this.formatMoney(v)} đ`;
-        const setTxt = (id, t) => { const el = document.getElementById(id); if (el) el.innerText = t; };
-        const t = data.totals;
-        setTxt('kpi-total-hourly', money(t.hourly_pay));
-        setTxt('kpi-total-allowance', money(t.allowance));
-        setTxt('kpi-total-bonus', money(t.bonus));
-        setTxt('kpi-total-deduction', money(t.deduction));
-        setTxt('kpi-total-net', money(t.net));
-        setTxt('kpi-target-note', `Mục tiêu ${data.target_shifts} ca`);
-        const w = data.weights, r = data.rules;
-        setTxt('kpi-rules-note',
-            `Trọng số: chuyên cần ${w.attendance}% · đúng giờ ${w.punctuality}% · kỷ luật ${w.discipline}% · năng suất ${w.performance}% · thái độ ${w.attitude}% · phối hợp ${w.teamwork}% (mục chưa chấm được bỏ qua). ` +
-            `Thưởng KPI: hạng A ${r.bonus_pct.A}%, hạng B ${r.bonus_pct.B}% lương giờ; nhân viên xuất sắc mỗi vai trò +${this.formatMoney(r.top_bonus)} đ; ` +
-            `đi trễ quá ${r.late_tolerance_min} phút phạt ${this.formatMoney(r.late_fine)} đ/lần.`);
-
-        const gradeCls = { A: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', B: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-            C: 'bg-amber-500/20 text-amber-300 border-amber-500/40', D: 'bg-rose-500/20 text-rose-300 border-rose-500/40' };
-        const roleLabels = { cashier: 'Thu ngân', kitchen: 'Bếp', waiter: 'Phục vụ' };
-        const sc = v => v === null || v === undefined ? '<span class="text-slate-600">–</span>' : Math.round(v);
-        const tbody = document.getElementById('kpi-tbody');
-        if (!tbody) return;
-        tbody.innerHTML = data.employees.map(e => {
-            const p = e.pay, s = e.scores;
-            const bonus = p.kpi_bonus + p.top_bonus + p.manual_bonus;
-            const deduct = p.late_fine + p.manual_deduction;
-            return `
-            <tr class="hover:bg-white/5 transition-colors">
-                <td class="py-2.5 px-3">
-                    <div class="font-bold text-slate-100">${esc(e.fullname)} ${e.top_performer ? '<span title="Nhân viên xuất sắc">🏆</span>' : ''}</div>
-                    <div class="text-[10px] text-slate-400"><span class="font-mono text-sky-400">${esc(e.user_code)}</span> · ${roleLabels[e.role] || esc(e.role)} · ${this.formatMoney(e.hourly_rate)} đ/h</div>
-                </td>
-                <td class="py-2.5 px-3 text-center font-mono">${e.shifts} / <span class="${e.late_count ? 'text-amber-300' : ''}">${e.late_count}</span> / <span class="${e.incidents ? 'text-rose-300' : ''}">${e.incidents}</span></td>
-                <td class="py-2.5 px-3 text-center font-mono">${e.orders}${e.avg_speed !== null ? `<div class="text-[10px] text-slate-400">${e.avg_speed} phút/đơn</div>` : ''}</td>
-                <td class="py-2.5 px-3 text-center font-mono text-[11px] text-slate-300">${sc(s.attendance)} · ${sc(s.punctuality)} · ${sc(s.discipline)} · ${sc(s.performance)} · ${sc(s.attitude)} · ${sc(s.teamwork)}</td>
-                <td class="py-2.5 px-3 text-center">
-                    <span class="px-2 py-0.5 rounded-full border text-[11px] font-black ${gradeCls[e.grade] || 'bg-slate-800 text-slate-400 border-white/10'}" title="${esc(e.grade_label)}">${e.total_score ?? '–'} · ${esc(e.grade)}</span>
-                    ${e.evaluated ? '' : '<div class="text-[9px] text-slate-500 mt-0.5">chưa chấm thái độ</div>'}
-                </td>
-                <td class="py-2.5 px-3 text-right font-mono text-sky-300">${money(p.hourly_pay)}</td>
-                <td class="py-2.5 px-3 text-right font-mono text-amber-300" title="Ăn ${money(p.meal)} · Chức vụ ${money(p.position)} · Đi lại ${money(p.transport)} · Khác ${money(p.other)}">${money(p.allowance_total)}</td>
-                <td class="py-2.5 px-3 text-right font-mono text-emerald-300" title="KPI ${money(p.kpi_bonus)} · Xuất sắc ${money(p.top_bonus)} · Thêm ${money(p.manual_bonus)}">${money(bonus)}</td>
-                <td class="py-2.5 px-3 text-right font-mono text-rose-300">${money(deduct)}</td>
-                <td class="py-2.5 px-3 text-right font-mono font-black text-emerald-400">${money(p.net)}</td>
-                <td class="py-2.5 px-3 text-right">
-                    <button type="button" onclick="Admin.openKpiModal(${e.user_id})" class="btn-glass text-[11px] py-1 px-2.5 bg-fuchsia-500/20 hover:bg-fuchsia-500/40 text-fuchsia-300 border-fuchsia-500/30 font-bold">
-                        <i class="fas fa-pen-to-square mr-1"></i> Đánh giá
-                    </button>
-                </td>
-            </tr>`;
-        }).join('') || '<tr><td colspan="11" class="text-center py-6 text-slate-400">Chưa có nhân viên.</td></tr>';
-    },
-
-    openKpiModal(userId) {
-        const e = (this.kpiData?.employees || []).find(x => x.user_id === userId);
-        if (!e) return;
-        const val = (id, v) => { document.getElementById(id).value = v ?? ''; };
-        document.getElementById('kpi-user-id').value = userId;
-        document.getElementById('kpi-modal-who').innerText = `${e.fullname} (${e.user_code}) · kỳ ${this.kpiData.period} · KPI tự động ${e.total_score ?? '–'} điểm`;
-        val('kpi-attitude', e.attitude_score);
-        val('kpi-teamwork', e.teamwork_score);
-        val('kpi-manual-bonus', e.pay.manual_bonus);
-        val('kpi-manual-deduction', e.pay.manual_deduction);
-        val('kpi-note', e.note);
-        val('kpi-hourly-rate', e.hourly_rate);
-        val('kpi-meal', e.compensation.meal_allowance);
-        val('kpi-position', e.compensation.position_allowance);
-        val('kpi-transport', e.compensation.transport_allowance);
-        val('kpi-other', e.compensation.other_allowance);
-        document.getElementById('modal-kpi').classList.add('open');
-    },
-
-    closeKpiModal() {
-        document.getElementById('modal-kpi').classList.remove('open');
-    },
-
-    async saveKpi(ev) {
-        ev.preventDefault();
-        const g = id => document.getElementById(id).value;
-        const post = async (action, body) => {
-            const res = await fetch(`api/kpi.php?action=${action}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-            });
-            return res.json();
-        };
-        const userId = parseInt(g('kpi-user-id'));
-        try {
-            const a = await post('save_evaluation', {
-                user_id: userId, period: this.kpiData.period, attitude_score: g('kpi-attitude'), teamwork_score: g('kpi-teamwork'),
-                manual_bonus: g('kpi-manual-bonus'), manual_deduction: g('kpi-manual-deduction'), note: g('kpi-note')
-            });
-            if (!a.success) { alert(a.message || 'Không lưu được đánh giá.'); return; }
-            const b = await post('save_compensation', {
-                user_id: userId, hourly_rate: g('kpi-hourly-rate'), meal_allowance: g('kpi-meal'),
-                position_allowance: g('kpi-position'), transport_allowance: g('kpi-transport'), other_allowance: g('kpi-other')
-            });
-            if (!b.success) { alert(b.message || 'Không lưu được lương/phụ cấp.'); return; }
-            this.closeKpiModal();
-            this.loadKpi();
-        } catch (e) {
-            alert('Lỗi kết nối, vui lòng thử lại.');
-        }
     },
 
     // 8.1 Realtime Staff
@@ -3229,14 +2538,8 @@ const Admin = {
     importState: {
         method: 'manual',
         images: [], // Danh sách ảnh hóa đơn: [{ id, name, sizeStr, base64 }]
-        processingImages: false,
         cameraStream: null,
         invoiceImageUrl: ''
-    },
-    supplierFinanceState: {
-        suppliers: [],
-        invoices: [],
-        payments: []
     },
 
     resetSmartImportForm() {
@@ -3250,22 +2553,15 @@ const Admin = {
         if (fileInput) fileInput.value = '';
         const folderInput = document.getElementById('invoice-folder-input');
         if (folderInput) folderInput.value = '';
-        const cameraInput = document.getElementById('invoice-camera-input');
-        if (cameraInput) cameraInput.value = '';
 
         // Reset các trường thông tin phiếu
         const textInputs = [
             'manual-import-supplier', 'manual-import-invoice-no', 'manual-import-note',
-            'review-supplier-input', 'review-invoice-no-input',
-            'manual-import-paid', 'review-import-paid', 'manual-import-due-date', 'review-import-due-date'
+            'review-supplier-input', 'review-invoice-no-input'
         ];
         textInputs.forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.value = el.type === 'number' ? '0' : '';
-        });
-        ['manual-import-payment-method', 'review-import-payment-method'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = 'cash';
+            if (el) el.value = '';
         });
 
         // Xóa hoàn toàn các hàng dữ liệu cũ trong bảng kết quả review
@@ -3290,7 +2586,6 @@ const Admin = {
         const costEl = document.getElementById('import-footer-total-cost');
         if (countEl) countEl.innerText = '0';
         if (costEl) costEl.innerText = '0 đ';
-        this.updateImportPaymentSummary();
     },
 
     openSmartImportModal(initialMethod = 'manual') {
@@ -3451,7 +2746,6 @@ const Admin = {
         const costElem = document.getElementById('import-footer-total-cost');
         if (countElem) countElem.innerText = count;
         if (costElem) costElem.innerText = this.formatMoney(totalCost) + ' đ';
-        this.updateImportPaymentSummary();
     },
 
     // --- Phương thức 2: Tải lên hóa đơn & Drag and Drop ---
@@ -3480,7 +2774,7 @@ const Admin = {
             const dt = e.dataTransfer;
             const files = dt.files;
             if (files && files.length > 0) {
-                this.handleMultipleInvoiceFiles([files[0]]);
+                this.handleSelectedInvoiceFile(files[0]);
             }
         });
     },
@@ -3494,8 +2788,7 @@ const Admin = {
         e.target.value = '';
     },
 
-    async handleMultipleInvoiceFiles(fileList) {
-        if (this.importState.processingImages) return;
+    handleMultipleInvoiceFiles(fileList) {
         // Lọc file hình ảnh
         const imageFiles = fileList.filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(f.name));
         if (imageFiles.length === 0) {
@@ -3503,37 +2796,24 @@ const Admin = {
             return;
         }
 
-        this.importState.processingImages = true;
-        const scanButton = document.getElementById('btn-trigger-ai-scan');
-        const scanLabel = document.getElementById('btn-ai-scan-label');
-        if (scanButton) scanButton.disabled = true;
-        if (scanLabel) scanLabel.textContent = 'ĐANG CHUẨN HÓA ẢNH...';
-
-        try {
-            for (const file of imageFiles) {
-                const optimizedFile = await ImageProcessor.processFile(file, 'invoice');
-                const base64 = await ImageProcessor.fileToDataUrl(optimizedFile);
+        let loadedCount = 0;
+        imageFiles.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const base64 = ev.target.result;
                 this.importState.images.push({
                     id: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-                    name: optimizedFile.name,
-                    sizeStr: (optimizedFile.size / 1024).toFixed(1) + ' KB',
-                    base64
+                    name: file.name,
+                    sizeStr: (file.size / 1024).toFixed(1) + ' KB',
+                    base64: base64
                 });
-            }
-            this.renderImageGallery();
-        } catch (error) {
-            this.renderImageGallery();
-            alert(error.message || 'Không thể chuẩn hóa ảnh hóa đơn.');
-        } finally {
-            this.importState.processingImages = false;
-            if (scanButton) scanButton.disabled = false;
-            if (scanLabel) {
-                const count = this.importState.images.length;
-                scanLabel.textContent = count > 1
-                    ? `PHÂN TÍCH ${count} ẢNH BẰNG AI`
-                    : count === 1 ? 'PHÂN TÍCH BẰNG AI' : 'PHÂN TÍCH TẤT CẢ BẰNG AI';
-            }
-        }
+                loadedCount++;
+                if (loadedCount === imageFiles.length) {
+                    this.renderImageGallery();
+                }
+            };
+            reader.readAsDataURL(file);
+        });
     },
 
     // Hiển thị danh sách Medium Icon Gallery (Cố định 85x85px, có nút Xóa từng ảnh & Xóa hết)
@@ -3608,18 +2888,13 @@ const Admin = {
             ctx.rotate((90 * Math.PI) / 180);
             ctx.drawImage(img, -img.width / 2, -img.height / 2);
 
-            ImageProcessor.processCanvas(canvas, 'invoice', item.name).then(async optimizedFile => {
-                const base64 = await ImageProcessor.fileToDataUrl(optimizedFile);
-                item.base64 = base64;
-                item.name = optimizedFile.name;
-                item.sizeStr = (optimizedFile.size / 1024).toFixed(1) + ' KB';
-                this.renderImageGallery();
-            }).catch(error => alert(error.message || 'Không thể xoay và chuẩn hóa ảnh.'));
+            item.base64 = canvas.toDataURL('image/jpeg', 0.92);
+            this.renderImageGallery();
         };
         img.src = item.base64;
     },
 
-    async loadSampleInvoiceDemo() {
+    loadSampleInvoiceDemo() {
         const canvas = document.createElement('canvas');
         canvas.width = 600;
         canvas.height = 700;
@@ -3631,15 +2906,15 @@ const Admin = {
         ctx.fillStyle = '#0f172a';
         ctx.font = 'bold 22px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('NHÀ CUNG CẤP MẪU', 300, 45);
+        ctx.fillText('ĐẠI LÝ NGUYÊN LIỆU CÀ PHÊ BUÔN MA THUỘT', 300, 45);
         ctx.font = '14px Arial';
         ctx.fillStyle = '#475569';
-        ctx.fillText('Địa chỉ minh họa', 300, 75);
+        ctx.fillText('Đ/c: 45 Lê Duẩn, TP. Buôn Ma Thuột - ĐT: 0918.608.073', 300, 75);
         ctx.fillText('PHIẾU XUẤT KHO / HÓA ĐƠN MUA HÀNG', 300, 105);
 
         ctx.textAlign = 'left';
         ctx.fillText('Ngày: ' + new Date().toLocaleDateString('vi-VN'), 40, 140);
-        ctx.fillText('Khách hàng: CỬA HÀNG MẪU', 40, 165);
+        ctx.fillText('Khách hàng: GÓC PHỐ COFFEE & TEA', 40, 165);
 
         ctx.strokeStyle = '#cbd5e1';
         ctx.lineWidth = 1.5;
@@ -3683,37 +2958,19 @@ const Admin = {
         ctx.fillText('TỔNG CỘNG TIỀN THANH TOÁN:', 160, y + 35);
         ctx.fillText('4.417.000 VNĐ', 430, y + 35);
 
-        const base64 = await ImageProcessor.canvasToDataUrl(canvas, 0.84, 900 * 1024);
+        const base64 = canvas.toDataURL('image/jpeg', 0.9);
         this.importState.images.push({
             id: 'sample_' + Date.now(),
-            name: 'sample_invoice_coffee_supply.webp',
-            sizeStr: (base64.length * 0.75 / 1024).toFixed(1) + ' KB',
+            name: 'sample_invoice_coffee_supply.jpg',
+            sizeStr: '85.4 KB',
             base64: base64,
             isSampleDemo: true
         });
         this.renderImageGallery();
     },
 
-    // Mở Camera thiết bị trực tiếp (Chuẩn W3C tương thích 100% Safari iOS, iPadOS, Android & Desktop)
-    openDeviceCamera() {
-        const camInput = document.getElementById('invoice-camera-input');
-        if (camInput) {
-            camInput.click();
-        } else {
-            const fileInput = document.getElementById('invoice-file-input');
-            if (fileInput) fileInput.click();
-        }
-    },
-
     // --- Phương thức 3: Chụp ảnh qua Camera / Webcam ---
     async startCamera() {
-        // Kiểm tra hỗ trợ WebRTC getUserMedia (Safari trên HTTP LAN không hỗ trợ getUserMedia vì lý do bảo mật của Apple)
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.warn('WebRTC getUserMedia không được hỗ trợ trong môi trường HTTP này (đặc thù Safari iOS). Tự động chuyển sang Camera thiết bị...');
-            this.openDeviceCamera();
-            return;
-        }
-
         try {
             const video = document.getElementById('camera-stream-video');
             const placeholder = document.getElementById('camera-placeholder');
@@ -3722,42 +2979,14 @@ const Admin = {
             const btnSnap = document.getElementById('btn-snap-camera');
             const btnStop = document.getElementById('btn-stop-camera');
 
-            // Thử danh sách cấu hình camera từ độ phân giải cao đến cơ bản để tương thích mọi dòng máy
-            let stream = null;
-            const constraintsList = [
-                { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-                { video: { facingMode: { ideal: 'environment' } } },
-                { video: { facingMode: 'user' } },
-                { video: true }
-            ];
-
-            for (const c of constraintsList) {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia(c);
-                    if (stream) break;
-                } catch (ce) {
-                    console.warn('Thử cấu hình camera không khả dụng:', c, ce);
-                }
-            }
-
-            if (!stream) {
-                throw new Error('Không thể khởi tạo luồng camera.');
-            }
-
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
             this.importState.cameraStream = stream;
 
             if (video) {
                 video.srcObject = stream;
-                // Thuộc tính bắt buộc để Safari và iOS cho phép phát video inline mà không phóng to toàn màn hình
-                video.setAttribute('playsinline', '');
-                video.setAttribute('webkit-playsinline', '');
-                video.muted = true;
                 video.classList.remove('hidden');
-                try {
-                    await video.play();
-                } catch (playErr) {
-                    console.warn('Lỗi video.play (có thể do chính sách autoplay):', playErr);
-                }
             }
             if (placeholder) placeholder.classList.add('hidden');
             if (guide) guide.classList.remove('hidden');
@@ -3766,13 +2995,12 @@ const Admin = {
             if (btnSnap) btnSnap.classList.remove('hidden');
             if (btnStop) btnStop.classList.remove('hidden');
         } catch (err) {
-            console.warn('Lỗi khi mở Live Webcam:', err);
-            // Fallback ngay sang mở Camera gốc của thiết bị
-            this.openDeviceCamera();
+            console.error('Camera error:', err);
+            alert('Không thể mở camera. Vui lòng kiểm tra quyền truy cập webcam trong trình duyệt: ' + err.message);
         }
     },
 
-    async takeCameraSnapshot() {
+    takeCameraSnapshot() {
         const video = document.getElementById('camera-stream-video');
         if (!video || !this.importState.cameraStream) return;
 
@@ -3782,23 +3010,22 @@ const Admin = {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        try {
-            const optimizedFile = await ImageProcessor.processCanvas(canvas, 'invoice', 'camera_capture.webp');
-            const base64 = await ImageProcessor.fileToDataUrl(optimizedFile);
-            const fileName = 'camera_capture_' + Date.now() + '.webp';
+        const base64 = canvas.toDataURL('image/jpeg', 0.9);
+        this.importState.currentImageBase64 = base64;
+        this.importState.imageFileName = 'camera_capture_' + Date.now() + '.jpg';
+        this.importState.isSampleDemo = false;
 
-            this.importState.images.push({
-                id: 'cam_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-                name: fileName,
-                sizeStr: (optimizedFile.size / 1024).toFixed(1) + ' KB',
-                base64: base64
-            });
+        this.stopCamera();
 
-            this.stopCamera();
-            this.renderImageGallery();
-        } catch (error) {
-            alert(error.message || 'Không thể chuẩn hóa ảnh chụp.');
-        }
+        const previewPanel = document.getElementById('import-image-preview-panel');
+        const previewImg = document.getElementById('import-preview-img');
+        const previewName = document.getElementById('import-preview-name');
+        const previewMeta = document.getElementById('import-preview-meta');
+
+        if (previewImg) previewImg.src = base64;
+        if (previewName) previewName.innerText = this.importState.imageFileName;
+        if (previewMeta) previewMeta.innerText = 'Ảnh chụp camera • Sẵn sàng quét AI';
+        if (previewPanel) previewPanel.classList.remove('hidden');
     },
 
     stopCamera() {
@@ -3822,53 +3049,8 @@ const Admin = {
         if (btnStop) btnStop.classList.add('hidden');
     },
 
-    // --- BẬT/TẮT ẨN HIỆN MẬT KHẨU / API KEY ---
-    togglePasswordView(inputId, btn) {
-        const input = document.getElementById(inputId);
-        if (!input) return;
-        const icon = btn ? btn.querySelector('i') : null;
-        if (input.type === 'password') {
-            input.type = 'text';
-            if (icon) {
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            }
-        } else {
-            input.type = 'password';
-            if (icon) {
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        }
-    },
-
-    // --- MỞ / ĐÓNG KHUNG CẬP NHẬT GEMINI API KEY (CHỈ HIỂN THỊ KHI ĐANG CẬP NHẬT) ---
-    toggleGeminiKeyEdit(show) {
-        const inputBox = document.getElementById('gemini-key-input-box');
-        const btnToggle = document.getElementById('btn-toggle-gemini-edit');
-        const keyInput = document.getElementById('setting-gemini-api-key');
-        if (inputBox) {
-            if (show) {
-                inputBox.classList.remove('hidden');
-                if (btnToggle) btnToggle.classList.add('hidden');
-                if (keyInput) {
-                    keyInput.value = '';
-                    keyInput.focus();
-                }
-            } else {
-                inputBox.classList.add('hidden');
-                if (btnToggle) btnToggle.classList.remove('hidden');
-                if (keyInput) keyInput.value = '';
-            }
-        }
-    },
-
     // --- KÍCH HOẠT PHÂN TÍCH AI & OCR (HỖ TRỢ NHIỀU ẢNH / FOLDER) ---
     async runAiInvoiceScan() {
-        if (this.importState.processingImages) {
-            alert('Vui lòng đợi chuẩn hóa ảnh hoàn tất trước khi phân tích.');
-            return;
-        }
         const total = this.importState.images.length;
         if (total === 0) {
             alert('Vui lòng chọn hoặc kéo thả ít nhất 1 ảnh hóa đơn / giấy viết tay!');
@@ -3878,9 +3060,11 @@ const Admin = {
         const statusBox = document.getElementById('import-ai-scanning-status');
         const statusText = document.getElementById('ai-scan-status-text');
         const btnScan = document.getElementById('btn-trigger-ai-scan');
-        
-        // Bảo mật: Xóa hoàn toàn key plaintext lưu trong localStorage cũ (nếu có)
-        try { localStorage.removeItem('pos_gemini_api_key'); } catch (e) {}
+        const keyInput = document.getElementById('import-gemini-api-key');
+        const apiKey = keyInput?.value.trim() || localStorage.getItem('pos_gemini_api_key') || '';
+        if (apiKey) {
+            localStorage.setItem('pos_gemini_api_key', apiKey);
+        }
 
         if (statusBox) statusBox.classList.remove('hidden');
         if (btnScan) btnScan.disabled = true;
@@ -3900,12 +3084,12 @@ const Admin = {
                         : 'Trí tuệ nhân tạo đang phân tích hình ảnh và bóc tách dữ liệu...';
                 }
 
-                // Máy chủ backend tự động sử dụng khóa API bảo mật nội bộ
                 const res = await fetch('api/operations.php?action=ai_parse_invoice', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         image_base64: imgItem.base64,
+                        gemini_api_key: apiKey,
                         is_sample_demo: !!imgItem.isSampleDemo
                     })
                 });
@@ -4155,22 +3339,6 @@ const Admin = {
         const costElem = document.getElementById('import-footer-total-cost');
         if (countElem) countElem.innerText = count;
         if (costElem) costElem.innerText = this.formatMoney(totalCost) + ' đ';
-        this.updateImportPaymentSummary();
-    },
-
-    updateImportPaymentSummary() {
-        const totalText = document.getElementById('import-footer-total-cost')?.innerText || '0';
-        const total = parseFloat(totalText.replace(/[^\d]/g, '')) || 0;
-        ['manual', 'review'].forEach(prefix => {
-            const amountInput = document.getElementById(`${prefix}-import-paid`);
-            const summary = document.getElementById(`${prefix}-import-payment-summary`);
-            if (!amountInput || !summary) return;
-            const paid = Math.max(0, parseFloat(amountInput.value) || 0);
-            const remaining = Math.max(0, total - paid);
-            const status = paid <= 0 ? 'Chưa thanh toán' : (remaining <= 0 ? 'Đã thanh toán đủ' : 'Đã tạm ứng / thanh toán một phần');
-            summary.innerText = `${status} · Còn ${this.formatMoney(remaining)} đ`;
-            summary.className = `mt-1 ${remaining > 0 ? 'text-amber-300' : 'text-emerald-300'}`;
-        });
     },
 
     // --- XÁC NHẬN NHẬP KHO HÀNG LOẠT ---
@@ -4180,17 +3348,11 @@ const Admin = {
         let invoiceNo = '';
         let note = '';
         let items = [];
-        let paidAmount = 0;
-        let paymentMethod = 'cash';
-        let dueDate = '';
 
         if (method === 'manual') {
             supplier = document.getElementById('manual-import-supplier')?.value.trim() || '';
             invoiceNo = document.getElementById('manual-import-invoice-no')?.value.trim() || '';
             note = document.getElementById('manual-import-note')?.value.trim() || 'Nhập kho thủ công';
-            paidAmount = parseFloat(document.getElementById('manual-import-paid')?.value || 0) || 0;
-            paymentMethod = document.getElementById('manual-import-payment-method')?.value || 'cash';
-            dueDate = document.getElementById('manual-import-due-date')?.value || '';
 
             const rows = document.querySelectorAll('#manual-import-tbody tr');
             rows.forEach(tr => {
@@ -4219,9 +3381,6 @@ const Admin = {
             supplier = document.getElementById('review-supplier-input')?.value.trim() || '';
             invoiceNo = document.getElementById('review-invoice-no-input')?.value.trim() || '';
             note = 'Nhập kho bằng AI OCR chứng từ';
-            paidAmount = parseFloat(document.getElementById('review-import-paid')?.value || 0) || 0;
-            paymentMethod = document.getElementById('review-import-payment-method')?.value || 'cash';
-            dueDate = document.getElementById('review-import-due-date')?.value || '';
 
             const rows = document.querySelectorAll('#review-items-tbody tr.review-row');
             rows.forEach(tr => {
@@ -4267,11 +3426,6 @@ const Admin = {
             alert('Không có mặt hàng hợp lệ để nhập kho! Vui lòng kiểm tra lại số lượng (> 0).');
             return;
         }
-        const importTotal = items.reduce((sum, item) => sum + Math.round(Number(item.quantity) * Number(item.unit_price)), 0);
-        if (paidAmount < 0 || paidAmount > importTotal) {
-            alert('Số tiền đã thanh toán phải nằm trong khoảng từ 0 đến tổng tiền hóa đơn.');
-            return;
-        }
 
         const confirmMsg = `Xác nhận nhập ${items.length} mặt hàng vào kho với tổng chi phí ${document.getElementById('import-footer-total-cost')?.innerText || ''}?`;
         if (!confirm(confirmMsg)) return;
@@ -4291,9 +3445,6 @@ const Admin = {
                     invoice_no: invoiceNo,
                     invoice_image: this.importState.invoiceImageUrl,
                     note: note,
-                    paid_amount: paidAmount,
-                    payment_method: paymentMethod,
-                    due_date: dueDate,
                     items: items
                 })
             });
@@ -4304,7 +3455,6 @@ const Admin = {
                 this.resetSmartImportForm();
                 this.closeSmartImportModal();
                 this.loadMaterials();
-                this.loadSupplierFinance();
             } else {
                 alert(data.message || 'Lỗi khi nhập kho!');
             }
@@ -4328,7 +3478,6 @@ const Admin = {
         const actionLabel = document.getElementById('modal-trans-action-label');
         const priceContainer = document.getElementById('modal-trans-price-container');
         const totalBox = document.getElementById('modal-trans-total-box');
-        const paymentFields = document.getElementById('modal-trans-payment-fields');
         const submitBtn = document.getElementById('btn-submit-stock-trans');
 
         if (type === 'import') {
@@ -4336,14 +3485,12 @@ const Admin = {
             if (actionLabel) actionLabel.innerText = 'nhập';
             if (priceContainer) priceContainer.classList.remove('hidden');
             if (totalBox) totalBox.classList.remove('hidden');
-            if (paymentFields) paymentFields.classList.remove('hidden');
             if (submitBtn) submitBtn.className = 'btn-glass-success text-xs py-2 px-5 font-bold flex items-center gap-1.5';
         } else {
             if (title) title.innerHTML = '<i class="fas fa-dolly text-rose-400"></i> Lập Phiếu Xuất Kho Sử Dụng';
             if (actionLabel) actionLabel.innerText = 'xuất';
             if (priceContainer) priceContainer.classList.add('hidden');
             if (totalBox) totalBox.classList.add('hidden');
-            if (paymentFields) paymentFields.classList.add('hidden');
             if (submitBtn) submitBtn.className = 'btn-glass-danger text-xs py-2 px-5 font-bold flex items-center gap-1.5';
         }
 
@@ -4357,10 +3504,6 @@ const Admin = {
 
         document.getElementById('modal-trans-qty').value = '';
         document.getElementById('modal-trans-note').value = '';
-        document.getElementById('modal-trans-invoice-no').value = '';
-        document.getElementById('modal-trans-paid').value = '0';
-        document.getElementById('modal-trans-payment-method').value = 'cash';
-        document.getElementById('modal-trans-due-date').value = '';
         this.onStockMatSelected();
 
         document.getElementById('modal-stock-trans').classList.add('open');
@@ -4409,10 +3552,6 @@ const Admin = {
         const price = parseFloat(document.getElementById('modal-trans-price').value) || 0;
         const sup = document.getElementById('modal-trans-supplier').value.trim();
         const note = document.getElementById('modal-trans-note').value.trim();
-        const paidAmount = type === 'import' ? (parseFloat(document.getElementById('modal-trans-paid').value) || 0) : 0;
-        const paymentMethod = document.getElementById('modal-trans-payment-method').value;
-        const dueDate = document.getElementById('modal-trans-due-date').value;
-        const invoiceNo = document.getElementById('modal-trans-invoice-no').value.trim();
 
         if (isNaN(qty) || qty <= 0) {
             alert('Vui lòng nhập số lượng hợp lệ (> 0)!');
@@ -4429,10 +3568,6 @@ const Admin = {
                     quantity: qty,
                     unit_price: price,
                     supplier: sup,
-                    invoice_no: invoiceNo,
-                    paid_amount: paidAmount,
-                    payment_method: paymentMethod,
-                    due_date: dueDate,
                     note: note
                 })
             });
@@ -4441,7 +3576,6 @@ const Admin = {
                 alert(data.message);
                 this.closeStockTransactionModal();
                 this.loadMaterials();
-                this.loadSupplierFinance();
             } else {
                 alert(data.message || 'Lỗi khi lưu phiếu kho');
             }
@@ -4450,158 +3584,7 @@ const Admin = {
         }
     },
 
-    // 8.4 Supplier directory, purchase invoices and accounts payable
-    openSupplierFinanceModal() {
-        document.getElementById('modal-supplier-finance')?.classList.add('open');
-        this.loadSupplierFinance();
-    },
-
-    closeSupplierFinanceModal() {
-        document.getElementById('modal-supplier-finance')?.classList.remove('open');
-    },
-
-    async loadSupplierFinance() {
-        try {
-            const res = await fetch('api/operations.php?action=get_supplier_finance');
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Không thể tải dữ liệu nhà cung cấp.');
-            this.supplierFinanceState = {
-                suppliers: data.suppliers || [],
-                invoices: data.invoices || [],
-                payments: data.payments || []
-            };
-            const summary = data.summary || {};
-            document.getElementById('supplier-total-purchases').innerText = this.formatMoney(summary.total_purchases || 0) + ' đ';
-            document.getElementById('supplier-total-paid').innerText = this.formatMoney(summary.total_paid || 0) + ' đ';
-            document.getElementById('supplier-total-outstanding').innerText = this.formatMoney(summary.total_outstanding || 0) + ' đ';
-
-            const supplierBody = document.getElementById('supplier-list-tbody');
-            supplierBody.innerHTML = this.supplierFinanceState.suppliers.length
-                ? this.supplierFinanceState.suppliers.map(s => `
-                    <tr class="hover:bg-white/5">
-                        <td class="p-2 font-semibold text-slate-100">${this.escapeHtml(s.name)}</td>
-                        <td class="p-2 text-slate-300">${this.escapeHtml(s.contact_name || '-')}</td>
-                        <td class="p-2 text-slate-300">${this.escapeHtml(s.phone || '-')}<br><span class="text-slate-500">${this.escapeHtml(s.email || '')}</span></td>
-                        <td class="p-2 text-right font-mono ${Number(s.outstanding_balance) > 0 ? 'text-rose-300' : 'text-emerald-300'}">${this.formatMoney(s.outstanding_balance || 0)} đ</td>
-                        <td class="p-2 text-right"><button type="button" class="text-sky-300 hover:text-sky-100" onclick="Admin.editSupplier(${Number(s.id)})">Sửa</button></td>
-                    </tr>`).join('')
-                : '<tr><td colspan="5" class="p-4 text-center text-slate-500">Chưa có nhà cung cấp.</td></tr>';
-
-            const invoiceBody = document.getElementById('supplier-invoices-tbody');
-            const statusLabels = { unpaid: 'Chưa thanh toán', partial: 'Tạm ứng / một phần', paid: 'Đã thanh toán' };
-            invoiceBody.innerHTML = this.supplierFinanceState.invoices.length
-                ? this.supplierFinanceState.invoices.map(i => `
-                    <tr class="hover:bg-white/5">
-                        <td class="p-2 whitespace-nowrap text-slate-300">${this.escapeHtml(i.created_at || '')}<br><span class="font-mono text-sky-300">${this.escapeHtml(i.invoice_code || '')}</span></td>
-                        <td class="p-2">${this.escapeHtml(i.supplier_display_name || 'Không rõ')}<br><span class="text-slate-500">${this.escapeHtml(i.invoice_no || 'Không có số HĐ')}</span></td>
-                        <td class="p-2 text-right font-mono">${this.formatMoney(i.total_amount || 0)} đ</td>
-                        <td class="p-2 text-right font-mono text-emerald-300">${this.formatMoney(i.paid_amount || 0)} đ</td>
-                        <td class="p-2 text-right font-mono ${Number(i.remaining_amount) > 0 ? 'text-rose-300' : 'text-slate-400'}">${this.formatMoney(i.remaining_amount || 0)} đ</td>
-                        <td class="p-2 text-center whitespace-nowrap">${this.escapeHtml(i.due_date || '-')}</td>
-                        <td class="p-2 text-center"><span class="px-2 py-1 rounded-full ${i.payment_status === 'paid' ? 'bg-emerald-500/15 text-emerald-300' : (i.payment_status === 'partial' ? 'bg-amber-500/15 text-amber-300' : 'bg-rose-500/15 text-rose-300')}">${statusLabels[i.payment_status] || i.payment_status}</span></td>
-                        <td class="p-2 text-right">${Number(i.remaining_amount) > 0 ? `<button type="button" class="btn-glass-success py-1 px-2 text-[10px]" onclick="Admin.openSupplierPayment(${Number(i.id)})">Thanh toán</button>` : ''}</td>
-                    </tr>`).join('')
-                : '<tr><td colspan="8" class="p-4 text-center text-slate-500">Chưa có hóa đơn nhập kho.</td></tr>';
-
-            const paymentsList = document.getElementById('supplier-payments-list');
-            paymentsList.innerHTML = this.supplierFinanceState.payments.length
-                ? this.supplierFinanceState.payments.map(p => `
-                    <div class="flex flex-wrap justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-white/5">
-                        <span class="text-slate-300">${this.escapeHtml(p.paid_at || '')} · ${this.escapeHtml(p.supplier_name || '')} · ${this.escapeHtml(p.invoice_code || '')} · ${this.escapeHtml(p.payment_method || 'cash')}${p.reference ? ` · ${this.escapeHtml(p.reference)}` : ''}${p.paid_by_name ? ` · ${this.escapeHtml(p.paid_by_name)}` : ''}</span>
-                        <b class="text-emerald-300 font-mono">${this.formatMoney(p.amount || 0)} đ</b>
-                    </div>`).join('')
-                : '<div class="p-3 text-center text-slate-500">Chưa có giao dịch thanh toán.</div>';
-        } catch (error) {
-            console.error('loadSupplierFinance error:', error);
-            alert(error.message || 'Lỗi tải dữ liệu công nợ nhà cung cấp.');
-        }
-    },
-
-    resetSupplierForm() {
-        document.getElementById('form-supplier')?.reset();
-        document.getElementById('supplier-form-id').value = '';
-        document.getElementById('supplier-form-submit').innerText = 'Thêm nhà cung cấp';
-    },
-
-    editSupplier(id) {
-        const supplier = this.supplierFinanceState.suppliers.find(item => Number(item.id) === Number(id));
-        if (!supplier) return;
-        document.getElementById('supplier-form-id').value = supplier.id;
-        document.getElementById('supplier-form-name').value = supplier.name || '';
-        document.getElementById('supplier-form-contact').value = supplier.contact_name || '';
-        document.getElementById('supplier-form-phone').value = supplier.phone || '';
-        document.getElementById('supplier-form-email').value = supplier.email || '';
-        document.getElementById('supplier-form-address').value = supplier.address || '';
-        document.getElementById('supplier-form-note').value = supplier.note || '';
-        document.getElementById('supplier-form-submit').innerText = 'Lưu thay đổi';
-        document.getElementById('supplier-form-name').focus();
-    },
-
-    async submitSupplier(event) {
-        event.preventDefault();
-        const payload = {
-            id: Number(document.getElementById('supplier-form-id').value || 0),
-            name: document.getElementById('supplier-form-name').value.trim(),
-            contact_name: document.getElementById('supplier-form-contact').value.trim(),
-            phone: document.getElementById('supplier-form-phone').value.trim(),
-            email: document.getElementById('supplier-form-email').value.trim(),
-            address: document.getElementById('supplier-form-address').value.trim(),
-            note: document.getElementById('supplier-form-note').value.trim()
-        };
-        try {
-            const res = await fetch('api/operations.php?action=save_supplier', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Không thể lưu nhà cung cấp.');
-            this.resetSupplierForm();
-            await this.loadSupplierFinance();
-        } catch (error) {
-            alert(error.message || 'Lỗi kết nối máy chủ.');
-        }
-    },
-
-    openSupplierPayment(invoiceId) {
-        const invoice = this.supplierFinanceState.invoices.find(item => Number(item.id) === Number(invoiceId));
-        if (!invoice) return;
-        const balance = Number(invoice.remaining_amount) || 0;
-        document.getElementById('supplier-payment-invoice-id').value = invoice.id;
-        document.getElementById('supplier-payment-amount').value = '';
-        document.getElementById('supplier-payment-amount').max = balance;
-        document.getElementById('supplier-payment-reference').value = '';
-        document.getElementById('supplier-payment-note').value = '';
-        document.getElementById('supplier-payment-invoice-label').innerText =
-            `${invoice.supplier_display_name || 'Nhà cung cấp'} · ${invoice.invoice_code} · Còn nợ ${this.formatMoney(balance)} đ`;
-        document.getElementById('modal-supplier-payment').classList.add('open');
-    },
-
-    closeSupplierPaymentModal() {
-        document.getElementById('modal-supplier-payment')?.classList.remove('open');
-    },
-
-    async submitSupplierPayment(event) {
-        event.preventDefault();
-        const payload = {
-            invoice_id: Number(document.getElementById('supplier-payment-invoice-id').value),
-            amount: Number(document.getElementById('supplier-payment-amount').value),
-            payment_method: document.getElementById('supplier-payment-method').value,
-            reference: document.getElementById('supplier-payment-reference').value.trim(),
-            note: document.getElementById('supplier-payment-note').value.trim()
-        };
-        try {
-            const res = await fetch('api/operations.php?action=record_supplier_payment', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Không thể ghi nhận thanh toán.');
-            this.closeSupplierPaymentModal();
-            await this.loadSupplierFinance();
-        } catch (error) {
-            alert(error.message || 'Lỗi kết nối máy chủ.');
-        }
-    },
-
-    // 8.5 Material History & Expenses
+    // 8.4 Material History & Expenses
     openMaterialHistoryModal() {
         document.getElementById('modal-material-history').classList.add('open');
         this.loadMaterialHistory();
@@ -4708,177 +3691,40 @@ const Admin = {
                 `).join('');
             }
 
-            // Danh sách nhân viên cho bộ lọc nhật ký (giữ lựa chọn hiện tại)
-            const userSel = document.getElementById('att-filter-user');
-            if (userSel) {
-                const keep = userSel.value;
-                userSel.innerHTML = '<option value="0">Tất cả nhân viên</option>' + (data.payroll_summary || []).map(ps =>
-                    `<option value="${ps.user_id}">${String(ps.fullname).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))} (${ps.user_code || 'NV' + ps.user_id})</option>`).join('');
-                userSel.value = keep && [...userSel.options].some(o => o.value === keep) ? keep : '0';
+            // Render Detailed Attendance Log
+            const recTbody = document.getElementById('payroll-records-tbody');
+            if (recTbody) {
+                const records = data.attendance_records || [];
+                if (records.length === 0) {
+                    recTbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">Không có lượt chấm công nào trong tháng ${month}.</td></tr>`;
+                    return;
+                }
+
+                recTbody.innerHTML = records.map(r => {
+                    const isWorking = r.status === 'working';
+                    const inTime = r.check_in_time ? r.check_in_time.split(' ')[1] : '';
+                    const outTime = r.check_out_time ? r.check_out_time.split(' ')[1] : (isWorking ? '---' : '');
+
+                    return `
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-2 px-3 font-mono text-slate-300">${r.work_date}</td>
+                            <td class="py-2 px-3 font-bold text-slate-200">${r.user_name}</td>
+                            <td class="py-2 px-3 font-mono text-sky-400"><i class="fas fa-arrow-right-to-bracket text-[10px] mr-1"></i>${inTime}</td>
+                            <td class="py-2 px-3 font-mono text-amber-300">${outTime ? `<i class="fas fa-arrow-right-from-bracket text-[10px] mr-1"></i>${outTime}` : '---'}</td>
+                            <td class="py-2 px-3 font-mono font-bold text-slate-100">${r.work_hours || 0} h</td>
+                            <td class="py-2 px-3 font-mono text-slate-400">${Admin.formatMoney(r.hourly_rate)} đ</td>
+                            <td class="py-2 px-3 text-right font-mono font-bold text-emerald-400">${Admin.formatMoney(r.total_pay)} đ</td>
+                            <td class="py-2 px-3 text-center">
+                                ${isWorking 
+                                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">🟢 Đang trong ca</span>'
+                                    : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5 text-[10px]">Đã tan ca</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
-            if (this.attFilterActive) this.loadAttendanceLog(this.attPage || 1);
         } catch (e) {
             console.error('loadPayroll error:', e);
-        }
-    },
-
-    // Nhật ký chấm công chi tiết: chỉ tải khi có bộ lọc
-    attFilterParams() {
-        const v = id => (document.getElementById(id)?.value || '').trim();
-        const p = new URLSearchParams({ month: document.getElementById('payroll-month-input')?.value || '' });
-        if (v('att-filter-user') && v('att-filter-user') !== '0') p.set('user_id', v('att-filter-user'));
-        if (v('att-filter-q')) p.set('q', v('att-filter-q'));
-        if (v('att-filter-from')) p.set('from', v('att-filter-from'));
-        if (v('att-filter-to')) p.set('to', v('att-filter-to'));
-        if (v('att-filter-status')) p.set('status', v('att-filter-status'));
-        return p;
-    },
-
-    hasAttendanceFilter() {
-        const p = this.attFilterParams();
-        return ['user_id', 'q', 'from', 'to', 'status'].some(k => p.has(k));
-    },
-
-    applyAttendanceFilter() {
-        if (!this.hasAttendanceFilter()) {
-            this.attFilterActive = false;
-            this.renderAttendanceEmpty('Hãy chọn nhân viên, nhập tên/mã, chọn khoảng ngày hoặc trạng thái rồi bấm Lọc.');
-            return;
-        }
-        this.attFilterActive = true;
-        this.loadAttendanceLog(1);
-    },
-
-    resetAttendanceFilter() {
-        ['att-filter-q', 'att-filter-from', 'att-filter-to'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-        const u = document.getElementById('att-filter-user'); if (u) u.value = '0';
-        const s = document.getElementById('att-filter-status'); if (s) s.value = '';
-        this.attFilterActive = false;
-        this.renderAttendanceEmpty('Chọn bộ lọc để xem nhật ký chấm công.');
-    },
-
-    renderAttendanceEmpty(msg) {
-        const tbody = document.getElementById('payroll-records-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">${msg}</td></tr>`;
-        const sum = document.getElementById('att-summary'); if (sum) sum.textContent = '';
-        const pager = document.getElementById('att-pager'); if (pager) pager.style.display = 'none';
-        const btn = document.getElementById('att-export-btn');
-        if (btn) { btn.disabled = true; btn.style.opacity = '.4'; }
-    },
-
-    attendancePage(delta) {
-        const next = (this.attPage || 1) + delta;
-        if (next >= 1 && next <= (this.attPages || 1)) this.loadAttendanceLog(next);
-    },
-
-    async loadAttendanceLog(page = 1) {
-        const tbody = document.getElementById('payroll-records-tbody');
-        if (!tbody) return;
-        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        const p = this.attFilterParams();
-        p.set('action', 'get_attendance_log');
-        p.set('page', page);
-        try {
-            const data = await (await fetch(`api/operations.php?${p.toString()}`)).json();
-            if (!data.success) { this.renderAttendanceEmpty('Không tải được dữ liệu.'); return; }
-            this.attPage = data.page;
-            this.attPages = data.pages;
-            this.attTotal = data.total;
-            const btn = document.getElementById('att-export-btn');
-            if (btn) { btn.disabled = data.total === 0; btn.style.opacity = data.total === 0 ? '.4' : '1'; }
-            const sum = document.getElementById('att-summary');
-            if (sum) sum.innerHTML = `${data.total} ca · <b class="text-sky-300">${data.total_hours} h</b> · <b class="text-emerald-400">${this.formatMoney(data.total_pay)} đ</b> <span class="text-slate-500">(${data.from} → ${data.to})</span>`;
-            if (!data.records.length) { this.renderAttendanceEmpty('Không có lượt chấm công nào khớp bộ lọc.'); if (sum) sum.textContent = `0 ca (${data.from} → ${data.to})`; return; }
-
-            tbody.innerHTML = data.records.map(r => {
-                const isWorking = r.status === 'working';
-                const inTime = r.check_in_time ? r.check_in_time.split(' ')[1] : '';
-                const outTime = r.check_out_time ? r.check_out_time.split(' ')[1] : '';
-                return `
-                    <tr class="hover:bg-white/5 transition-colors">
-                        <td class="py-2 px-3 font-mono text-slate-300">${esc(r.work_date)}</td>
-                        <td class="py-2 px-3 font-bold text-slate-200">${esc(r.user_name)}</td>
-                        <td class="py-2 px-3 font-mono text-sky-400"><i class="fas fa-arrow-right-to-bracket text-[10px] mr-1"></i>${esc(inTime)}</td>
-                        <td class="py-2 px-3 font-mono text-amber-300">${outTime ? `<i class="fas fa-arrow-right-from-bracket text-[10px] mr-1"></i>${esc(outTime)}` : '---'}</td>
-                        <td class="py-2 px-3 font-mono font-bold text-slate-100">${r.work_hours || 0} h</td>
-                        <td class="py-2 px-3 font-mono text-slate-400">${Admin.formatMoney(r.hourly_rate)} đ</td>
-                        <td class="py-2 px-3 text-right font-mono font-bold text-emerald-400">${Admin.formatMoney(r.total_pay)} đ</td>
-                        <td class="py-2 px-3 text-center">
-                            ${isWorking
-                                ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">🟢 Đang trong ca</span>'
-                                : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5 text-[10px]">Đã tan ca</span>'}
-                        </td>
-                    </tr>`;
-            }).join('');
-
-            const pager = document.getElementById('att-pager');
-            if (pager) {
-                pager.style.display = data.pages > 1 ? 'flex' : 'none';
-                document.getElementById('att-page-info').textContent = `Trang ${data.page}/${data.pages}`;
-                document.getElementById('att-prev').disabled = data.page <= 1;
-                document.getElementById('att-next').disabled = data.page >= data.pages;
-            }
-        } catch (e) {
-            console.error('loadAttendanceLog error:', e);
-        }
-    },
-
-    // Xuất PDF theo bộ lọc hiện tại: mở trang in gọn, chọn "Lưu dạng PDF" trong hộp thoại in
-    async exportAttendancePdf() {
-        if (!this.attFilterActive) return;
-        const win = window.open('', '_blank');
-        if (!win) { alert('Trình duyệt đang chặn cửa sổ bật lên. Hãy cho phép rồi thử lại.'); return; }
-        win.document.write('<p style="font-family:sans-serif">Đang tạo báo cáo...</p>');
-        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        try {
-            const p = this.attFilterParams();
-            p.set('action', 'get_attendance_log');
-            p.set('export', '1');
-            const data = await (await fetch(`api/operations.php?${p.toString()}`)).json();
-            if (!data.success) { win.close(); return; }
-
-            const userSel = document.getElementById('att-filter-user');
-            const statusSel = document.getElementById('att-filter-status');
-            const q = document.getElementById('att-filter-q')?.value.trim();
-            const filters = [
-                userSel && userSel.value !== '0' ? `Nhân viên: ${userSel.options[userSel.selectedIndex].text}` : '',
-                q ? `Từ khóa: ${q}` : '',
-                statusSel?.value ? `Trạng thái: ${statusSel.options[statusSel.selectedIndex].text}` : '',
-            ].filter(Boolean).join(' · ') || 'Tất cả nhân viên';
-            const storeName = document.querySelector('header h1, h1')?.textContent.split('•')[0].trim() || '';
-            const fmtDate = d => d.split('-').reverse().join('/');
-            const rows = data.records.map((r, i) => `
-                <tr><td>${i + 1}</td><td>${fmtDate(r.work_date)}</td><td>${esc(r.user_name)}</td><td>${esc(r.user_code || '')}</td>
-                <td>${r.shift_no ? 'Ca ' + r.shift_no : ''}</td>
-                <td>${esc((r.check_in_time || '').split(' ')[1] || '')}</td><td>${esc((r.check_out_time || '').split(' ')[1] || (r.status === 'working' ? 'Đang làm' : ''))}</td>
-                <td class="n">${r.work_hours || 0}</td><td class="n">${this.formatMoney(r.hourly_rate)}</td><td class="n">${this.formatMoney(r.total_pay)}</td></tr>`).join('');
-
-            win.document.open();
-            win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Nhật ký chấm công ${data.from} - ${data.to}</title>
-                <style>
-                    @page { size: A4 landscape; margin: 12mm; }
-                    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; }
-                    h1 { font-size: 16px; margin: 0 0 2px; } .sub { color: #444; margin-bottom: 8px; }
-                    table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #999; padding: 3px 5px; }
-                    th { background: #eee; text-align: left; } td.n, th.n { text-align: right; }
-                    tr { page-break-inside: avoid; } thead { display: table-header-group; }
-                    tfoot td { font-weight: bold; background: #f5f5f5; }
-                    .warn { color: #b00; margin-top: 6px; }
-                    .sign { display: flex; justify-content: space-around; margin-top: 28px; text-align: center; }
-                </style></head><body>
-                <h1>NHẬT KÝ CHẤM CÔNG CHI TIẾT</h1>
-                <div class="sub">${esc(storeName)} · Từ ${fmtDate(data.from)} đến ${fmtDate(data.to)} · ${esc(filters)}<br>Xuất lúc ${new Date().toLocaleString('vi-VN')}</div>
-                <table><thead><tr><th>#</th><th>Ngày</th><th>Nhân viên</th><th>Mã</th><th>Ca</th><th>Giờ vào</th><th>Giờ ra</th><th class="n">Số giờ</th><th class="n">Lương/giờ</th><th class="n">Tiền ca (đ)</th></tr></thead>
-                <tbody>${rows}</tbody>
-                <tfoot><tr><td colspan="7">Tổng cộng: ${data.total} ca</td><td class="n">${data.total_hours}</td><td></td><td class="n">${this.formatMoney(data.total_pay)}</td></tr></tfoot></table>
-                ${data.truncated ? '<div class="warn">Chỉ in 5.000 dòng đầu tiên, hãy thu hẹp bộ lọc để xem đầy đủ.</div>' : ''}
-                <div class="sign"><div><b>Người lập</b><br><i>(Ký, ghi rõ họ tên)</i></div><div><b>Chủ quán</b><br><i>(Ký, ghi rõ họ tên)</i></div></div>
-                <script>window.onload = function () { setTimeout(function () { window.print(); }, 300); };<\/script>
-                </body></html>`);
-            win.document.close();
-        } catch (e) {
-            console.error('exportAttendancePdf error:', e);
-            win.close();
         }
     },
 
@@ -4986,118 +3832,7 @@ const Admin = {
     }
 };
 
-// Global helper for toggling password / API key visibility
-window.togglePasswordVisibility = (id, btn) => Admin.togglePasswordView(id, btn);
-
-// Bảng có hơn 10 dòng: cuộn riêng trong khung bảng (tiêu đề cố định), không cuộn cả trang
-const TABLE_SCROLL_ROWS = 10;
-function tableDataRows(table) {
-    const body = table.tBodies && table.tBodies[0];
-    return body ? Array.from(body.rows).filter(r => r.cells.length > 1) : [];
-}
-function runTableFilter(table, bar) {
-    const q = bar.querySelector('input').value.trim().toLowerCase();
-    const col = parseInt(bar.querySelector('select').value, 10);
-    let shown = 0;
-    const rows = tableDataRows(table);
-    rows.forEach(r => {
-        const text = (col >= 0 ? (r.cells[col] ? r.cells[col].innerText : '') : r.innerText).toLowerCase();
-        const ok = !q || text.includes(q);
-        r.style.display = ok ? '' : 'none';
-        if (ok) shown++;
-    });
-    const label = q ? shown + '/' + rows.length + ' dòng' : rows.length + ' dòng';
-    const span = bar.querySelector('span');
-    if (span.textContent !== label) span.textContent = label;
-}
-// Bảng đã có ô lọc/tìm kiếm riêng (nằm trước bảng trong cùng khối) thì không thêm thanh chung
-function tableHasOwnFilter(table) {
-    let el = table.parentElement;
-    for (let depth = 0; el && depth < 3; depth++, el = el.parentElement) {
-        if (el.tagName === 'SECTION' || el.tagName === 'MAIN') break;
-        for (let sib = el.previousElementSibling; sib; sib = sib.previousElementSibling) {
-            if (sib.classList.contains('table-search-bar') || sib.tagName === 'TABLE') continue;
-            if (sib.matches('input,select') || sib.querySelector('input:not([type=hidden]):not([type=checkbox]),select')) return true;
-        }
-    }
-    return false;
-}
-function ensureTableSearch(table) {
-    const wrap = table.parentElement;
-    if (!wrap || !wrap.parentElement || table.dataset.noSearch !== undefined) return;
-    if (!table._searchBar && tableHasOwnFilter(table)) return;
-    const rows = tableDataRows(table);
-    let bar = table._searchBar;
-    if (rows.length <= TABLE_SCROLL_ROWS) {
-        if (bar && !bar.querySelector('input').value) {
-            bar.remove();
-            table._searchBar = null;
-        }
-        return;
-    }
-    const heads = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.trim());
-    if (!bar) {
-        bar = document.createElement('div');
-        bar.className = 'table-search-bar';
-        bar.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 8px;flex-wrap:wrap';
-        const fieldStyle = 'background:rgba(15,23,42,.8);color:#e2e8f0;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 10px;font-size:12px';
-        bar.innerHTML = '<input type="search" placeholder="Tìm trong bảng..." style="' + fieldStyle + ';min-width:200px;flex:1;max-width:320px">' +
-            '<select style="' + fieldStyle + '"></select><span style="font-size:11px;color:#94a3b8"></span>';
-        wrap.parentElement.insertBefore(bar, wrap);
-        table._searchBar = bar;
-        const run = () => { runTableFilter(table, bar); };
-        bar.querySelector('input').addEventListener('input', run);
-        bar.querySelector('select').addEventListener('change', run);
-    }
-    const sel = bar.querySelector('select');
-    const sig = heads.join('|');
-    if (sel.dataset.sig !== sig) {
-        const cur = sel.value;
-        sel.innerHTML = '<option value="-1">Tất cả cột</option>' +
-            heads.map((h, i) => h ? '<option value="' + i + '">' + h.replace(/</g, '&lt;') + '</option>' : '').join('');
-        sel.value = cur && sel.querySelector('option[value="' + cur + '"]') ? cur : '-1';
-        sel.dataset.sig = sig;
-    }
-    runTableFilter(table, bar);
-}
-function applyTableScroll(table) {
-    const wrap = table.parentElement;
-    const body = table.tBodies && table.tBodies[0];
-    if (!wrap || !body || table.offsetHeight === 0) return;
-    ensureTableSearch(table);
-    if (table._searchBar && table._searchBar.querySelector('input').value) return;
-    const rows = tableDataRows(table);
-    if (rows.length > TABLE_SCROLL_ROWS) {
-        const limit = rows[TABLE_SCROLL_ROWS - 1].getBoundingClientRect().bottom - table.getBoundingClientRect().top + 2;
-        if (limit > 60) {
-            wrap.style.maxHeight = Math.ceil(limit) + 'px';
-            wrap.style.overflow = 'auto';
-            wrap.dataset.rowScroll = '1';
-            table.classList.add('table-row-scroll');
-        }
-    } else if (wrap.dataset.rowScroll) {
-        wrap.style.maxHeight = '';
-        wrap.style.overflow = '';
-        delete wrap.dataset.rowScroll;
-        table.classList.remove('table-row-scroll');
-    }
-}
-function refreshTableScroll() {
-    document.querySelectorAll('table').forEach(applyTableScroll);
-}
-function initTableScroll() {
-    const style = document.createElement('style');
-    style.textContent = '.table-row-scroll thead th{position:sticky;top:0;z-index:2;background:#0f172a;box-shadow:0 1px 0 rgba(255,255,255,.12)}';
-    document.head.appendChild(style);
-    let timer = null;
-    const schedule = () => { clearTimeout(timer); timer = setTimeout(refreshTableScroll, 150); };
-    new MutationObserver(schedule).observe(document.body, {
-        childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden']
-    });
-    schedule();
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     Admin.init();
-    initTableScroll();
 });
+
