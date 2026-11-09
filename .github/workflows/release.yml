@@ -1,0 +1,40 @@
+name: Package & Release CYBERNEXUS OS
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release-windows:
+    name: Build & Package Windows Release
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build All Targets
+      run: cmake --build build --config Release
+
+    - name: Create Release Archive
+      shell: powershell
+      run: |
+        New-Item -ItemType Directory -Path release_pkg\modules -Force
+        Copy-Item -Path build\Release\*.exe -Destination release_pkg\ -ErrorAction SilentlyContinue
+        Copy-Item -Path build\Release\*.dll -Destination release_pkg\modules\ -ErrorAction SilentlyContinue
+        Copy-Item -Path docs -Destination release_pkg\docs -Recurse -Force
+        Compress-Archive -Path release_pkg\* -DestinationPath CYBERNEXUS-OS-Windows.zip
+
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: CYBERNEXUS-OS-Windows.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
