@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 using namespace SaleApp::Backend;
 using namespace CyberNexus;
 
-// Trình thông dịch & Render file giao diện PHP sang HTML chuẩn Liquid Glass
+// Trình thông dịch & Render file giao diện PHP sang HTML chuẩn Liquid Glass (C++ Native)
 static std::string renderPhpView(const std::string& filePath, int port) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) return "<h1>404 Not Found - Không tìm thấy giao diện</h1>";
@@ -45,17 +45,37 @@ static std::string renderPhpView(const std::string& filePath, int port) {
         }
     };
 
+    // 1. Thay thế các biến thông tin quán
     replaceAll(content, "<?= htmlspecialchars(STORE_NAME) ?>", storeName);
     replaceAll(content, "<?= STORE_NAME ?>", storeName);
     replaceAll(content, "<?= htmlspecialchars(APP_NAME) ?>", "CyberNexus OS");
     replaceAll(content, "<?= APP_NAME ?>", "CyberNexus OS");
-    replaceAll(content, "<?= APP_VERSION ?>", "v1.0 Liquid Glass");
+    replaceAll(content, "<?= htmlspecialchars(APP_SUBTITLE) ?>", "Hệ Thống Bán Hàng & Quản Trị Trà Sữa - Cafe");
+    replaceAll(content, "<?= APP_SUBTITLE ?>", "Hệ Thống Bán Hàng & Quản Trị Trà Sữa - Cafe");
+    replaceAll(content, "<?= APP_VERSION ?>", "v1.0 Liquid Glass C++ Native");
+    replaceAll(content, "<?= htmlspecialchars(STORE_ADDRESS) ?>", "123 Đường Số 1, Phường 5, TP.HCM");
+    replaceAll(content, "<?= STORE_ADDRESS ?>", "123 Đường Số 1, Phường 5, TP.HCM");
+    replaceAll(content, "<?= htmlspecialchars(STORE_HOTLINE) ?>", "0901234567");
+    replaceAll(content, "<?= STORE_HOTLINE ?>", "0901234567");
     replaceAll(content, "<?= $lanUrl ?>", lanUrl);
     replaceAll(content, "<?= $serverIp ?>", "127.0.0.1");
     replaceAll(content, "<?= $serverPort ?>", std::to_string(port));
     replaceAll(content, "<?= $storeLogoDataUri ?>", "");
 
-    // Loại bỏ các khối code PHP dư thừa còn lại
+    // 2. Thay thế an toàn các biến JavaScript để không bị lỗi cú pháp JS (SyntaxError)
+    replaceAll(content, "<?= json_encode($currentUser) ?>", "null");
+    replaceAll(content, "<?= $currentUser ? json_encode($currentUser) : 'null' ?>", "null");
+    replaceAll(content, "<?= json_encode($orderContext) ?>", "{}");
+    replaceAll(content, "<?= json_encode($paymentDetails) ?>", "{}");
+    replaceAll(content, "<?= json_encode($wifiCredentials) ?>", "{\"ssid\":\"GocPho_Guest\",\"password\":\"88888888\"}");
+    replaceAll(content, "<?= json_encode($slides) ?>", "[]");
+    replaceAll(content, "<?= $vietqrEnabled ? 'true' : 'false' ?>", "true");
+
+    // 3. Regex phòng vệ: Bất kỳ gán biến JS nào còn sót dạng `var x = <?= ... ?>;` đều được gán an toàn = null;
+    std::regex assignRegex(R"(=\s*<\?=(?:[\s\S]*?)\?>\s*;)");
+    content = std::regex_replace(content, assignRegex, "= null;");
+
+    // 4. Loại bỏ các thẻ PHP logic còn lại
     std::regex phpTagRegex(R"((<\?(?:php|=)[\s\S]*?\?>))");
     content = std::regex_replace(content, phpTagRegex, "");
 
@@ -79,19 +99,20 @@ int main(int argc, char* argv[]) {
     std::cout << "        🚀 CYBERNEXUS OS — NATIVE MICROKERNEL HOST        " << std::endl;
     std::cout << "  Smart Venue Operating System (POS + Network + Media + AI)" << std::endl;
     std::cout << "  Version 1.0.0 (C++17 Standalone - Dynamic Module Engine) " << std::endl;
+    std::cout << "  Chay thuan C++ Native doc lap - Hoan toan KHONG dung PHP " << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     // 1. Xác định và mở Cơ sở dữ liệu SQLite
-    std::string dbPath = "database/cybernexus.db";
-    if (!fs::exists(dbPath)) dbPath = "database/pos_database.sqlite";
-    if (!fs::exists(dbPath)) dbPath = "../database/cybernexus.db";
+    std::string dbPath = "database/pos_database.sqlite";
+    if (!fs::exists(dbPath)) dbPath = "database/cybernexus.db";
     if (!fs::exists(dbPath)) dbPath = "../database/pos_database.sqlite";
+    if (!fs::exists(dbPath)) dbPath = "../database/cybernexus.db";
 
     if (!Database::instance().open(dbPath)) {
-        std::cerr << "[CRITICAL] Không thể mở CSDL SQLite tại: " << dbPath << std::endl;
-        Database::instance().open("cybernexus.db");
+        std::cerr << "[CRITICAL] Khong the mo CSDL SQLite tai: " << dbPath << std::endl;
+        Database::instance().open("pos_database.sqlite");
     } else {
-        std::cout << "[DB] Mở thành công CSDL SQLite: " << dbPath << std::endl;
+        std::cout << "[DB] Mo thanh cong CSDL SQLite: " << dbPath << std::endl;
     }
 
     httplib::Server svr;
@@ -130,63 +151,60 @@ int main(int argc, char* argv[]) {
     if (!fs::exists(modulesDir)) modulesDir = "./build/release/modules";
     if (!fs::exists(modulesDir)) modulesDir = "../build/release/modules";
     size_t loadedCount = PluginManager::instance().scanAndLoadDirectory(modulesDir, ctx);
-    std::cout << "[Core] Tổng số module độc lập được nạp thành công: " << loadedCount << std::endl;
+    std::cout << "[Core] Tong so module doc lap duoc nap: " << loadedCount << std::endl;
     PluginManager::instance().registerAllActiveRoutes(svr);
 
     // 4. Mount các thư mục tài nguyên tĩnh (assets, img, uploads)
-    std::string webDir = "web";
-    if (!fs::exists(webDir)) webDir = "../web";
-
-    if (fs::exists(webDir + "/assets")) {
-        svr.set_mount_point("/assets", webDir + "/assets");
-        std::cout << "[Static] Mount /assets từ " << (webDir + "/assets") << std::endl;
-    } else if (fs::exists("assets")) {
+    if (fs::exists("assets")) {
         svr.set_mount_point("/assets", "assets");
+        std::cout << "[Static] Mount /assets" << std::endl;
+    } else if (fs::exists("web/assets")) {
+        svr.set_mount_point("/assets", "web/assets");
     }
 
-    if (fs::exists(webDir + "/img")) {
-        svr.set_mount_point("/img", webDir + "/img");
-        std::cout << "[Static] Mount /img từ " << (webDir + "/img") << std::endl;
-    } else if (fs::exists("img")) {
+    if (fs::exists("img")) {
         svr.set_mount_point("/img", "img");
+        std::cout << "[Static] Mount /img" << std::endl;
+    } else if (fs::exists("web/img")) {
+        svr.set_mount_point("/img", "web/img");
     }
 
-    if (fs::exists(webDir + "/uploads")) {
-        svr.set_mount_point("/uploads", webDir + "/uploads");
-        std::cout << "[Static] Mount /uploads từ " << (webDir + "/uploads") << std::endl;
-    } else if (fs::exists("uploads")) {
+    if (fs::exists("uploads")) {
         svr.set_mount_point("/uploads", "uploads");
+        std::cout << "[Static] Mount /uploads" << std::endl;
+    } else if (fs::exists("web/uploads")) {
+        svr.set_mount_point("/uploads", "web/uploads");
     }
 
-    // 5. Trình phục vụ giao diện Web Liquid Glass (Tự động render không tải file code)
-    auto serveView = [webDir, port](const std::string& name) {
-        return [webDir, port, name](const httplib::Request&, httplib::Response& res) {
+    // 5. Trình phục vụ giao diện Web Liquid Glass (Tự động render không bao giờ tải file code)
+    auto serveView = [port](const std::string& name) {
+        return [port, name](const httplib::Request&, httplib::Response& res) {
             std::string html;
-            std::string webHtml = webDir + "/" + name + ".html";
-            std::string webPhp = webDir + "/" + name + ".php";
-            std::string directHtml = name + ".html";
             std::string directPhp = name + ".php";
+            std::string webPhp = "web/" + name + ".php";
+            std::string directHtml = name + ".html";
+            std::string webHtml = "web/" + name + ".html";
 
-            if (fs::exists(webPhp)) {
-                html = renderPhpView(webPhp, port);
-            } else if (fs::exists(webHtml)) {
+            if (fs::exists(webHtml)) {
                 std::ifstream f(webHtml, std::ios::binary);
                 std::stringstream ss; ss << f.rdbuf();
                 html = ss.str();
-            } else if (fs::exists(directPhp)) {
-                html = renderPhpView(directPhp, port);
             } else if (fs::exists(directHtml)) {
                 std::ifstream f(directHtml, std::ios::binary);
                 std::stringstream ss; ss << f.rdbuf();
                 html = ss.str();
+            } else if (fs::exists(directPhp)) {
+                html = renderPhpView(directPhp, port);
+            } else if (fs::exists(webPhp)) {
+                html = renderPhpView(webPhp, port);
             } else {
-                html = "<h1>404 Not Found - Không tìm thấy trang " + name + "</h1>";
+                html = "<h1>404 Not Found - Khong tim thay trang " + name + "</h1>";
             }
             res.set_content(html, "text/html; charset=utf-8");
         };
     };
 
-    // Các Route giao diện chính (cả đuôi .html, .php và không đuôi)
+    // Các Route giao diện chính
     svr.Get("/", serveView("index"));
     svr.Get("/index", serveView("index"));
     svr.Get("/index.html", serveView("index"));
@@ -213,7 +231,7 @@ int main(int argc, char* argv[]) {
     svr.Get("/super_admin.html", serveView("super_admin"));
     svr.Get("/super_admin.php", serveView("super_admin"));
 
-    // Bắt toàn bộ các request file .php để render thay vì cho tải về máy
+    // Bắt toàn bộ các request file .php để render HTML mượt mà, ngăn tuyệt đối việc tải file code
     svr.Get(R"(/([\w-]+)\.php)", [serveView](const httplib::Request& req, httplib::Response& res) {
         std::string viewName = req.matches[1];
         serveView(viewName)(req, res);
@@ -224,21 +242,17 @@ int main(int argc, char* argv[]) {
     });
 
     std::cout << "==========================================================" << std::endl;
-    std::cout << "  🚀 GIAO DIỆN LIQUID GLASS SẴN SÀNG (ĐÃ SỬA TRIỆT ĐỂ):  " << std::endl;
-    std::cout << "     -> Quầy Bán Hàng POS: http://localhost:" << port << "/index.php" << std::endl;
-    std::cout << "     -> Màn Hình Bếp KDS: http://localhost:" << port << "/kitchen.php" << std::endl;
-    std::cout << "     -> Nhân Viên Order:  http://localhost:" << port << "/order.php" << std::endl;
-    std::cout << "     -> Menu Khách Hàng:  http://localhost:" << port << "/customer.php" << std::endl;
-    std::cout << "     -> Quản Trị Quán:    http://localhost:" << port << "/admin.php" << std::endl;
-    std::cout << "     -> SuperAdmin Master:http://localhost:" << port << "/super_admin.php" << std::endl;
+    std::cout << "  🚀 MAY CHU CYBERNEXUS C++ NATIVE SAN SANG (PORT " << port << "):" << std::endl;
+    std::cout << "     -> Quay Ban Hang POS: http://localhost:" << port << "/index.php" << std::endl;
+    std::cout << "     -> Man Hinh Bep KDS:  http://localhost:" << port << "/kitchen.php" << std::endl;
+    std::cout << "     -> Nhan Vien Order:   http://localhost:" << port << "/order.php" << std::endl;
+    std::cout << "     -> Menu Khach Hang:   http://localhost:" << port << "/customer.php" << std::endl;
+    std::cout << "     -> Quan Tri Quan:     http://localhost:" << port << "/admin.php" << std::endl;
+    std::cout << "     -> SuperAdmin Master: http://localhost:" << port << "/super_admin.php" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
     if (!svr.listen("0.0.0.0", port)) {
-        if (port == 8500) {
-            port = 8550;
-            std::cout << "[Server] Chuyển sang port " << port << std::endl;
-            svr.listen("0.0.0.0", port);
-        }
+        std::cerr << "[Loi] Khong the lang nghe tren port " << port << std::endl;
     }
 
     return 0;

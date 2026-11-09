@@ -851,9 +851,9 @@
     </script>
     <script src="assets/vendor/qrcode.min.js"></script>
     <script>
-        window.customerOrderContext = ;
-        window.customerPaymentDetails = ;
-        window.customerWifiCredentials = ;
+        window.customerOrderContext = {};
+        window.customerPaymentDetails = {};
+        window.customerWifiCredentials = {"ssid":"GocPho_Guest","password":"88888888"};
 
         function escapeWifiValue(value) {
             return String(value).replace(/[\\;,:"]/g, '\\$&');
