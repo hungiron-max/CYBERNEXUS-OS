@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Build Status](https://github.com/hungiron-max/CYBERNEXUS-OS/actions/workflows/build-test.yml/badge.svg)](https://github.com/hungiron-max/CYBERNEXUS-OS/actions/workflows/build-test.yml)
+[![Build Status](https://github.com/hungiron-max/cybernexus-os/actions/workflows/build-test.yml/badge.svg)](https://github.com/hungiron-max/cybernexus-os/actions/workflows/build-test.yml)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](docs/03_CO_CHE_CAP_PHEP_VA_BAO_MAT_RSA.md)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20EdgeRouter-blue.svg)](docs/01_TONG_QUAN_KIEN_TRUC_HE_THONG.md)
 [![Architecture](https://img.shields.io/badge/Architecture-C%2B%2B17%20Microkernel-success.svg)](docs/02_CHUAN_GIAO_TIEP_PLUGIN_DLL.md)
