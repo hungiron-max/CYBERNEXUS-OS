@@ -16,6 +16,16 @@
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
+    <script>
+        (function() {
+            try {
+                var u = JSON.parse(localStorage.getItem('pos_user') || 'null');
+                if (u && u.role === 'customer') {
+                    window.location.replace('customer.html');
+                }
+            } catch(e) {}
+        })();
+    </script>
 </head>
 <body class="pos-body antialiased flex flex-col h-screen h-[100dvh] overflow-hidden text-slate-100">
 
@@ -828,17 +838,44 @@
                         btnSubmit.disabled = false;
                     }
 
-                    const target = data.redirect || 'index.html';
-                    if (target.indexOf('order') !== -1) {
+                    if (data.user.role === 'customer') {
+                        window.location.replace('customer.html');
+                        return;
+                    } else if (data.user.role === 'waiter') {
                         window.location.replace('order.html');
-                    } else if (target.indexOf('kitchen') !== -1) {
+                        return;
+                    } else if (data.user.role === 'kitchen') {
                         window.location.replace('kitchen.html');
+                        return;
+                    }
+
+                    if (data.user && data.user.role === 'customer') {
+                        window.location.replace('customer.html');
+                        return;
+                    } else if (data.user && data.user.role === 'waiter') {
+                        window.location.replace('order.html');
+                        return;
+                    } else if (data.user && data.user.role === 'kitchen') {
+                        window.location.replace('kitchen.html');
+                        return;
                     }
                 } else {
                     if (btnSubmit) {
                         btnSubmit.innerHTML = originalBtnHtml;
                         btnSubmit.disabled = false;
                     }
+
+                    if (data.user.role === 'customer') {
+                        window.location.replace('customer.html');
+                        return;
+                    } else if (data.user.role === 'waiter') {
+                        window.location.replace('order.html');
+                        return;
+                    } else if (data.user.role === 'kitchen') {
+                        window.location.replace('kitchen.html');
+                        return;
+                    }
+
                     if (errEl) {
                         errEl.innerText = data.message || 'Mã PIN không đúng!';
                         errEl.classList.remove('hidden');
@@ -971,11 +1008,35 @@
                         btnSubmit.innerHTML = originalBtnHtml;
                         btnSubmit.disabled = false;
                     }
+
+                    if (data.user.role === 'customer') {
+                        window.location.replace('customer.html');
+                        return;
+                    } else if (data.user.role === 'waiter') {
+                        window.location.replace('order.html');
+                        return;
+                    } else if (data.user.role === 'kitchen') {
+                        window.location.replace('kitchen.html');
+                        return;
+                    }
+
                 } else {
                     if (btnSubmit) {
                         btnSubmit.innerHTML = originalBtnHtml;
                         btnSubmit.disabled = false;
                     }
+
+                    if (data.user.role === 'customer') {
+                        window.location.replace('customer.html');
+                        return;
+                    } else if (data.user.role === 'waiter') {
+                        window.location.replace('order.html');
+                        return;
+                    } else if (data.user.role === 'kitchen') {
+                        window.location.replace('kitchen.html');
+                        return;
+                    }
+
                     if (errEl) {
                         errEl.innerText = data.message || 'Tài khoản hoặc mật khẩu không chính xác';
                         errEl.classList.remove('hidden');

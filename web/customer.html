@@ -69,7 +69,7 @@
     <div class="liquid-blob w-96 h-96 bg-sky-600 top-1/3 -right-20"></div>
     <div class="liquid-blob w-96 h-96 bg-pink-600 bottom-10 left-1/4"></div>
 
-    <!-- Header Navigation -->
+    <!-- Header Navigation (Y hệt Hình 2 / sale-app) -->
     <header class="sticky top-0 z-40 liquid-glass border-b border-white/10 px-4 py-3 sm:px-8">
         <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
             <!-- Brand -->
@@ -161,18 +161,761 @@
 
                 <!-- Category Filter Pills -->
                 <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none" id="category-filter-pills">
-                    <button type="button" onclick="filterMenuCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0">
-                        Tất Cả (<span id="total-product-count">42</span>)
-                    </button>
+                    <button type="button" onclick="filterMenuCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0">Tất Cả (37)</button>
+                    <button type="button" onclick="filterMenuCategory(1)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">BÁNH MÌ CHẢO (12)</button>
+                    <button type="button" onclick="filterMenuCategory(2)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">BÁNH FLAN (3)</button>
+                    <button type="button" onclick="filterMenuCategory(3)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">BÒ BÍT TẾT (3)</button>
+                    <button type="button" onclick="filterMenuCategory(4)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">CAFE (4)</button>
+                    <button type="button" onclick="filterMenuCategory(7)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">ĐÁ XAY (2)</button>
+                    <button type="button" onclick="filterMenuCategory(10)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">NƯỚC NGỌT (4)</button>
+                    <button type="button" onclick="filterMenuCategory(11)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">SINH TỐ (2)</button>
+                    <button type="button" onclick="filterMenuCategory(13)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">TRÀ SỮA (4)</button>
+                    <button type="button" onclick="filterMenuCategory(14)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">TRÀ TRÁI CÂY (3)</button>
                 </div>
             </div>
 
-            <!-- Products Grid -->
+            <!-- Products Grid (37 món đầy đủ, nạp sẵn 100% tức thì) -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4" id="products-grid">
-                <div class="col-span-full py-12 text-center text-slate-400">
-                    <i class="fas fa-circle-notch fa-spin text-2xl text-sky-400 mb-2"></i>
-                    <p class="text-xs font-semibold">Đang tải thực đơn...</p>
-                </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh Mì" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Mì</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ cái</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">6.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Bánh Mì Chảo Đặc Biệt" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Mì Chảo Đặc Biệt</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chảo</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">45.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793447482_12ea6230.jpg" alt="Bánh Mì Ốp La 2 Trứng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Mì Ốp La 2 Trứng</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chảo</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">30.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793447617_d3ec9d0d.jpg" alt="Bánh Mì Trứng Xúc Xích" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM004</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Mì Trứng Xúc Xích</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chảo</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">30.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/bm005_mi_goi_bo.jpg" alt="Mì Gói Bò" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM005</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Mì Gói Bò</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ tô</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">35.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793448287_cad05755.jpg" alt="Mì Gói Trứng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM006</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Mì Gói Trứng</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ tô</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">30.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793447848_970f2f65.jpg" alt="Mì Xào Bò" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM007</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Mì Xào Bò</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ dĩa</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">35.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/bm008.jpg" alt="Mì Xào Bò Trứng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM008</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Mì Xào Bò Trứng</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ dĩa</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">40.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/bm009.jpg" alt="Pate Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM009</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Pate Thêm</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ phần</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">5.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/bm010.jpg" alt="Rau Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM010</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Rau Thêm</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ phần</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">10.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/bm011.jpg" alt="Trứng Ốp La Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM011</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trứng Ốp La Thêm</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ trứng</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">7.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="1">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/bm012.jpg" alt="Xúc Xích Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM012</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Xúc Xích Thêm</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ cây</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">8.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="2">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/fl001.jpg" alt="Bánh Flan Truyền Thống" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">FL001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Flan Truyền Thống</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ cái</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">7.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="2">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/fl002.jpg" alt="Bánh Flan (3 Cái)" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">FL002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Flan (3 Cái)</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ phần</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">20.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="2">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/fl001.jpg" alt="Bánh Flan Cốt Dừa Cafe" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">FL003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bánh Flan Cốt Dừa Cafe</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ phần</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">15.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="3">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793448377_d168bdbb.jpg" alt="Bò Bít Tết Tiêu Đen" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BT001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bò Bít Tết Tiêu Đen</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chảo</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">50.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="3">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793448461_85f7c08d.jpg" alt="Bò Full Topping (Khoai, Trứng, Pate, Phô mai)" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BT002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bò Full Topping (Khoai, Trứng, Pate, Phô mai)</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chảo</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">60.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="3">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793448445_1fc15f8d.jpg" alt="Bò + Trứng Ốp La" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BT003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bò + Trứng Ốp La</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chảo</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">50.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="4">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793448597_04984650.jpg" alt="Cafe Đen Đá" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Cafe Đen Đá</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">18.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="4">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793448692_5cbbfa81.jpg" alt="Cafe Sữa Đá" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Cafe Sữa Đá</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">22.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="4">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/cf003.jpg" alt="Bạc Xỉu Góc Phố" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bạc Xỉu Góc Phố</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">25.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="4">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793447316_ff7f593c.jpg" alt="Bình Trà Nóng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF004</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bình Trà Nóng</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ bình</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">20.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="7">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dx001.jpg" alt="Matcha Đá Xay Kem Cheese" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">DX001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Matcha Đá Xay Kem Cheese</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">38.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="7">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dx002.jpg" alt="Cookie Đá Xay Socola" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">DX002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Cookie Đá Xay Socola</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">36.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="10">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/nn001.jpg" alt="Coca Cola Lon" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Coca Cola Lon</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ lon</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">15.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="10">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793447229_129666ae.jpg" alt="7Up Lon" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">7Up Lon</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ lon</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">15.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="10">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/nn003.jpg" alt="Bò Cụng (Redbull)" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bò Cụng (Redbull)</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ lon</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">20.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="10">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/nn004.jpg" alt="Trà Xanh Không Độ / C2" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN004</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Xanh Không Độ / C2</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ chai</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">15.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="11">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793440656_e10ead01.jpg" alt="Sinh Tố Bơ Đắk Lắk" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">ST001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Sinh Tố Bơ Đắk Lắk</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">35.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="11">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/st002.jpg" alt="Sinh Tố Mãng Cầu" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">ST002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Sinh Tố Mãng Cầu</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">32.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="13">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/ts001.jpg" alt="Trà Sữa Truyền Thống Góc Phố" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Sữa Truyền Thống Góc Phố</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">25.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="13">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/ts002.jpg" alt="Trà Sữa Thái Xanh Thơm Béo" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Sữa Thái Xanh Thơm Béo</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">28.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="13">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793439132_0c741f4d.jpg" alt="Trà Sữa Khoai Môn" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Sữa Khoai Môn</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">30.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="13">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793439034_158d1f7c.jpg" alt="Trà Sữa Oolong Nướng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS004</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Sữa Oolong Nướng</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">32.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="14">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/tc001.jpg" alt="Trà Đào Cam Sả" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TC001</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Đào Cam Sả</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">30.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="14">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793438866_74ff69e5.jpg" alt="Trà Vải Hoa Hồng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TC002</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Vải Hoa Hồng</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">30.000 đ</span>
+                        </div>
+                    </div>
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="14">
+                        <div class="space-y-2">
+                            <!-- Product Image: 4:3 Aspect Ratio for Full View -->
+                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
+                                <img src="assets/images/dishes/dish_1793440770_3fc266f9.jpg" alt="Trà Ổi Hồng Nhiệt Đới" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <div class="absolute top-1.5 left-1.5">
+                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TC003</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Ổi Hồng Nhiệt Đới</h4>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-400 font-medium">/ ly</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">28.000 đ</span>
+                        </div>
+                    </div>
             </div>
         </section>
 
@@ -229,133 +972,25 @@
         </div>
     </div>
 
-    <!-- JavaScript Data Loading & Filter -->
+    <!-- JavaScript Filter & Auth State -->
     <script>
-        let allCategories = [];
-        let allProducts = [];
-        let currentCatId = 0;
-
-        async function initMenu() {
-            try {
-                // Kiểm tra trạng thái đăng nhập
-                const savedUser = localStorage.getItem('pos_user');
-                if (savedUser) {
-                    try {
-                        const u = JSON.parse(savedUser);
-                        const zone = document.getElementById('user-nav-zone');
-                        if (zone && u) {
-                            zone.innerHTML = `
-                                <div class="flex items-center gap-1.5 pl-2 border-l border-white/10">
-                                    <span class="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 border border-pink-500/30 text-xs font-bold flex items-center gap-1">
-                                        <i class="fas fa-user-circle"></i>
-                                        <span class="max-w-[120px] truncate">${u.fullname || u.username}</span>
-                                    </span>
-                                    ${u.role === 'admin' ? '<a href="admin.html" class="btn-glass px-2.5 py-1 text-xs text-indigo-300" title="Trang Quản Trị"><i class="fas fa-chart-pie"></i></a>' : ''}
-                                    <button type="button" onclick="handleLogout()" class="w-8 h-8 rounded-xl btn-glass bg-rose-500/20 text-rose-300 hover:text-white flex items-center justify-center p-0" title="Đăng xuất">
-                                        <i class="fas fa-sign-out-alt text-xs"></i>
-                                    </button>
-                                </div>
-                            `;
-                        }
-                    } catch(e) {}
+        function filterMenuCategory(catId) {
+            document.querySelectorAll('.cat-pill').forEach((btn, idx) => {
+                if ((catId === 0 && idx === 0) || btn.getAttribute('onclick').includes('(' + catId + ')')) {
+                    btn.className = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0';
+                } else {
+                    btn.className = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0';
                 }
-
-                const [catRes, prodRes] = await Promise.all([
-                    fetch('api/categories'),
-                    fetch('api/products')
-                ]);
-                const catData = await catRes.json();
-                const prodData = await prodRes.json();
-
-                if (catData.success && Array.isArray(catData.data)) {
-                    allCategories = catData.data;
-                }
-                if (prodData.success && Array.isArray(prodData.data)) {
-                    allProducts = prodData.data.filter(p => !p.is_topping);
-                }
-
-                renderPills();
-                renderProducts();
-            } catch(e) {
-                console.error('Lỗi nạp thực đơn:', e);
-            }
-        }
-
-        function renderPills() {
-            const container = document.getElementById('category-filter-pills');
-            if (!container) return;
-
-            let html = `
-                <button type="button" onclick="filterMenuCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold ${currentCatId === 0 ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:text-white border border-white/10'} transition-all shrink-0">
-                    Tất Cả (${allProducts.length})
-                </button>
-            `;
-
-            allCategories.forEach(cat => {
-                const count = allProducts.filter(p => p.category_id == cat.id).length;
-                if (count === 0) return;
-                const isActive = currentCatId === cat.id;
-                html += `
-                    <button type="button" onclick="filterMenuCategory(${cat.id})" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold ${isActive ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:text-white border border-white/10'} transition-all shrink-0">
-                        ${cat.name} (${count})
-                    </button>
-                `;
             });
 
-            container.innerHTML = html;
-            const cntEl = document.getElementById('total-product-count');
-            if (cntEl) cntEl.innerText = allProducts.length;
-        }
-
-        function renderProducts() {
-            const grid = document.getElementById('products-grid');
-            if (!grid) return;
-
-            let list = allProducts;
-            if (currentCatId !== 0) {
-                list = list.filter(p => p.category_id == currentCatId);
-            }
-
-            if (list.length === 0) {
-                grid.innerHTML = `
-                    <div class="col-span-full py-16 text-center text-slate-400">
-                        <i class="fas fa-mug-hot text-4xl mb-3 text-slate-600 block"></i>
-                        <p class="text-sm font-semibold">Chưa có món ăn trong danh mục này</p>
-                    </div>
-                `;
-                return;
-            }
-
-            grid.innerHTML = list.map(p => {
-                const priceFormatted = new Intl.NumberFormat('vi-VN').format(p.sale_price);
-                const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
-                return `
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between" data-category-id="${p.category_id}">
-                        <div class="space-y-2">
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-105 transition-all flex items-center justify-center">
-                                <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">${p.code || ''}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">${p.name}</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
-                            <span class="text-xs text-slate-400 font-medium">/ ${p.unit || 'Phần'}</span>
-                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">${priceFormatted} đ</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function filterMenuCategory(catId) {
-            currentCatId = catId;
-            renderPills();
-            renderProducts();
+            document.querySelectorAll('.product-item').forEach(el => {
+                const itemCat = parseInt(el.getAttribute('data-category-id'), 10);
+                if (catId === 0 || itemCat === catId) {
+                    el.style.display = 'flex';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
         }
 
         function showQuickVietQr() {
@@ -381,7 +1016,29 @@
             window.location.reload();
         }
 
-        document.addEventListener('DOMContentLoaded', initMenu);
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('pos_user');
+            if (savedUser) {
+                try {
+                    const u = JSON.parse(savedUser);
+                    const zone = document.getElementById('user-nav-zone');
+                    if (zone && u) {
+                        zone.innerHTML = `
+                            <div class="flex items-center gap-1.5 pl-2 border-l border-white/10">
+                                <span class="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 border border-pink-500/30 text-xs font-bold flex items-center gap-1">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span class="max-w-[120px] truncate">${u.fullname || u.username}</span>
+                                </span>
+                                ${u.role === 'admin' ? '<a href="admin.html" class="btn-glass px-2.5 py-1 text-xs text-indigo-300" title="Trang Quản Trị"><i class="fas fa-chart-pie"></i></a>' : ''}
+                                <button type="button" onclick="handleLogout()" class="w-8 h-8 rounded-xl btn-glass bg-rose-500/20 text-rose-300 hover:text-white flex items-center justify-center p-0" title="Đăng xuất">
+                                    <i class="fas fa-sign-out-alt text-xs"></i>
+                                </button>
+                            </div>
+                        `;
+                    }
+                } catch(e) {}
+            }
+        });
     </script>
 </body>
 </html>

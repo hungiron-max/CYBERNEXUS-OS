@@ -278,7 +278,16 @@ json AuthService::login(const std::string& usernameOrCode, const std::string& pa
         {{":id", sUser.id}}
     );
 
-    std::string redirect = (sUser.role == "admin") ? "admin.html" : "index.html";
+    std::string redirect = "index.html";
+    if (sUser.role == "customer") {
+        redirect = "customer.html";
+    } else if (sUser.role == "waiter") {
+        redirect = "order.html";
+    } else if (sUser.role == "kitchen") {
+        redirect = "kitchen.html";
+    } else if (sUser.role == "admin") {
+        redirect = "admin.html";
+    }
 
     return {
         {"success", true},
@@ -325,7 +334,16 @@ json AuthService::loginPin(const std::string& pin) {
         {{":id", sUser.id}}
     );
 
-    std::string redirect = (sUser.role == "admin") ? "admin.html" : "index.html";
+    std::string redirect = "index.html";
+    if (sUser.role == "customer") {
+        redirect = "customer.html";
+    } else if (sUser.role == "waiter") {
+        redirect = "order.html";
+    } else if (sUser.role == "kitchen") {
+        redirect = "kitchen.html";
+    } else if (sUser.role == "admin") {
+        redirect = "admin.html";
+    }
 
     return {
         {"success", true},
