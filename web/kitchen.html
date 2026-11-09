@@ -159,6 +159,12 @@
     </div>
 
     <script>
+        let user = null;
+        try { user = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+        if (!user) {
+            alert('Vui lòng đăng nhập để sử dụng màn hình Bếp & Pha Chế!');
+            window.location.replace('index.html?need_login=kitchen');
+        }
         let currentFilter = 'active'; // 'active', 'served', 'all'
         let soundEnabled = localStorage.getItem('kds_sound') !== '0';
         let knownOrderIds = new Set();

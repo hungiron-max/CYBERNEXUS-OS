@@ -74,11 +74,6 @@
                 <span class="hidden sm:inline">Đơn Online</span>
             </a>
 
-            <a href="super_admin.html" class="btn-glass text-xs py-1.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-200 border-purple-500/40 flex items-center gap-1.5 font-bold shadow-md shadow-purple-500/10 shrink-0 whitespace-nowrap" title="Cổng Super Admin Microkernel">
-                <i class="fas fa-shield-halved text-amber-300 text-xs"></i>
-                <span class="hidden sm:inline">Super Admin</span>
-            </a>
-
             <a href="index.html" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Đóng Quản Trị">
                 <i class="fas fa-arrow-right-from-bracket text-xs"></i>
                 <span class="hidden md:inline">Thoát</span>
@@ -2781,8 +2776,20 @@
     <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
     <script src="assets/vendor/qrcode.min.js"></script>
     <script>
-        window.currentUser = { id: 1, username: 'admin', fullname: 'Chủ Quán (Admin)', role: 'admin' };
-        window.SALEAPP_TABLE_QR_ENABLED = true;
+        (function() {
+            let user = null;
+            try {
+                user = JSON.parse(localStorage.getItem('pos_user') || 'null');
+            } catch(e) {}
+
+            if (!user || user.role !== 'admin') {
+                alert('Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.');
+                window.location.replace('index.html?need_login=admin');
+                return;
+            }
+            window.currentUser = user;
+            window.SALEAPP_TABLE_QR_ENABLED = true;
+        })();
     </script>
     <script src="assets/js/image_processor.js?v=1"></script>
     <script src="assets/js/admin.js?v=19"></script>

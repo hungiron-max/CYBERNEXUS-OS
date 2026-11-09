@@ -100,18 +100,13 @@
             </div>
 
             
-            <!-- Profile / Role badge (Vào thẳng Chủ Quán Admin) -->
-            <a href="admin.html" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-xs shrink-0 whitespace-nowrap shadow-sm shadow-amber-500/10" title="Chủ Quán (Toàn quyền quản trị)">
-                <i class="fas fa-crown text-amber-400 text-sm"></i>
-                <span class="font-bold text-amber-300">Chủ Quán</span>
-                <span class="px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 text-[10px] uppercase font-mono font-extrabold">ADMIN</span>
-            </a>
-
-            <!-- Nút Thoát -->
-            <button type="button" onclick="window.location.reload()" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 shrink-0 flex items-center gap-1 font-bold shadow-sm whitespace-nowrap" title="Tải lại trang">
-                <i class="fas fa-arrows-rotate text-rose-300 text-xs"></i>
-                <span class="hidden md:inline">Làm mới</span>
-            </button>
+            <!-- User Authentication Zone: Hiển thị Đăng Nhập hoặc Thông tin User sau khi Login -->
+            <div id="user-auth-zone" class="flex items-center gap-2 shrink-0">
+                <button type="button" onclick="openLoginModal()" class="btn-glass-primary text-xs py-1.5 px-3 sm:px-4 font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-lg shadow-sky-500/20">
+                    <i class="fas fa-lock text-xs"></i>
+                    <span>Đăng Nhập</span>
+                </button>
+            </div>
             
         </div>
     </header>
@@ -391,10 +386,35 @@
                 </div>
             </div>
 
+            <!-- Quick 1-Tap Login Buttons (Thuận tiện cho iPad, POS cảm ứng & Máy tính) -->
+            <div class="mt-4 pt-3 border-t border-white/10 text-xs">
+                <div class="font-bold text-slate-300 mb-2 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fas fa-bolt text-amber-400"></i> Đăng nhập nhanh 1 chạm:</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <button type="button" onclick="quickLogin('Admin', '')" class="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 border border-sky-500/30 font-bold flex items-center justify-between active:scale-95 transition-all shadow-md text-left">
+                        <span>👑 Quản Trị (Admin)</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </button>
+                    <button type="button" onclick="quickPinLogin('1111')" class="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 font-bold flex items-center justify-between active:scale-95 transition-all shadow-md text-left">
+                        <span>💵 Thu Ngân (1111)</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </button>
+                    <button type="button" onclick="quickPinLogin('2222')" class="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold flex items-center justify-between active:scale-95 transition-all shadow-md text-left">
+                        <span>🍽️ Phục Vụ (2222)</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </button>
+                    <button type="button" onclick="quickPinLogin('4444')" class="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-rose-300 border border-rose-500/30 font-bold flex items-center justify-between active:scale-95 transition-all shadow-md text-left">
+                        <span>🍳 Bếp / Pha Chế (4444)</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
             <!-- Footer Status Bar -->
             <div class="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-                <span>PHIÊN BẢN: <b class="text-sky-400 font-mono">v2.5 C++ Native</b></span>
-                <span>CƠ SỞ DỮ LIỆU: <b class="text-emerald-400 font-mono"> (ONLINE)</b></span>
+                <span>PHIÊN BẢN: <b class="text-sky-400 font-mono">v1.0 C++ Native</b></span>
+                <span>CƠ SỞ DỮ LIỆU: <b class="text-emerald-400 font-mono">SQLITE WAL (ONLINE)</b></span>
             </div>
         </div>
     </div>
@@ -665,7 +685,7 @@
 
     <!-- Scripts -->
     <script>
-        window.currentUser = { id: 1, username: 'admin', fullname: 'Chủ Quán (Admin)', role: 'admin' };
+        window.currentUser = null;
     </script>
     <script src="assets/js/virtual-keyboard.js"></script>
     <script>window.SALEAPP_VIETQR_ENABLED = true;</script>
@@ -859,12 +879,91 @@
             document.getElementById('login-error-msg').classList.add('hidden');
         }
 
+        function updateAuthHeaderUI() {
+            const zone = document.getElementById('user-auth-zone');
+            if (!zone) return;
+            const u = window.currentUser;
+            if (u && u.username) {
+                const isAdmin = u.role === 'admin';
+                const roleBadge = isAdmin ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' : 'bg-sky-500/20 text-sky-300 border-sky-400/40';
+                const roleIcon = isAdmin ? 'fa-crown text-amber-400' : 'fa-user-tag text-sky-400';
+                const roleName = isAdmin ? 'ADMIN' : (u.role || 'NHÂN VIÊN').toUpperCase();
+
+                zone.innerHTML = `
+                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs shrink-0 whitespace-nowrap shadow-sm">
+                        <i class="fas ${roleIcon} text-xs"></i>
+                        <span class="font-bold text-slate-200">${u.fullname || u.username}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${roleBadge} border">${roleName}</span>
+                    </div>
+                    <button type="button" onclick="handleLogout()" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 shrink-0 flex items-center gap-1 font-bold shadow-sm whitespace-nowrap" title="Đăng xuất">
+                        <i class="fas fa-sign-out-alt text-rose-300 text-xs"></i>
+                        <span class="hidden md:inline">Thoát</span>
+                    </button>
+                `;
+            } else {
+                zone.innerHTML = `
+                    <button type="button" onclick="openLoginModal()" class="btn-glass-primary text-xs py-1.5 px-3 sm:px-4 font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-lg shadow-sky-500/20">
+                        <i class="fas fa-lock text-xs"></i>
+                        <span>Đăng Nhập</span>
+                    </button>
+                `;
+            }
+        }
+
+        function openLoginModal() {
+            const modalEl = document.getElementById('login-modal');
+            if (modalEl) {
+                modalEl.style.display = 'flex';
+                modalEl.classList.add('open');
+            }
+        }
+
+        function closeLoginModal() {
+            if (!window.currentUser) {
+                alert('Hệ thống yêu cầu phải đăng nhập mới có thể sử dụng màn hình bán hàng!');
+                return;
+            }
+            const modalEl = document.getElementById('login-modal');
+            if (modalEl) {
+                modalEl.classList.remove('open');
+                modalEl.style.display = 'none';
+            }
+        }
+
+        function quickLogin(username, password) {
+            switchLoginMode('pass');
+            document.getElementById('login-username').value = username;
+            document.getElementById('login-password').value = password;
+            submitLogin();
+        }
+
+        function quickPinLogin(pin) {
+            switchLoginMode('pin');
+            const pinInput = document.getElementById('login-pin-input');
+            if (pinInput) pinInput.value = pin;
+            submitPinLogin();
+        }
+
+        function resetLoginForm() {
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-error-msg').classList.add('hidden');
+        }
+
         async function submitLogin() {
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value.trim();
             const errEl = document.getElementById('login-error-msg');
             const btnSubmit = document.querySelector('#login-form-password button.btn-glass-success');
             const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
+
+            if (!username) {
+                if (errEl) {
+                    errEl.innerText = 'Vui lòng nhập tên tài khoản hoặc mã nhân viên!';
+                    errEl.classList.remove('hidden');
+                }
+                return;
+            }
 
             if (btnSubmit) {
                 btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Đang đăng nhập...</span>';
@@ -879,10 +978,10 @@
                     body: JSON.stringify({ username, password })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    if (btnSubmit) {
-                        btnSubmit.innerHTML = '<i class="fas fa-check"></i> <span>Thành công!</span>';
-                    }
+                if (data.success && data.user) {
+                    window.currentUser = data.user;
+                    localStorage.setItem('pos_user', JSON.stringify(data.user));
+                    updateAuthHeaderUI();
 
                     const modalEl = document.getElementById('login-modal');
                     if (modalEl) {
@@ -890,11 +989,9 @@
                         modalEl.style.display = 'none';
                     }
 
-                    const target = data.redirect || 'index.php';
-                    if (target.indexOf('order.php') !== -1 || target.indexOf('kitchen.php') !== -1 || target.indexOf('admin.php') !== -1) {
-                        window.location.replace(target);
-                    } else {
-                        window.location.replace('index.php?auth=' + Date.now());
+                    if (btnSubmit) {
+                        btnSubmit.innerHTML = originalBtnHtml;
+                        btnSubmit.disabled = false;
                     }
                 } else {
                     if (btnSubmit) {
@@ -902,7 +999,7 @@
                         btnSubmit.disabled = false;
                     }
                     if (errEl) {
-                        errEl.innerText = data.message || 'Đăng nhập không thành công';
+                        errEl.innerText = data.message || 'Tài khoản hoặc mật khẩu không chính xác';
                         errEl.classList.remove('hidden');
                     }
                 }
@@ -920,18 +1017,62 @@
         }
 
         async function handleLogout() {
-            if (!confirm('Bạn có chắc muốn đăng xuất?')) return;
+            if (!confirm('Bạn có chắc muốn đăng xuất khỏi hệ thống?')) return;
             try {
                 await fetch('api/auth.php?action=logout');
-                window.location.replace('index.php?logout=' + Date.now());
-            } catch (e) {
-                console.error('Logout error:', e);
-                window.location.replace('index.php');
-            }
+            } catch (e) {}
+            localStorage.removeItem('pos_user');
+            window.currentUser = null;
+            updateAuthHeaderUI();
+            openLoginModal();
         }
 
-        // Tự động gửi mã PIN khi đủ 4 số hoặc nhấn Enter (tiện lợi cho iPad và màn hình cảm ứng)
-        document.addEventListener('DOMContentLoaded', function() {
+        // Tự động kiểm tra phiên đăng nhập khi tải trang
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Kiểm tra localStorage trước
+            const savedUser = localStorage.getItem('pos_user');
+            if (savedUser) {
+                try {
+                    window.currentUser = JSON.parse(savedUser);
+                } catch(e) {}
+            }
+
+            // Gọi API kiểm tra phiên đăng nhập thực tế
+            try {
+                const res = await fetch('api/auth.php?action=check');
+                const json = await res.json();
+                if (json.authenticated && json.user) {
+                    window.currentUser = json.user;
+                    localStorage.setItem('pos_user', JSON.stringify(json.user));
+                } else if (!window.currentUser) {
+                    window.currentUser = null;
+                    localStorage.removeItem('pos_user');
+                }
+            } catch(e) {}
+
+            updateAuthHeaderUI();
+
+            // BẮT BUỘC PHẢI LOGIN: Nếu chưa đăng nhập thì bật Modal ngay lập tức!
+            if (!window.currentUser) {
+                openLoginModal();
+            }
+
+            // Xử lý nút Quản Trị trên Header: Bắt buộc phải là Admin
+            const adminLink = document.querySelector('a[href="admin.html"], a[href="admin.php"]');
+            if (adminLink) {
+                adminLink.addEventListener('click', function(e) {
+                    if (!window.currentUser) {
+                        e.preventDefault();
+                        alert('Vui lòng đăng nhập tài khoản Quản Trị (Admin) để vào trang quản trị!');
+                        openLoginModal();
+                    } else if (window.currentUser.role !== 'admin') {
+                        e.preventDefault();
+                        alert('Tài khoản của bạn không có quyền Quản Trị. Vui lòng đăng nhập tài khoản Admin!');
+                        openLoginModal();
+                    }
+                });
+            }
+
             const pinInput = document.getElementById('login-pin-input');
             if (pinInput) {
                 pinInput.addEventListener('input', function() {

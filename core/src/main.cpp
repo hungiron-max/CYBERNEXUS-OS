@@ -14,72 +14,22 @@ namespace fs = std::filesystem;
 using namespace SaleApp::Backend;
 using namespace CyberNexus;
 
-// Trình thông dịch & Render file giao diện PHP sang HTML chuẩn Liquid Glass (C++ Native)
-static std::string renderPhpView(const std::string& filePath, int port) {
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file.is_open()) return "<h1>404 Not Found - Không tìm thấy giao diện</h1>";
+// Trình nạp và phục vụ giao diện HTML5 chuẩn Liquid Glass (100% C++ Native, không phụ thuộc PHP)
+static std::string loadHtmlView(const std::string& name) {
+    std::string webHtml = "web/" + name + ".html";
+    std::string directHtml = name + ".html";
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string content = buffer.str();
-
-    // Tìm thẻ <!DOCTYPE html> hoặc <html>
-    size_t docPos = content.find("<!DOCTYPE");
-    if (docPos == std::string::npos) docPos = content.find("<html");
-    if (docPos != std::string::npos) {
-        content = content.substr(docPos);
+    if (fs::exists(webHtml)) {
+        std::ifstream f(webHtml, std::ios::binary);
+        std::stringstream ss; ss << f.rdbuf();
+        return ss.str();
     }
-
-    // Lấy thông tin cửa hàng từ CSDL SQLite
-    auto& db = Database::instance();
-    auto sName = db.queryScalar("SELECT setting_value FROM store_settings WHERE setting_key = 'store_name'");
-    std::string storeName = (sName.is_string() && !sName.get<std::string>().empty()) ? sName.get<std::string>() : "Góc Phố Coffee & Tea";
-
-    std::string lanUrl = "http://localhost:" + std::to_string(port);
-
-    auto replaceAll = [](std::string& str, const std::string& from, const std::string& to) {
-        size_t start_pos = 0;
-        while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-            str.replace(start_pos, from.length(), to);
-            start_pos += to.length();
-        }
-    };
-
-    // 1. Thay thế các biến thông tin quán
-    replaceAll(content, "<?= htmlspecialchars(STORE_NAME) ?>", storeName);
-    replaceAll(content, "<?= STORE_NAME ?>", storeName);
-    replaceAll(content, "<?= htmlspecialchars(APP_NAME) ?>", "CyberNexus OS");
-    replaceAll(content, "<?= APP_NAME ?>", "CyberNexus OS");
-    replaceAll(content, "<?= htmlspecialchars(APP_SUBTITLE) ?>", "Hệ Thống Bán Hàng & Quản Trị Trà Sữa - Cafe");
-    replaceAll(content, "<?= APP_SUBTITLE ?>", "Hệ Thống Bán Hàng & Quản Trị Trà Sữa - Cafe");
-    replaceAll(content, "<?= APP_VERSION ?>", "v1.0 Liquid Glass C++ Native");
-    replaceAll(content, "<?= htmlspecialchars(STORE_ADDRESS) ?>", "123 Đường Số 1, Phường 5, TP.HCM");
-    replaceAll(content, "<?= STORE_ADDRESS ?>", "123 Đường Số 1, Phường 5, TP.HCM");
-    replaceAll(content, "<?= htmlspecialchars(STORE_HOTLINE) ?>", "0901234567");
-    replaceAll(content, "<?= STORE_HOTLINE ?>", "0901234567");
-    replaceAll(content, "<?= $lanUrl ?>", lanUrl);
-    replaceAll(content, "<?= $serverIp ?>", "127.0.0.1");
-    replaceAll(content, "<?= $serverPort ?>", std::to_string(port));
-    replaceAll(content, "<?= $storeLogoDataUri ?>", "");
-
-    // 2. Thay thế an toàn các biến JavaScript để không bị lỗi cú pháp JS (SyntaxError)
-    replaceAll(content, "<?= json_encode($currentUser) ?>", "null");
-    replaceAll(content, "<?= $currentUser ? json_encode($currentUser) : 'null' ?>", "null");
-    replaceAll(content, "<?= json_encode($orderContext) ?>", "{}");
-    replaceAll(content, "<?= json_encode($paymentDetails) ?>", "{}");
-    replaceAll(content, "<?= json_encode($wifiCredentials) ?>", "{\"ssid\":\"GocPho_Guest\",\"password\":\"88888888\"}");
-    replaceAll(content, "<?= json_encode($slides) ?>", "[]");
-    replaceAll(content, "<?= $vietqrEnabled ? 'true' : 'false' ?>", "true");
-
-    // 3. Regex phòng vệ: Bất kỳ gán biến JS nào còn sót dạng `var x = <?= ... ?>;` đều được gán an toàn = null;
-    std::regex assignRegex(R"(=\s*<\?=(?:[\s\S]*?)\?>\s*;)");
-    content = std::regex_replace(content, assignRegex, "= null;");
-
-    // 4. Loại bỏ các thẻ PHP logic còn lại
-    std::regex phpTagRegex(R"((<\?(?:php|=)[\s\S]*?\?>))");
-    content = std::regex_replace(content, phpTagRegex, "");
-
-    return content;
+    if (fs::exists(directHtml)) {
+        std::ifstream f(directHtml, std::ios::binary);
+        std::stringstream ss; ss << f.rdbuf();
+        return ss.str();
+    }
+    return "<h1>404 Not Found - Không tìm thấy giao diện " + name + "</h1>";
 }
 
 int main(int argc, char* argv[]) {
@@ -176,30 +126,10 @@ int main(int argc, char* argv[]) {
         svr.set_mount_point("/uploads", "web/uploads");
     }
 
-    // 5. Trình phục vụ giao diện Web Liquid Glass (Tự động render không bao giờ tải file code)
-    auto serveView = [port](const std::string& name) {
-        return [port, name](const httplib::Request&, httplib::Response& res) {
-            std::string html;
-            std::string directPhp = name + ".php";
-            std::string webPhp = "web/" + name + ".php";
-            std::string directHtml = name + ".html";
-            std::string webHtml = "web/" + name + ".html";
-
-            if (fs::exists(webHtml)) {
-                std::ifstream f(webHtml, std::ios::binary);
-                std::stringstream ss; ss << f.rdbuf();
-                html = ss.str();
-            } else if (fs::exists(directHtml)) {
-                std::ifstream f(directHtml, std::ios::binary);
-                std::stringstream ss; ss << f.rdbuf();
-                html = ss.str();
-            } else if (fs::exists(directPhp)) {
-                html = renderPhpView(directPhp, port);
-            } else if (fs::exists(webPhp)) {
-                html = renderPhpView(webPhp, port);
-            } else {
-                html = "<h1>404 Not Found - Khong tim thay trang " + name + "</h1>";
-            }
+    // 5. Trình phục vụ giao diện Web Liquid Glass (100% C++ Native)
+    auto serveView = [](const std::string& name) {
+        return [name](const httplib::Request&, httplib::Response& res) {
+            std::string html = loadHtmlView(name);
             res.set_content(html, "text/html; charset=utf-8");
         };
     };
