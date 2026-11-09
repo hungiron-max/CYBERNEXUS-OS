@@ -23,125 +23,121 @@
     <div class="liquid-blob-1"></div>
     <div class="liquid-blob-2"></div>
 
-    <!-- Top Admin Header -->
-    <header class="liquid-header px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between z-30 shrink-0 gap-2">
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0 overflow-hidden">
-                
-                    <img src="" alt="Logo quán" class="h-full w-full rounded-xl bg-white p-0.5 object-contain" />
-                
-                    <i class="fas fa-cubes text-white text-sm sm:text-lg"></i>
-                
+    <!-- Top Admin Header (Tầng 1: Phân hệ & Nhận diện Chủ Quán) -->
+    <header class="liquid-header px-4 py-2.5 flex items-center justify-between z-30 shrink-0 gap-3 border-b border-white/10">
+        <!-- Brand & Badges -->
+        <div class="flex items-center gap-3 shrink-0 whitespace-nowrap">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 via-sky-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/30 shrink-0">
+                <i class="fas fa-cubes text-white text-base"></i>
             </div>
-            <div class="min-w-0">
-                <h1 class="font-black text-xs sm:text-base tracking-wide bg-gradient-to-r from-white via-indigo-200 to-sky-400 bg-clip-text text-transparent uppercase truncate">
-                    <span class="hidden sm:inline">GÓC PHỐ COFFEE & TEA • BACK-OFFICE</span>
-                    <span class="sm:hidden">QUẢN TRỊ POS</span>
-                </h1>
-                <div class="hidden sm:flex text-[11px] text-slate-400 items-center gap-2">
-                    <span>Phiên bản: <b class="text-sky-400 font-mono">v2.5 C++ Native</b></span>
-                    <span>•</span>
-                    <span>Cơ sở dữ liệu: <b class="text-emerald-400 font-mono"></b></span>
-                    <span>•</span>
-                    <span class="inline-flex items-center gap-1 font-bold text-purple-300" title="Thời hạn bản quyền gói dịch vụ">
-                        <i class="fas fa-gem text-amber-300"></i>
-                        <span></span>
-                        <span class="font-mono text-[10px] ">(Còn  ngày)</span>
-                        
-                        <a href="license.php" class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold no-underline " title=""><i class="fas fa-key"></i> Bản quyền</a>
-                        
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                    <h1 class="font-black text-sm sm:text-base tracking-wide bg-gradient-to-r from-white via-indigo-100 to-sky-300 bg-clip-text text-transparent uppercase whitespace-nowrap">
+                        GÓC PHỐ COFFEE & TEA
+                    </h1>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 whitespace-nowrap flex items-center gap-1 shadow-sm shadow-amber-500/10">
+                        <i class="fas fa-crown text-[9px]"></i> CHỦ QUÁN (ADMIN)
                     </span>
+                    <span class="hidden md:inline-flex text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> C++ Native (Port 8500)
+                    </span>
+                </div>
+                <div class="text-[11px] text-slate-400 flex items-center gap-2 whitespace-nowrap mt-0.5">
+                    <span>Hệ Thống Quản Trị Trung Tâm</span>
+                    <span>•</span>
+                    <span class="text-sky-300">SQLite WAL Active</span>
+                    <span>•</span>
+                    <span class="text-purple-300 font-semibold">Toàn quyền vận hành</span>
                 </div>
             </div>
         </div>
 
-        <!-- Navigation Tabs (Desktop) -->
-        <nav class="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-slate-900/60 border border-white/10 text-xs">
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all bg-sky-500/20 text-sky-400 border border-sky-500/40" data-tab="dashboard">
-                <i class="fas fa-chart-line mr-1"></i> Tổng Quan
-            </button>
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="products">
-                <i class="fas fa-utensils mr-1"></i> Mặt Hàng (F4)
-            </button>
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="categories">
-                <i class="fas fa-layer-group mr-1"></i> Nhóm Hàng
-            </button>
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="tables">
-                <i class="fas fa-border-all mr-1"></i> Bàn & Khu Vực
-            </button>
-            
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="users">
-                <i class="fas fa-users-cog mr-1"></i> Nhân Viên
-            </button>
-            
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="orders">
-                <i class="fas fa-receipt mr-1"></i> Lịch Sử Hóa Đơn
-            </button>
-            
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="analytics">
-                <i class="fas fa-chart-pie mr-1"></i> Hiệu Suất Bếp & Phục Vụ
-            </button>
-            
-            
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="operations">
-                <i class="fas fa-boxes-stacked mr-1 text-amber-400"></i> Kho & Tiền Lương
-            </button>
-            
-            
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="finance">
-                <i class="fas fa-file-invoice-dollar mr-1 text-teal-400"></i> Tài Chính
-            </button>
-            
-            <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-tab="settings">
-                <i class="fas fa-cog mr-1"></i> Cài Đặt
-            </button>
-        </nav>
-
-        <!-- Right User Actions -->
-        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <a href="index.php?pos=1" class="btn-glass text-xs py-1.5 px-2.5 sm:px-3 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/30 flex items-center gap-1.5 font-bold shadow-md shadow-emerald-500/10 shrink-0" title="Màn hình bán hàng POS Thu Ngân">
-                <i class="fas fa-cash-register text-xs sm:text-sm"></i>
-                <span class="hidden md:inline">POS Thu Ngân</span>
+        <!-- Right Quick Actions -->
+        <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+            <a href="index.html" class="btn-glass text-xs py-1.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40 flex items-center gap-1.5 font-bold shadow-md shadow-emerald-500/10 shrink-0 whitespace-nowrap" title="Màn hình bán hàng POS Thu Ngân">
+                <i class="fas fa-cash-register text-xs"></i>
+                <span class="hidden sm:inline">POS Bán Hàng</span>
             </a>
 
-            
-            <a href="kitchen.php" class="btn-glass text-xs py-1.5 px-2.5 sm:px-3 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/30 flex items-center gap-1 font-bold shrink-0" title="Màn hình Bếp & Pha Chế">
-                <i class="fas fa-fire-burner text-xs sm:text-sm"></i>
-                <span class="hidden md:inline">Bếp</span>
-            </a>
-            
-
-            <a href="order.php" class="btn-glass text-xs py-1.5 px-2.5 sm:px-3 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 flex items-center gap-1 font-bold shrink-0" title="Màn hình Order phục vụ">
-                <i class="fas fa-clipboard-list text-xs sm:text-sm"></i>
-                <span class="hidden md:inline">Phục Vụ</span>
+            <a href="kitchen.html" class="btn-glass text-xs py-1.5 px-3 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40 flex items-center gap-1.5 font-bold shrink-0 whitespace-nowrap" title="Màn hình Bếp & Pha Chế">
+                <i class="fas fa-fire-burner text-xs"></i>
+                <span class="hidden sm:inline">Bếp</span>
             </a>
 
-            
-            <a href="online_orders.php" class="btn-glass text-xs py-1.5 px-2.5 sm:px-3 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border-indigo-500/30 flex items-center gap-1 font-bold shrink-0" title="Quy trình xử lý đơn đặt online">
-                <i class="fas fa-bag-shopping text-xs sm:text-sm"></i>
-                <span class="hidden md:inline">Đơn Online</span>
-            </a>
-            
-
-            
-            <button type="button" onclick="Admin.openCloudSyncModal()" class="btn-glass text-xs py-1.5 px-2.5 sm:px-3 bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border-cyan-500/40 flex items-center gap-1 font-bold shadow-lg shadow-cyan-500/10 shrink-0" title="Sao lưu và đồng bộ dữ liệu">
-                <i class="fas fa-cloud-arrow-up text-cyan-400 animate-pulse text-xs sm:text-sm"></i>
-                <span class="hidden md:inline">Sync</span>
-            </button>
-            
-
-            <!-- Link to Super Admin Portal -->
-            <a href="super_admin.php" class="btn-glass text-xs py-1.5 px-2.5 sm:px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-200 border-purple-500/30 flex items-center gap-1 font-bold shadow-md shadow-purple-500/10 shrink-0" title="Cổng Quản Trị Cấp Quyền & Thu Phí Super Admin">
-                <i class="fas fa-shield-halved text-amber-300 text-xs sm:text-sm"></i>
-                <span class="hidden md:inline">Super Admin</span>
+            <a href="order.html" class="btn-glass text-xs py-1.5 px-3 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40 flex items-center gap-1.5 font-bold shrink-0 whitespace-nowrap" title="Màn hình Phục Vụ">
+                <i class="fas fa-clipboard-list text-xs"></i>
+                <span class="hidden sm:inline">Phục Vụ</span>
             </a>
 
-            <a href="index.php?logout=1" onclick="fetch('api/auth.php?action=logout').then(() => window.location='index.php'); return false;" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/30 flex items-center gap-1 font-bold shrink-0" title="Đăng xuất">
-                <i class="fas fa-sign-out-alt text-xs sm:text-sm"></i>
+            <a href="online_orders.html" class="btn-glass text-xs py-1.5 px-3 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border-indigo-500/40 flex items-center gap-1.5 font-bold shrink-0 whitespace-nowrap" title="Xử lý Đơn Đặt Online">
+                <i class="fas fa-bag-shopping text-xs"></i>
+                <span class="hidden sm:inline">Đơn Online</span>
+            </a>
+
+            <a href="super_admin.html" class="btn-glass text-xs py-1.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-200 border-purple-500/40 flex items-center gap-1.5 font-bold shadow-md shadow-purple-500/10 shrink-0 whitespace-nowrap" title="Cổng Super Admin Microkernel">
+                <i class="fas fa-shield-halved text-amber-300 text-xs"></i>
+                <span class="hidden sm:inline">Super Admin</span>
+            </a>
+
+            <a href="index.html" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Đóng Quản Trị">
+                <i class="fas fa-arrow-right-from-bracket text-xs"></i>
                 <span class="hidden md:inline">Thoát</span>
             </a>
         </div>
     </header>
+
+    <!-- Sub-Navbar (Tầng 2: 10 Tabs Quản Trị Trải Ngang Thoáng Đãng - Không Bao Giờ Wrap) -->
+    <nav class="bg-slate-900/95 backdrop-blur-md border-b border-white/10 px-4 py-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none z-20 shrink-0">
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm flex items-center gap-1.5 shrink-0" data-tab="dashboard">
+            <i class="fas fa-chart-line text-xs"></i>
+            <span>Tổng Quan</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="products">
+            <i class="fas fa-utensils text-xs"></i>
+            <span>Mặt Hàng (F4)</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="categories">
+            <i class="fas fa-layer-group text-xs"></i>
+            <span>Nhóm Hàng</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="tables">
+            <i class="fas fa-border-all text-xs"></i>
+            <span>Bàn & Khu Vực</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="users">
+            <i class="fas fa-users-cog text-xs"></i>
+            <span>Nhân Viên</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="orders">
+            <i class="fas fa-receipt text-xs"></i>
+            <span>Lịch Sử Hóa Đơn</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="analytics">
+            <i class="fas fa-chart-pie text-xs"></i>
+            <span>Hiệu Suất Bếp & Phục Vụ</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="operations">
+            <i class="fas fa-boxes-stacked text-amber-400 text-xs"></i>
+            <span>Kho & Tiền Lương</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="finance">
+            <i class="fas fa-file-invoice-dollar text-teal-400 text-xs"></i>
+            <span>Tài Chính</span>
+        </button>
+
+        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="settings">
+            <i class="fas fa-cog text-sky-400 text-xs"></i>
+            <span>Cài Đặt Quán</span>
+        </button>
+    </nav>
 
     <!-- Mobile Navigation Slider (< lg: Hiển thị đầy đủ tất cả chức năng quản lý trên điện thoại) -->
     <nav class="lg:hidden flex items-center gap-1.5 px-2 py-1.5 bg-slate-900/95 border-b border-white/10 overflow-x-auto scrollbar-none shrink-0 z-20 text-xs">
@@ -1213,28 +1209,28 @@
                 <form id="settings-form" onsubmit="saveStoreSettings(event)" class="space-y-4">
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Tên Quán / Cửa hàng:</label>
-                        <input type="text" name="store_name" value="" class="liquid-input w-full text-sm" required />
+                        <input type="text" name="store_name" value="Góc Phố Coffee & Tea" class="liquid-input w-full text-sm font-bold text-sky-300" required />
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại / Hotline:</label>
-                            <input type="text" name="store_hotline" value="" class="liquid-input w-full text-sm" required />
+                            <input type="text" name="store_hotline" value="0901234567" class="liquid-input w-full text-sm font-mono" required />
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Tên mạng Wi-Fi (SSID):</label>
-                            <input type="text" name="store_wifi_ssid" value="" maxlength="128" class="liquid-input w-full text-sm" placeholder="Tên mạng cần chia sẻ" />
+                            <input type="text" name="store_wifi_ssid" value="GocPho_Guest" maxlength="128" class="liquid-input w-full text-sm font-semibold" placeholder="Tên mạng cần chia sẻ" />
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Mật khẩu Wi-Fi:</label>
-                            <input type="text" name="store_wifi" value="" maxlength="128" class="liquid-input w-full text-sm" />
+                            <input type="text" name="store_wifi" value="88888888" maxlength="128" class="liquid-input w-full text-sm font-mono" />
                         </div>
                     </div>
                     <p class="-mt-2 text-[10px] text-slate-500">Mã Wi-Fi được tạo trực tiếp trên thiết bị khách, không gửi tên mạng hoặc mật khẩu đến dịch vụ QR bên ngoài.</p>
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ cửa hàng:</label>
-                        <input type="text" name="store_address" value="" class="liquid-input w-full text-sm" required />
+                        <input type="text" name="store_address" value="123 Đường Số 1, Phường 5, TP.HCM" class="liquid-input w-full text-sm" required />
                     </div>
 
                     <div class="p-4 rounded-xl bg-slate-900/80 border border-amber-500/25 space-y-3">
@@ -1245,19 +1241,19 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[11px] text-slate-300 mb-1">Tiêu đề giới thiệu:</label>
-                                <input name="customer_tagline" value="" maxlength="180" class="liquid-input w-full" placeholder="Ví dụ: Góc nhỏ cho cà phê ngon mỗi ngày" />
+                                <input name="customer_tagline" value="Góc nhỏ cho cà phê ngon mỗi ngày" maxlength="180" class="liquid-input w-full text-xs" placeholder="Ví dụ: Góc nhỏ cho cà phê ngon mỗi ngày" />
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-300 mb-1">Giờ mở cửa:</label>
-                                <input name="customer_opening_hours" value="" maxlength="120" class="liquid-input w-full" placeholder="Ví dụ: Hằng ngày · 06:30 – 22:30" />
+                                <input name="customer_opening_hours" value="Hằng ngày · 06:30 – 22:30" maxlength="120" class="liquid-input w-full text-xs" placeholder="Ví dụ: Hằng ngày · 06:30 – 22:30" />
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] text-slate-300 mb-1">Giới thiệu / mô tả quán:</label>
-                                <textarea name="customer_description" maxlength="1000" rows="3" class="liquid-input w-full" placeholder="Mô tả phong cách, món đặc trưng, không gian và trải nghiệm..."></textarea>
+                                <textarea name="customer_description" maxlength="1000" rows="3" class="liquid-input w-full text-xs" placeholder="Mô tả phong cách, món đặc trưng, không gian và trải nghiệm...">Không gian thư giãn với cà phê hạt rang mộc nguyên chất và các loại trà sữa đậm vị đặc trưng.</textarea>
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] text-slate-300 mb-1">Ảnh bìa (dùng đường dẫn assets/images/... để xem offline):</label>
-                                <input name="customer_hero_image" type="text" value="" class="liquid-input w-full" placeholder="assets/images/... hoặc https://.../anh-quan.jpg" />
+                                <input name="customer_hero_image" type="text" value="assets/img/hero.jpg" class="liquid-input w-full text-xs" placeholder="assets/images/... hoặc https://.../anh-quan.jpg" />
                             </div>
                         </div>
                         <div class="p-3 rounded-xl bg-amber-950/30 border border-amber-500/20 space-y-2.5">
@@ -1385,7 +1381,7 @@
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block text-[11px] text-slate-300">Mã Ngân Hàng (BIN):</label>
                                 </div>
-                                <input type="text" name="bank_id" id="setting-bank-id" list="bank-list" value="" placeholder="MB, VCB, ACB..." class="liquid-input w-full text-xs font-mono font-bold" required />
+                                <input type="text" name="bank_id" id="setting-bank-id" list="bank-list" value="MB" placeholder="MB, VCB, ACB..." class="liquid-input w-full text-xs font-mono font-bold text-sky-300" required />
                                 <datalist id="bank-list">
                                     <option value="MB">MBBank - Ngân Hàng Quân Đội (970422)</option>
                                     <option value="VCB">Vietcombank - Ngoại Thương VN (970436)</option>
@@ -1412,11 +1408,11 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-300 mb-1">Số Tài Khoản:</label>
-                                <input type="text" name="bank_account_no" value="" placeholder="Nhập số tài khoản..." class="liquid-input w-full text-xs font-mono font-bold" required />
+                                <input type="text" name="bank_account_no" value="0901234567" placeholder="Nhập số tài khoản..." class="liquid-input w-full text-xs font-mono font-bold text-emerald-300" required />
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-300 mb-1">Chủ Tài Khoản:</label>
-                                <input type="text" name="bank_account_name" value="" placeholder="Tên in hoa không dấu..." class="liquid-input w-full text-xs uppercase font-bold" required />
+                                <input type="text" name="bank_account_name" value="CHU QUAN GOC PHO" placeholder="Tên in hoa không dấu..." class="liquid-input w-full text-xs uppercase font-bold text-amber-300" required />
                             </div>
                         </div>
                     </div>
@@ -2784,7 +2780,10 @@
     <!-- Scripts -->
     <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
     <script src="assets/vendor/qrcode.min.js"></script>
-    <script>window.SALEAPP_TABLE_QR_ENABLED = true;</script>
+    <script>
+        window.currentUser = { id: 1, username: 'admin', fullname: 'Chủ Quán (Admin)', role: 'admin' };
+        window.SALEAPP_TABLE_QR_ENABLED = true;
+    </script>
     <script src="assets/js/image_processor.js?v=1"></script>
     <script src="assets/js/admin.js?v=19"></script>
     <script>

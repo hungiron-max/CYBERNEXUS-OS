@@ -231,6 +231,10 @@ int main(int argc, char* argv[]) {
     svr.Get("/super_admin.html", serveView("super_admin"));
     svr.Get("/super_admin.php", serveView("super_admin"));
 
+    svr.Get("/online_orders", serveView("online_orders"));
+    svr.Get("/online_orders.html", serveView("online_orders"));
+    svr.Get("/online_orders.php", serveView("online_orders"));
+
     // Bắt toàn bộ các request file .php để render HTML mượt mà, ngăn tuyệt đối việc tải file code
     svr.Get(R"(/([\w-]+)\.php)", [serveView](const httplib::Request& req, httplib::Response& res) {
         std::string viewName = req.matches[1];

@@ -100,30 +100,18 @@
             </div>
 
             
-                <!-- Profile / Role badge (Hiển thị đầy đủ tên trên màn hình PC xl:) -->
-                <a href="" class="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-white/10 text-xs shrink-0 whitespace-nowrap" title="">
-                    <i class="fas fa-user-circle text-sky-400 text-sm"></i>
-                    <span class="hidden xl:inline font-semibold text-slate-200"></span>
-                    <span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[10px] uppercase font-bold"></span>
-                </a>
+            <!-- Profile / Role badge (Vào thẳng Chủ Quán Admin) -->
+            <a href="admin.html" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-xs shrink-0 whitespace-nowrap shadow-sm shadow-amber-500/10" title="Chủ Quán (Toàn quyền quản trị)">
+                <i class="fas fa-crown text-amber-400 text-sm"></i>
+                <span class="font-bold text-amber-300">Chủ Quán</span>
+                <span class="px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 text-[10px] uppercase font-mono font-extrabold">ADMIN</span>
+            </a>
 
-                
-                    <a href="admin.php?open_sync=1" class="hidden xl:flex btn-glass text-xs p-1.5 sm:py-1.5 sm:px-2.5 bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border-cyan-500/40 items-center gap-1 font-bold shadow-lg shadow-cyan-500/10 shrink-0 whitespace-nowrap" title="Đồng bộ cơ sở dữ liệu lên MySQL Cloud">
-                        <i class="fas fa-cloud-arrow-up text-cyan-400"></i>
-                        <span>Đồng Bộ</span>
-                    </a>
-                
-
-                <!-- Nút Thoát: Icon trên màn hình hẹp, có chữ trên máy tính md: -->
-                <button type="button" onclick="handleLogout()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-rose-500/25 hover:bg-rose-500/50 text-rose-200 border-rose-500/40 shrink-0 flex items-center gap-1 font-bold shadow-sm whitespace-nowrap" title="Đăng xuất khỏi hệ thống">
-                    <i class="fas fa-sign-out-alt text-rose-300 text-xs"></i>
-                    <span class="hidden md:inline">Thoát</span>
-                </button>
-            
-                <button type="button" onclick="openLoginModal()" class="btn-glass-primary text-xs py-1.5 px-3 sm:px-4 font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-                    <i class="fas fa-lock"></i>
-                    <span class="hidden sm:inline">Đăng Nhập</span>
-                </button>
+            <!-- Nút Thoát -->
+            <button type="button" onclick="window.location.reload()" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 shrink-0 flex items-center gap-1 font-bold shadow-sm whitespace-nowrap" title="Tải lại trang">
+                <i class="fas fa-arrows-rotate text-rose-300 text-xs"></i>
+                <span class="hidden md:inline">Làm mới</span>
+            </button>
             
         </div>
     </header>
@@ -282,7 +270,7 @@
                 <!-- Search Input with Touch Numpad trigger -->
                 <div class="relative w-28 sm:w-56 md:w-72 shrink-0">
                     <i class="fas fa-search absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
-                    <input type="text" id="search-product" placeholder="Tìm món..." class="liquid-input w-full pl-7 sm:pl-8 pr-2 sm:pr-8 text-xs py-1.5 sm:py-2 placeholder:text-slate-500" />
+                    <input type="search" id="search-product" name="dish_search_filter" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tìm món..." class="liquid-input w-full pl-7 sm:pl-8 pr-2 sm:pr-8 text-xs py-1.5 sm:py-2 placeholder:text-slate-500" />
                     <button type="button" class="hidden sm:block absolute right-2 top-2 text-slate-400 hover:text-sky-400" onclick="VirtualNumpad.open(document.getElementById('search-product'), 'Tìm kiếm món ăn')">
                         <i class="fas fa-keyboard text-xs"></i>
                     </button>
@@ -677,7 +665,7 @@
 
     <!-- Scripts -->
     <script>
-        window.currentUser = null;
+        window.currentUser = { id: 1, username: 'admin', fullname: 'Chủ Quán (Admin)', role: 'admin' };
     </script>
     <script src="assets/js/virtual-keyboard.js"></script>
     <script>window.SALEAPP_VIETQR_ENABLED = true;</script>
