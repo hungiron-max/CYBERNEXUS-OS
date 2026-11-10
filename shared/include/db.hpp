@@ -39,6 +39,7 @@ public:
     bool rollback();
 
     std::string getLastError() const;
+    sqlite3* getHandle() const { return m_db; }
 
 private:
     Database() = default;

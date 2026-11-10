@@ -2,6 +2,9 @@
 #include <fstream>
 #include <filesystem>
 #include <csignal>
+#include <thread>
+#include <chrono>
+#include <atomic>
 #include "httplib.h"
 #include "db.hpp"
 #include "license.hpp"
@@ -162,6 +165,52 @@ int main(int argc, char* argv[]) {
 
     // Register all Store POS APIs
     ApiHandlers::registerRoutes(svr);
+
+    // 5. Nạp các Dynamic DLL Plugin (mod_pos_core, mod_network_qos, mod_media_stream...)
+    CyberNexus::CoreContext ctx;
+    ctx.dbHandle = Database::instance().getHandle();
+    ctx.appVersion = "v2.5.0";
+    ctx.hardwareHash = LicenseService::instance().getMachineId();
+    ctx.isSuperAdminMode = false;
+    ctx.checkLicenseStatus = [](const std::string& code) { return LicenseService::instance().isModuleEnabled(code); };
+    ctx.emitSystemEvent = [](const std::string& type, const CyberNexus::json& payload) { CyberNexus::PluginManager::instance().dispatchEvent(type, payload); };
+
+    fs::path modulesDir = config.getBaseDir() / "modules";
+    size_t nPlugins = CyberNexus::PluginManager::instance().scanAndLoadDirectory(modulesDir.string(), ctx);
+    CyberNexus::PluginManager::instance().registerAllActiveRoutes(svr);
+    std::cout << "[Slave Plugins] Da quet va nap " << nPlugins << " dynamic plugin DLL tu: " << modulesDir.string() << std::endl;
+
+    // Plugins Matrix API
+    svr.Get("/api/plugins/matrix", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(CyberNexus::PluginManager::instance().getModulesStatusMatrix().dump(2), "application/json; charset=utf-8");
+    });
+
+    // 6. Background Heartbeat Worker Thread (Auto-Sync License với Master mỗi 30 phút)
+    static std::atomic<bool> s_heartbeatRunning{true};
+    std::thread heartbeatThread([]() {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        while (s_heartbeatRunning) {
+            try {
+                auto& db = Database::instance();
+                auto row = db.queryRow("SELECT license_key FROM local_license_cache WHERE id = 1");
+                if (!row.is_null() && row.contains("license_key") && !row["license_key"].is_null()) {
+                    std::string key = row["license_key"].get<std::string>();
+                    if (!key.empty() && key.find("UNLICENSED") == std::string::npos) {
+                        std::string mid = LicenseService::instance().getMachineId();
+                        auto res = LicenseService::instance().verifyLicenseOnline(key, mid);
+                        if (res.value("success", false)) {
+                            std::cout << "[Heartbeat] Dong bo dinh ky voi Master thanh cong." << std::endl;
+                        }
+                    }
+                }
+            } catch (...) {}
+
+            for (int i = 0; i < 1800 && s_heartbeatRunning; ++i) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+    });
+    heartbeatThread.detach();
 
     // Health check
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) {

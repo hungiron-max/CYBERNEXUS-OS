@@ -3390,7 +3390,7 @@
                 const btnEdit = document.createElement('button');
                 btnEdit.type = 'button';
                 btnEdit.title = 'Chỉnh sửa slide này';
-                btnEdit.innerHTML = '<i class="fas fa-pen-to-square text-[10px]"></i>';
+                btnEdit.innerHTML = '<i class="fas fa-pen-to-square text-[10px] pointer-events-none"></i>';
                 btnEdit.className = `h-7 w-7 rounded-lg border flex items-center justify-center transition-all ${isEditing ? 'border-amber-400 bg-amber-400 text-slate-950 font-bold' : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/30 hover:text-white'}`;
                 btnEdit.onclick = (e) => {
                     e.stopPropagation();
@@ -3404,7 +3404,7 @@
                 const btnPrev = document.createElement('button');
                 btnPrev.type = 'button';
                 btnPrev.title = 'Xem trước toàn bộ slide bắt đầu từ slide này';
-                btnPrev.innerHTML = '<i class="fas fa-eye text-[10px]"></i>';
+                btnPrev.innerHTML = '<i class="fas fa-eye text-[10px] pointer-events-none"></i>';
                 btnPrev.className = 'h-7 w-7 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/30 hover:text-white flex items-center justify-center transition-all';
                 btnPrev.onclick = (e) => {
                     e.stopPropagation();
@@ -3414,7 +3414,7 @@
                 const btnUp = document.createElement('button');
                 btnUp.type = 'button';
                 btnUp.title = 'Di chuyển lên';
-                btnUp.innerHTML = '<i class="fas fa-arrow-up text-[10px]"></i>';
+                btnUp.innerHTML = '<i class="fas fa-arrow-up text-[10px] pointer-events-none"></i>';
                 btnUp.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
                 btnUp.disabled = index === 0;
                 btnUp.onclick = (e) => {
@@ -3425,7 +3425,7 @@
                 const btnDown = document.createElement('button');
                 btnDown.type = 'button';
                 btnDown.title = 'Di chuyển xuống';
-                btnDown.innerHTML = '<i class="fas fa-arrow-down text-[10px]"></i>';
+                btnDown.innerHTML = '<i class="fas fa-arrow-down text-[10px] pointer-events-none"></i>';
                 btnDown.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
                 btnDown.disabled = index === adminAdSlides.length - 1;
                 btnDown.onclick = (e) => {
@@ -3436,7 +3436,7 @@
                 const btnDel = document.createElement('button');
                 btnDel.type = 'button';
                 btnDel.title = 'Xóa slide';
-                btnDel.innerHTML = '<i class="fas fa-trash-can text-[10px]"></i>';
+                btnDel.innerHTML = '<i class="fas fa-trash-can text-[10px] pointer-events-none"></i>';
                 btnDel.className = 'h-7 w-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/30 hover:text-rose-100 flex items-center justify-center transition-all';
                 btnDel.onclick = (e) => {
                     e.stopPropagation();

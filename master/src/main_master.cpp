@@ -92,6 +92,14 @@ int main(int argc, char* argv[]) {
     svr.Get("/licensing", serveMasterView);
     svr.Get("/platform", serveMasterView);
 
+    // Chuyển hướng an toàn nếu truy cập login.html cũ trên cổng Master
+    svr.Get("/login", [](const httplib::Request&, httplib::Response& res) {
+        res.set_redirect("/super_admin");
+    });
+    svr.Get("/login.html", [](const httplib::Request&, httplib::Response& res) {
+        res.set_redirect("/super_admin");
+    });
+
     // Register all Master API routes
     MasterHandlers::registerRoutes(svr);
 

@@ -1,4 +1,4 @@
-﻿#include "handlers.hpp"
+#include "handlers.hpp"
 #include "db.hpp"
 #include "auth.hpp"
 #include "body_parser.hpp"

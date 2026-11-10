@@ -228,9 +228,17 @@ std::vector<std::string> LicenseService::getEnabledModules(int64_t tenantId) {
 }
 
 bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
-    if (moduleCode == "pos_core") return true;
+    if (m_superAdminMode) return true;
+    if (moduleCode == "pos_core" || moduleCode == "mod_pos_core") return true;
+    std::string stripped = moduleCode;
+    if (stripped.rfind("mod_", 0) == 0) stripped = stripped.substr(4);
+    if (stripped == "pos_core") return true;
+
     auto enabled = getEnabledModules();
-    return std::find(enabled.begin(), enabled.end(), moduleCode) != enabled.end();
+    for (const auto& m : enabled) {
+        if (m == moduleCode || m == stripped || ("mod_" + m) == moduleCode) return true;
+    }
+    return false;
 }
 
 bool LicenseService::isSuperAdminMode() const {
