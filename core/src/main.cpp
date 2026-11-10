@@ -118,11 +118,12 @@ int main(int argc, char* argv[]) {
     PluginManager::instance().registerAllActiveRoutes(svr);
 
     // 4. Mount các thư mục tài nguyên tĩnh (assets, img, uploads)
-    if (fs::exists("assets")) {
-        svr.set_mount_point("/assets", "assets");
-        std::cout << "[Static] Mount /assets" << std::endl;
-    } else if (fs::exists("web/assets")) {
+    if (fs::exists("web/assets")) {
         svr.set_mount_point("/assets", "web/assets");
+        std::cout << "[Static] Mount /assets -> web/assets" << std::endl;
+    } else if (fs::exists("assets")) {
+        svr.set_mount_point("/assets", "assets");
+        std::cout << "[Static] Mount /assets -> assets" << std::endl;
     }
 
     if (fs::exists("img")) {
