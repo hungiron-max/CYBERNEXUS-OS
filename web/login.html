@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Đăng Nhập Hệ Thống - GÓC PHỐ COFFEE & TEA</title>
+    <title>Đăng Nhập POS - GÓC PHỐ COFFEE & TEA</title>
     <link rel="icon" href="favicon.ico">
 
-    <!-- Precompiled Offline CSS -->
+    <!-- Precompiled Offline CSS & Icons -->
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 
-    <!-- Anti-cache & Auto ServiceWorker Purge for Normal Browsing Mode -->
+    <!-- Anti-cache & Purge Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -25,141 +25,288 @@
     </script>
 
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
         body {
-            background: radial-gradient(circle at 50% 15%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             min-height: 100vh;
+            background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
             color: #f8fafc;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 16px;
+            position: relative;
         }
-        .liquid-glass {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        .btn-glass {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            transition: all 0.2s;
-        }
-        .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.16);
-            transform: translateY(-1px);
-        }
-        .liquid-blob {
+
+        /* Ambient Glow Blobs */
+        .ambient-glow-1 {
             position: fixed;
+            width: 320px;
+            height: 320px;
             border-radius: 50%;
-            filter: blur(90px);
-            opacity: 0.22;
+            background: #6366f1;
+            filter: blur(120px);
+            opacity: 0.15;
+            top: 5%;
+            left: 10%;
             pointer-events: none;
-            z-index: 0;
+        }
+        .ambient-glow-2 {
+            position: fixed;
+            width: 340px;
+            height: 340px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            filter: blur(130px);
+            opacity: 0.15;
+            bottom: 5%;
+            right: 10%;
+            pointer-events: none;
+        }
+
+        /* Compact Centered Container (Strictly 380px, NEVER stretches) */
+        .login-wrapper {
+            width: 100%;
+            max-width: 380px;
+            margin: auto;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Luxury Frosted Glass Card */
+        .login-card {
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 28px;
+            padding: 24px 20px;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* Customer Menu Link Banner */
+        .customer-pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+            text-decoration: none;
+            transition: all 0.25s ease;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.1);
+        }
+        .customer-pill:hover {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.25));
+            border-color: rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+            color: #ffffff;
+        }
+
+        /* PIN Display Dots */
+        .pin-dots-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin: 14px 0 18px 0;
         }
         .pin-dot {
-            width: 14px;
-            height: 14px;
-            border-radius: 9999px;
-            border: 2px solid rgba(56, 189, 248, 0.5);
-            transition: all 0.2s;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            background: rgba(15, 23, 42, 0.8);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .pin-dot.filled {
             background: #38bdf8;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
-            transform: scale(1.15);
+            border-color: #7dd3fc;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.95);
+            transform: scale(1.25);
+        }
+
+        /* Compact Numpad */
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 290px;
+            margin: 0 auto;
         }
         .numpad-key {
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: #f8fafc;
             font-weight: 800;
-            font-size: 1.25rem;
-            border-radius: 14px;
-            height: 52px;
+            font-size: 1.35rem;
+            border-radius: 16px;
+            height: 56px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             user-select: none;
-            transition: all 0.15s;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         .numpad-key:hover {
             background: rgba(56, 189, 248, 0.2);
             border-color: rgba(56, 189, 248, 0.5);
             color: #38bdf8;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
         .numpad-key:active {
-            transform: scale(0.95);
+            transform: scale(0.92);
             background: rgba(56, 189, 248, 0.35);
+        }
+
+        /* Tabs Navigation */
+        .tab-btn {
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            background: #0ea5e9;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.4);
+        }
+        .tab-btn.inactive {
+            background: transparent;
+            color: #94a3b8;
+        }
+        .tab-btn.inactive:hover {
+            color: #ffffff;
+        }
+
+        /* Custom Dark Form Inputs */
+        .dark-field {
+            width: 100%;
+            padding: 11px 14px 11px 40px;
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .dark-field:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+            background: rgba(2, 6, 23, 0.95);
+        }
+        .dark-field::placeholder {
+            color: #64748b;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #0284c7, #4f46e5);
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 20px -3px rgba(14, 165, 233, 0.45);
+            transition: all 0.2s ease;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px -3px rgba(14, 165, 233, 0.55);
+        }
+        .submit-btn:active {
+            transform: scale(0.97);
         }
     </style>
 </head>
-<body class="antialiased flex flex-col justify-between min-h-screen relative overflow-x-hidden selection:bg-sky-500 selection:text-white p-4 sm:p-6">
+<body>
 
-    <!-- Ambient Floating Blobs -->
-    <div class="liquid-blob w-96 h-96 bg-purple-600 -top-20 -left-20"></div>
-    <div class="liquid-blob w-96 h-96 bg-sky-600 top-1/3 -right-20"></div>
-    <div class="liquid-blob w-96 h-96 bg-pink-600 bottom-10 left-1/4"></div>
+    <!-- Ambient Lights -->
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
 
-    <!-- Top Brand Header -->
-    <header class="relative z-10 max-w-md w-full mx-auto text-center pt-2 sm:pt-6">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 text-white text-2xl shadow-xl shadow-indigo-500/25 mb-3 border border-white/20">
-            <i class="fas fa-mug-hot"></i>
-        </div>
-        <h1 class="text-xl sm:text-2xl font-black tracking-wide text-white uppercase drop-shadow-md">
-            GÓC PHỐ COFFEE & TEA
-        </h1>
-        <p class="text-xs text-slate-400 mt-1">
-            Hệ Thống Bán Hàng & Vận Hành POS Quán (CyberNexus OS)
-        </p>
-    </header>
+    <div class="login-wrapper">
 
-    <!-- Main Container -->
-    <main class="relative z-10 max-w-md w-full mx-auto my-4">
-        
-        <!-- Guest / Customer Primary Link -->
-        <div class="mb-4">
-            <a href="customer.html" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500/25 via-teal-500/20 to-sky-500/25 hover:from-emerald-500/35 hover:to-sky-500/35 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-white font-black text-xs sm:text-sm flex items-center justify-between shadow-xl shadow-emerald-500/10 transition-all group">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/30 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-utensils"></i>
-                    </div>
-                    <div class="text-left">
-                        <div class="leading-tight font-extrabold">Khách Hàng Xem Menu & Đặt Món</div>
-                        <div class="text-[10px] text-slate-400 font-normal">Khách vãng lai, ngồi tại bàn, đặt online (Không cần đăng nhập)</div>
-                    </div>
+        <!-- Branding Header (Logo bên trái tên quán) -->
+        <header style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 18px; text-align: left;">
+            <div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 16px; background: linear-gradient(135deg, #f59e0b, #ef4444, #6366f1); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; box-shadow: 0 10px 20px -4px rgba(99, 102, 241, 0.4); border: 1px solid rgba(255, 255, 255, 0.2);">
+                <i class="fas fa-mug-hot"></i>
+            </div>
+            <div style="min-width: 0;">
+                <h1 style="font-size: 1.2rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; color: #fff; line-height: 1.2; margin: 0;">
+                    GÓC PHỐ COFFEE & TEA
+                </h1>
+                <p style="font-size: 11px; color: #94a3b8; margin: 3px 0 0 0; line-height: 1.3;">
+                    Hệ Thống Bán Hàng & Vận Hành POS (CyberNexus OS)
+                </p>
+            </div>
+        </header>
+
+        <!-- Customer Menu Fast Link -->
+        <a href="customer.html" class="customer-pill">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 10px; background: rgba(16, 185, 129, 0.25); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 13px; border: 1px solid rgba(52, 211, 153, 0.4);">
+                    <i class="fas fa-utensils"></i>
                 </div>
-                <i class="fas fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
-            </a>
-        </div>
-
-        <!-- Login Card -->
-        <div class="liquid-glass rounded-3xl p-5 sm:p-6 shadow-2xl border border-white/15 relative">
-            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse"></span>
-                    <h2 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider" id="login-title-text">Đăng Nhập POS</h2>
+                <div style="text-align: left;">
+                    <div style="font-weight: 800; font-size: 12px; line-height: 1.2;">Khách Hàng Xem Menu & Đặt Món</div>
+                    <div style="font-size: 10px; color: #94a3b8;">Khách vãng lai, tại bàn, online (Không cần đăng nhập)</div>
                 </div>
-                <div class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-[11px] font-bold">
-                    <button type="button" id="tab-btn-pin" onclick="switchLoginTab('pin')" class="px-2 py-1 rounded-lg bg-sky-500 text-white transition-all">Mã PIN</button>
-                    <button type="button" id="tab-btn-pass" onclick="switchLoginTab('pass')" class="px-2 py-1 rounded-lg text-slate-400 hover:text-white transition-all">Mật khẩu</button>
-                    <button type="button" id="tab-btn-owner" onclick="switchLoginTab('owner')" class="px-2 py-1 rounded-lg text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all flex items-center gap-1">
-                        <i class="fas fa-qrcode"></i> App Chủ Quán
-                    </button>
+            </div>
+            <i class="fas fa-arrow-right" style="font-size: 11px;"></i>
+        </a>
+
+        <!-- Main Glass Card -->
+        <div class="login-card">
+            <!-- Tabs Navigation -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
+                    <h2 id="login-title-text" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #fff;">Đăng Nhập POS</h2>
+                </div>
+                <div style="display: flex; gap: 4px; background: rgba(2, 6, 23, 0.7); padding: 3px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <button type="button" id="tab-btn-pin" onclick="switchLoginTab('pin')" class="tab-btn active">Mã PIN</button>
+                    <button type="button" id="tab-btn-pass" onclick="switchLoginTab('pass')" class="tab-btn inactive">Tài Khoản</button>
                 </div>
             </div>
 
             <!-- Error Banner -->
-            <div id="login-error-msg" class="hidden mb-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 flex items-center gap-2">
-                <i class="fas fa-circle-exclamation text-rose-400 shrink-0"></i>
+            <div id="login-error-msg" style="display: none; margin-bottom: 14px; padding: 10px 12px; border-radius: 12px; background: rgba(244, 63, 94, 0.2); border: 1px solid rgba(244, 63, 94, 0.4); font-size: 12px; color: #fda4af; align-items: center; gap: 8px;">
+                <i class="fas fa-circle-exclamation" style="color: #fb7185;"></i>
                 <span id="login-error-text">Lỗi đăng nhập</span>
             </div>
 
-            <!-- TAB 1: PIN LOGIN (Dành riêng cho Nhân viên quầy/bếp/phục vụ) -->
-            <div id="tab-pane-pin" class="space-y-4">
-                <div class="text-center">
-                    <p class="text-xs text-slate-300 font-medium">Nhập mã PIN cá nhân 4 số</p>
-                    <div class="flex items-center justify-center gap-3 my-3">
+            <!-- TAB 1: PIN LOGIN (Dành riêng cho Màn hình cảm ứng POS) -->
+            <div id="tab-pane-pin">
+                <div style="text-align: center;">
+                    <p style="font-size: 12px; color: #cbd5e1; font-weight: 600;">Nhập mã PIN cá nhân 4 số</p>
+                    <div class="pin-dots-container">
                         <div class="pin-dot" id="dot-0"></div>
                         <div class="pin-dot" id="dot-1"></div>
                         <div class="pin-dot" id="dot-2"></div>
@@ -167,8 +314,8 @@
                     </div>
                 </div>
 
-                <!-- Virtual Numpad -->
-                <div class="grid grid-cols-3 gap-2">
+                <!-- Numpad 3x4 -->
+                <div class="numpad-grid">
                     <button type="button" class="numpad-key" onclick="pressPin('1')">1</button>
                     <button type="button" class="numpad-key" onclick="pressPin('2')">2</button>
                     <button type="button" class="numpad-key" onclick="pressPin('3')">3</button>
@@ -178,464 +325,71 @@
                     <button type="button" class="numpad-key" onclick="pressPin('7')">7</button>
                     <button type="button" class="numpad-key" onclick="pressPin('8')">8</button>
                     <button type="button" class="numpad-key" onclick="pressPin('9')">9</button>
-                    <button type="button" class="numpad-key text-rose-400" onclick="clearPin()" title="Xóa hết"><i class="fas fa-trash-can text-sm"></i></button>
+                    <button type="button" class="numpad-key" onclick="clearPin()" title="Xóa hết" style="color: #fb7185; font-size: 16px;"><i class="fas fa-trash-can"></i></button>
                     <button type="button" class="numpad-key" onclick="pressPin('0')">0</button>
-                    <button type="button" class="numpad-key text-amber-400" onclick="backspacePin()" title="Xóa 1 số"><i class="fas fa-delete-left text-sm"></i></button>
-                </div>
-
-                <!-- Fast Account Selection Chips (Chỉ hiện các ca nhân viên thực tế) -->
-                <div class="pt-2 border-t border-white/10">
-                    <p class="text-[11px] text-slate-400 text-center mb-2 font-medium">Chọn nhanh tài khoản ca làm việc:</p>
-                    <div class="grid grid-cols-3 gap-2 text-xs">
-                        <button type="button" onclick="quickFillPin('1111')" class="p-2 rounded-xl bg-slate-900/90 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 hover:text-white flex flex-col items-center justify-center font-semibold transition-all">
-                            <span>💰 Thu ngân</span>
-                            <span class="font-mono text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded mt-1">1111</span>
-                        </button>
-                        <button type="button" onclick="quickFillPin('2222')" class="p-2 rounded-xl bg-slate-900/90 border border-sky-500/30 hover:border-sky-400 text-sky-300 hover:text-white flex flex-col items-center justify-center font-semibold transition-all">
-                            <span>📱 Phục vụ</span>
-                            <span class="font-mono text-[10px] text-sky-400 bg-sky-950/60 px-1.5 py-0.5 rounded mt-1">2222</span>
-                        </button>
-                        <button type="button" onclick="quickFillPin('4444')" class="p-2 rounded-xl bg-slate-900/90 border border-amber-500/30 hover:border-amber-400 text-amber-300 hover:text-white flex flex-col items-center justify-center font-semibold transition-all">
-                            <span>🍳 Bếp / Bar</span>
-                            <span class="font-mono text-[10px] text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded mt-1">4444</span>
-                        </button>
-                    </div>
+                    <button type="button" class="numpad-key" onclick="backspacePin()" title="Xóa 1 số" style="color: #fbbf24; font-size: 16px;"><i class="fas fa-delete-left"></i></button>
                 </div>
             </div>
 
-            <!-- TAB 2: USERNAME & PASSWORD -->
-            <form id="tab-pane-pass" class="hidden space-y-3.5" onsubmit="handlePassLogin(event)">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Tên đăng nhập hoặc Mã nhân viên</label>
-                    <div class="relative">
-                        <i class="fas fa-user absolute left-3 top-3 text-xs text-slate-400"></i>
-                        <input id="input-username" type="text" required class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 font-medium" placeholder="Ví dụ: Admin, ThuNgan..." />
+            <!-- TAB 2: USERNAME & PASSWORD (Chủ Quán / Quản Lý) -->
+            <form id="tab-pane-pass" style="display: none;" onsubmit="handlePassLogin(event)">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">Tên đăng nhập hoặc Mã nhân viên</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-user" style="position: absolute; left: 14px; top: 13px; font-size: 13px; color: #64748b;"></i>
+                        <input id="input-username" type="text" required class="dark-field" placeholder="Nhập tên đăng nhập..." />
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Mật khẩu</label>
-                    <div class="relative">
-                        <i class="fas fa-lock absolute left-3 top-3 text-xs text-slate-400"></i>
-                        <input id="input-password" type="password" required class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 font-medium" placeholder="Nhập mật khẩu..." />
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">Mật khẩu</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-lock" style="position: absolute; left: 14px; top: 13px; font-size: 13px; color: #64748b;"></i>
+                        <input id="input-password" type="password" required class="dark-field" placeholder="Nhập mật khẩu..." />
                     </div>
                 </div>
 
-                <button id="btn-submit-pass" type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all mt-4">
+                <button id="btn-submit-pass" type="submit" class="submit-btn">
                     <i class="fas fa-sign-in-alt"></i>
                     <span>Đăng Nhập</span>
                 </button>
             </form>
-
-            <!-- TAB 3: SMART OWNER QR / APP AUTHENTICATION (Bảo Mật Cao Cấp) -->
-            <div id="tab-pane-owner" class="hidden space-y-4 text-center">
-                <div class="p-3 rounded-2xl bg-purple-950/40 border border-purple-500/30 text-left flex items-start gap-2.5">
-                    <div class="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center text-xs shrink-0 mt-0.5">
-                        <i class="fas fa-shield-halved"></i>
-                    </div>
-                    <div class="text-[11px] text-slate-300">
-                        <p class="font-bold text-purple-300">Xác Thực Thông Minh Chủ Quán</p>
-                        <p class="text-slate-400">Chủ quán quét mã QR bằng App điện thoại để phê duyệt từ xa, không lo bị lộ mật khẩu tại quầy.</p>
-                    </div>
-                </div>
-
-                <!-- Dynamic QR Canvas / Box -->
-                <div class="bg-white p-3.5 rounded-2xl inline-block shadow-2xl mx-auto border-4 border-purple-500/20 relative group">
-                    <img id="owner-qr-img" src="" alt="Owner QR Login" class="w-40 h-40 object-contain mx-auto" />
-                    <div id="owner-qr-loading" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-xl text-purple-700 text-xs font-bold gap-1.5">
-                        <i class="fas fa-spinner fa-spin text-xl"></i>
-                        <span>Đang tạo mã bảo mật...</span>
-                    </div>
-                </div>
-
-                <div>
-                    <div id="owner-qr-status" class="text-xs font-mono font-bold text-emerald-400 flex items-center justify-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span>Đang chờ Chủ Quán quét mã từ App...</span>
-                    </div>
-                    <div id="owner-qr-timer" class="text-[11px] text-slate-400 mt-1">Mã tự làm mới sau: <b id="qr-seconds" class="text-amber-400">120</b>s</div>
-                </div>
-
-                <!-- One-click Direct Approve for Localhost Server Machine -->
-                <div class="pt-3 border-t border-white/10 space-y-2">
-                    <button type="button" onclick="directApproveOwner()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition-all">
-                        <i class="fas fa-fingerprint"></i>
-                        <span>Xác Nhận Chủ Quán Tại Máy Này (PIN 9999)</span>
-                    </button>
-                    <p class="text-[10px] text-slate-500">Dành riêng cho Chủ Quán đang ngồi trực tiếp tại máy tính máy chủ.</p>
-                </div>
-            </div>
         </div>
-    </main>
 
-    <!-- CyberNexus Native C++ Microkernel Control Bar -->
-    <div class="relative z-10 max-w-md w-full mx-auto px-4 mb-2">
-        <div class="p-2.5 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-md flex items-center justify-between gap-2 shadow-lg text-xs">
-            <div class="flex items-center gap-2 min-w-0">
-                <span class="relative flex h-2.5 w-2.5 shrink-0">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <div class="min-w-0">
-                    <div class="text-[11px] font-bold text-slate-200 truncate flex items-center gap-1.5">
-                        <span>Máy Chủ C++ Native</span>
-                        <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1 rounded border border-emerald-500/20">PORT 8500</span>
-                    </div>
-                    <div id="sys-uptime-text" class="text-[10px] text-slate-400 font-mono">Uptime: Đang kết nối...</div>
-                </div>
-            </div>
-            <button type="button" onclick="openSystemControlModal()" class="px-2.5 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-300 hover:text-white font-bold text-[11px] flex items-center gap-1.5 transition-all shrink-0">
-                <i class="fas fa-gear text-xs"></i>
-                <span>Điều Khiển Host</span>
-            </button>
-        </div>
+        <!-- Footer -->
+        <footer style="text-align: center; color: #64748b; font-size: 11px; margin-top: 16px;">
+            &copy; 2026 Góc Phố Coffee & Tea · Powered by CyberNexus OS C++
+        </footer>
     </div>
 
-    <!-- System Control & License Modal (C++ Native) -->
-    <div id="modal-system-control" class="fixed inset-0 z-50 items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all" style="display: none;">
-        <div class="liquid-glass max-w-md w-full rounded-3xl border border-sky-500/30 p-5 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-white/10">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white text-sm shadow-md shadow-sky-500/30">
-                        <i class="fas fa-server"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-sm text-white">Quản Trị Máy Chủ C++ Native</h3>
-                        <p class="text-[10px] text-slate-400">CyberNexus OS Standalone Microkernel</p>
-                    </div>
-                </div>
-                <button type="button" onclick="closeSystemControlModal()" class="text-slate-400 hover:text-white text-2xl w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10">&times;</button>
-            </div>
-
-            <!-- System Info -->
-            <div class="p-3 rounded-2xl bg-slate-950/70 border border-white/10 space-y-1.5 text-xs font-mono">
-                <div class="flex justify-between items-center text-slate-300">
-                    <span class="text-slate-400">Trạng thái:</span>
-                    <span class="text-emerald-400 font-bold flex items-center gap-1"><i class="fas fa-circle-check"></i> Đang hoạt động (Cổng 8500)</span>
-                </div>
-                <div class="flex justify-between items-center text-slate-300">
-                    <span class="text-slate-400">Bảo vệ nhị phân:</span>
-                    <span class="text-sky-300 font-semibold"><i class="fas fa-shield-halved"></i> Chống sửa đổi Native</span>
-                </div>
-                <div class="flex justify-between items-center text-slate-300">
-                    <span class="text-slate-400">Mã máy (Machine ID):</span>
-                    <div class="flex items-center gap-1">
-                        <span id="sys-modal-machine-id" class="text-amber-300 text-[10px]">Đang lấy...</span>
-                        <button type="button" onclick="copyMachineId()" class="text-slate-400 hover:text-white text-xs px-1" title="Sao chép"><i class="fas fa-copy"></i></button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PIN Quản trị xác thực điều khiển -->
-            <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-slate-300">Nhập Mã PIN Quản Trị để xác thực lệnh:</label>
-                <input id="input-sys-control-pin" type="password" maxlength="6" class="w-full text-center tracking-widest font-mono text-base font-bold py-2 rounded-xl bg-slate-900 border border-white/20 text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Mặc định: 9999" value="9999" />
-                <p class="text-[10px] text-slate-400 text-center">Chỉ Chủ Quán (PIN 9999) mới có quyền Khởi động lại hoặc Dừng máy chủ.</p>
-            </div>
-
-            <!-- Control Actions: Restart & Stop -->
-            <div class="grid grid-cols-2 gap-2.5 pt-1">
-                <button type="button" onclick="executeServerControl('restart')" class="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
-                    <i class="fas fa-rotate"></i>
-                    <span>Khởi Động Lại</span>
-                </button>
-                <button type="button" onclick="executeServerControl('stop')" class="py-2.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
-                    <i class="fas fa-power-off"></i>
-                    <span>Dừng Máy Chủ</span>
-                </button>
-            </div>
-
-            <!-- Kích Hoạt Bản Quyền C++ Native -->
-            <div class="pt-3 border-t border-white/10 space-y-2">
-                <div class="flex items-center justify-between text-xs font-semibold text-slate-300">
-                    <span class="flex items-center gap-1.5 text-purple-300"><i class="fas fa-key"></i> Kích Hoạt Bản Quyền</span>
-                </div>
-                <div class="flex gap-1.5">
-                    <input id="input-license-key" type="text" class="flex-1 px-3 py-1.5 rounded-xl bg-slate-950 border border-white/15 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-purple-400 uppercase" placeholder="XXXX-XXXX-XXXX-XXXX" />
-                    <button type="button" onclick="executeLicenseActivation()" class="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0 shadow-md transition-all">
-                        Kích Hoạt
-                    </button>
-                </div>
-                <div id="license-msg-box" class="hidden text-[11px] p-2 rounded-xl text-center"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="relative z-10 text-center text-slate-500 text-xs py-2">
-        &copy; 2026 Góc Phố Coffee & Tea · Powered by CyberNexus Microkernel Standalone
-    </footer>
-
-    <!-- Logic JS -->
+    <!-- Logic Script -->
     <script>
         let currentPin = '';
-        let currentOwnerQrToken = '';
-        let qrPollInterval = null;
-        let qrTimerInterval = null;
-        let qrSecondsLeft = 120;
-        let sysMachineId = '';
 
         function switchLoginTab(tab) {
             const btnPin = document.getElementById('tab-btn-pin');
             const btnPass = document.getElementById('tab-btn-pass');
-            const btnOwner = document.getElementById('tab-btn-owner');
             const panePin = document.getElementById('tab-pane-pin');
             const panePass = document.getElementById('tab-pane-pass');
-            const paneOwner = document.getElementById('tab-pane-owner');
             const titleText = document.getElementById('login-title-text');
             const errBox = document.getElementById('login-error-msg');
-            if (errBox) errBox.classList.add('hidden');
-
-            // Reset QR polling if leaving owner tab
-            if (tab !== 'owner' && qrPollInterval) {
-                clearInterval(qrPollInterval);
-                clearInterval(qrTimerInterval);
-                qrPollInterval = null;
-            }
+            if (errBox) errBox.style.display = 'none';
 
             if (tab === 'pin') {
-                btnPin.className = 'px-2 py-1 rounded-lg bg-sky-500 text-white transition-all';
-                btnPass.className = 'px-2 py-1 rounded-lg text-slate-400 hover:text-white transition-all';
-                btnOwner.className = 'px-2 py-1 rounded-lg text-purple-300 hover:text-white transition-all flex items-center gap-1';
-                panePin.classList.remove('hidden');
-                panePass.classList.add('hidden');
-                paneOwner.classList.add('hidden');
-                if (titleText) titleText.textContent = 'Đăng Nhập Nhân Viên';
-            } else if (tab === 'pass') {
-                btnPass.className = 'px-2 py-1 rounded-lg bg-sky-500 text-white transition-all';
-                btnPin.className = 'px-2 py-1 rounded-lg text-slate-400 hover:text-white transition-all';
-                btnOwner.className = 'px-2 py-1 rounded-lg text-purple-300 hover:text-white transition-all flex items-center gap-1';
-                panePass.classList.remove('hidden');
-                panePin.classList.add('hidden');
-                paneOwner.classList.add('hidden');
-                if (titleText) titleText.textContent = 'Đăng Nhập Tài Khoản';
+                btnPin.className = 'tab-btn active';
+                btnPass.className = 'tab-btn inactive';
+                panePin.style.display = 'block';
+                panePass.style.display = 'none';
+                if (titleText) titleText.textContent = 'Đăng Nhập POS';
+            } else {
+                btnPass.className = 'tab-btn active';
+                btnPin.className = 'tab-btn inactive';
+                panePass.style.display = 'block';
+                panePin.style.display = 'none';
+                if (titleText) titleText.textContent = 'Đăng Nhập Quản Lý';
                 document.getElementById('input-username')?.focus();
-            } else if (tab === 'owner') {
-                btnOwner.className = 'px-2 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all flex items-center gap-1 shadow-md';
-                btnPin.className = 'px-2 py-1 rounded-lg text-slate-400 hover:text-white transition-all';
-                btnPass.className = 'px-2 py-1 rounded-lg text-slate-400 hover:text-white transition-all';
-                paneOwner.classList.remove('hidden');
-                panePin.classList.add('hidden');
-                panePass.classList.add('hidden');
-                if (titleText) titleText.textContent = 'Xác Thực Chủ Quán';
-                initOwnerQrLogin();
             }
         }
-
-        async function initOwnerQrLogin() {
-            const qrImg = document.getElementById('owner-qr-img');
-            const qrLoading = document.getElementById('owner-qr-loading');
-            const qrStatus = document.getElementById('owner-qr-status');
-            const qrSecEl = document.getElementById('qr-seconds');
-
-            if (qrLoading) qrLoading.classList.remove('hidden');
-            if (qrPollInterval) clearInterval(qrPollInterval);
-            if (qrTimerInterval) clearInterval(qrTimerInterval);
-
-            try {
-                const res = await fetch('api/auth.php?action=create_owner_qr');
-                const data = await res.json();
-                if (data && data.success && data.qr_token) {
-                    currentOwnerQrToken = data.qr_token;
-                    qrSecondsLeft = data.expires_in || 120;
-                    if (qrSecEl) qrSecEl.textContent = qrSecondsLeft;
-
-                    // Sinh ảnh QR code qua data URI hoặc dynamic SVG QR generator
-                    const qrData = encodeURIComponent(`cybernexus://owner-auth?token=${currentOwnerQrToken}&host=${window.location.host}`);
-                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrData}&color=15-23-42&bgcolor=ffffff`;
-                    qrImg.onload = () => { if (qrLoading) qrLoading.classList.add('hidden'); };
-                    qrImg.onerror = () => {
-                        // Fallback SVG QR nếu không có internet
-                        qrImg.src = 'assets/img/qr-fallback.png';
-                        if (qrLoading) qrLoading.classList.add('hidden');
-                    };
-
-                    // Bắt đầu đếm ngược thời gian
-                    qrTimerInterval = setInterval(() => {
-                        qrSecondsLeft--;
-                        if (qrSecEl) qrSecEl.textContent = qrSecondsLeft;
-                        if (qrSecondsLeft <= 0) {
-                            clearInterval(qrTimerInterval);
-                            clearInterval(qrPollInterval);
-                            if (qrStatus) qrStatus.innerHTML = '<span class="text-rose-400">Mã QR đã hết hạn. <a href="javascript:initOwnerQrLogin()" class="underline text-sky-400">Bấm để tạo mới</a></span>';
-                        }
-                    }, 1000);
-
-                    // Bắt đầu Long-poll / Poll kiểm tra trạng thái từ C++ Auth Service
-                    qrPollInterval = setInterval(pollOwnerQrStatus, 2000);
-                }
-            } catch (err) {
-                console.error(err);
-                if (qrLoading) qrLoading.classList.add('hidden');
-                if (qrStatus) qrStatus.innerHTML = '<span class="text-rose-400">Lỗi kết nối máy chủ tạo mã QR!</span>';
-            }
-        }
-
-        async function pollOwnerQrStatus() {
-            if (!currentOwnerQrToken) return;
-            try {
-                const res = await fetch(`api/auth.php?action=check_owner_qr&qr_token=${encodeURIComponent(currentOwnerQrToken)}`);
-                const data = await res.json();
-                if (data && data.approved && data.user) {
-                    clearInterval(qrPollInterval);
-                    clearInterval(qrTimerInterval);
-                    const qrStatus = document.getElementById('owner-qr-status');
-                    if (qrStatus) qrStatus.innerHTML = '<span class="text-emerald-400 font-bold"><i class="fas fa-check-circle"></i> Đã phê duyệt! Đang vào Quản Trị...</span>';
-
-                    localStorage.setItem('pos_user', JSON.stringify(data.user));
-                    if (data.token) {
-                        localStorage.setItem('pos_token', data.token);
-                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; max-age=2592000; SameSite=Lax";
-                    }
-                    setTimeout(() => window.location.replace('admin.html'), 500);
-                }
-            } catch (e) {}
-        }
-
-        async function directApproveOwner() {
-            const pin = prompt('Nhập Mã PIN Quản Trị của Chủ Quán (Mặc định: 9999):');
-            if (!pin) return;
-
-            try {
-                const res = await fetch('api/auth.php?action=approve_owner_qr', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ qr_token: currentOwnerQrToken, pin })
-                });
-                const data = await res.json();
-                if (data && data.success) {
-                    pollOwnerQrStatus();
-                } else {
-                    alert(data.message || 'Mã PIN Chủ Quán không đúng!');
-                }
-            } catch (e) {
-                alert('Không thể kết nối máy chủ!');
-            }
-        }
-
-        async function fetchSystemStatus() {
-            try {
-                const res = await fetch('/api/system/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.success) {
-                        sysMachineId = data.machine_id || '';
-                        const elMid = document.getElementById('sys-modal-machine-id');
-                        if (elMid) elMid.textContent = sysMachineId || 'N/A';
-
-                        const elUptime = document.getElementById('sys-uptime-text');
-                        if (elUptime && data.uptime_seconds !== undefined) {
-                            const hrs = Math.floor(data.uptime_seconds / 3600);
-                            const mins = Math.floor((data.uptime_seconds % 3600) / 60);
-                            const secs = data.uptime_seconds % 60;
-                            elUptime.textContent = `Uptime: ${hrs}h ${mins}m ${secs}s · Phiên: ${data.active_sessions || 0}`;
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        function openSystemControlModal() {
-            const modal = document.getElementById('modal-system-control');
-            if (modal) {
-                modal.style.display = 'flex';
-                fetchSystemStatus();
-            }
-        }
-
-        function closeSystemControlModal() {
-            const modal = document.getElementById('modal-system-control');
-            if (modal) modal.style.display = 'none';
-        }
-
-        function copyMachineId() {
-            if (!sysMachineId) return;
-            navigator.clipboard.writeText(sysMachineId).then(() => {
-                alert('Đã sao chép Mã Định Danh Phần Cứng (Machine ID): ' + sysMachineId);
-            });
-        }
-
-        async function executeServerControl(action) {
-            const pin = document.getElementById('input-sys-control-pin').value.trim();
-            if (!pin) {
-                alert('Vui lòng nhập Mã PIN Quản Trị (Mặc định: 9999)');
-                return;
-            }
-
-            const actionLabel = action === 'stop' ? 'DỪNG VÀ TẮT MÁY CHỦ' : 'KHỞI ĐỘNG LẠI DỊCH VỤ';
-            if (!confirm(`Xác nhận thực hiện: ${actionLabel}?`)) return;
-
-            try {
-                const res = await fetch('/api/system/control', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, pin })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    if (action === 'stop') {
-                        document.body.innerHTML = `
-                            <div style="background:#020617;color:#94a3b8;font-family:sans-serif;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
-                                <h2 style="color:#f87171;">🛑 Máy Chủ Đã Được Dừng An Toàn</h2>
-                                <p>Toàn bộ cơ sở dữ liệu SQLite đã được đóng và bảo toàn.</p>
-                                <p style="font-size:12px;color:#64748b;">Bạn có thể đóng tab trình duyệt này.</p>
-                            </div>
-                        `;
-                    } else if (action === 'restart') {
-                        setTimeout(() => window.location.reload(), 2000);
-                    }
-                } else {
-                    alert(data.message || 'Lệnh bị từ chối!');
-                }
-            } catch (e) {
-                if (action === 'stop') {
-                    alert('Máy chủ đã dừng thành công!');
-                    window.location.reload();
-                } else if (action === 'restart') {
-                    alert('Đang khởi động lại dịch vụ...');
-                    setTimeout(() => window.location.reload(), 2000);
-                } else {
-                    alert('Lỗi kết nối máy chủ!');
-                }
-            }
-        }
-
-        async function executeLicenseActivation() {
-            const pin = document.getElementById('input-sys-control-pin').value.trim();
-            const licenseKey = document.getElementById('input-license-key').value.trim();
-            const msgBox = document.getElementById('license-msg-box');
-
-            if (!licenseKey) {
-                alert('Vui lòng nhập License Key!');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/system/control', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'activate_license', pin, license_key: licenseKey })
-                });
-                const data = await res.json();
-                if (msgBox) {
-                    msgBox.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-300', 'bg-rose-500/20', 'text-rose-300');
-                    if (data.success) {
-                        msgBox.classList.add('bg-emerald-500/20', 'text-emerald-300');
-                        msgBox.textContent = data.message || 'Kích hoạt bản quyền thành công!';
-                    } else {
-                        msgBox.classList.add('bg-rose-500/20', 'text-rose-300');
-                        msgBox.textContent = data.message || 'Mã bản quyền không hợp lệ!';
-                    }
-                }
-            } catch (e) {
-                alert('Lỗi kết nối máy chủ!');
-            }
-        }
-
-        // Tự động kiểm tra trạng thái máy chủ mỗi 5 giây
-        fetchSystemStatus();
-        setInterval(fetchSystemStatus, 5000);
 
         function updatePinDots() {
             for (let i = 0; i < 4; i++) {
@@ -671,24 +425,18 @@
             }
         }
 
-        function quickFillPin(pin) {
-            currentPin = pin;
-            updatePinDots();
-            setTimeout(submitPinLogin, 150);
-        }
-
         function showError(msg) {
             const errBox = document.getElementById('login-error-msg');
             const errText = document.getElementById('login-error-text');
             if (errBox && errText) {
                 errText.textContent = msg || 'Đăng nhập không thành công!';
-                errBox.classList.remove('hidden');
+                errBox.style.display = 'flex';
             }
         }
 
         function hideError() {
             const errBox = document.getElementById('login-error-msg');
-            if (errBox) errBox.classList.add('hidden');
+            if (errBox) errBox.style.display = 'none';
         }
 
         function getRedirectTarget(user) {
@@ -699,7 +447,7 @@
             }
 
             const role = (user && user.role) ? user.role.toLowerCase() : '';
-            if (role === 'admin') return 'admin.html';
+            if (role === 'admin' || user.is_super_admin) return 'admin.html';
             if (role === 'cashier') return 'index.html';
             if (role === 'waiter') return 'order.html';
             if (role === 'kitchen') return 'kitchen.html';
@@ -782,7 +530,7 @@
             }
         }
 
-        // Xử lý khi đăng xuất hoặc kiểm tra phiên
+        // Tự động xóa phiên nếu có param ?logout=1
         (function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('logout') === '1') {
@@ -793,10 +541,10 @@
             }
         })();
 
-        // Bắt sự kiện phím số vật lý trên bàn phím PC
+        // Bắt phím số vật lý trên bàn phím
         document.addEventListener('keydown', function(e) {
             const panePin = document.getElementById('tab-pane-pin');
-            if (panePin && !panePin.classList.contains('hidden')) {
+            if (panePin && panePin.style.display !== 'none') {
                 if (e.key >= '0' && e.key <= '9') {
                     pressPin(e.key);
                 } else if (e.key === 'Backspace') {
