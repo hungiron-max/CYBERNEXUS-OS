@@ -59,6 +59,26 @@
             bottom: -3rem;
             background: radial-gradient(circle, rgba(14, 165, 233, 0.35) 0%, rgba(139, 92, 246, 0.15) 60%, transparent 80%);
         }
+        /* Hiệu ứng cầu vồng rực rỡ & chữ sắc nét cho Slide Quảng Cáo (Khớp 100% trang Khách) */
+        .slide-title-rainbow {
+            background-image: linear-gradient(135deg, #fef08a 0%, #fb923c 22%, #f43f5e 45%, #ec4899 65%, #a855f7 82%, #38bdf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 4px 12px rgba(0,0,0,0.85));
+            font-weight: 900;
+            letter-spacing: -0.02em;
+        }
+        .slide-desc-crisp {
+            color: #f8fafc;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
+        }
+        .preview-slide-fade {
+            animation: previewSlideIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes previewSlideIn {
+            0% { opacity: 0; transform: scale(1.03); }
+            100% { opacity: 1; transform: scale(1); }
+        }
     </style>
     <script>
         // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
@@ -1478,9 +1498,9 @@
                             <div class="lg:col-span-5 rounded-xl border border-white/10 bg-slate-950/60 p-3.5 space-y-3">
                                 <div class="flex items-center justify-between">
                                     <b class="text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                                        <i class="fas fa-plus-circle text-fuchsia-400"></i> Thêm Slide Mới
+                                        <i id="ad-form-icon" class="fas fa-plus-circle text-fuchsia-400"></i> <span id="ad-form-heading">Thêm Slide Mới</span>
                                     </b>
-                                    <span class="text-[9px] text-slate-400 font-mono">Ảnh (6s) · Video (hết clip)</span>
+                                    <span id="ad-form-subheading" class="text-[9px] text-slate-400 font-mono">Ảnh (6s) · Video (hết clip)</span>
                                 </div>
 
                                 <!-- Visual Media Preview Box -->
@@ -1545,9 +1565,9 @@
                                     <textarea id="ad-slide-description" maxlength="300" rows="2" class="liquid-input w-full text-xs" placeholder="Mô tả hương vị, ưu đãi hoặc lưu ý món...">Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.</textarea>
                                 </div>
 
-                                <!-- Action Buttons: Preview & Add -->
+                                <!-- Action Buttons: Preview & Add / Update -->
                                 <div class="grid grid-cols-2 gap-2 pt-1">
-                                    <button type="button" onclick="previewCurrentDraftSlide()" class="rounded-xl border border-sky-400/30 bg-sky-500/15 hover:bg-sky-500/30 py-2 px-3 text-xs font-bold text-sky-200 flex items-center justify-center gap-1.5 shadow-sm transition-all" title="Xem trước slide đang soạn">
+                                    <button type="button" onclick="previewCurrentDraftSlide()" class="rounded-xl border border-sky-400/30 bg-sky-500/15 hover:bg-sky-500/30 py-2 px-3 text-xs font-bold text-sky-200 flex items-center justify-center gap-1.5 shadow-sm transition-all" title="Xem trước toàn bộ trình chiếu có kèm slide này">
                                         <i class="fas fa-eye text-sky-400"></i>
                                         <span>Xem Trước</span>
                                     </button>
@@ -1556,6 +1576,9 @@
                                         <span>Thêm Vào Deck</span>
                                     </button>
                                 </div>
+                                <button type="button" id="ad-slide-cancel-edit-btn" onclick="cancelEditAdvertisingSlide()" class="hidden w-full py-1.5 text-center text-[11px] font-semibold text-slate-400 hover:text-white transition rounded-lg hover:bg-white/5 border border-white/5">
+                                    <i class="fas fa-xmark mr-1"></i> Hủy chế độ sửa (quay lại thêm mới)
+                                </button>
                             </div>
 
                             <!-- Cột Phải (lg:col-span-7): Danh Sách Slide Đang Trình Chiếu (Slide Deck Cards) -->
@@ -3043,17 +3066,20 @@
                             </div>
                         </div>
 
-                        <!-- Right Info Mockup Card -->
-                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-white/10 flex flex-col justify-between text-center space-y-3">
-                            <div class="space-y-1.5">
-                                <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center justify-center gap-1">
-                                    <i class="fas fa-store text-sky-400"></i> ĐỊA CHỈ QUÁN
+                        <!-- Right Info Card (Simulating Customer Ordering QR Card) -->
+                        <div class="p-4 rounded-2xl bg-slate-900/90 border border-white/10 flex flex-col justify-between items-center text-center space-y-2">
+                            <div class="space-y-1">
+                                <div class="text-[11px] text-sky-400 font-black uppercase tracking-wider flex items-center justify-center gap-1.5">
+                                    <i class="fas fa-qrcode text-purple-400 text-xs"></i> GỌI MÓN BẰNG ĐIỆN THOẠI
                                 </div>
-                                <div class="text-xs text-slate-200 font-medium leading-relaxed">123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
-                                <div class="text-[11px] text-amber-400 font-mono">Giờ mở cửa: <b>06:00 - 22:30</b></div>
+                                <p class="text-[10px] text-slate-300">Quét mã bằng camera để tự chọn món</p>
                             </div>
-                            <div class="pt-1">
-                                <div class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md">
+                            <div class="my-1 p-2 bg-white rounded-xl shadow-lg inline-flex items-center justify-center">
+                                <div id="preview-customer-qr-canvas" class="flex items-center justify-center min-w-[120px] min-h-[120px]"></div>
+                            </div>
+                            <div class="space-y-1.5 w-full">
+                                <div class="text-[10px] text-amber-400 font-mono">Giờ mở cửa: <b>06:00 - 22:30</b></div>
+                                <div class="w-full py-1.5 px-2 rounded-lg bg-purple-600/20 text-purple-300 border border-purple-500/30 font-bold text-[10px] flex items-center justify-center gap-1">
                                     <i class="fas fa-qrcode"></i> Mã Thanh Toán VietQR
                                 </div>
                             </div>
@@ -3274,6 +3300,8 @@
             advertisingSlidesDirty = dirty;
         }
 
+        let editingSlideIndex = -1;
+
         function renderAdvertisingSlides() {
             adminAdSlides = orderAdvertisingSlides(adminAdSlides);
             const list = document.getElementById('ad-slide-list');
@@ -3294,10 +3322,15 @@
             }
 
             adminAdSlides.forEach((slide, index) => {
-                const isVideo = slide.media_type === 'video';
+                const isVideo = slide.media_type === 'video' || /\.(mp4|webm)$/i.test(slide.media_path || '');
+                const isEditing = editingSlideIndex === index;
                 const card = document.createElement('article');
-                card.className = 'ad-slide-item flex items-center justify-between gap-3 p-2.5 rounded-xl border border-white/10 bg-slate-900/80 hover:border-fuchsia-500/30 transition-all shadow-sm';
+                card.className = `ad-slide-item flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all shadow-sm cursor-pointer ${isEditing ? 'border-amber-400 bg-amber-500/15 ring-2 ring-amber-400/40 shadow-amber-950/50' : 'border-white/10 bg-slate-900/80 hover:border-fuchsia-500/40 hover:bg-slate-900'}`;
                 card.dataset.index = String(index);
+                card.onclick = (e) => {
+                    if (e.target.closest('button')) return;
+                    editAdvertisingSlide(index);
+                };
 
                 // Thumbnail
                 const thumb = document.createElement('div');
@@ -3329,9 +3362,21 @@
 
                 metaRow.append(badgeEl, durationPill);
 
+                if (isEditing) {
+                    const editingBadge = document.createElement('span');
+                    editingBadge.className = 'px-1.5 py-0.2 rounded text-[8px] font-black uppercase bg-amber-400 text-slate-950';
+                    editingBadge.textContent = 'ĐANG SỬA';
+                    metaRow.append(editingBadge);
+                }
+
+                let cleanTitle = String(slide.title || '').trim();
+                if (/^[a-f0-9_\-\.]{12,}$/i.test(cleanTitle)) {
+                    cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+                }
+
                 const titleEl = document.createElement('h5');
-                titleEl.className = 'text-xs font-bold text-white truncate';
-                titleEl.textContent = slide.title || 'Slide không tên';
+                titleEl.className = `text-xs font-bold truncate ${isEditing ? 'text-amber-200' : 'text-white'}`;
+                titleEl.textContent = cleanTitle || 'Slide không tên';
 
                 const descEl = document.createElement('p');
                 descEl.className = 'text-[10px] text-slate-400 truncate';
@@ -3339,16 +3384,34 @@
 
                 info.append(metaRow, titleEl, descEl);
 
-                // Actions: Preview, Up, Down, Delete
+                // Actions: Edit, Preview, Up, Down, Delete
                 const actions = document.createElement('div');
                 actions.className = 'flex items-center gap-1 shrink-0';
 
+                // NÚT CHỈNH SỬA (EDIT)
+                const btnEdit = document.createElement('button');
+                btnEdit.type = 'button';
+                btnEdit.title = 'Chỉnh sửa slide này';
+                btnEdit.innerHTML = '<i class="fas fa-pen-to-square text-[10px]"></i>';
+                btnEdit.className = `h-7 w-7 rounded-lg border flex items-center justify-center transition-all ${isEditing ? 'border-amber-400 bg-amber-400 text-slate-950 font-bold' : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/30 hover:text-white'}`;
+                btnEdit.onclick = (e) => {
+                    e.stopPropagation();
+                    if (isEditing) {
+                        cancelEditAdvertisingSlide();
+                    } else {
+                        editAdvertisingSlide(index);
+                    }
+                };
+
                 const btnPrev = document.createElement('button');
                 btnPrev.type = 'button';
-                btnPrev.title = 'Xem trước slide này trên màn hình khách';
+                btnPrev.title = 'Xem trước toàn bộ slide bắt đầu từ slide này';
                 btnPrev.innerHTML = '<i class="fas fa-eye text-[10px]"></i>';
                 btnPrev.className = 'h-7 w-7 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/30 hover:text-white flex items-center justify-center transition-all';
-                btnPrev.onclick = () => previewSingleSlide(index);
+                btnPrev.onclick = (e) => {
+                    e.stopPropagation();
+                    previewSingleSlide(index);
+                };
 
                 const btnUp = document.createElement('button');
                 btnUp.type = 'button';
@@ -3356,7 +3419,10 @@
                 btnUp.innerHTML = '<i class="fas fa-arrow-up text-[10px]"></i>';
                 btnUp.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
                 btnUp.disabled = index === 0;
-                btnUp.onclick = () => moveAdvertisingSlide(index, -1);
+                btnUp.onclick = (e) => {
+                    e.stopPropagation();
+                    moveAdvertisingSlide(index, -1);
+                };
 
                 const btnDown = document.createElement('button');
                 btnDown.type = 'button';
@@ -3364,31 +3430,110 @@
                 btnDown.innerHTML = '<i class="fas fa-arrow-down text-[10px]"></i>';
                 btnDown.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
                 btnDown.disabled = index === adminAdSlides.length - 1;
-                btnDown.onclick = () => moveAdvertisingSlide(index, 1);
+                btnDown.onclick = (e) => {
+                    e.stopPropagation();
+                    moveAdvertisingSlide(index, 1);
+                };
 
                 const btnDel = document.createElement('button');
                 btnDel.type = 'button';
                 btnDel.title = 'Xóa slide';
                 btnDel.innerHTML = '<i class="fas fa-trash-can text-[10px]"></i>';
                 btnDel.className = 'h-7 w-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/30 hover:text-rose-100 flex items-center justify-center transition-all';
-                btnDel.onclick = () => removeAdvertisingSlide(index);
+                btnDel.onclick = (e) => {
+                    e.stopPropagation();
+                    removeAdvertisingSlide(index);
+                };
 
-                actions.append(btnPrev, btnUp, btnDown, btnDel);
+                actions.append(btnEdit, btnPrev, btnUp, btnDown, btnDel);
 
                 card.append(thumb, info, actions);
                 list.appendChild(card);
             });
         }
 
+        function editAdvertisingSlide(index) {
+            const slide = adminAdSlides[index];
+            if (!slide) return;
+            editingSlideIndex = index;
+
+            const isVideo = slide.media_type === 'video' || /\.(mp4|webm)$/i.test(slide.media_path || '');
+
+            // Đổ dữ liệu slide vào Form soạn thảo
+            const urlInput = document.getElementById('ad-media-url');
+            if (urlInput) urlInput.value = slide.media_path;
+            updateAdMediaPreview(slide.media_path, isVideo ? 'video' : 'image');
+
+            const labelSelect = document.getElementById('ad-slide-label-select');
+            if (labelSelect) labelSelect.value = slide.label || (isVideo ? 'QC1' : 'KM1');
+            const labelInput = document.getElementById('ad-slide-label');
+            if (labelInput) labelInput.value = slide.label || (isVideo ? 'QC1' : 'KM1');
+
+            const durationSelect = document.getElementById('ad-slide-duration');
+            if (durationSelect) durationSelect.value = isVideo ? '0' : String(slide.duration || 6);
+
+            let cleanTitle = String(slide.title || '').trim();
+            if (/^[a-f0-9_\-\.]{12,}$/i.test(cleanTitle)) {
+                cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+            }
+            const titleInput = document.getElementById('ad-slide-title');
+            if (titleInput) titleInput.value = cleanTitle;
+
+            const descInput = document.getElementById('ad-slide-description');
+            if (descInput) descInput.value = slide.description || '';
+
+            // Đổi tiêu đề Form và Nút Lưu thành Chế độ Chỉnh sửa
+            const heading = document.getElementById('ad-form-heading');
+            if (heading) heading.textContent = `Chỉnh Sửa Slide #${index + 1}`;
+            const icon = document.getElementById('ad-form-icon');
+            if (icon) icon.className = 'fas fa-pen-to-square text-amber-400';
+
+            const addBtn = document.getElementById('ad-slide-add-button');
+            if (addBtn) {
+                addBtn.className = 'rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-amber-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5';
+                addBtn.innerHTML = '<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>';
+            }
+
+            const cancelBtn = document.getElementById('ad-slide-cancel-edit-btn');
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
+
+            renderAdvertisingSlides();
+            document.getElementById('ad-slide-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            adManagerAlert(`Đang chỉnh sửa slide #${index + 1}. Hãy sửa nội dung rồi bấm "Cập Nhật Slide".`, true);
+        }
+
+        function cancelEditAdvertisingSlide() {
+            editingSlideIndex = -1;
+            const heading = document.getElementById('ad-form-heading');
+            if (heading) heading.textContent = 'Thêm Slide Mới';
+            const icon = document.getElementById('ad-form-icon');
+            if (icon) icon.className = 'fas fa-plus-circle text-fuchsia-400';
+
+            const addBtn = document.getElementById('ad-slide-add-button');
+            if (addBtn) {
+                addBtn.className = 'rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5';
+                addBtn.innerHTML = '<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>';
+            }
+
+            const cancelBtn = document.getElementById('ad-slide-cancel-edit-btn');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+
+            renderAdvertisingSlides();
+        }
+
         function moveAdvertisingSlide(index, direction) {
             const target = index + direction;
             if (target < 0 || target >= adminAdSlides.length) return;
             [adminAdSlides[index], adminAdSlides[target]] = [adminAdSlides[target], adminAdSlides[index]];
+            if (editingSlideIndex === index) editingSlideIndex = target;
+            else if (editingSlideIndex === target) editingSlideIndex = index;
             renderAdvertisingSlides();
             setAdvertisingSlidesDirty(true);
         }
 
         function removeAdvertisingSlide(index) {
+            if (editingSlideIndex === index) cancelEditAdvertisingSlide();
+            else if (editingSlideIndex > index) editingSlideIndex--;
             adminAdSlides.splice(index, 1);
             renderAdvertisingSlides();
             setAdvertisingSlidesDirty(true);
@@ -3406,9 +3551,13 @@
             if (labelInput) labelInput.value = isVideo ? 'QC1' : 'KM1';
 
             const titleInput = document.getElementById('ad-slide-title');
-            if (titleInput && (!titleInput.value.trim() || titleInput.value.startsWith('Hương Vị'))) {
-                const fileTitle = file.name.replace(/\.[^.]+$/, '').replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
-                titleInput.value = fileTitle.slice(0, 120) || (isVideo ? 'Video quảng cáo quán' : 'Hình ảnh món ngon');
+            if (titleInput) {
+                const currentVal = titleInput.value.trim();
+                // Tuyệt đối không lấy tên file (nhất là mã hash) để nhét vào tiêu đề!
+                // Chỉ gợi ý tiêu đề có ý nghĩa nếu ô tiêu đề đang trống hoặc dính mã hash
+                if (!currentVal || /^[a-f0-9_\-\.]{12,}$/i.test(currentVal)) {
+                    titleInput.value = isVideo ? 'Video Trải Nghiệm Góc Phố' : 'Món Ngon Đặc Sản Góc Phố';
+                }
             }
 
             // Preview local file
@@ -3423,15 +3572,23 @@
             const urlInput = document.getElementById('ad-media-url');
             const directPath = urlInput?.value.trim() || '';
 
-            if (adminAdSlides.length >= 12) return adManagerAlert('Đã đạt giới hạn 12 slide.', false);
-            if (!file && !directPath) return adManagerAlert('Vui lòng chọn ảnh/video hoặc dán URL media.', false);
+            if (editingSlideIndex < 0 && adminAdSlides.length >= 12) {
+                return adManagerAlert('Đã đạt giới hạn tối đa 12 slide.', false);
+            }
+            if (!file && !directPath) {
+                return adManagerAlert('Vui lòng chọn ảnh/video hoặc dán URL media.', false);
+            }
 
             const isVideo = file 
                 ? Boolean(file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name))
                 : /\.(mp4|webm)$/i.test(directPath);
 
             const titleInput = document.getElementById('ad-slide-title');
-            const title = titleInput?.value.trim() || (isVideo ? 'Video quảng cáo' : 'Hình ảnh món ngon');
+            let title = titleInput?.value.trim() || '';
+            if (!title || /^[a-f0-9_\-\.]{12,}$/i.test(title)) {
+                title = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+            }
+
             const labelInput = document.getElementById('ad-slide-label');
             const label = labelInput?.value.trim() || (isVideo ? 'QC1' : 'KM1');
             const desc = document.getElementById('ad-slide-description')?.value.trim() || '';
@@ -3455,6 +3612,29 @@
                     mediaType = data.media.type;
                 }
 
+                // NẾU ĐANG Ở CHẾ ĐỘ SỬA: CẬP NHẬT SLIDE HIỆN TẠI
+                if (editingSlideIndex >= 0 && editingSlideIndex < adminAdSlides.length) {
+                    adminAdSlides[editingSlideIndex] = {
+                        ...adminAdSlides[editingSlideIndex],
+                        label,
+                        title,
+                        description: desc,
+                        media_path: mediaPath,
+                        media_type: mediaType,
+                        duration,
+                        enabled: true
+                    };
+                    const updatedIdx = editingSlideIndex;
+                    cancelEditAdvertisingSlide();
+                    renderAdvertisingSlides();
+                    setAdvertisingSlidesDirty(true);
+                    if (fileInput) fileInput.value = '';
+                    adManagerAlert(`Đã cập nhật slide #${updatedIdx + 1}! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.`, true);
+                    openCarouselFullPreview(updatedIdx);
+                    return;
+                }
+
+                // NẾU Ở CHẾ ĐỘ THÊM MỚI: THÊM VÀO DECK
                 adminAdSlides.push({
                     label,
                     title,
@@ -3469,11 +3649,16 @@
                 setAdvertisingSlidesDirty(true);
                 if (fileInput) fileInput.value = '';
                 adManagerAlert('Đã thêm slide vào danh sách! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.', true);
+                openCarouselFullPreview(adminAdSlides.length - 1);
             } catch (error) {
                 adManagerAlert(error.message || 'Không thể tải media lên.', false);
             } finally {
                 button.disabled = false;
-                button.innerHTML = '<i class="fas fa-sparkles mr-1"></i>Thêm Vào Trình Chiếu';
+                if (editingSlideIndex >= 0) {
+                    button.innerHTML = '<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>';
+                } else {
+                    button.innerHTML = '<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>';
+                }
             }
         }
 
@@ -3517,12 +3702,13 @@
         setAdvertisingSlidesDirty(false);
 
         // ==========================================
-        // AD CAROUSEL / SLIDE LIVE PREVIEW FUNCTIONS
+        // AD CAROUSEL / SLIDE LIVE PREVIEW FUNCTIONS (FULL SIMULATOR)
         // ==========================================
         let previewSlidesList = [];
         let previewCurrentIndex = 0;
         let previewTimer = null;
         let previewPaused = false;
+        let previewSoundEnabled = false;
 
         function closeAdPreviewModal() {
             const modal = document.getElementById('ad-preview-modal');
@@ -3535,6 +3721,30 @@
             if (content) {
                 const vid = content.querySelector('video');
                 if (vid) vid.pause();
+            }
+        }
+
+        function initPreviewCustomerQr() {
+            const container = document.getElementById('preview-customer-qr-canvas');
+            if (!container) return;
+            container.innerHTML = '';
+            const origin = window.location.origin;
+            const path = window.location.pathname;
+            const dir = path.substring(0, path.lastIndexOf('/'));
+            const url = origin + (dir ? dir + '/' : '/') + 'customer.html';
+            if (typeof QRCode !== 'undefined') {
+                try {
+                    new QRCode(container, {
+                        text: url,
+                        width: 120,
+                        height: 120,
+                        colorDark: "#0b0f19",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } catch(e) {
+                    console.error("QR preview error:", e);
+                }
             }
         }
 
@@ -3556,52 +3766,83 @@
             if (!content || !previewSlidesList.length) return;
 
             const slide = previewSlidesList[previewCurrentIndex];
-            const isVideo = slide.media_type === 'video';
+            const isVideo = slide.media_type === 'video' || /\.(mp4|webm)$/i.test(slide.media_path || '');
             const meta = formatPreviewSlideLabel(slide.label, isVideo);
+
+            // Xóa sạch tên file hash nếu còn sót lại ở title
+            let cleanTitle = String(slide.title || '').trim();
+            if (!cleanTitle || /^[a-f0-9_\-\.]{12,}$/i.test(cleanTitle)) {
+                cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+            }
 
             if (isVideo) {
                 content.innerHTML = `
-                    <video class="absolute inset-0 h-full w-full object-cover" src="${slide.media_path}" autoplay muted playsinline></video>
-                    <div class="customer-store-backdrop"></div>
-                    <div class="customer-store-glow customer-store-glow-accent"></div>
-                    <div class="relative z-10 flex h-full min-h-[280px] sm:min-h-[320px] flex-col items-start justify-end px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-6 max-w-lg">
-                        <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
-                            <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
-                            <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
-                        </span>
-                        <h3 class="mt-2 text-sm sm:text-lg lg:text-xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">${slide.title || 'Video Quảng Cáo'}</h3>
-                        <p class="mt-1 text-xs text-slate-200/90 leading-relaxed max-w-sm line-clamp-2">${slide.description || ''}</p>
+                    <div class="preview-slide-fade absolute inset-0 h-full w-full overflow-hidden">
+                        <video class="absolute inset-0 h-full w-full object-cover" src="${slide.media_path}" autoplay muted playsinline preload="auto"></video>
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-transparent pointer-events-none"></div>
+                        <div class="relative z-10 flex h-full min-h-[280px] sm:min-h-[320px] flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
+                            <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} bg-slate-950/80 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md shadow-lg">
+                                <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                                <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
+                            </span>
+                            <h3 class="mt-2 text-base sm:text-xl font-black leading-snug slide-title-rainbow">${cleanTitle}</h3>
+                            <p class="mt-1 text-xs text-slate-200/95 leading-relaxed max-w-sm line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
+                            <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[9px] font-semibold">
+                                <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
+                                    <i class="fas fa-play text-[8px]"></i> Đang phát clip quán
+                                </span>
+                                <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-sky-300 border border-sky-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
+                                    <i class="fas fa-qrcode text-[8px]"></i> VietQR
+                                </span>
+                            </div>
+                        </div>
+                        <button type="button" onclick="togglePreviewVideoSound()" class="absolute top-3 right-3 z-30 h-7 w-7 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20 shadow-md" title="Bật/Tắt âm thanh">
+                            <i id="preview-video-sound-icon" class="fas fa-${previewSoundEnabled ? 'volume-high' : 'volume-xmark'}"></i>
+                        </button>
                     </div>
                 `;
                 const vid = content.querySelector('video');
                 if (vid) {
+                    vid.muted = !previewSoundEnabled;
+                    vid.currentTime = 0;
+                    vid.play().catch(e => {
+                        console.warn('Video preview autoplay with sound blocked, trying muted:', e);
+                        vid.muted = true;
+                        vid.play().catch(err => console.error('Video preview play failed:', err));
+                    });
                     vid.onended = () => {
                         if (!previewPaused && previewSlidesList.length > 1) {
                             previewAdCarouselNext();
                         }
                     };
+                    vid.onerror = (e) => {
+                        console.warn('Video preview source error:', e);
+                        if (!previewPaused && previewSlidesList.length > 1) {
+                            setTimeout(previewAdCarouselNext, 2500);
+                        }
+                    };
                 }
             } else {
                 content.innerHTML = `
-                    <img class="absolute inset-0 h-full w-full object-cover object-center" src="${slide.media_path}" alt="${slide.title}" onerror="this.src='assets/images/dishes/default_dish.jpg';" />
-                    <div class="customer-store-backdrop"></div>
-                    <div class="customer-store-glow customer-store-glow-gold"></div>
-                    <div class="customer-store-glow customer-store-glow-accent"></div>
-                    <div class="relative z-10 flex h-full min-h-[280px] sm:min-h-[320px] flex-col items-start justify-center px-5 py-5 sm:px-8 sm:py-6 max-w-lg">
-                        <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                            <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
-                        </span>
-                        <h2 class="mt-2 text-sm sm:text-lg lg:text-xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">${slide.title}</h2>
-                        <div class="mt-1.5 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
-                        <p class="mt-1.5 max-w-sm text-xs text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">${slide.description || ''}</p>
-                        <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[9px] font-semibold">
-                            <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                                <i class="fas fa-check-circle text-[8px]"></i> Phục vụ nhanh
+                    <div class="preview-slide-fade absolute inset-0 h-full w-full overflow-hidden">
+                        <img class="absolute inset-0 h-full w-full object-cover object-center" src="${slide.media_path}" alt="${cleanTitle}" onerror="this.src='assets/images/dishes/default_dish.jpg';" />
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-transparent pointer-events-none"></div>
+                        <div class="relative z-10 flex h-full min-h-[280px] sm:min-h-[320px] flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
+                            <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} bg-slate-950/80 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md shadow-lg">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
                             </span>
-                            <span class="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
-                                <i class="fas fa-qrcode text-[8px]"></i> VietQR
-                            </span>
+                            <h2 class="mt-2 text-base sm:text-xl font-black leading-snug tracking-tight slide-title-rainbow">${cleanTitle}</h2>
+                            <div class="mt-1 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
+                            <p class="mt-1 max-w-sm text-xs text-slate-200/95 leading-relaxed line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
+                            <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[9px] font-semibold">
+                                <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
+                                    <i class="fas fa-check-circle text-[8px]"></i> Phục vụ nhanh
+                                </span>
+                                <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-sky-300 border border-sky-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
+                                    <i class="fas fa-qrcode text-[8px]"></i> VietQR
+                                </span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -3612,7 +3853,7 @@
                 previewSlidesList.forEach((_, dIdx) => {
                     const d = document.createElement('button');
                     d.type = 'button';
-                    d.className = `h-1.5 rounded-full transition-all ${dIdx === previewCurrentIndex ? 'w-6 bg-white' : 'w-2 bg-white/40'}`;
+                    d.className = `h-1.5 rounded-full transition-all ${dIdx === previewCurrentIndex ? 'w-6 bg-white shadow' : 'w-2 bg-white/40'}`;
                     d.onclick = () => {
                         previewCurrentIndex = dIdx;
                         renderPreviewCurrentSlide();
@@ -3623,12 +3864,21 @@
             }
         }
 
+        function togglePreviewVideoSound() {
+            previewSoundEnabled = !previewSoundEnabled;
+            const icon = document.getElementById('preview-video-sound-icon');
+            if (icon) icon.className = `fas fa-${previewSoundEnabled ? 'volume-high' : 'volume-xmark'}`;
+            const vid = document.querySelector('#ad-preview-slide-content video');
+            if (vid) vid.muted = !previewSoundEnabled;
+        }
+
         function schedulePreviewNext() {
             if (previewTimer) clearTimeout(previewTimer);
             if (previewPaused || previewSlidesList.length <= 1) return;
 
             const slide = previewSlidesList[previewCurrentIndex];
-            if (slide.media_type === 'video') return; // video handles onended
+            const isVideo = slide.media_type === 'video' || /\.(mp4|webm)$/i.test(slide.media_path || '');
+            if (isVideo) return; // Video tự chuyển slide khi kết thúc thông qua sự kiện 'ended'
 
             const duration = Number(slide.duration) || 6;
             previewTimer = setTimeout(() => {
@@ -3656,73 +3906,84 @@
             if (btn) btn.innerHTML = `<i class="fas fa-${previewPaused ? 'play' : 'pause'}"></i>`;
             if (previewPaused) {
                 if (previewTimer) clearTimeout(previewTimer);
+                const vid = document.querySelector('#ad-preview-slide-content video');
+                if (vid) vid.pause();
             } else {
+                const vid = document.querySelector('#ad-preview-slide-content video');
+                if (vid) vid.play().catch(() => {});
                 schedulePreviewNext();
             }
         }
 
-        function openCarouselFullPreview() {
+        function openCarouselFullPreview(startIndex = 0) {
             if (!adminAdSlides.length) {
                 alert('Chưa có slide nào trong danh sách. Hãy thêm ít nhất 1 slide để xem trước.');
                 return;
             }
             previewSlidesList = [...adminAdSlides];
-            previewCurrentIndex = 0;
+            previewCurrentIndex = Math.min(startIndex, previewSlidesList.length - 1);
             previewPaused = false;
+            const btn = document.getElementById('ad-preview-toggle-btn');
+            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
             const tag = document.getElementById('ad-preview-mode-tag');
-            if (tag) tag.textContent = `Toàn bộ trình chiếu (${previewSlidesList.length} slide)`;
+            if (tag) tag.textContent = `Toàn bộ trình chiếu (${previewSlidesList.length} slide - Tự động phát)`;
             const modal = document.getElementById('ad-preview-modal');
             if (modal) {
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
             }
+            initPreviewCustomerQr();
             renderPreviewCurrentSlide();
             schedulePreviewNext();
         }
 
         function previewSingleSlide(index) {
-            const slide = adminAdSlides[index];
-            if (!slide) return;
-            previewSlidesList = [slide];
-            previewCurrentIndex = 0;
-            previewPaused = true;
-            const tag = document.getElementById('ad-preview-mode-tag');
-            if (tag) tag.textContent = `Xem đơn slide #${index + 1}`;
-            const modal = document.getElementById('ad-preview-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-            renderPreviewCurrentSlide();
+            // Xem toàn bộ slide bắt đầu từ slide này để người dùng thấy mạch trình chiếu liên tục
+            openCarouselFullPreview(index);
         }
 
         function previewCurrentDraftSlide() {
-            const title = document.getElementById('ad-slide-title')?.value.trim() || 'Hương Vị Đặc Trưng';
+            let title = document.getElementById('ad-slide-title')?.value.trim() || '';
             const description = document.getElementById('ad-slide-description')?.value.trim() || '';
-            const label = document.getElementById('ad-slide-label-select')?.value || 'KM1';
+            const label = document.getElementById('ad-slide-label-select')?.value || document.getElementById('ad-slide-label')?.value || 'KM1';
             const duration = Number(document.getElementById('ad-slide-duration')?.value) || 6;
             const mediaUrl = document.getElementById('ad-media-url')?.value.trim() || 'assets/images/dishes/dish_1793448692_5cbbfa81.jpg';
             const isVideo = /\.(mp4|webm)$/i.test(mediaUrl);
 
-            previewSlidesList = [{
+            // Loại bỏ tên file / mã hash vô nghĩa nếu còn trong input
+            if (!title || /^[a-f0-9_\-\.]{12,}$/i.test(title)) {
+                title = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+            }
+
+            const draftSlide = {
                 title,
                 description,
                 label,
                 duration: isVideo ? 0 : duration,
                 media_path: mediaUrl,
-                media_type: isVideo ? 'video' : 'image'
-            }];
+                media_type: isVideo ? 'video' : 'image',
+                enabled: true
+            };
+
+            // Ghép slide đang soạn vào TOÀN BỘ danh sách slide để người dùng xem mạch trình chiếu hoàn chỉnh
+            const otherSlides = adminAdSlides.filter(s => s.media_path !== mediaUrl);
+            previewSlidesList = [draftSlide, ...otherSlides];
             previewCurrentIndex = 0;
-            previewPaused = true;
+            previewPaused = false;
+
+            const btn = document.getElementById('ad-preview-toggle-btn');
+            if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
 
             const tag = document.getElementById('ad-preview-mode-tag');
-            if (tag) tag.textContent = 'Xem trước bản nháp đang soạn';
+            if (tag) tag.textContent = `Xem toàn bộ slide (${previewSlidesList.length} slide - Bản mới ở đầu)`;
             const modal = document.getElementById('ad-preview-modal');
             if (modal) {
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
             }
+            initPreviewCustomerQr();
             renderPreviewCurrentSlide();
+            schedulePreviewNext();
         }
 
         function renderBanks(list) {

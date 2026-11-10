@@ -521,18 +521,28 @@
         }
 
         function getRedirectTarget(user) {
+            const role = (user && user.role) ? user.role.toLowerCase() : '';
+
+            // Khách Hàng (Customer) chỉ được vào trang thực đơn khách hàng, tuyệt đối không vào trang thu ngân/nội bộ
+            if (role === 'customer') {
+                return 'customer.html';
+            }
+
             const urlParams = new URLSearchParams(window.location.search);
             const redirect = urlParams.get('redirect');
             if (redirect && !redirect.includes('login') && !redirect.includes('logout')) {
-                return redirect;
+                // Kiểm tra vai trò hợp lệ tương ứng với trang redirect
+                if (role === 'admin' || user.is_super_admin) return redirect;
+                if (role === 'cashier' && (redirect.includes('index') || redirect.includes('order'))) return redirect;
+                if (role === 'waiter' && (redirect.includes('order') || redirect.includes('online_orders'))) return redirect;
+                if (role === 'kitchen' && redirect.includes('kitchen')) return redirect;
             }
 
-            const role = (user && user.role) ? user.role.toLowerCase() : '';
             if (role === 'admin' || user.is_super_admin) return 'admin.html';
             if (role === 'cashier') return 'index.html';
             if (role === 'waiter') return 'order.html';
             if (role === 'kitchen') return 'kitchen.html';
-            return 'index.html';
+            return 'customer.html';
         }
 
         async function submitPinLogin() {

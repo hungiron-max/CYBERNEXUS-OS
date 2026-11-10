@@ -192,7 +192,12 @@ std::optional<SessionUser> AuthService::authenticate(const httplib::Request& req
 
 bool AuthService::hasRole(const SessionUser& user, const std::string& requiredRole) {
     if (user.is_super_admin || user.role == "admin") return true;
-    if (requiredRole == "any" || requiredRole.empty()) return true;
+    if (requiredRole == "staff") {
+        return user.role == "cashier" || user.role == "waiter" || user.role == "kitchen";
+    }
+    if (requiredRole == "any" || requiredRole.empty()) {
+        return user.role != "customer"; // "any" là bất kỳ nhân viên nội bộ nào, KHÔNG cho khách hàng vào trang vận hành nội bộ
+    }
     return user.role == requiredRole;
 }
 

@@ -133,11 +133,12 @@ int main(int argc, char* argv[]) {
         svr.set_mount_point("/img", "web/img");
     }
 
-    if (fs::exists("uploads")) {
-        svr.set_mount_point("/uploads", "uploads");
-        std::cout << "[Static] Mount /uploads" << std::endl;
-    } else if (fs::exists("web/uploads")) {
+    if (fs::exists("web/uploads")) {
         svr.set_mount_point("/uploads", "web/uploads");
+        std::cout << "[Static] Mount /uploads -> web/uploads" << std::endl;
+    } else if (fs::exists("uploads")) {
+        svr.set_mount_point("/uploads", "uploads");
+        std::cout << "[Static] Mount /uploads -> uploads" << std::endl;
     }
 
     // 5. Trình phục vụ giao diện Web Liquid Glass (100% C++ Native)
@@ -307,6 +308,14 @@ int main(int argc, char* argv[]) {
                 return;
             }
 
+            // Nếu là tài khoản Khách Hàng (Customer), chuyển thẳng về trang thực đơn /customer.html
+            if (userOpt->role == "customer") {
+                res.status = 302;
+                res.set_header("Location", "/customer.html");
+                res.set_content("", "text/plain");
+                return;
+            }
+
             // Kiểm tra quyền hạn theo vai trò (Role Check)
             if (!requiredRole.empty() && requiredRole != "any") {
                 if (!SaleApp::Backend::AuthService::instance().hasRole(*userOpt, requiredRole)) {
@@ -359,7 +368,8 @@ int main(int argc, char* argv[]) {
         auto userOpt = SaleApp::Backend::AuthService::instance().authenticate(req);
         std::string target = "/login.html";
         if (userOpt.has_value()) {
-            if (userOpt->role == "admin" || userOpt->is_super_admin) target = "/admin.html";
+            if (userOpt->role == "customer") target = "/customer.html";
+            else if (userOpt->role == "admin" || userOpt->is_super_admin) target = "/admin.html";
             else if (userOpt->role == "waiter") target = "/order.html";
             else if (userOpt->role == "kitchen") target = "/kitchen.html";
             else target = "/index.html";
@@ -385,26 +395,27 @@ int main(int argc, char* argv[]) {
     svr.Get("/customer.php", serveView("customer"));
 
     // Các Trang Chức Năng Bắt Buộc Phải Xác Thực Bằng Module C++ Mới Vào Được:
-    svr.Get("/index", serveProtectedView("index", "any"));
-    svr.Get("/index.html", serveProtectedView("index", "any"));
-    svr.Get("/index.php", serveProtectedView("index", "any"));
-    svr.Get("/pos", serveProtectedView("index", "any"));
+    // Tuyệt đối KHÔNG cho tài khoản Customer truy cập các trang vận hành nội bộ:
+    svr.Get("/index", serveProtectedView("index", "cashier"));
+    svr.Get("/index.html", serveProtectedView("index", "cashier"));
+    svr.Get("/index.php", serveProtectedView("index", "cashier"));
+    svr.Get("/pos", serveProtectedView("index", "cashier"));
 
     svr.Get("/admin", serveProtectedView("admin", "admin"));
     svr.Get("/admin.html", serveProtectedView("admin", "admin"));
     svr.Get("/admin.php", serveProtectedView("admin", "admin"));
 
-    svr.Get("/kitchen", serveProtectedView("kitchen", "any"));
-    svr.Get("/kitchen.html", serveProtectedView("kitchen", "any"));
-    svr.Get("/kitchen.php", serveProtectedView("kitchen", "any"));
+    svr.Get("/kitchen", serveProtectedView("kitchen", "kitchen"));
+    svr.Get("/kitchen.html", serveProtectedView("kitchen", "kitchen"));
+    svr.Get("/kitchen.php", serveProtectedView("kitchen", "kitchen"));
 
-    svr.Get("/order", serveProtectedView("order", "any"));
-    svr.Get("/order.html", serveProtectedView("order", "any"));
-    svr.Get("/order.php", serveProtectedView("order", "any"));
+    svr.Get("/order", serveProtectedView("order", "waiter"));
+    svr.Get("/order.html", serveProtectedView("order", "waiter"));
+    svr.Get("/order.php", serveProtectedView("order", "waiter"));
 
-    svr.Get("/online_orders", serveProtectedView("online_orders", "any"));
-    svr.Get("/online_orders.html", serveProtectedView("online_orders", "any"));
-    svr.Get("/online_orders.php", serveProtectedView("online_orders", "any"));
+    svr.Get("/online_orders", serveProtectedView("online_orders", "staff"));
+    svr.Get("/online_orders.html", serveProtectedView("online_orders", "staff"));
+    svr.Get("/online_orders.php", serveProtectedView("online_orders", "staff"));
 
     svr.Get("/super_admin", serveProtectedView("super_admin", "admin"));
     svr.Get("/super_admin.html", serveProtectedView("super_admin", "admin"));

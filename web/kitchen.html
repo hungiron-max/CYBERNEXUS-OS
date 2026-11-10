@@ -27,6 +27,10 @@
                 window.location.replace('login.html?redirect=kitchen.html');
                 throw new Error('Chặn truy cập: Chưa đăng nhập!');
             }
+            if (u.role === 'customer') {
+                window.location.replace('customer.html');
+                throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+            }
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'api/auth.php?action=check', false);
             xhr.withCredentials = true;
@@ -36,6 +40,10 @@
                 if (xhr.status === 200) {
                     var res = JSON.parse(xhr.responseText);
                     if (res && res.authenticated === true && res.user) {
+                        if (res.user.role === 'customer') {
+                            window.location.replace('customer.html');
+                            throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+                        }
                         localStorage.setItem('pos_user', JSON.stringify(res.user));
                         window.currentUser = res.user;
                         function uncloak() {

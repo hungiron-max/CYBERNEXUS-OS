@@ -30,6 +30,10 @@
                 window.location.replace('login.html?redirect=index.html');
                 throw new Error('Chặn truy cập: Chưa đăng nhập!');
             }
+            if (u.role === 'customer') {
+                window.location.replace('customer.html');
+                throw new Error('Chặn khách hàng vào trang Thu Ngân!');
+            }
             // 2. Chống bypass: Xác thực trực tiếp với C++ Auth Service qua synchronous XHR
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'api/auth.php?action=check', false);
@@ -40,6 +44,12 @@
                 if (xhr.status === 200) {
                     var res = JSON.parse(xhr.responseText);
                     if (res && res.authenticated === true && res.user) {
+                        // Khách hàng không được vào màn hình Thu Ngân -> Chuyển ngay về trang menu
+                        if (res.user.role === 'customer') {
+                            window.location.replace('customer.html');
+                            throw new Error('Chặn khách hàng vào trang Thu Ngân!');
+                        }
+
                         localStorage.setItem('pos_user', JSON.stringify(res.user));
                         window.currentUser = res.user;
                         // Gỡ bỏ cloak hiển thị giao diện
