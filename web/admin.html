@@ -183,10 +183,10 @@
                 <span class="hidden sm:inline">Đơn Online</span>
             </a>
 
-            <a href="index.html" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Đóng Quản Trị">
+            <button type="button" onclick="handleAdminLogout()" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap cursor-pointer transition-all" title="Đăng xuất Chủ Quán">
                 <i class="fas fa-arrow-right-from-bracket text-xs"></i>
-                <span class="hidden md:inline">Thoát</span>
-            </a>
+                <span class="hidden md:inline">Đăng Xuất</span>
+            </button>
         </div>
     </header>
 
@@ -3081,12 +3081,25 @@
 
             if (!user || user.role !== 'admin') {
                 alert('Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.');
-                window.location.replace('index.html?need_login=admin');
+                window.location.replace('login.html?redirect=admin.html');
                 return;
             }
             window.currentUser = user;
             window.SALEAPP_TABLE_QR_ENABLED = true;
         })();
+
+        // Xử lý đăng xuất Chủ Quán -> Quay về login.html
+        async function handleAdminLogout() {
+            if (!confirm('Bạn có chắc chắn muốn đăng xuất tài khoản Chủ Quán?')) return;
+            try {
+                await fetch('api/auth.php?action=logout');
+            } catch(e) {}
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            window.location.replace('login.html?logout=1');
+        }
     </script>
     <script src="assets/js/image_processor.js?v=1"></script>
     <script src="assets/js/admin.js?v=19"></script>
