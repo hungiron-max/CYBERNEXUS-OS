@@ -1,0 +1,13 @@
+{
+  "role": "slave",
+  "app_name": "CyberNexus POS Edge Node",
+  "bind_host": "0.0.0.0",
+  "port": 8501,
+  "web_dir": "./web",
+  "uploads_dir": "./uploads",
+  "database_path": "./database/store_local.db",
+  "master_server_url": "http://127.0.0.1:8500",
+  "tenant_code": "GP001",
+  "license_offline_grace_days": 7,
+  "description": "Máy trạm điểm bán lẻ (POS/KDS/Order). Hoàn toàn độc lập, bảo mật, tự động ping xác thực bản quyền với Master Server."
+}

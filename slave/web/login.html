@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Đăng Nhập POS - GÓC PHỐ COFFEE & TEA</title>
+    <link rel="icon" href="favicon.ico">
+
+    <!-- Precompiled Offline CSS & Icons -->
+    <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+
+    <!-- Anti-cache & Purge Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (var r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (var k of keys) caches.delete(k);
+            });
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 16px;
+            position: relative;
+        }
+
+        /* Ambient Glow Blobs */
+        .ambient-glow-1 {
+            position: fixed;
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            background: #6366f1;
+            filter: blur(120px);
+            opacity: 0.15;
+            top: 5%;
+            left: 10%;
+            pointer-events: none;
+        }
+        .ambient-glow-2 {
+            position: fixed;
+            width: 340px;
+            height: 340px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            filter: blur(130px);
+            opacity: 0.15;
+            bottom: 5%;
+            right: 10%;
+            pointer-events: none;
+        }
+
+        /* Compact Centered Container (Strictly 380px, NEVER stretches) */
+        .login-wrapper {
+            width: 100%;
+            max-width: 380px;
+            margin: auto;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Luxury Frosted Glass Card */
+        .login-card {
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 28px;
+            padding: 24px 20px;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* Customer Menu Link Banner */
+        .customer-pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+            text-decoration: none;
+            transition: all 0.25s ease;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.1);
+        }
+        .customer-pill:hover {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.25));
+            border-color: rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+            color: #ffffff;
+        }
+
+        /* PIN Display Dots */
+        .pin-dots-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin: 14px 0 18px 0;
+        }
+        .pin-dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            background: rgba(15, 23, 42, 0.8);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .pin-dot.filled {
+            background: #38bdf8;
+            border-color: #7dd3fc;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.95);
+            transform: scale(1.25);
+        }
+
+        /* Compact Numpad */
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 290px;
+            margin: 0 auto;
+        }
+        .numpad-key {
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f8fafc;
+            font-weight: 800;
+            font-size: 1.35rem;
+            border-radius: 16px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .numpad-key:hover {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.5);
+            color: #38bdf8;
+            transform: translateY(-2px);
+        }
+        .numpad-key:active {
+            transform: scale(0.92);
+            background: rgba(56, 189, 248, 0.35);
+        }
+
+        /* Tabs Navigation */
+        .tab-btn {
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            background: #0ea5e9;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.4);
+        }
+        .tab-btn.inactive {
+            background: transparent;
+            color: #94a3b8;
+        }
+        .tab-btn.inactive:hover {
+            color: #ffffff;
+        }
+
+        /* Custom Dark Form Inputs */
+        .dark-field {
+            width: 100%;
+            padding: 11px 14px 11px 40px;
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .dark-field:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+            background: rgba(2, 6, 23, 0.95);
+        }
+        .dark-field::placeholder {
+            color: #64748b;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #0284c7, #4f46e5);
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 20px -3px rgba(14, 165, 233, 0.45);
+            transition: all 0.2s ease;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px -3px rgba(14, 165, 233, 0.55);
+        }
+        .submit-btn:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Lights -->
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+
+    <div class="login-wrapper">
+
+        <!-- Branding Header (Logo bên trái tên quán) -->
+        <header style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 18px; text-align: left;">
+            <div style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 16px; background: linear-gradient(135deg, #f59e0b, #ef4444, #6366f1); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; box-shadow: 0 10px 20px -4px rgba(99, 102, 241, 0.4); border: 1px solid rgba(255, 255, 255, 0.2);">
+                <i class="fas fa-mug-hot"></i>
+            </div>
+            <div style="min-width: 0;">
+                <h1 style="font-size: 1.25rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.2; margin: 0;">
+                    <span style="background: linear-gradient(90deg, #fbbf24 0%, #fb923c 20%, #f87171 40%, #f43f5e 58%, #c084fc 78%, #38bdf8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; color: transparent; font-weight: 900; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));">GÓC PHỐ</span> <span style="color: #ffffff;">COFFEE & TEA</span>
+                </h1>
+                <p style="font-size: 11px; color: #94a3b8; margin: 3px 0 0 0; line-height: 1.3;">
+                    Hệ Thống Bán Hàng & Vận Hành POS (CyberNexus OS)
+                </p>
+            </div>
+        </header>
+
+        <!-- Customer Menu Fast Link -->
+        <a href="customer.html" class="customer-pill">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 10px; background: rgba(16, 185, 129, 0.25); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 13px; border: 1px solid rgba(52, 211, 153, 0.4);">
+                    <i class="fas fa-utensils"></i>
+                </div>
+                <div style="text-align: left;">
+                    <div style="font-weight: 800; font-size: 12px; line-height: 1.2;">Khách Hàng Xem Menu & Đặt Món</div>
+                    <div style="font-size: 10px; color: #94a3b8;">Khách vãng lai, tại bàn, online (Không cần đăng nhập)</div>
+                </div>
+            </div>
+            <i class="fas fa-arrow-right" style="font-size: 11px;"></i>
+        </a>
+
+        <!-- Main Glass Card -->
+        <div class="login-card">
+            <!-- Tabs Navigation -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
+                    <h2 id="login-title-text" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #fff;">Đăng Nhập POS</h2>
+                </div>
+                <div style="display: flex; gap: 4px; background: rgba(2, 6, 23, 0.7); padding: 3px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <button type="button" id="tab-btn-pin" onclick="switchLoginTab('pin')" class="tab-btn active">Mã PIN</button>
+                    <button type="button" id="tab-btn-pass" onclick="switchLoginTab('pass')" class="tab-btn inactive">Tài Khoản</button>
+                </div>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="login-error-msg" style="display: none; margin-bottom: 14px; padding: 10px 12px; border-radius: 12px; background: rgba(244, 63, 94, 0.2); border: 1px solid rgba(244, 63, 94, 0.4); font-size: 12px; color: #fda4af; align-items: center; gap: 8px;">
+                <i class="fas fa-circle-exclamation" style="color: #fb7185;"></i>
+                <span id="login-error-text">Lỗi đăng nhập</span>
+            </div>
+
+            <!-- TAB 1: PIN LOGIN (Dành riêng cho Màn hình cảm ứng POS) -->
+            <div id="tab-pane-pin">
+                <div style="text-align: center;">
+                    <p style="font-size: 12px; color: #cbd5e1; font-weight: 600;">Nhập mã PIN cá nhân 4 số</p>
+                    <div class="pin-dots-container">
+                        <div class="pin-dot" id="dot-0"></div>
+                        <div class="pin-dot" id="dot-1"></div>
+                        <div class="pin-dot" id="dot-2"></div>
+                        <div class="pin-dot" id="dot-3"></div>
+                    </div>
+                </div>
+
+                <!-- Numpad 3x4 -->
+                <div class="numpad-grid">
+                    <button type="button" class="numpad-key" onclick="pressPin('1')">1</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('2')">2</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('3')">3</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('4')">4</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('5')">5</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('6')">6</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('7')">7</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('8')">8</button>
+                    <button type="button" class="numpad-key" onclick="pressPin('9')">9</button>
+                    <button type="button" class="numpad-key" onclick="clearPin()" title="Xóa hết" style="color: #fb7185; font-size: 16px;"><i class="fas fa-trash-can"></i></button>
+                    <button type="button" class="numpad-key" onclick="pressPin('0')">0</button>
+                    <button type="button" class="numpad-key" onclick="backspacePin()" title="Xóa 1 số" style="color: #fbbf24; font-size: 16px;"><i class="fas fa-delete-left"></i></button>
+                </div>
+            </div>
+
+            <!-- TAB 2: USERNAME & PASSWORD (Chủ Quán / Quản Lý) -->
+            <form id="tab-pane-pass" style="display: none;" onsubmit="handlePassLogin(event)">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">Tên đăng nhập hoặc Mã nhân viên</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-user" style="position: absolute; left: 14px; top: 13px; font-size: 13px; color: #64748b;"></i>
+                        <input id="input-username" type="text" required class="dark-field" placeholder="Nhập tên đăng nhập..." />
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">Mật khẩu</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-lock" style="position: absolute; left: 14px; top: 13px; font-size: 13px; color: #64748b;"></i>
+                        <input id="input-password" type="password" required class="dark-field" placeholder="Nhập mật khẩu..." />
+                    </div>
+                </div>
+
+                <button id="btn-submit-pass" type="submit" class="submit-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Đăng Nhập</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer & Host Controller Bar -->
+        <div style="margin-top: 14px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #94a3b8;">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+                <span>Máy Chủ C++ Port 8500</span>
+            </div>
+            <button type="button" onclick="openHostControlModal()" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 800; color: #38bdf8; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;" onmouseover="this.style.background='rgba(56, 189, 248, 0.3)'" onmouseout="this.style.background='rgba(56, 189, 248, 0.15)'">
+                <i class="fas fa-gear"></i> Điều Khiển Host
+            </button>
+        </div>
+
+        <footer style="text-align: center; color: #64748b; font-size: 11px; margin-top: 12px;">
+            &copy; 2026 Góc Phố Coffee & Tea · Powered by CyberNexus OS C++
+        </footer>
+    </div>
+
+    <!-- Modal Trung Tâm Điều Khiển C++ Host -->
+    <div id="host-control-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 999; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 20px; width: 440px; max-width: 95vw; padding: 22px; color: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 16px;">
+                <div style="font-weight: 900; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
+                    <i class="fas fa-server text-base"></i> Trung Tâm Điều Khiển C++ Host
+                </div>
+                <button type="button" onclick="closeHostControlModal()" style="background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+
+            <!-- Real-time Status Card -->
+            <div style="background: rgba(2, 6, 23, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 12px; margin-bottom: 16px; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="color: #94a3b8;">Trạng thái dịch vụ:</span>
+                    <span style="color: #34d399; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+                        <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+                        Đang hoạt động (PORT 8500)
+                    </span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="color: #94a3b8;">Nhân hệ điều hành:</span>
+                    <span style="color: #38bdf8; font-family: monospace; font-weight: 700;">CyberNexus C++ Standalone</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #94a3b8;">Cơ sở dữ liệu:</span>
+                    <span style="color: #cbd5e1; font-family: monospace;">SQLite WAL Mode (Safe Flushing)</span>
+                </div>
+            </div>
+
+            <!-- Master PIN Verification -->
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 800; color: #f59e0b; margin-bottom: 6px;">
+                    <i class="fas fa-shield-halved"></i> Xác thực Master PIN Chủ Quán (9999):
+                </label>
+                <input id="host-ctrl-pin" type="password" maxlength="6" class="dark-field" placeholder="Nhập PIN 9999 để thực hiện..." style="text-align: center; font-size: 16px; letter-spacing: 4px; font-family: monospace;" />
+            </div>
+
+            <!-- Control Actions Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                <button type="button" onclick="executeHostAction('restart')" style="background: linear-gradient(135deg, #0284c7, #4f46e5); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 12px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); transition: all 0.2s;">
+                    <i class="fas fa-arrows-rotate" style="font-size: 16px;"></i>
+                    <span>Khởi Động Lại Host</span>
+                </button>
+                <button type="button" onclick="executeHostAction('stop')" style="background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 14px; padding: 12px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.35); transition: all 0.2s;">
+                    <i class="fas fa-power-off" style="font-size: 16px;"></i>
+                    <span>Dừng / Tắt Máy Chủ</span>
+                </button>
+            </div>
+
+            <!-- License Key Section -->
+            <div style="background: rgba(2, 6, 23, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 10px; margin-bottom: 14px;">
+                <div style="font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+                    <i class="fas fa-key text-amber-400"></i> Kích hoạt Bản quyền C++ Native
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <input id="host-license-key" type="text" placeholder="Nhập License Key..." class="dark-field" style="padding: 8px 10px; font-size: 11px; font-family: monospace;" />
+                    <button type="button" onclick="executeHostAction('activate_license')" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 10px; padding: 0 12px; color: #34d399; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;">Kích hoạt</button>
+                </div>
+            </div>
+
+            <!-- Message Box -->
+            <div id="host-ctrl-msg" style="font-size: 11px; min-height: 20px; margin-bottom: 10px; text-align: center;"></div>
+
+            <!-- Modal Footer -->
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="button" onclick="closeHostControlModal()" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 6px 18px; font-size: 11px; font-weight: 600; color: #cbd5e1; cursor: pointer;">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logic Script -->
+    <script>
+        let currentPin = '';
+
+        function switchLoginTab(tab) {
+            const btnPin = document.getElementById('tab-btn-pin');
+            const btnPass = document.getElementById('tab-btn-pass');
+            const panePin = document.getElementById('tab-pane-pin');
+            const panePass = document.getElementById('tab-pane-pass');
+            const titleText = document.getElementById('login-title-text');
+            const errBox = document.getElementById('login-error-msg');
+            if (errBox) errBox.style.display = 'none';
+
+            if (tab === 'pin') {
+                btnPin.className = 'tab-btn active';
+                btnPass.className = 'tab-btn inactive';
+                panePin.style.display = 'block';
+                panePass.style.display = 'none';
+                if (titleText) titleText.textContent = 'Đăng Nhập POS';
+            } else {
+                btnPass.className = 'tab-btn active';
+                btnPin.className = 'tab-btn inactive';
+                panePass.style.display = 'block';
+                panePin.style.display = 'none';
+                if (titleText) titleText.textContent = 'Đăng Nhập Quản Lý';
+                document.getElementById('input-username')?.focus();
+            }
+        }
+
+        function updatePinDots() {
+            for (let i = 0; i < 4; i++) {
+                const dot = document.getElementById(`dot-${i}`);
+                if (dot) {
+                    if (i < currentPin.length) {
+                        dot.classList.add('filled');
+                    } else {
+                        dot.classList.remove('filled');
+                    }
+                }
+            }
+        }
+
+        function pressPin(digit) {
+            if (currentPin.length >= 4) return;
+            currentPin += digit;
+            updatePinDots();
+            if (currentPin.length === 4) {
+                setTimeout(submitPinLogin, 150);
+            }
+        }
+
+        function clearPin() {
+            currentPin = '';
+            updatePinDots();
+        }
+
+        function backspacePin() {
+            if (currentPin.length > 0) {
+                currentPin = currentPin.slice(0, -1);
+                updatePinDots();
+            }
+        }
+
+        function showError(msg) {
+            const errBox = document.getElementById('login-error-msg');
+            const errText = document.getElementById('login-error-text');
+            if (errBox && errText) {
+                errText.textContent = msg || 'Đăng nhập không thành công!';
+                errBox.style.display = 'flex';
+            }
+        }
+
+        function hideError() {
+            const errBox = document.getElementById('login-error-msg');
+            if (errBox) errBox.style.display = 'none';
+        }
+
+        function getRedirectTarget(user) {
+            const role = (user && user.role) ? user.role.toLowerCase() : '';
+
+            // Khách Hàng (Customer) chỉ được vào trang thực đơn khách hàng, tuyệt đối không vào trang thu ngân/nội bộ
+            if (role === 'customer') {
+                return 'customer.html';
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirect = urlParams.get('redirect');
+            if (redirect && !redirect.includes('login') && !redirect.includes('logout')) {
+                // Kiểm tra vai trò hợp lệ tương ứng với trang redirect
+                if (role === 'admin' || user.is_super_admin) return redirect;
+                if (role === 'cashier' && (redirect.includes('index') || redirect.includes('order'))) return redirect;
+                if (role === 'waiter' && (redirect.includes('order') || redirect.includes('online_orders'))) return redirect;
+                if (role === 'kitchen' && redirect.includes('kitchen')) return redirect;
+            }
+
+            if (role === 'admin' || user.is_super_admin) return 'admin.html';
+            if (role === 'cashier') return 'index.html';
+            if (role === 'waiter') return 'order.html';
+            if (role === 'kitchen') return 'kitchen.html';
+            return 'customer.html';
+        }
+
+        async function submitPinLogin() {
+            if (currentPin.length !== 4) return;
+            hideError();
+
+            try {
+                const res = await fetch('api/auth.php?action=pin_login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin_code: currentPin })
+                });
+                const data = await res.json();
+                if (data.success && data.user) {
+                    localStorage.setItem('pos_user', JSON.stringify(data.user));
+                    if (data.token) {
+                        localStorage.setItem('pos_token', data.token);
+                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; max-age=2592000; SameSite=Lax";
+                    }
+                    const target = getRedirectTarget(data.user);
+                    window.location.replace(target);
+                } else {
+                    showError(data.message || 'Mã PIN không đúng!');
+                    clearPin();
+                }
+            } catch (e) {
+                console.error(e);
+                showError('Không thể kết nối máy chủ!');
+                clearPin();
+            }
+        }
+
+        async function handlePassLogin(e) {
+            e.preventDefault();
+            hideError();
+            const username = document.getElementById('input-username').value.trim();
+            const password = document.getElementById('input-password').value;
+            const btn = document.getElementById('btn-submit-pass');
+
+            if (!username || !password) {
+                showError('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!');
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang đăng nhập...';
+            }
+
+            try {
+                const res = await fetch('api/auth.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success && data.user) {
+                    localStorage.setItem('pos_user', JSON.stringify(data.user));
+                    if (data.token) {
+                        localStorage.setItem('pos_token', data.token);
+                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; max-age=2592000; SameSite=Lax";
+                    }
+                    const target = getRedirectTarget(data.user);
+                    window.location.replace(target);
+                } else {
+                    showError(data.message || 'Tên đăng nhập hoặc mật khẩu không chính xác!');
+                }
+            } catch (e) {
+                console.error(e);
+                showError('Không thể kết nối máy chủ!');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Đăng Nhập</span>';
+                }
+            }
+        }
+
+        // Tự động xóa phiên nếu có param ?logout=1
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('logout') === '1') {
+                localStorage.removeItem('pos_user');
+                localStorage.removeItem('pos_token');
+                document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            }
+        })();
+
+        // Bắt phím số vật lý trên bàn phím
+        document.addEventListener('keydown', function(e) {
+            const panePin = document.getElementById('tab-pane-pin');
+            if (panePin && panePin.style.display !== 'none') {
+                if (e.key >= '0' && e.key <= '9') {
+                    pressPin(e.key);
+                } else if (e.key === 'Backspace') {
+                    backspacePin();
+                } else if (e.key === 'Escape' || e.key === 'Delete') {
+                    clearPin();
+                }
+            }
+        });
+
+        // ==========================================
+        // HOST SYSTEM CONTROLLER (Run / Stop / Restart)
+        // ==========================================
+        function openHostControlModal() {
+            const m = document.getElementById('host-control-modal');
+            if (m) {
+                m.style.display = 'flex';
+                document.getElementById('host-ctrl-pin').value = '';
+                document.getElementById('host-ctrl-msg').innerHTML = '';
+            }
+        }
+
+        function closeHostControlModal() {
+            const m = document.getElementById('host-control-modal');
+            if (m) m.style.display = 'none';
+        }
+
+        async function executeHostAction(act) {
+            const pin = document.getElementById('host-ctrl-pin').value.trim();
+            const msgEl = document.getElementById('host-ctrl-msg');
+            const licenseKey = document.getElementById('host-license-key')?.value.trim();
+
+            if (!pin) {
+                msgEl.innerHTML = '<span style="color: #fb7185;">Vui lòng nhập mã PIN Chủ Quán (9999)!</span>';
+                document.getElementById('host-ctrl-pin').focus();
+                return;
+            }
+
+            if (act === 'stop') {
+                if (!confirm('Xác nhận DỪNG MÁY CHỦ C++?\nToàn bộ kết nối POS, Bếp và Khách sẽ tạm ngắt.')) return;
+            } else if (act === 'restart') {
+                if (!confirm('Xác nhận KHỞI ĐỘNG LẠI dịch vụ C++ Host?')) return;
+            }
+
+            msgEl.innerHTML = '<span style="color: #38bdf8;"><i class="fas fa-spinner fa-spin"></i> Đang gửi lệnh tới C++ Host...</span>';
+
+            try {
+                const res = await fetch('/api/system/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: act, pin: pin, license_key: licenseKey })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (act === 'stop') {
+                        msgEl.innerHTML = '<span style="color: #fb7185; font-weight: 700;"><i class="fas fa-power-off"></i> Máy chủ C++ đã dừng an toàn (đã lưu CSDL). Có thể đóng tab.</span>';
+                    } else if (act === 'restart') {
+                        msgEl.innerHTML = '<span style="color: #34d399; font-weight: 700;"><i class="fas fa-arrows-rotate fa-spin"></i> Đang khởi động lại dịch vụ... Trang sẽ tự tải lại sau 3s.</span>';
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        msgEl.innerHTML = `<span style="color: #34d399; font-weight: 700;">${data.message || 'Thành công!'}</span>`;
+                    }
+                } else {
+                    msgEl.innerHTML = `<span style="color: #fb7185;">${data.message || 'Lệnh thất bại!'}</span>`;
+                }
+            } catch (err) {
+                if (act === 'stop') {
+                    msgEl.innerHTML = '<span style="color: #34d399; font-weight: 700;"><i class="fas fa-check"></i> Đã ngắt kết nối: Máy chủ C++ đã dừng hoàn toàn!</span>';
+                } else {
+                    msgEl.innerHTML = '<span style="color: #fb7185;">Không thể kết nối tới máy chủ!</span>';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

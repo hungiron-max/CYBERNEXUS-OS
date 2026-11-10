@@ -1,0 +1,10 @@
+{
+  "role": "master",
+  "app_name": "CyberNexus Master Platform",
+  "bind_host": "0.0.0.0",
+  "port": 8500,
+  "web_dir": "./web",
+  "uploads_dir": "./uploads",
+  "database_path": "./database/cybernexus_master.db",
+  "description": "Máy chủ trung tâm Cloud SaaS dành cho Super Admin quản lý chuỗi, cấp phát License Key và gói cước."
+}
