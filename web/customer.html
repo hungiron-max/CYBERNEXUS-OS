@@ -11,6 +11,20 @@
     <!-- Local FontAwesome 6 Icons (Offline) -->
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     
+    <script>
+        // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (var r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (var k of keys) caches.delete(k);
+            });
+        }
+    </script>
+    
     <!-- Liquid Glass Custom Styles -->
     <style>
         body {

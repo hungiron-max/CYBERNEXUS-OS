@@ -15,6 +15,9 @@ namespace SaleApp::Backend {
 
 void ApiHandlers::sendJson(httplib::Response& res, const json& data, int statusCode) {
     res.status = statusCode;
+    res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.set_header("Pragma", "no-cache");
+    res.set_header("Expires", "0");
     res.set_content(data.dump(), "application/json; charset=utf-8");
 }
 

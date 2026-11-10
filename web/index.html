@@ -17,14 +17,17 @@
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
     <script>
-        (function() {
-            try {
-                var u = JSON.parse(localStorage.getItem('pos_user') || 'null');
-                if (u && u.role === 'customer') {
-                    window.location.replace('customer.html');
-                }
-            } catch(e) {}
-        })();
+        // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (var r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (var k of keys) caches.delete(k);
+            });
+        }
     </script>
 </head>
 <body class="pos-body antialiased flex flex-col h-screen h-[100dvh] overflow-hidden text-slate-100">

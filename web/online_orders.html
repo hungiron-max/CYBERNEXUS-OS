@@ -9,6 +9,17 @@
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="assets/css/liquid-glass.css">
     <script>
+        // Tự động dọn sạch Service Worker cũ & CacheStorage
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (var r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (var k of keys) caches.delete(k);
+            });
+        }
         (function() {
             var u = null;
             try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}

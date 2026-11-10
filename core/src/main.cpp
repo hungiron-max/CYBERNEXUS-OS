@@ -77,12 +77,15 @@ int main(int argc, char* argv[]) {
 
     httplib::Server svr;
 
-    // Thiết lập CORS và chống download mã nguồn
+    // Thiết lập CORS và chống download mã nguồn, tắt hoàn toàn cache để web chạy mượt cả ở chế độ thường lẫn ẩn danh
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie, X-Requested-With");
         res.set_header("Access-Control-Allow-Credentials", "true");
+        res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        res.set_header("Pragma", "no-cache");
+        res.set_header("Expires", "0");
 
         if (req.method == "OPTIONS") {
             res.status = 204;
@@ -140,9 +143,37 @@ int main(int argc, char* argv[]) {
     auto serveView = [](const std::string& name) {
         return [name](const httplib::Request&, httplib::Response& res) {
             std::string html = loadHtmlView(name);
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_header("Pragma", "no-cache");
+            res.set_header("Expires", "0");
             res.set_content(html, "text/html; charset=utf-8");
         };
     };
+
+    // Tự động giải phóng và hủy mọi Service Worker cũ còn sót lại trong trình duyệt ở chế độ thường
+    auto serveSelfDestructingSw = [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        res.set_content(
+            "// Self-destructing Service Worker\n"
+            "self.addEventListener('install', function(e) { self.skipWaiting(); });\n"
+            "self.addEventListener('activate', function(e) {\n"
+            "  e.waitUntil(\n"
+            "    caches.keys().then(function(keys) {\n"
+            "      return Promise.all(keys.map(function(k) { return caches.delete(k); }));\n"
+            "    }).then(function() {\n"
+            "      return self.registration.unregister();\n"
+            "    }).then(function() {\n"
+            "      return self.clients.matchAll();\n"
+            "    }).then(function(clients) {\n"
+            "      clients.forEach(function(c) { if (c.url && 'navigate' in c) c.navigate(c.url); });\n"
+            "    })\n"
+            "  );\n"
+            "});\n",
+            "application/javascript; charset=utf-8"
+        );
+    };
+    svr.Get("/customer-sw.js", serveSelfDestructingSw);
+    svr.Get("/sw.js", serveSelfDestructingSw);
 
     // Các Route giao diện chính
     svr.Get("/", serveView("index"));
