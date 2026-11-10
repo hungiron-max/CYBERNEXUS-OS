@@ -16,6 +16,50 @@
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
+    <style>
+        /* Slide & Carousel Styling - Cinematic Liquid Glass */
+        .customer-ad-slide {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .7s cubic-bezier(0.4, 0, 0.2, 1), transform .7s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(1.02);
+        }
+        .customer-ad-slide.is-active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        .customer-store-backdrop {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(4, 7, 20, 0.94) 0%, rgba(4, 7, 20, 0.72) 40%, rgba(4, 7, 20, 0.15) 75%, transparent 100%),
+                        linear-gradient(0deg, rgba(4, 7, 20, 0.7) 0%, transparent 45%);
+            pointer-events: none;
+        }
+        .customer-store-glow {
+            position: absolute;
+            width: 16rem;
+            height: 16rem;
+            border-radius: 9999px;
+            filter: blur(55px);
+            opacity: .35;
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: screen;
+        }
+        .customer-store-glow-gold {
+            left: -2rem;
+            top: -2rem;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.45) 0%, rgba(244, 63, 94, 0.2) 60%, transparent 80%);
+        }
+        .customer-store-glow-accent {
+            right: 20%;
+            bottom: -3rem;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.35) 0%, rgba(139, 92, 246, 0.15) 60%, transparent 80%);
+        }
+    </style>
     <script>
         (function() {
             var u = null;
@@ -1315,7 +1359,13 @@
                                     <p class="text-[10px] text-slate-300">Tạo slide ảnh & video tự động chuyển đổi lung linh tại ô giới thiệu trang khách.</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <button type="button" onclick="openCarouselFullPreview()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all" title="Mô phỏng toàn bộ trình chiếu như khách thấy">
+                                    <i class="fas fa-eye text-xs"></i> <span>Xem Trước Khách Thấy</span>
+                                </button>
+                                <a href="customer.html" target="_blank" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all" title="Mở trang menu khách hàng trong tab mới">
+                                    <i class="fas fa-arrow-up-right-from-square text-xs"></i> <span>Mở Trang Khách</span>
+                                </a>
                                 <span id="ad-slide-count-badge" class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">
                                     3 / 12 Slide
                                 </span>
@@ -1435,11 +1485,17 @@
                                     <textarea id="ad-slide-description" maxlength="300" rows="2" class="liquid-input w-full text-xs" placeholder="Mô tả hương vị, ưu đãi hoặc lưu ý món...">Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.</textarea>
                                 </div>
 
-                                <!-- Add Slide Button -->
-                                <button type="button" id="ad-slide-add-button" onclick="uploadAndAddAdSlide()" class="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5">
-                                    <i class="fas fa-sparkles"></i>
-                                    <span>Thêm Vào Trình Chiếu</span>
-                                </button>
+                                <!-- Action Buttons: Preview & Add -->
+                                <div class="grid grid-cols-2 gap-2 pt-1">
+                                    <button type="button" onclick="previewCurrentDraftSlide()" class="rounded-xl border border-sky-400/30 bg-sky-500/15 hover:bg-sky-500/30 py-2 px-3 text-xs font-bold text-sky-200 flex items-center justify-center gap-1.5 shadow-sm transition-all" title="Xem trước slide đang soạn">
+                                        <i class="fas fa-eye text-sky-400"></i>
+                                        <span>Xem Trước</span>
+                                    </button>
+                                    <button type="button" id="ad-slide-add-button" onclick="uploadAndAddAdSlide()" class="rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5">
+                                        <i class="fas fa-plus"></i>
+                                        <span>Thêm Vào Deck</span>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Cột Phải (lg:col-span-7): Danh Sách Slide Đang Trình Chiếu (Slide Deck Cards) -->
@@ -2879,6 +2935,85 @@
         </div>
     </div>
 
+    <!-- AD CAROUSEL / SLIDE LIVE PREVIEW MODAL (Mô Phỏng Trực Tiếp Màn Hình Khách Hàng) -->
+    <div id="ad-preview-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+        <div class="liquid-glass w-full max-w-4xl rounded-3xl border border-sky-400/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <!-- Simulator Top Bar -->
+            <div class="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-slate-900/90 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/20 text-sky-400 text-xs border border-sky-500/30">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                    <div>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>Mô Phỏng Màn Hình Khách Hàng (Customer Live Simulator)</span>
+                            <span id="ad-preview-mode-tag" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Chế độ trình chiếu</span>
+                        </h4>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeAdPreviewModal()" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xl transition-all">&times;</button>
+                </div>
+            </div>
+
+            <!-- Simulator Body (Frame simulating the customer page banner) -->
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col justify-center bg-slate-950/40">
+                <div class="liquid-glass rounded-3xl p-4 sm:p-6 border border-white/15 relative overflow-hidden shadow-2xl max-w-3xl mx-auto w-full">
+                    <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+                        <!-- Slide Container -->
+                        <div id="ad-preview-slider" class="md:col-span-2 relative min-h-[280px] sm:min-h-[320px] rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner flex flex-col justify-between">
+                            <div id="ad-preview-slide-content" class="relative flex-1">
+                                <!-- Dynamic slide render -->
+                            </div>
+
+                            <!-- Carousel Controls -->
+                            <div class="relative z-20 flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent">
+                                <div id="ad-preview-dots" class="flex items-center gap-1.5"></div>
+                                <div class="flex items-center gap-1.5">
+                                    <button id="ad-preview-toggle-btn" type="button" onclick="toggleAdPreviewPlayback()" title="Tạm dừng / Tiếp tục" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                    <button type="button" onclick="previewAdCarouselPrev()" title="Slide trước" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <button type="button" onclick="previewAdCarouselNext()" title="Slide tiếp theo" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Info Mockup Card -->
+                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-white/10 flex flex-col justify-between text-center space-y-3">
+                            <div class="space-y-1.5">
+                                <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center justify-center gap-1">
+                                    <i class="fas fa-store text-sky-400"></i> ĐỊA CHỈ QUÁN
+                                </div>
+                                <div class="text-xs text-slate-200 font-medium leading-relaxed">123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
+                                <div class="text-[11px] text-amber-400 font-mono">Giờ mở cửa: <b>06:00 - 22:30</b></div>
+                            </div>
+                            <div class="pt-1">
+                                <div class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md">
+                                    <i class="fas fa-qrcode"></i> Mã Thanh Toán VietQR
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Tips -->
+            <div class="px-5 py-2.5 border-t border-white/10 bg-slate-900/60 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+                <span class="flex items-center gap-1.5">
+                    <i class="fas fa-circle-info text-sky-400"></i> Màn hình mô phỏng chuẩn xác từng pixel theo giao diện khách hàng.
+                </span>
+                <button type="button" onclick="closeAdPreviewModal()" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all">
+                    Đóng Xem Trước
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
     <script src="assets/vendor/qrcode.min.js"></script>
@@ -3112,9 +3247,16 @@
 
                 info.append(metaRow, titleEl, descEl);
 
-                // Actions: Up, Down, Delete
+                // Actions: Preview, Up, Down, Delete
                 const actions = document.createElement('div');
                 actions.className = 'flex items-center gap-1 shrink-0';
+
+                const btnPrev = document.createElement('button');
+                btnPrev.type = 'button';
+                btnPrev.title = 'Xem trước slide này trên màn hình khách';
+                btnPrev.innerHTML = '<i class="fas fa-eye text-[10px]"></i>';
+                btnPrev.className = 'h-7 w-7 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/30 hover:text-white flex items-center justify-center transition-all';
+                btnPrev.onclick = () => previewSingleSlide(index);
 
                 const btnUp = document.createElement('button');
                 btnUp.type = 'button';
@@ -3139,7 +3281,7 @@
                 btnDel.className = 'h-7 w-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/30 hover:text-rose-100 flex items-center justify-center transition-all';
                 btnDel.onclick = () => removeAdvertisingSlide(index);
 
-                actions.append(btnUp, btnDown, btnDel);
+                actions.append(btnPrev, btnUp, btnDown, btnDel);
 
                 card.append(thumb, info, actions);
                 list.appendChild(card);
@@ -3281,6 +3423,215 @@
 
         renderAdvertisingSlides();
         setAdvertisingSlidesDirty(false);
+
+        // ==========================================
+        // AD CAROUSEL / SLIDE LIVE PREVIEW FUNCTIONS
+        // ==========================================
+        let previewSlidesList = [];
+        let previewCurrentIndex = 0;
+        let previewTimer = null;
+        let previewPaused = false;
+
+        function closeAdPreviewModal() {
+            const modal = document.getElementById('ad-preview-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if (previewTimer) clearTimeout(previewTimer);
+            const content = document.getElementById('ad-preview-slide-content');
+            if (content) {
+                const vid = content.querySelector('video');
+                if (vid) vid.pause();
+            }
+        }
+
+        function formatPreviewSlideLabel(rawLabel, isVid) {
+            const s = String(rawLabel || '').trim();
+            if (s === 'KM1') return { text: 'ƯU ĐÃI ĐẶC BIỆT · KM1', icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+            if (s === 'KM2') return { text: 'MÓN BÁN CHẠY NHẤT · KM2', icon: 'fa-fire', badge: 'border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 text-rose-200' };
+            if (s === 'KM3') return { text: 'MÓN MỚI TUẦN NÀY · KM3', icon: 'fa-star', badge: 'border-emerald-300/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-200' };
+            if (s === 'QC1') return { text: 'VIDEO TRẢI NGHIỆM · QC1', icon: 'fa-play', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
+            if (s === 'QC2') return { text: 'KHÁM PHÁ GÓC PHỐ · QC2', icon: 'fa-compass', badge: 'border-purple-300/40 bg-gradient-to-r from-purple-500/25 to-fuchsia-500/25 text-purple-200' };
+            if (/^KM/i.test(s)) return { text: `ƯU ĐÃI · ${s}`, icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+            if (/^QC/i.test(s)) return { text: `QUẢNG CÁO · ${s}`, icon: 'fa-video', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
+            return { text: s ? s.toUpperCase() : (isVid ? 'VIDEO TRẢI NGHIỆM' : 'ƯU ĐÃI ĐẶC BIỆT'), icon: isVid ? 'fa-play' : 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+        }
+
+        function renderPreviewCurrentSlide() {
+            const content = document.getElementById('ad-preview-slide-content');
+            const dots = document.getElementById('ad-preview-dots');
+            if (!content || !previewSlidesList.length) return;
+
+            const slide = previewSlidesList[previewCurrentIndex];
+            const isVideo = slide.media_type === 'video';
+            const meta = formatPreviewSlideLabel(slide.label, isVideo);
+
+            if (isVideo) {
+                content.innerHTML = `
+                    <video class="absolute inset-0 h-full w-full object-cover" src="${slide.media_path}" autoplay muted playsinline></video>
+                    <div class="customer-store-backdrop"></div>
+                    <div class="customer-store-glow customer-store-glow-accent"></div>
+                    <div class="relative z-10 flex h-full min-h-[280px] sm:min-h-[320px] flex-col items-start justify-end px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-6 max-w-lg">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                            <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
+                        </span>
+                        <h3 class="mt-2 text-sm sm:text-lg lg:text-xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">${slide.title || 'Video Quảng Cáo'}</h3>
+                        <p class="mt-1 text-xs text-slate-200/90 leading-relaxed max-w-sm line-clamp-2">${slide.description || ''}</p>
+                    </div>
+                `;
+                const vid = content.querySelector('video');
+                if (vid) {
+                    vid.onended = () => {
+                        if (!previewPaused && previewSlidesList.length > 1) {
+                            previewAdCarouselNext();
+                        }
+                    };
+                }
+            } else {
+                content.innerHTML = `
+                    <img class="absolute inset-0 h-full w-full object-cover object-center" src="${slide.media_path}" alt="${slide.title}" onerror="this.src='assets/images/dishes/default_dish.jpg';" />
+                    <div class="customer-store-backdrop"></div>
+                    <div class="customer-store-glow customer-store-glow-gold"></div>
+                    <div class="customer-store-glow customer-store-glow-accent"></div>
+                    <div class="relative z-10 flex h-full min-h-[280px] sm:min-h-[320px] flex-col items-start justify-center px-5 py-5 sm:px-8 sm:py-6 max-w-lg">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                            <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
+                        </span>
+                        <h2 class="mt-2 text-sm sm:text-lg lg:text-xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">${slide.title}</h2>
+                        <div class="mt-1.5 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
+                        <p class="mt-1.5 max-w-sm text-xs text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">${slide.description || ''}</p>
+                        <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[9px] font-semibold">
+                            <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                <i class="fas fa-check-circle text-[8px]"></i> Phục vụ nhanh
+                            </span>
+                            <span class="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
+                                <i class="fas fa-qrcode text-[8px]"></i> VietQR
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (dots) {
+                dots.innerHTML = '';
+                previewSlidesList.forEach((_, dIdx) => {
+                    const d = document.createElement('button');
+                    d.type = 'button';
+                    d.className = `h-1.5 rounded-full transition-all ${dIdx === previewCurrentIndex ? 'w-6 bg-white' : 'w-2 bg-white/40'}`;
+                    d.onclick = () => {
+                        previewCurrentIndex = dIdx;
+                        renderPreviewCurrentSlide();
+                        schedulePreviewNext();
+                    };
+                    dots.appendChild(d);
+                });
+            }
+        }
+
+        function schedulePreviewNext() {
+            if (previewTimer) clearTimeout(previewTimer);
+            if (previewPaused || previewSlidesList.length <= 1) return;
+
+            const slide = previewSlidesList[previewCurrentIndex];
+            if (slide.media_type === 'video') return; // video handles onended
+
+            const duration = Number(slide.duration) || 6;
+            previewTimer = setTimeout(() => {
+                previewAdCarouselNext();
+            }, duration * 1000);
+        }
+
+        function previewAdCarouselNext() {
+            if (!previewSlidesList.length) return;
+            previewCurrentIndex = (previewCurrentIndex + 1) % previewSlidesList.length;
+            renderPreviewCurrentSlide();
+            schedulePreviewNext();
+        }
+
+        function previewAdCarouselPrev() {
+            if (!previewSlidesList.length) return;
+            previewCurrentIndex = (previewCurrentIndex - 1 + previewSlidesList.length) % previewSlidesList.length;
+            renderPreviewCurrentSlide();
+            schedulePreviewNext();
+        }
+
+        function toggleAdPreviewPlayback() {
+            previewPaused = !previewPaused;
+            const btn = document.getElementById('ad-preview-toggle-btn');
+            if (btn) btn.innerHTML = `<i class="fas fa-${previewPaused ? 'play' : 'pause'}"></i>`;
+            if (previewPaused) {
+                if (previewTimer) clearTimeout(previewTimer);
+            } else {
+                schedulePreviewNext();
+            }
+        }
+
+        function openCarouselFullPreview() {
+            if (!adminAdSlides.length) {
+                alert('Chưa có slide nào trong danh sách. Hãy thêm ít nhất 1 slide để xem trước.');
+                return;
+            }
+            previewSlidesList = [...adminAdSlides];
+            previewCurrentIndex = 0;
+            previewPaused = false;
+            const tag = document.getElementById('ad-preview-mode-tag');
+            if (tag) tag.textContent = `Toàn bộ trình chiếu (${previewSlidesList.length} slide)`;
+            const modal = document.getElementById('ad-preview-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            renderPreviewCurrentSlide();
+            schedulePreviewNext();
+        }
+
+        function previewSingleSlide(index) {
+            const slide = adminAdSlides[index];
+            if (!slide) return;
+            previewSlidesList = [slide];
+            previewCurrentIndex = 0;
+            previewPaused = true;
+            const tag = document.getElementById('ad-preview-mode-tag');
+            if (tag) tag.textContent = `Xem đơn slide #${index + 1}`;
+            const modal = document.getElementById('ad-preview-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            renderPreviewCurrentSlide();
+        }
+
+        function previewCurrentDraftSlide() {
+            const title = document.getElementById('ad-slide-title')?.value.trim() || 'Hương Vị Đặc Trưng';
+            const description = document.getElementById('ad-slide-description')?.value.trim() || '';
+            const label = document.getElementById('ad-slide-label-select')?.value || 'KM1';
+            const duration = Number(document.getElementById('ad-slide-duration')?.value) || 6;
+            const mediaUrl = document.getElementById('ad-media-url')?.value.trim() || 'assets/images/dishes/dish_1793448692_5cbbfa81.jpg';
+            const isVideo = /\.(mp4|webm)$/i.test(mediaUrl);
+
+            previewSlidesList = [{
+                title,
+                description,
+                label,
+                duration: isVideo ? 0 : duration,
+                media_path: mediaUrl,
+                media_type: isVideo ? 'video' : 'image'
+            }];
+            previewCurrentIndex = 0;
+            previewPaused = true;
+
+            const tag = document.getElementById('ad-preview-mode-tag');
+            if (tag) tag.textContent = 'Xem trước bản nháp đang soạn';
+            const modal = document.getElementById('ad-preview-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            renderPreviewCurrentSlide();
+        }
 
         function renderBanks(list) {
             const container = document.getElementById('bank-list-container');

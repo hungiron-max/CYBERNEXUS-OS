@@ -356,12 +356,9 @@ full_html = f'''<!DOCTYPE html>
                         <div class="text-xs text-amber-400 font-mono pt-1">Giờ mở cửa: <b>06:00 - 22:30</b></div>
                     </div>
 
-                    <div class="space-y-2 pt-2">
+                    <div class="pt-2">
                         <button type="button" onclick="showQuickVietQr()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all">
                             <i class="fas fa-qrcode"></i> Mã Thanh Toán VietQR
-                        </button>
-                        <button type="button" onclick="CustomerOrdering.openCart()" class="w-full py-2.5 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs flex items-center justify-center gap-2 transition-all">
-                            <i class="fas fa-cart-shopping"></i> Xem Giỏ Hàng Đặt Món
                         </button>
                     </div>
                 </div>
@@ -399,66 +396,94 @@ full_html = f'''<!DOCTYPE html>
         </section>
     </main>
 
-    <!-- Floating Cart Button (Góc Phải Nổi Bật) -->
-    <button id="customer-cart-open" type="button" onclick="CustomerOrdering.openCart()" aria-label="Mở giỏ hàng" title="Giỏ hàng" class="fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-sky-500 via-indigo-600 to-fuchsia-600 text-white shadow-2xl shadow-sky-500/40 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-white/20">
-        <i class="fas fa-cart-shopping text-xl"></i>
-        <span id="customer-cart-count" class="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-[11px] font-black text-white shadow-md border-2 border-slate-950 hidden">0</span>
+    <!-- Smart Notification Toast (Khi thêm món) -->
+    <div id="customer-cart-toast" class="fixed bottom-24 right-6 z-50 pointer-events-none transform translate-y-4 opacity-0 transition-all duration-300 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/95 border border-sky-400/40 text-xs font-bold text-white shadow-2xl backdrop-blur-md">
+        <i class="fas fa-circle-check text-emerald-400 text-sm"></i>
+        <span id="customer-cart-toast-msg">Đã thêm món vào giỏ hàng!</span>
+    </div>
+
+    <!-- Floating Smart Cart Button (Đáy góc phải) -->
+    <button id="customer-cart-open" type="button" onclick="CustomerOrdering.openCart()" aria-label="Mở giỏ hàng" title="Xem giỏ hàng" class="fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-fuchsia-600 text-white shadow-2xl shadow-sky-500/40 hover:scale-110 active:scale-95 transition-all cursor-pointer border border-white/20 group">
+        <i class="fas fa-cart-shopping text-xl transition-transform group-hover:scale-110"></i>
+        <span id="customer-cart-count" class="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-[10px] font-black text-white shadow-lg border-2 border-slate-950 hidden">0</span>
     </button>
 
-    <!-- Customer Cart & Online Order Modal -->
+    <!-- Customer Cart & Online Order Modal (Compact & Smart) -->
     <div id="customer-cart-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all">
-        <div class="liquid-glass w-full max-w-lg rounded-3xl border border-white/15 p-5 sm:p-6 shadow-2xl max-h-[90vh] flex flex-col">
+        <div class="liquid-glass w-full max-w-[440px] rounded-3xl border border-white/15 p-5 shadow-2xl max-h-[90vh] flex flex-col relative">
             <!-- Header -->
             <div class="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
                 <div class="flex items-center gap-2.5">
-                    <div class="w-10 h-10 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center text-lg">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-sm shadow-md shadow-sky-500/20">
                         <i class="fas fa-cart-shopping"></i>
                     </div>
                     <div>
-                        <h3 class="text-base font-black text-white" id="customer-cart-title">Giỏ Hàng & Đặt Món Online</h3>
-                        <p class="text-xs text-slate-400" id="customer-cart-subtitle">Chọn món và gửi đơn hàng trực tiếp đến quán</p>
+                        <h3 class="text-sm font-black text-white" id="customer-cart-title">Giỏ Hàng Của Bạn</h3>
+                        <p class="text-[11px] text-slate-400" id="customer-cart-subtitle">Chọn món & gửi trực tiếp tới quán</p>
                     </div>
                 </div>
-                <button type="button" onclick="CustomerOrdering.closeCart()" class="text-slate-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10">&times;</button>
+                <button type="button" onclick="CustomerOrdering.closeCart()" class="text-slate-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 transition-all">&times;</button>
             </div>
 
-            <!-- Checkout View -->
-            <div id="customer-cart-checkout" class="flex-1 overflow-y-auto space-y-4 pt-3 scrollbar-thin">
-                <!-- Items list -->
-                <div id="customer-cart-items" class="space-y-2"></div>
+            <!-- Empty State (Khi giỏ trống) -->
+            <div id="customer-cart-empty" class="py-8 text-center space-y-3">
+                <div class="w-16 h-16 mx-auto rounded-3xl bg-slate-900/90 border border-white/10 flex items-center justify-center text-3xl text-slate-500 shadow-inner">
+                    <i class="fas fa-cart-shopping"></i>
+                </div>
+                <h4 class="text-sm font-bold text-white">Giỏ hàng của bạn đang trống</h4>
+                <p class="text-xs text-slate-400 max-w-xs mx-auto">Hãy chọn những món ăn, đồ uống thơm ngon từ thực đơn bên dưới nhé!</p>
+                <button type="button" onclick="CustomerOrdering.closeCart(); const p = document.getElementById('category-filter-pills'); if (p) p.scrollIntoView({{behavior: 'smooth'}});" class="mt-2 px-4 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all shadow-sm inline-flex items-center gap-1.5">
+                    <i class="fas fa-utensils text-xs"></i> Khám Phá Thực Đơn
+                </button>
+            </div>
 
-                <!-- Summary -->
-                <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-900/80 border border-white/10 font-bold">
-                    <span class="text-sm text-slate-300">Tổng cộng:</span>
-                    <span id="customer-cart-total" class="text-lg font-black font-mono text-emerald-400">0 đ</span>
+            <!-- Active Cart & Checkout View (Khi có món) -->
+            <div id="customer-cart-active" class="hidden flex-1 overflow-y-auto space-y-3 pt-3 scrollbar-thin">
+                <!-- Items list -->
+                <div id="customer-cart-items" class="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin"></div>
+
+                <!-- Total Amount Summary -->
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-white/10 font-bold">
+                    <span class="text-xs text-slate-300">Tổng tiền hàng:</span>
+                    <span id="customer-cart-total" class="text-base font-black font-mono text-emerald-400">0 đ</span>
+                </div>
+
+                <!-- Order Mode Segmented Switch -->
+                <div class="p-1 rounded-xl bg-slate-900 border border-white/10 grid grid-cols-2 gap-1 text-center">
+                    <button type="button" id="cart-mode-delivery" onclick="CustomerOrdering.setOrderMode('delivery')" class="py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5">
+                        <i class="fas fa-person-biking text-xs"></i> Mang Về / Giao
+                    </button>
+                    <button type="button" id="cart-mode-table" onclick="CustomerOrdering.setOrderMode('table')" class="py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+                        <i class="fas fa-utensils text-xs"></i> Ngồi Tại Bàn
+                    </button>
                 </div>
 
                 <!-- Customer Info Form -->
-                <form id="customer-order-form" onsubmit="CustomerOrdering.submitOrder(event)" class="space-y-3">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <form id="customer-order-form" onsubmit="CustomerOrdering.submitOrder(event)" class="space-y-2.5">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-300 mb-1">Tên của bạn <span class="text-rose-400">*</span></label>
-                            <input id="customer-order-name" type="text" required class="w-full rounded-xl bg-slate-900/90 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Ví dụ: Anh Hùng, Chị Mai" />
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Tên của bạn <span class="text-rose-400">*</span></label>
+                            <input id="customer-order-name" type="text" required class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Anh / Chị..." />
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại <span class="text-rose-400">*</span></label>
-                            <input id="customer-order-phone" type="tel" required class="w-full rounded-xl bg-slate-900/90 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="09xx xxx xxx" />
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Số điện thoại <span class="text-rose-400">*</span></label>
+                            <input id="customer-order-phone" type="tel" required class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="09xx..." />
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ giao hàng / Bàn số</label>
-                        <input id="customer-order-address" type="text" class="w-full rounded-xl bg-slate-900/90 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Địa chỉ nhận món hoặc Số bàn nếu đang ngồi tại quán" />
+                        <label id="customer-order-address-label" class="block text-[11px] font-semibold text-slate-300 mb-1">Địa chỉ nhận món <span class="text-rose-400">*</span></label>
+                        <input id="customer-order-address" type="text" required class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Địa chỉ giao hàng chi tiết..." />
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Ghi chú món ăn</label>
-                        <textarea id="customer-order-note" rows="2" class="w-full rounded-xl bg-slate-900/90 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Ít đường, không đá, không cay, ghi chú đặc biệt..."></textarea>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Ghi chú (không bắt buộc)</label>
+                        <input id="customer-order-note" type="text" class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Ít đường, không đá, ghi chú riêng..." />
                     </div>
 
-                    <div id="customer-order-error" class="hidden p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300"></div>
+                    <div id="customer-order-error" class="hidden p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-[11px] text-rose-300"></div>
 
-                    <button id="customer-order-submit" type="submit" class="w-full py-3 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-600 to-fuchsia-600 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:brightness-110 active:scale-98 transition-all">
+                    <button id="customer-order-submit" type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 via-indigo-600 to-fuchsia-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:brightness-110 active:scale-98 transition-all">
                         <i class="fas fa-paper-plane"></i> Gửi Đơn Đặt Hàng Đến Quán
                     </button>
                 </form>
@@ -772,6 +797,8 @@ full_html = f'''<!DOCTYPE html>
             cart: {{}},
             activeCategory: 0,
             currentOrder: null,
+            orderMode: 'delivery',
+            _toastTimer: null,
 
             init() {{
                 try {{
@@ -779,7 +806,51 @@ full_html = f'''<!DOCTYPE html>
                 }} catch (e) {{
                     this.cart = {{}};
                 }}
+                try {{
+                    const saved = JSON.parse(localStorage.getItem('pos_customer_order_info') || '{{}}');
+                    if (saved.name) {{
+                        const n = document.getElementById('customer-order-name');
+                        if (n && !n.value) n.value = saved.name;
+                    }}
+                    if (saved.phone) {{
+                        const p = document.getElementById('customer-order-phone');
+                        if (p && !p.value) p.value = saved.phone;
+                    }}
+                }} catch (e) {{}}
                 this.renderCart();
+            }},
+
+            setOrderMode(mode) {{
+                this.orderMode = mode;
+                const delBtn = document.getElementById('cart-mode-delivery');
+                const tblBtn = document.getElementById('cart-mode-table');
+                const lbl = document.getElementById('customer-order-address-label');
+                const input = document.getElementById('customer-order-address');
+                if (mode === 'delivery') {{
+                    if (delBtn) delBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5';
+                    if (tblBtn) tblBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5';
+                    if (lbl) lbl.innerHTML = 'Địa chỉ giao món <span class=\"text-rose-400\">*</span>';
+                    if (input) input.placeholder = 'Địa chỉ giao hàng chi tiết...';
+                }} else {{
+                    if (tblBtn) tblBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5';
+                    if (delBtn) delBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5';
+                    if (lbl) lbl.innerHTML = 'Số bàn của bạn <span class=\"text-rose-400\">*</span>';
+                    if (input) input.placeholder = 'Ví dụ: Bàn 03, Bàn ngoài sân...';
+                }}
+            }},
+
+            showToast(msg) {{
+                const toast = document.getElementById('customer-cart-toast');
+                const msgEl = document.getElementById('customer-cart-toast-msg');
+                if (!toast) return;
+                if (msgEl) msgEl.textContent = msg || 'Đã thêm món vào giỏ hàng!';
+                toast.classList.remove('translate-y-4', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+                if (this._toastTimer) clearTimeout(this._toastTimer);
+                this._toastTimer = setTimeout(() => {{
+                    toast.classList.add('translate-y-4', 'opacity-0');
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                }}, 2200);
             }},
 
             saveCart() {{
@@ -806,6 +877,7 @@ full_html = f'''<!DOCTYPE html>
                 this.saveCart();
                 this.renderCart();
                 this.bounceCartButton();
+                this.showToast(`✨ Đã thêm "${{p.name}}" vào giỏ hàng!`);
             }},
 
             changeQty(pid, delta) {{
@@ -834,19 +906,25 @@ full_html = f'''<!DOCTYPE html>
                     badge.classList.toggle('hidden', count === 0);
                 }}
 
+                const emptyEl = document.getElementById('customer-cart-empty');
+                const activeEl = document.getElementById('customer-cart-active');
                 const list = document.getElementById('customer-cart-items');
                 const totalEl = document.getElementById('customer-cart-total');
                 if (!list || !totalEl) return;
 
-                list.innerHTML = '';
-                let total = 0;
-                const pids = Object.keys(this.cart);
-
-                if (pids.length === 0) {{
-                    list.innerHTML = '<div class="py-8 text-center text-xs text-slate-400"><i class="fas fa-shopping-basket text-2xl text-slate-600 mb-2 block"></i>Giỏ hàng đang trống. Hãy chọn món từ thực đơn!</div>';
+                if (count === 0) {{
+                    if (emptyEl) emptyEl.classList.remove('hidden');
+                    if (activeEl) activeEl.classList.add('hidden');
                     totalEl.textContent = '0 đ';
                     return;
                 }}
+
+                if (emptyEl) emptyEl.classList.add('hidden');
+                if (activeEl) activeEl.classList.remove('hidden');
+
+                list.innerHTML = '';
+                let total = 0;
+                const pids = Object.keys(this.cart);
 
                 pids.forEach(id => {{
                     const p = this.getProductInfo(id);
@@ -858,16 +936,16 @@ full_html = f'''<!DOCTYPE html>
                     const row = document.createElement('div');
                     row.className = 'flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/80 border border-white/5';
                     row.innerHTML = `
-                        <div class="min-w-0 flex-1">
-                            <h5 class="text-xs font-bold text-white truncate">${{p.name}}</h5>
-                            <span class="text-[11px] text-slate-400 font-mono">${{this.formatMoney(p.price)}} đ / món</span>
+                        <div class=\"min-w-0 flex-1\">
+                            <h5 class=\"text-xs font-bold text-white truncate\">${{p.name}}</h5>
+                            <span class=\"text-[11px] text-slate-400 font-mono\">${{this.formatMoney(p.price)}} đ / món</span>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <button type="button" onclick="CustomerOrdering.changeQty(${{id}}, -1)" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-rose-500/30 text-white flex items-center justify-center font-bold text-xs">−</button>
-                            <span class="w-6 text-center text-xs font-mono font-bold text-white">${{qty}}</span>
-                            <button type="button" onclick="CustomerOrdering.changeQty(${{id}}, 1)" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-sky-500/30 text-white flex items-center justify-center font-bold text-xs">+</button>
-                            <span class="text-xs font-bold font-mono text-emerald-400 ml-2 min-w-[65px] text-right">${{this.formatMoney(lineTotal)}} đ</span>
-                            <button type="button" onclick="CustomerOrdering.removeItem(${{id}})" class="text-slate-500 hover:text-rose-400 ml-1 text-xs" title="Xóa món">&times;</button>
+                        <div class=\"flex items-center gap-2 shrink-0\">
+                            <button type=\"button\" onclick=\"CustomerOrdering.changeQty(${{id}}, -1)\" class=\"w-7 h-7 rounded-lg bg-white/10 hover:bg-rose-500/30 text-white flex items-center justify-center font-bold text-xs\">−</button>
+                            <span class=\"w-6 text-center text-xs font-mono font-bold text-white\">${{qty}}</span>
+                            <button type=\"button\" onclick=\"CustomerOrdering.changeQty(${{id}}, 1)\" class=\"w-7 h-7 rounded-lg bg-white/10 hover:bg-sky-500/30 text-white flex items-center justify-center font-bold text-xs\">+</button>
+                            <span class=\"text-xs font-bold font-mono text-emerald-400 ml-2 min-w-[65px] text-right\">${{this.formatMoney(lineTotal)}} đ</span>
+                            <button type=\"button\" onclick=\"CustomerOrdering.removeItem(${{id}})\" class=\"text-slate-500 hover:text-rose-400 ml-1 text-xs\" title=\"Xóa món\">&times;</button>
                         </div>
                     `;
                     list.appendChild(row);
@@ -918,11 +996,15 @@ full_html = f'''<!DOCTYPE html>
                 if (errorBox) errorBox.classList.add('hidden');
                 if (submitBtn) {{
                     submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang gửi đơn...';
+                    submitBtn.innerHTML = '<i class=\"fas fa-spinner fa-spin mr-1\"></i> Đang gửi đơn...';
                 }}
 
+                try {{
+                    localStorage.setItem('pos_customer_order_info', JSON.stringify({{ name, phone }}));
+                }} catch (e) {{}}
+
                 const fullNote = [
-                    address ? `Địa chỉ/Bàn: ${{address}}` : '',
+                    address ? `${{this.orderMode === 'table' ? 'Bàn' : 'Địa chỉ giao'}}: ${{address}}` : '',
                     note ? `Ghi chú: ${{note}}` : ''
                 ].filter(Boolean).join(' | ');
 
@@ -945,7 +1027,7 @@ full_html = f'''<!DOCTYPE html>
                             customer_phone: phone,
                             note: fullNote,
                             table_id: 0,
-                            table_code: address ? `BÀN/GIAO (${{address}})` : 'ONLINE',
+                            table_code: address ? `${{this.orderMode === 'table' ? 'BÀN' : 'GIAO'}} (${{address}})` : 'ONLINE',
                             items: items
                         }})
                     }});
@@ -972,15 +1054,15 @@ full_html = f'''<!DOCTYPE html>
                 }} finally {{
                     if (submitBtn) {{
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Gửi Đơn Đặt Hàng Đến Quán';
+                        submitBtn.innerHTML = '<i class=\"fas fa-paper-plane mr-1\"></i> Gửi Đơn Đặt Hàng Đến Quán';
                     }}
                 }}
             }},
 
             showPaymentScreen(order) {{
-                const checkout = document.getElementById('customer-cart-checkout');
+                const activeEl = document.getElementById('customer-cart-active');
                 const payment = document.getElementById('customer-order-payment');
-                if (checkout) checkout.classList.add('hidden');
+                if (activeEl) activeEl.classList.add('hidden');
                 if (payment) payment.classList.remove('hidden');
 
                 document.getElementById('customer-payment-order-code').textContent = order.order_code;
@@ -1027,10 +1109,11 @@ full_html = f'''<!DOCTYPE html>
 
             resetOrder() {{
                 this.currentOrder = null;
-                const checkout = document.getElementById('customer-cart-checkout');
+                const activeEl = document.getElementById('customer-cart-active');
                 const payment = document.getElementById('customer-order-payment');
                 if (payment) payment.classList.add('hidden');
-                if (checkout) checkout.classList.remove('hidden');
+                if (activeEl) activeEl.classList.remove('hidden');
+                this.renderCart();
                 this.closeCart();
             }},
 
