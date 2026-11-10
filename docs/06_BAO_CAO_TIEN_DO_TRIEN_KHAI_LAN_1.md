@@ -33,7 +33,7 @@ flowchart LR
 | **4. Cơ Chế Đường Dẫn Động (Portability)** | Chạy được trên mọi ổ cứng (`C:`, `D:`, `X:`), mạng LAN/WAN, không phụ thuộc thư mục làm việc. | Đã hoàn thành `ConfigManager.hpp` tự nhận diện thư mục chạy binary, hỗ trợ `config.json`, biến môi trường và cờ CLI. | 🟢 **100%** |
 | **5. Dọn Dẹp Mã Nguồn (Refactoring)** | Xóa bỏ file trùng lặp, code PHP cũ, script rác, cấu trúc repository chuẩn công nghiệp. | Đã xóa 348 file cũ (`core/`, `web/`, `img/`, `database/`, các file .bat cũ), repo sạch sẽ 100%, đã push GitHub `main`. | 🟢 **100%** |
 | **6. Module Mở Rộng Động (Dynamic DLL)** | Kiến trúc vi hạt nhân (Microkernel), nạp rút DLL động (`mod_pos_core`, `mod_network_qos`, `mod_media_stream`). | Đã dựng xong `PluginManager`, biên dịch thành công 3 file `.dll`. Cần hoàn thiện tiếp cơ chế hook API sâu hơn. | 🟡 **70%** |
-| **7. Quản Trị Cấp Phép SaaS (Master License)** | Quản lý Tenant khách hàng, cấp phát License Key, tính phí thuê bao, khóa/mở module từ xa. | Đã có CSDL 28 bảng Master (`cybernexus_master.db`), giao diện `super_admin.html` đăng nhập thành công. Cần bổ sung auto-ping WAN. | 🟡 **65%** |
+| **7. Quản Trị Cấp Phép SaaS (Master License)** | Quản lý Tenant khách hàng, cấp phát License Key, tính phí thuê bao, khóa/mở module từ xa. | Hoàn thành xác thực trực tuyến qua HTTP/WAN (`/api/license/verify`), cơ chế Hardware Node-Locking, bộ đệm Offline Cache cục bộ SQLite trên Slave. | 🟢 **90%** |
 | **8. Tích Hợp AI & Hạ Tầng Mạng (Network/AI)** | Điều khiển router EdgeRouter/MikroTik cấp VIP WiFi, AI bóc hóa đơn OCR, Jukebox khách vote nhạc. | Đã có đặc tả kiến trúc trong `docs/`, các thuật toán xử lý video/âm thanh đã có nền tảng từ `media-server`. | ⚪ **20%** |
 
 ---
