@@ -1316,11 +1316,28 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     // New Order
                     std::string today = getCurrentDate();
                     std::string dateCompact = today.substr(2, 2) + today.substr(5, 2) + today.substr(8, 2);
-                    auto countVal = db.queryScalar("SELECT COUNT(*) FROM orders WHERE DATE(created_at) = '" + today + "'");
-                    int64_t countToday = (countVal.is_number_integer() ? countVal.get<int64_t>() : 0) + 1;
-                    std::stringstream ss;
-                    ss << "HD" << dateCompact << "-" << std::setw(4) << std::setfill('0') << countToday;
-                    orderCode = ss.str();
+                    std::string prefix = "HD" + dateCompact + "-";
+                    auto maxVal = db.queryScalar("SELECT MAX(order_code) FROM orders WHERE order_code LIKE '" + prefix + "%'");
+                    int64_t nextSeq = 1;
+                    if (!maxVal.is_null() && maxVal.is_string()) {
+                        std::string maxCode = maxVal.get<std::string>();
+                        auto dashPos = maxCode.rfind('-');
+                        if (dashPos != std::string::npos && dashPos + 1 < maxCode.length()) {
+                            try {
+                                nextSeq = std::stoll(maxCode.substr(dashPos + 1)) + 1;
+                            } catch (...) {
+                                nextSeq = 1;
+                            }
+                        }
+                    }
+                    while (true) {
+                        std::stringstream ss;
+                        ss << prefix << std::setw(4) << std::setfill('0') << nextSeq;
+                        orderCode = ss.str();
+                        auto existRow = db.queryScalar("SELECT id FROM orders WHERE order_code = '" + orderCode + "'");
+                        if (existRow.is_null()) break;
+                        nextSeq++;
+                    }
 
                     orderId = db.execute(R"(
                         INSERT INTO orders (
@@ -1339,6 +1356,11 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         {":vp", vatPercent}, {":va", vatAmount}, {":tot", totalAmount},
                         {":uid", userId}, {":uname", userName}, {":note", note}, {":created", nowStr}
                     });
+
+                    if (orderId <= 0) {
+                        sendError(res, "Lỗi tạo hóa đơn (không thể lưu vào CSDL)!", 500);
+                        return;
+                    }
 
                     if (tableId > 0) {
                         db.execute("UPDATE tables_areas SET status = 'occupied', active_order_id = :oid, guest_count = :gc WHERE id = :id", {
