@@ -1501,8 +1501,8 @@
                         <button type="button" onclick="showQuickVietQr()" class="btn-glass text-xs py-2.5 px-3 bg-purple-600/20 text-purple-300 border border-purple-500/40 font-bold flex items-center justify-center gap-1 shrink-0">
                             <i class="fas fa-qrcode"></i> VietQR
                         </button>
-                        <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30" onclick="CustomerOrdering.submitOrderDirect()">
-                            <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận & Đặt Món (+0 món)</span>
+                        <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30 whitespace-nowrap" onclick="CustomerOrdering.submitOrderDirect()">
+                            <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận</span>
                         </button>
                     </div>
                 </div>
@@ -1952,7 +1952,7 @@
                 }
                 if (subHeading) subHeading.textContent = `Món Mới Gọi Thêm (${count} món)`;
                 if (sheetTotalQty) sheetTotalQty.textContent = String(count);
-                if (submitBtnText) submitBtnText.textContent = `Xác Nhận & Đặt Món (+${count} món)`;
+                if (submitBtnText) submitBtnText.textContent = 'Xác Nhận';
 
                 const emptyEl = document.getElementById('customer-cart-empty');
                 const activeEl = document.getElementById('customer-cart-active');
@@ -2139,7 +2139,7 @@
                 } finally {
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> <span>Xác Nhận & Đặt Món</span>';
+                        submitBtn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> <span>Xác Nhận</span>';
                     }
                 }
             },

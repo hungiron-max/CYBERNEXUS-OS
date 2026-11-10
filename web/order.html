@@ -1220,7 +1220,7 @@
                 }
                 if (btnSheet) {
                     btnSheet.classList.remove('hidden');
-                    if (txtSheet) txtSheet.innerText = `Xác Nhận & Gửi Bếp (+${newQty} món)`;
+                    if (txtSheet) txtSheet.innerText = 'Xác Nhận';
                 }
             }
 
@@ -1313,7 +1313,7 @@
                     <div class="rounded-xl border border-rose-400/40 bg-rose-950/30 p-3 shadow-[0_0_20px_rgba(244,63,94,.12)]">
                         <p class="mb-2 text-[11px] font-semibold text-rose-100">Kiểm tra món khách đã chọn. Chỉ chuyển bếp sau khi xác nhận lại với khách.</p>
                         <button type="button" class="w-full rounded-xl bg-gradient-to-r from-rose-500 to-red-500 px-3 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-900/30 active:scale-[.98]" onclick="confirmCustomerQrOrder(${Number(activeOrderId)})">
-                            <i class="fas fa-fire mr-1"></i> XÁC NHẬN & CHUYỂN BẾP
+                            <i class="fas fa-check mr-1"></i> XÁC NHẬN
                         </button>
                     </div>
                 `;
