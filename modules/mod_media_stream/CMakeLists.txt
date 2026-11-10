@@ -6,7 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(../../shared/include)
 
-add_library(mod_media_stream SHARED mod_media_stream.cpp)
+add_library(mod_media_stream SHARED 
+    mod_media_stream.cpp 
+    ../../shared/src/sqlite3.c
+)
 
 if(WIN32)
     target_link_libraries(mod_media_stream PRIVATE ws2_32 crypt32)

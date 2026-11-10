@@ -328,6 +328,31 @@
             </div>
         </section>
 
+        <!-- Smart Jukebox Live Bar for Table Customers -->
+        <div id="customer-jukebox-bar" class="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/70 via-slate-900/90 to-sky-950/70 border border-purple-500/30 flex items-center justify-between gap-3 shadow-lg backdrop-blur-md">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center text-lg shrink-0 relative overflow-hidden shadow-inner">
+                    <i class="fas fa-compact-disc text-purple-400 text-xl"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-300 border border-purple-500/35">
+                            🎵 ĐANG PHÁT TẠI QUÁN
+                        </span>
+                        <span id="jukebox-now-table" class="text-[10px] text-slate-400 truncate">Hệ Thống</span>
+                    </div>
+                    <div id="jukebox-now-title" class="font-bold text-white text-xs sm:text-sm truncate mt-0.5">Lofi Chill Morning Coffee</div>
+                    <div id="jukebox-now-artist" class="text-[11px] text-slate-400 truncate">CyberNexus Sound</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="button" onclick="CustomerJukebox.open()" class="btn-glass py-2 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/30 flex items-center gap-1.5 transition-all">
+                    <i class="fas fa-music"></i>
+                    <span>Chọn Bài / Hàng Đợi</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Digital Menu Section -->
         <section class="space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
@@ -1596,6 +1621,91 @@
             <button type="button" class="btn-glass w-full py-2 text-xs font-bold text-slate-300" onclick="closeQuickVietQr()">
                 Đóng
             </button>
+        </div>
+    </div>
+
+    <!-- Smart Jukebox Modal -->
+    <div id="customer-jukebox-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="liquid-glass rounded-3xl p-5 sm:p-6 w-[560px] max-w-full text-white border border-purple-500/30 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-3 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center text-lg">
+                        <i class="fas fa-compact-disc"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-purple-300">Jukebox Quán Thông Minh</h3>
+                        <p class="text-[11px] text-slate-400">Yêu cầu phát bài hát yêu thích lên hệ thống âm thanh quán</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="CustomerJukebox.close()">&times;</button>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex p-1 rounded-xl bg-slate-900 border border-white/10 text-xs shrink-0">
+                <button type="button" id="tab-btn-juke-tracks" onclick="CustomerJukebox.switchTab('tracks')" class="flex-1 py-1.5 rounded-lg font-bold transition-all bg-purple-600 text-white shadow-sm">
+                    <i class="fas fa-list-music mr-1"></i> Kho Bài Hát
+                </button>
+                <button type="button" id="tab-btn-juke-queue" onclick="CustomerJukebox.switchTab('queue')" class="flex-1 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white">
+                    <i class="fas fa-layer-group mr-1"></i> Hàng Đợi (<span id="juke-queue-count">0</span>)
+                </button>
+            </div>
+
+            <!-- Tab 1: Song Catalog -->
+            <div id="juke-tab-tracks" class="space-y-3 flex-1 overflow-y-auto pr-1">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                        <input type="text" id="juke-search-input" oninput="CustomerJukebox.filterTracks()" placeholder="Tìm tên bài hát, ca sĩ..." class="liquid-input w-full pl-8 py-1.5 text-xs rounded-xl" />
+                    </div>
+                    <select id="juke-genre-filter" onchange="CustomerJukebox.filterTracks()" class="liquid-input py-1.5 px-2.5 text-xs rounded-xl shrink-0">
+                        <option value="all">Tất cả thể loại</option>
+                        <option value="Acoustic">Acoustic</option>
+                        <option value="Lofi Chill">Lofi Chill</option>
+                        <option value="Chillhop">Chillhop</option>
+                        <option value="EDM Gaming">EDM Gaming</option>
+                        <option value="Bossa Nova">Bossa Nova</option>
+                        <option value="Piano">Piano</option>
+                    </select>
+                </div>
+
+                <div id="juke-tracks-list" class="space-y-2">
+                    <!-- Dynamic Tracks rendered here -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Queue & History -->
+            <div id="juke-tab-queue" class="space-y-3 flex-1 overflow-y-auto pr-1 hidden">
+                <!-- Now Playing Card -->
+                <div class="p-3 rounded-2xl bg-gradient-to-r from-purple-900/40 to-slate-900 border border-purple-500/30 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-purple-500/30 text-purple-300 flex items-center justify-center">
+                            <i class="fas fa-volume-high animate-pulse"></i>
+                        </div>
+                        <div>
+                            <span class="text-[9px] font-bold text-purple-300 uppercase">Đang phát ngay lúc này</span>
+                            <div id="juke-modal-now-title" class="font-bold text-xs text-white">Lofi Chill Morning Coffee</div>
+                            <div id="juke-modal-now-artist" class="text-[10px] text-slate-400">CyberNexus Sound</div>
+                        </div>
+                    </div>
+                    <span id="juke-modal-now-table" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Hệ Thống</span>
+                </div>
+
+                <div>
+                    <h5 class="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+                        <i class="fas fa-clock text-sky-400"></i> Danh Sách Bài Đang Chờ Phát
+                    </h5>
+                    <div id="juke-queue-list" class="space-y-2">
+                        <!-- Dynamic Queue rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+                <span><i class="fas fa-shield-halved text-purple-400 mr-1"></i>Mỗi bàn được yêu cầu 1 bài / 15 phút</span>
+                <button type="button" class="btn-glass px-3 py-1 text-xs" onclick="CustomerJukebox.close()">Đóng</button>
+            </div>
         </div>
     </div>
 

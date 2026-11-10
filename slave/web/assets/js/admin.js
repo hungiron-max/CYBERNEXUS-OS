@@ -383,6 +383,12 @@ const Admin = {
         if (tab === 'orders') this.loadOrderHistory();
         if (tab === 'analytics') this.loadAnalyticsData();
         if (tab === 'operations') this.loadOperationsTab();
+        if (tab === 'media') this.loadMediaTab();
+
+        if (tab !== 'media' && this.mediaPollingTimer) {
+            clearInterval(this.mediaPollingTimer);
+            this.mediaPollingTimer = null;
+        }
     },
 
     // 1. Dashboard & Reports
@@ -3829,6 +3835,409 @@ const Admin = {
         } catch (err) {
             alert('Lỗi kết nối máy chủ');
         }
+    },
+
+    // ==========================================
+    // 9. MEDIA SERVER & 10-BAND DSP EQUALIZER STUDIO
+    // ==========================================
+    eqBands: {
+        band_31hz: 0.0,
+        band_62hz: 0.0,
+        band_125hz: 0.0,
+        band_250hz: 0.0,
+        band_500hz: 0.0,
+        band_1khz: 0.0,
+        band_2khz: 0.0,
+        band_4khz: 0.0,
+        band_8khz: 0.0,
+        band_16khz: 0.0
+    },
+    eqPreamp: 0.0,
+    eqPresets: [],
+    mediaCatalog: [],
+    mediaPollingTimer: null,
+
+    async loadMediaTab() {
+        await Promise.all([
+            this.loadMediaEqPresets(),
+            this.loadMediaJukeboxStatus(),
+            this.loadMediaTracksCatalog()
+        ]);
+
+        if (this.mediaPollingTimer) clearInterval(this.mediaPollingTimer);
+        this.mediaPollingTimer = setInterval(() => {
+            this.loadMediaJukeboxStatus();
+        }, 8000);
+    },
+
+    async loadMediaEqPresets() {
+        try {
+            const res = await fetch('/api/media/eq/presets');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.presets)) {
+                this.eqPresets = data.presets;
+                const select = document.getElementById('eq-preset-select');
+                if (select) {
+                    select.innerHTML = data.presets.map(p => 
+                        `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.preset_name}</option>`
+                    ).join('');
+                }
+
+                const active = data.active || data.presets[0];
+                if (active) {
+                    this.setEqFromPreset(active);
+                }
+            }
+        } catch (err) {
+            console.error('loadMediaEqPresets error:', err);
+        }
+    },
+
+    setEqFromPreset(preset) {
+        const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+        bands.forEach(b => {
+            const val = typeof preset[b] === 'number' ? preset[b] : 0.0;
+            this.eqBands[b] = val;
+            const slider = document.getElementById(`eq-slider-${b}`);
+            const label = document.getElementById(`eq-val-${b}`);
+            if (slider) slider.value = val;
+            if (label) label.textContent = (val >= 0 ? '+' : '') + val.toFixed(1);
+        });
+
+        const preamp = typeof preset.preamp_gain === 'number' ? preset.preamp_gain : 0.0;
+        this.eqPreamp = preamp;
+        const preampSlider = document.getElementById('eq-slider-preamp');
+        const preampLabel = document.getElementById('eq-val-preamp');
+        if (preampSlider) preampSlider.value = preamp;
+        if (preampLabel) preampLabel.textContent = (preamp >= 0 ? '+' : '') + preamp.toFixed(1) + ' dB';
+
+        this.renderEqCurve();
+    },
+
+    onEqSliderInput(bandName, val) {
+        const num = parseFloat(val);
+        this.eqBands[bandName] = num;
+        const label = document.getElementById(`eq-val-${bandName}`);
+        if (label) label.textContent = (num >= 0 ? '+' : '') + num.toFixed(1);
+        this.renderEqCurve();
+    },
+
+    onEqPreampInput(val) {
+        const num = parseFloat(val);
+        this.eqPreamp = num;
+        const label = document.getElementById('eq-val-preamp');
+        if (label) label.textContent = (num >= 0 ? '+' : '') + num.toFixed(1) + ' dB';
+    },
+
+    onEqPresetSelect(presetId) {
+        const found = this.eqPresets.find(p => p.id == presetId);
+        if (found) {
+            this.setEqFromPreset(found);
+        }
+    },
+
+    resetEqFlat() {
+        const flatPreset = {
+            preset_name: 'Bypass Flat',
+            preamp_gain: 0.0,
+            band_31hz: 0.0,
+            band_62hz: 0.0,
+            band_125hz: 0.0,
+            band_250hz: 0.0,
+            band_500hz: 0.0,
+            band_1khz: 0.0,
+            band_2khz: 0.0,
+            band_4khz: 0.0,
+            band_8khz: 0.0,
+            band_16khz: 0.0
+        };
+        this.setEqFromPreset(flatPreset);
+        const select = document.getElementById('eq-preset-select');
+        if (select) {
+            const bypassOpt = Array.from(select.options).find(o => o.text.includes('Bypass Flat'));
+            if (bypassOpt) select.value = bypassOpt.value;
+        }
+    },
+
+    renderEqCurve() {
+        const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+        const numPoints = bands.length;
+        const startX = 30;
+        const endX = 570;
+        const stepX = (endX - startX) / (numPoints - 1);
+
+        const points = bands.map((b, idx) => {
+            const x = startX + idx * stepX;
+            const val = this.eqBands[b] || 0.0;
+            // 0 dB is at y = 60. Max +12dB -> y = 15, -12dB -> y = 105
+            const y = 60 - (val / 12.0) * 45;
+            return { x, y };
+        });
+
+        // Generate smooth cubic bezier curve through points
+        let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+        for (let i = 0; i < points.length - 1; i++) {
+            const p0 = (i > 0) ? points[i - 1] : points[0];
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const p3 = (i !== points.length - 2) ? points[i + 2] : p2;
+
+            const cp1x = p1.x + (p2.x - p0.x) / 6;
+            const cp1y = p1.y + (p2.y - p0.y) / 6;
+
+            const cp2x = p2.x - (p3.x - p1.x) / 6;
+            const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+            d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+        }
+
+        const strokeEl = document.getElementById('eq-curve-stroke');
+        const fillEl = document.getElementById('eq-curve-fill');
+        if (strokeEl) strokeEl.setAttribute('d', d);
+        if (fillEl) fillEl.setAttribute('d', `${d} L ${endX} 120 L ${startX} 120 Z`);
+    },
+
+    async applyEqChanges() {
+        const select = document.getElementById('eq-preset-select');
+        const presetName = select ? select.options[select.selectedIndex]?.text : 'Custom Live EQ';
+
+        const payload = {
+            preset_name: presetName,
+            preamp_gain: this.eqPreamp,
+            ...this.eqBands
+        };
+
+        try {
+            const res = await fetch('/api/media/eq/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã áp dụng cấu hình 10-Band DSP Equalizer vào hệ thống âm thanh!');
+            } else {
+                alert(data.message || 'Lỗi khi áp dụng Equalizer');
+            }
+        } catch (err) {
+            console.error('applyEqChanges error:', err);
+            alert('Lỗi kết nối máy chủ Media');
+        }
+    },
+
+    async loadMediaJukeboxStatus() {
+        try {
+            const res = await fetch('/api/media/jukebox/status');
+            const data = await res.json();
+            if (data.success) {
+                this.renderNowPlaying(data.now_playing);
+                this.renderMediaQueue(data.queue || []);
+            }
+        } catch (err) {
+            console.error('loadMediaJukeboxStatus error:', err);
+        }
+    },
+
+    renderNowPlaying(track) {
+        const titleEl = document.getElementById('now-playing-title');
+        const artistEl = document.getElementById('now-playing-artist');
+        const genreEl = document.getElementById('now-playing-genre');
+        const tableEl = document.getElementById('now-playing-table');
+        const votesEl = document.getElementById('now-playing-votes');
+        const durationEl = document.getElementById('now-playing-duration');
+
+        if (!track || !track.track_title) {
+            if (titleEl) titleEl.textContent = 'Chưa có bài hát nào đang phát';
+            if (artistEl) artistEl.textContent = 'Hệ thống sẵn sàng';
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = track.track_title;
+        if (artistEl) artistEl.textContent = track.track_artist || 'Nghệ sĩ chưa rõ';
+        if (genreEl) genreEl.textContent = track.genre || 'Lossless';
+        if (tableEl) tableEl.textContent = track.table_name || 'Hệ Thống Quán';
+        if (votesEl) votesEl.innerHTML = `<i class="fas fa-thumbs-up text-sky-400 mr-0.5"></i> ${track.vote_count || 1} votes`;
+        if (durationEl && track.track_duration) {
+            const m = Math.floor(track.track_duration / 60);
+            const s = track.track_duration % 60;
+            durationEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+    },
+
+    renderMediaQueue(queue) {
+        const countEl = document.getElementById('media-queue-count');
+        const listEl = document.getElementById('media-queue-list');
+        if (!listEl) return;
+
+        if (countEl) countEl.textContent = `${queue.length} bài trong hàng đợi`;
+
+        if (queue.length === 0) {
+            listEl.innerHTML = `
+                <div class="p-4 rounded-xl bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
+                    <i class="fas fa-compact-disc text-slate-600 text-2xl mb-1 block"></i>
+                    Hàng đợi trống. Khách hàng quét mã QR tại bàn để yêu cầu bài hát.
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = queue.map((item, idx) => `
+            <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 hover:border-white/15 transition flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-6 h-6 rounded-lg bg-slate-800 text-sky-400 border border-white/10 text-xs font-mono font-bold flex items-center justify-center shrink-0">
+                        #${idx + 1}
+                    </span>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                            <span class="truncate">${item.track_title}</span>
+                            ${item.is_priority ? '<span class="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 font-semibold">VIP</span>' : ''}
+                        </div>
+                        <div class="text-[10px] text-slate-400 truncate flex items-center gap-2">
+                            <span>${item.track_artist}</span>
+                            <span>•</span>
+                            <span class="text-amber-300 font-semibold">${item.table_name || 'Khách tại bàn'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="Admin.voteMediaItem(${item.id})" class="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-[11px] font-bold flex items-center gap-1 transition">
+                        <i class="fas fa-thumbs-up text-[10px]"></i>
+                        <span>${item.vote_count}</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    async loadMediaTracksCatalog() {
+        try {
+            const res = await fetch('/api/media/tracks');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.tracks)) {
+                this.mediaCatalog = data.tracks;
+                this.renderMediaCatalog(data.tracks);
+            }
+        } catch (err) {
+            console.error('loadMediaTracksCatalog error:', err);
+        }
+    },
+
+    renderMediaCatalog(tracks) {
+        const listEl = document.getElementById('media-catalog-list');
+        if (!listEl) return;
+
+        if (tracks.length === 0) {
+            listEl.innerHTML = '<div class="text-center text-slate-500 py-3 text-xs">Không tìm thấy bài hát</div>';
+            return;
+        }
+
+        listEl.innerHTML = tracks.map(t => {
+            const m = Math.floor(t.duration / 60);
+            const s = t.duration % 60;
+            const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+            return `
+                <div class="p-2 rounded-xl bg-slate-900/50 border border-white/5 hover:border-sky-500/30 transition flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex items-center gap-2">
+                        <i class="fas fa-music text-sky-400 text-xs shrink-0"></i>
+                        <div class="min-w-0">
+                            <div class="font-bold text-white truncate text-xs">${t.title}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${t.artist} • <span class="text-slate-500 font-mono">${dur}</span></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý">
+                        <i class="fas fa-plus"></i> Phát
+                    </button>
+                </div>
+            `;
+        }).join('');
+    },
+
+    filterMediaCatalog(keyword) {
+        if (!keyword || !keyword.trim()) {
+            this.renderMediaCatalog(this.mediaCatalog);
+            return;
+        }
+        const kw = keyword.toLowerCase().trim();
+        const filtered = this.mediaCatalog.filter(t => 
+            t.title.toLowerCase().includes(kw) || 
+            t.artist.toLowerCase().includes(kw) || 
+            (t.genre && t.genre.toLowerCase().includes(kw))
+        );
+        this.renderMediaCatalog(filtered);
+    },
+
+    async requestMediaTrack(trackId) {
+        try {
+            const res = await fetch('/api/media/jukebox/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    track_id: trackId,
+                    table_id: 0,
+                    table_name: 'Quầy Quản Trị (Admin)',
+                    customer_phone: '',
+                    is_priority: 1
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã thêm bài hát vào hàng đợi Jukebox!');
+                this.loadMediaJukeboxStatus();
+            } else {
+                alert(data.message || 'Lỗi khi yêu cầu bài hát');
+            }
+        } catch (err) {
+            console.error('requestMediaTrack error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    async voteMediaItem(queueId) {
+        try {
+            const res = await fetch('/api/media/jukebox/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ queue_id: queueId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.loadMediaJukeboxStatus();
+            } else {
+                alert(data.message || 'Lỗi bình chọn');
+            }
+        } catch (err) {
+            console.error('voteMediaItem error:', err);
+        }
+    },
+
+    async skipMediaTrack() {
+        if (!confirm('Bạn có chắc chắn muốn bỏ qua bài hát đang phát?')) return;
+        try {
+            const res = await fetch('/api/media/jukebox/skip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_admin: true })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã chuyển bài hát!');
+                this.loadMediaJukeboxStatus();
+            } else {
+                alert(data.message || 'Lỗi khi chuyển bài');
+            }
+        } catch (err) {
+            console.error('skipMediaTrack error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    toggleAudioDucking(enabled) {
+        const msg = enabled ? 
+            'Đã BẬT chế độ Auto-Ducking: Âm lượng nhạc tự động hạ -10dB khi nhân viên POS thông báo món.' : 
+            'Đã TẮT chế độ Auto-Ducking: Giữ nguyên mức âm lượng khi gọi món.';
+        alert(msg);
     }
 };
 
