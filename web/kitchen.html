@@ -428,10 +428,18 @@
                             </span>
                         `;
                         actionButtonHtml = `
-                            <button type="button" class="btn-glass bg-sky-600/30 text-sky-300 border-sky-500/50 text-xs py-2 px-3.5 font-bold flex items-center gap-1.5 shadow active:scale-95 transition-all" onclick="markKitchenReady(${o.id}, '${o.table_code}', this)">
-                                <i class="fas fa-redo"></i>
-                                <span>Báo Lại Chuông</span>
-                            </button>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" class="btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Hủy/Xóa đơn rác" onclick="kitchenCancelOrder(${o.id}, '${o.order_code}', '${o.table_code}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                <button type="button" class="btn-glass bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border-emerald-500/50 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Đã giao xong / Lưu trữ" onclick="archiveKitchenTicket(${o.id})">
+                                    <i class="fas fa-check"></i> <span>Đã Giao</span>
+                                </button>
+                                <button type="button" class="btn-glass bg-sky-600/30 text-sky-300 border-sky-500/50 text-xs py-2 px-3 font-bold flex items-center gap-1.5 shadow active:scale-95 transition-all" onclick="markKitchenReady(${o.id}, '${o.table_code}', this)">
+                                    <i class="fas fa-redo"></i>
+                                    <span>Báo Lại</span>
+                                </button>
+                            </div>
                         `;
                     } else { // isPending
                         cardBorderClass = isPaid 
@@ -448,10 +456,15 @@
                             </span>
                         `;
                         actionButtonHtml = `
-                            <button type="button" class="btn-glass-success text-xs py-2 px-3.5 font-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 active:scale-95 transition-transform" onclick="markKitchenReady(${o.id}, '${o.table_code}')">
-                                <i class="fas fa-bell"></i>
-                                <span>Xong Món (Báo Phục Vụ)</span>
-                            </button>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" class="btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Hủy/Xóa đơn rác" onclick="kitchenCancelOrder(${o.id}, '${o.order_code}', '${o.table_code}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                <button type="button" class="btn-glass-success text-xs py-2 px-3.5 font-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 active:scale-95 transition-transform" onclick="markKitchenReady(${o.id}, '${o.table_code}')">
+                                    <i class="fas fa-bell"></i>
+                                    <span>Xong Món (Báo Phục Vụ)</span>
+                                </button>
+                            </div>
                         `;
                     }
 
@@ -778,6 +791,25 @@
                 }
             } catch(e) {
                 console.error(e);
+            }
+        }
+
+        async function kitchenCancelOrder(orderId, orderCode, tableCode) {
+            if (!confirm(`Xác nhận HỦY / XÓA đơn rác "${orderCode}" (${tableCode}) khỏi màn hình bếp?`)) return;
+            try {
+                const res = await fetch(`api/orders.php?action=cancel_order&order_id=${orderId}`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    playChime(523.25, 392.00);
+                    loadKitchenOrders();
+                } else {
+                    alert(data.message || 'Lỗi khi hủy đơn');
+                }
+            } catch(e) {
+                console.error(e);
+                alert('Lỗi kết nối máy chủ');
             }
         }
 

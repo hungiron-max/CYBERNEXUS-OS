@@ -120,11 +120,17 @@
         .customer-ad-dot {
             transition: all 0.25s ease;
         }
-        #customer-cart-open {
-            box-shadow: 0 10px 30px rgba(14, 165, 233, 0.35);
+
+        /* Banner Hero 150% Height */
+        .customer-banner-hero-box {
+            min-height: 480px !important;
+            height: 480px !important;
         }
-        #customer-cart-open:hover {
-            box-shadow: 0 14px 36px rgba(14, 165, 233, 0.5);
+        @media (min-width: 640px) {
+            .customer-banner-hero-box {
+                min-height: 520px !important;
+                height: 520px !important;
+            }
         }
     </style>
 </head>
@@ -184,39 +190,39 @@
     <!-- Main Content Container -->
     <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6 z-10">
         
-        <!-- Hero Promotional Banner with Smart Carousel in Red Box -->
+        <!-- Hero Promotional Banner with Smart Carousel in Red Box (Chiều cao tăng 150%) -->
         <section class="liquid-glass rounded-3xl p-4 sm:p-6 border border-white/15 relative overflow-hidden shadow-2xl">
             <div class="absolute -right-12 -top-12 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
             
             <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-                <!-- Smart Hero Slider Container (VÙNG TRONG VIỀN ĐỎ: Video play hết clip, ảnh delay 6s/hình) -->
-                <div id="customer-ad-carousel" class="lg:col-span-2 relative min-h-[300px] sm:min-h-[340px] rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner flex flex-col justify-between">
+                <!-- Smart Hero Slider Container (Chiều cao tăng 150%: min-h 480px - 520px) -->
+                <div id="customer-ad-carousel" class="lg:col-span-2 relative customer-banner-hero-box rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner flex flex-col justify-between">
                     <!-- Slides Container -->
-                    <div id="customer-ad-slides-container" class="relative flex-1">
+                    <div id="customer-ad-slides-container" class="relative flex-1 h-full">
                         <!-- Slide 0: Hình ảnh mở đầu (6s) -->
                         <article class="customer-ad-slide customer-store-slide is-active" data-ad-index="0" data-ad-duration="6">
                             <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Góc Phố" />
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-gold"></div>
                             <div class="customer-store-glow customer-store-glow-accent"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-6 py-6 sm:px-9 sm:py-8 max-w-xl">
+                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-14 pt-8 sm:px-10 sm:pb-16 sm:pt-10 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-200 shadow-sm backdrop-blur-md">
                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                                     <i class="fas fa-sparkles text-amber-300 text-[9px]"></i> ƯU ĐÃI ĐẶC BIỆT · KM1
                                 </span>
-                                <h2 class="mt-2 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                                <h2 class="mt-2.5 text-lg sm:text-2xl lg:text-3xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
                                     Thưởng Thức Hương Vị Đậm Đà Tại <span class="bg-gradient-to-r from-amber-300 via-rose-300 to-sky-300 bg-clip-text text-transparent">Góc Phố</span>
                                 </h2>
-                                <div class="mt-2 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
-                                <p class="mt-2 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">
+                                <div class="mt-2 h-0.5 w-12 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
+                                <p class="mt-2.5 max-w-md text-xs sm:text-sm text-slate-200/95 leading-relaxed line-clamp-3 drop-shadow-sm font-normal">
                                     Cà phê phin truyền thống thơm lừng, trà sữa béo ngậy cùng các món điểm tâm bánh mì chảo, bò bít tết hảo hạng.
                                 </p>
-                                <div class="flex flex-wrap items-center gap-1.5 pt-3 text-[10px] font-semibold">
-                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                                        <i class="fas fa-check-circle text-[9px]"></i> Giảm 10% VietQR
+                                <div class="flex flex-wrap items-center gap-2 pt-3.5 text-[11px] font-semibold">
+                                    <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
+                                        <i class="fas fa-check-circle text-[10px]"></i> Giảm 10% VietQR
                                     </span>
-                                    <span class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                                        <i class="fas fa-gift text-[9px]"></i> Tặng topping Flan
+                                    <span class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 shadow-sm">
+                                        <i class="fas fa-gift text-[10px]"></i> Tặng topping Flan
                                     </span>
                                 </div>
                             </div>
@@ -227,15 +233,15 @@
                             <video class="absolute inset-0 h-full w-full object-cover" src="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4" muted playsinline preload="auto"></video>
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-accent"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-6 pb-14 pt-6 sm:px-9 sm:pb-16 sm:pt-8 max-w-xl">
+                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-14 pt-8 sm:px-10 sm:pb-16 sm:pt-10 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-200 backdrop-blur-md">
                                     <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                                     <i class="fas fa-play text-sky-300 text-[9px]"></i> VIDEO TRẢI NGHIỆM · QC1
                                 </span>
-                                <h3 class="mt-2 text-base sm:text-xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
-                                <p class="mt-1.5 text-xs text-slate-200/90 leading-relaxed max-w-md line-clamp-2">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
+                                <h3 class="mt-2.5 text-lg sm:text-2xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
+                                <p class="mt-2 text-xs sm:text-sm text-slate-200/95 leading-relaxed max-w-md line-clamp-3">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
                             </div>
-                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
+                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-white/20 bg-slate-950/70 text-sm text-white backdrop-blur flex items-center justify-center hover:bg-white/20 transition-all" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
                             </button>
                         </article>
@@ -245,17 +251,17 @@
                             <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh mì chảo" />
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-gold"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-6 py-6 sm:px-9 sm:py-8 max-w-xl">
+                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-14 pt-8 sm:px-10 sm:pb-16 sm:pt-10 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-200 backdrop-blur-md shadow-sm">
                                     <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
                                     <i class="fas fa-fire text-rose-300 text-[9px]"></i> MÓN BÁN CHẠY NHẤT · KM2
                                 </span>
-                                <h3 class="mt-2 text-base sm:text-xl lg:text-2xl font-black text-white leading-snug tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
-                                <div class="mt-2 h-0.5 w-10 rounded-full bg-gradient-to-r from-rose-400 to-amber-400"></div>
-                                <p class="mt-2 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.</p>
-                                <div class="flex flex-wrap items-center gap-1.5 pt-3 text-[10px] font-semibold">
-                                    <span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
-                                        <i class="fas fa-bread-slice text-[9px]"></i> Giòn rụm nóng hổi
+                                <h3 class="mt-2.5 text-lg sm:text-2xl lg:text-3xl font-black text-white leading-snug tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
+                                <div class="mt-2 h-0.5 w-12 rounded-full bg-gradient-to-r from-rose-400 to-amber-400"></div>
+                                <p class="mt-2.5 max-w-md text-xs sm:text-sm text-slate-200/95 leading-relaxed line-clamp-3 drop-shadow-sm font-normal">Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.</p>
+                                <div class="flex flex-wrap items-center gap-2 pt-3.5 text-[11px] font-semibold">
+                                    <span class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5 shadow-sm">
+                                        <i class="fas fa-bread-slice text-[10px]"></i> Giòn rụm nóng hổi
                                     </span>
                                 </div>
                             </div>
@@ -284,17 +290,17 @@
                 </div>
 
                 <!-- Fast Contact & Info Card (Right Column) -->
-                <div class="p-5 rounded-2xl bg-slate-900/80 border border-white/10 flex flex-col justify-between text-center space-y-4">
-                    <div class="space-y-2">
+                <div class="p-6 rounded-2xl bg-slate-900/80 border border-white/10 flex flex-col justify-between text-center space-y-4 customer-banner-hero-box shadow-inner">
+                    <div class="space-y-3">
                         <div class="text-xs text-slate-400 font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5">
                             <i class="fas fa-store text-sky-400"></i> ĐỊA CHỈ QUÁN
                         </div>
-                        <div class="text-xs text-slate-200 font-medium leading-relaxed">123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
-                        <div class="text-xs text-amber-400 font-mono pt-1">Giờ mở cửa: <b>06:00 - 22:30</b></div>
+                        <div class="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed">123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
+                        <div class="text-xs text-amber-400 font-mono pt-1">Giờ mở cửa: <b class="text-sm">06:00 - 22:30</b></div>
                     </div>
 
                     <div class="pt-2">
-                        <button type="button" onclick="showQuickVietQr()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all">
+                        <button type="button" onclick="showQuickVietQr()" class="w-full py-3 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all">
                             <i class="fas fa-qrcode"></i> Mã Thanh Toán VietQR
                         </button>
                     </div>
@@ -1398,31 +1404,42 @@
         <span id="customer-cart-toast-msg">Đã thêm món vào giỏ hàng!</span>
     </div>
 
-    <!-- Floating Smart Cart Button (Đáy góc phải) -->
-    <button id="customer-cart-open" type="button" onclick="CustomerOrdering.openCart()" aria-label="Mở giỏ hàng" title="Xem giỏ hàng" class="fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-fuchsia-600 text-white shadow-2xl shadow-sky-500/40 hover:scale-110 active:scale-95 transition-all cursor-pointer border border-white/20 group">
-        <i class="fas fa-cart-shopping text-xl transition-transform group-hover:scale-110"></i>
-        <span id="customer-cart-count" class="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-[10px] font-black text-white shadow-lg border-2 border-slate-950 hidden">0</span>
-    </button>
+    <!-- Floating Cart Bar (Chuẩn Capsule Order Phục Vụ) -->
+    <div id="customer-bottom-bar" class="fixed bottom-4 inset-x-3 sm:inset-x-auto sm:right-6 z-40 flex items-center gap-2 max-w-md w-full sm:w-auto">
+        <button type="button" onclick="CustomerOrdering.openCart()" id="btn-cart-capsule" class="flex-1 sm:flex-initial flex items-center justify-between gap-4 py-2.5 px-3.5 rounded-2xl bg-slate-900/95 border border-sky-400/50 shadow-2xl backdrop-blur-md hover:border-sky-400 transition-all cursor-pointer">
+            <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-black font-mono border border-sky-500/30">
+                    <span id="customer-cart-count">0</span>
+                </div>
+                <div class="text-left">
+                    <div class="text-xs font-black text-white leading-tight">Chi tiết giỏ món</div>
+                    <div id="customer-cart-status-text" class="text-[10px] text-amber-400 font-medium">Chưa chọn món mới</div>
+                </div>
+            </div>
+            <span id="customer-bottom-total" class="font-black text-sm text-emerald-400 font-mono">0 đ</span>
+        </button>
 
-    <!-- Customer Cart & Online Order Modal (Compact & Smart) -->
-    <div id="customer-cart-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all">
-        <div class="liquid-glass w-full max-w-[440px] rounded-3xl border border-white/15 p-5 shadow-2xl max-h-[90vh] flex flex-col relative">
+        <!-- VietQR Quick Button -->
+        <button type="button" onclick="showQuickVietQr()" id="btn-float-vietqr" class="btn-glass py-2.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 font-bold text-xs flex items-center gap-1 shadow-md shadow-purple-600/10 shrink-0">
+            <i class="fas fa-qrcode text-sm"></i>
+            <span>VietQR</span>
+        </button>
+    </div>
+
+    <!-- Bottom Sheet / Modal: Cart Details & Notes (Chuẩn Order Phục Vụ) -->
+    <div id="customer-cart-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md transition-all">
+        <div class="liquid-glass w-full rounded-3xl border border-sky-500/40 p-4 sm:p-5 shadow-2xl max-h-[90vh] flex flex-col relative" style="max-width: 520px !important;">
             <!-- Header -->
-            <div class="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-sm shadow-md shadow-sky-500/20">
-                        <i class="fas fa-cart-shopping"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-black text-white" id="customer-cart-title">Giỏ Hàng Của Bạn</h3>
-                        <p class="text-[11px] text-slate-400" id="customer-cart-subtitle">Chọn món & gửi trực tiếp tới quán</p>
-                    </div>
+            <div class="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-1 rounded-full bg-slate-600 block"></span>
+                    <h3 class="font-bold text-sm text-sky-400" id="customer-cart-title">Danh Sách Món Tại Bàn</h3>
                 </div>
                 <button type="button" onclick="CustomerOrdering.closeCart()" class="text-slate-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 transition-all">&times;</button>
             </div>
 
             <!-- Empty State (Khi giỏ trống) -->
-            <div id="customer-cart-empty" class="py-8 text-center space-y-3">
+            <div id="customer-cart-empty" class="py-10 text-center space-y-3">
                 <div class="w-16 h-16 mx-auto rounded-3xl bg-slate-900/90 border border-white/10 flex items-center justify-center text-3xl text-slate-500 shadow-inner">
                     <i class="fas fa-cart-shopping"></i>
                 </div>
@@ -1434,55 +1451,59 @@
             </div>
 
             <!-- Active Cart & Checkout View (Khi có món) -->
-            <div id="customer-cart-active" class="hidden flex-1 overflow-y-auto space-y-3 pt-3 scrollbar-thin">
+            <div id="customer-cart-active" class="hidden flex-1 overflow-y-auto space-y-2.5 pt-2 scrollbar-thin flex flex-col">
+                <!-- Subheading row (Image 1 reference) -->
+                <div class="flex items-center justify-between pb-1 shrink-0">
+                    <span class="font-bold text-xs text-amber-300" id="cart-sheet-subheading">Món Mới Gọi Thêm (0 món)</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold animate-pulse flex items-center gap-1">
+                        <i class="fas fa-sparkles text-[9px]"></i> Chờ gửi bếp
+                    </span>
+                </div>
+
                 <!-- Items list -->
-                <div id="customer-cart-items" class="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin"></div>
+                <div id="customer-cart-items" class="space-y-2 flex-1 overflow-y-auto pr-1 scrollbar-thin"></div>
 
-                <!-- Total Amount Summary -->
-                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-white/10 font-bold">
-                    <span class="text-xs text-slate-300">Tổng tiền hàng:</span>
-                    <span id="customer-cart-total" class="text-base font-black font-mono text-emerald-400">0 đ</span>
-                </div>
+                <!-- Order Mode Segmented Switch & Form -->
+                <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-white/10 space-y-2 shrink-0">
+                    <div class="p-1 rounded-xl bg-slate-950 border border-white/10 grid grid-cols-2 gap-1 text-center">
+                        <button type="button" id="cart-mode-delivery" onclick="CustomerOrdering.setOrderMode('delivery')" class="py-1 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5">
+                            <i class="fas fa-person-biking text-xs"></i> Mang Về / Giao
+                        </button>
+                        <button type="button" id="cart-mode-table" onclick="CustomerOrdering.setOrderMode('table')" class="py-1 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+                            <i class="fas fa-utensils text-xs"></i> Ngồi Tại Bàn
+                        </button>
+                    </div>
 
-                <!-- Order Mode Segmented Switch -->
-                <div class="p-1 rounded-xl bg-slate-900 border border-white/10 grid grid-cols-2 gap-1 text-center">
-                    <button type="button" id="cart-mode-delivery" onclick="CustomerOrdering.setOrderMode('delivery')" class="py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5">
-                        <i class="fas fa-person-biking text-xs"></i> Mang Về / Giao
-                    </button>
-                    <button type="button" id="cart-mode-table" onclick="CustomerOrdering.setOrderMode('table')" class="py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
-                        <i class="fas fa-utensils text-xs"></i> Ngồi Tại Bàn
-                    </button>
-                </div>
-
-                <!-- Customer Info Form -->
-                <form id="customer-order-form" onsubmit="CustomerOrdering.submitOrder(event)" class="space-y-2.5">
                     <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Tên của bạn <span class="text-rose-400">*</span></label>
-                            <input id="customer-order-name" type="text" required class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Anh / Chị..." />
+                        <input id="customer-order-name" type="text" class="w-full rounded-xl bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Tên của bạn (*)" />
+                        <input id="customer-order-phone" type="tel" class="w-full rounded-xl bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Số điện thoại (*)" />
+                    </div>
+                    <input id="customer-order-address" type="text" class="w-full rounded-xl bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Địa chỉ nhận món / Số bàn (*)" />
+                    <input id="customer-order-note" type="text" class="w-full rounded-xl bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Ghi chú món ăn (ít đường, không cay, ghi chú đặc biệt...)" />
+                </div>
+
+                <div id="customer-order-error" class="hidden p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-[11px] text-rose-300"></div>
+
+                <!-- Footer Summary & Actions (Exact Image 1 layout) -->
+                <div class="pt-3 border-t border-white/10 space-y-3 shrink-0">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400 font-bold uppercase tracking-wider">TỔNG CỘNG HÓA ĐƠN:</span>
+                        <span id="customer-cart-total" class="font-black text-lg text-emerald-400 font-mono">0 đ</span>
+                    </div>
+                    <div class="flex items-center gap-2" id="customer-sheet-action-grid">
+                        <div class="px-3 py-2.5 rounded-xl bg-slate-900 border border-sky-500/40 text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-md">
+                            <span class="text-slate-400 font-normal mr-1">SL:</span>
+                            <span id="cart-sheet-total-qty" class="text-sky-400 font-black text-sm">0</span>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Số điện thoại <span class="text-rose-400">*</span></label>
-                            <input id="customer-order-phone" type="tel" required class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="09xx..." />
-                        </div>
+                        <button type="button" class="flex-1 btn-glass text-xs py-2.5 text-slate-300 font-bold" onclick="CustomerOrdering.closeCart()">Thêm món</button>
+                        <button type="button" onclick="showQuickVietQr()" class="btn-glass text-xs py-2.5 px-3 bg-purple-600/20 text-purple-300 border border-purple-500/40 font-bold flex items-center justify-center gap-1 shrink-0">
+                            <i class="fas fa-qrcode"></i> VietQR
+                        </button>
+                        <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30" onclick="CustomerOrdering.submitOrderDirect()">
+                            <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận & Đặt Món (+0 món)</span>
+                        </button>
                     </div>
-
-                    <div>
-                        <label id="customer-order-address-label" class="block text-[11px] font-semibold text-slate-300 mb-1">Địa chỉ nhận món <span class="text-rose-400">*</span></label>
-                        <input id="customer-order-address" type="text" required class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Địa chỉ giao hàng chi tiết..." />
-                    </div>
-
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Ghi chú (không bắt buộc)</label>
-                        <input id="customer-order-note" type="text" class="w-full rounded-xl bg-slate-900 border border-white/15 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Ít đường, không đá, ghi chú riêng..." />
-                    </div>
-
-                    <div id="customer-order-error" class="hidden p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-[11px] text-rose-300"></div>
-
-                    <button id="customer-order-submit" type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 via-indigo-600 to-fuchsia-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:brightness-110 active:scale-98 transition-all">
-                        <i class="fas fa-paper-plane"></i> Gửi Đơn Đặt Hàng Đến Quán
-                    </button>
-                </form>
+                </div>
             </div>
 
             <!-- Success & Payment View -->
@@ -1849,9 +1870,23 @@
                 }, 2200);
             },
 
+            itemNotes: {},
+
+            promptItemNote(pid) {
+                const cur = this.itemNotes[pid] || '';
+                const p = this.getProductInfo(pid);
+                const name = p ? p.name : 'món này';
+                const note = prompt(`Ghi chú riêng cho "${name}" (VD: ít đường, không cay, làm kỹ...):`, cur);
+                if (note !== null) {
+                    this.itemNotes[pid] = note.trim();
+                    this.renderCart();
+                }
+            },
+
             saveCart() {
                 try {
                     localStorage.setItem('cybernexus_customer_cart', JSON.stringify(this.cart));
+                    localStorage.setItem('cybernexus_customer_cart_notes', JSON.stringify(this.itemNotes));
                 } catch (e) {}
             },
 
@@ -1881,6 +1916,7 @@
                 const next = cur + delta;
                 if (next <= 0) {
                     delete this.cart[pid];
+                    delete this.itemNotes[pid];
                 } else {
                     this.cart[pid] = next;
                 }
@@ -1890,6 +1926,7 @@
 
             removeItem(pid) {
                 delete this.cart[pid];
+                delete this.itemNotes[pid];
                 this.saveCart();
                 this.renderCart();
             },
@@ -1899,8 +1936,21 @@
                 const badge = document.getElementById('customer-cart-count');
                 if (badge) {
                     badge.textContent = String(count);
-                    badge.classList.toggle('hidden', count === 0);
                 }
+
+                const bottomTotal = document.getElementById('customer-bottom-total');
+                const statusText = document.getElementById('customer-cart-status-text');
+                const subHeading = document.getElementById('cart-sheet-subheading');
+                const sheetTotalQty = document.getElementById('cart-sheet-total-qty');
+                const submitBtnText = document.getElementById('btn-sheet-submit-text');
+
+                if (statusText) {
+                    statusText.textContent = count > 0 ? `Đang chọn thêm +${count} món mới` : 'Chưa chọn món mới';
+                    statusText.className = count > 0 ? 'text-[10px] text-amber-400 font-medium' : 'text-[10px] text-slate-400 font-medium';
+                }
+                if (subHeading) subHeading.textContent = `Món Mới Gọi Thêm (${count} món)`;
+                if (sheetTotalQty) sheetTotalQty.textContent = String(count);
+                if (submitBtnText) submitBtnText.textContent = `Xác Nhận & Đặt Món (+${count} món)`;
 
                 const emptyEl = document.getElementById('customer-cart-empty');
                 const activeEl = document.getElementById('customer-cart-active');
@@ -1912,6 +1962,7 @@
                     if (emptyEl) emptyEl.classList.remove('hidden');
                     if (activeEl) activeEl.classList.add('hidden');
                     totalEl.textContent = '0 đ';
+                    if (bottomTotal) bottomTotal.textContent = '0 đ';
                     return;
                 }
 
@@ -1928,33 +1979,45 @@
                     if (!p || qty <= 0) return;
                     const lineTotal = p.price * qty;
                     total += lineTotal;
+                    const itemNote = this.itemNotes[id] || '';
 
                     const row = document.createElement('div');
-                    row.className = 'flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/80 border border-white/5';
+                    row.className = 'p-2.5 rounded-xl bg-slate-900 border border-amber-500/40 space-y-1.5 shadow-lg shadow-amber-500/5';
                     row.innerHTML = `
-                        <div class="min-w-0 flex-1">
-                            <h5 class="text-xs font-bold text-white truncate">${p.name}</h5>
-                            <span class="text-[11px] text-slate-400 font-mono">${this.formatMoney(p.price)} đ / món</span>
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs sm:text-sm text-white truncate mr-2">${p.name}</span>
+                            <span class="text-xs sm:text-sm font-black font-mono text-emerald-400 shrink-0">${this.formatMoney(lineTotal)} đ</span>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <button type="button" onclick="CustomerOrdering.changeQty(${id}, -1)" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-rose-500/30 text-white flex items-center justify-center font-bold text-xs">−</button>
-                            <span class="w-6 text-center text-xs font-mono font-bold text-white">${qty}</span>
-                            <button type="button" onclick="CustomerOrdering.changeQty(${id}, 1)" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-sky-500/30 text-white flex items-center justify-center font-bold text-xs">+</button>
-                            <span class="text-xs font-bold font-mono text-emerald-400 ml-2 min-w-[65px] text-right">${this.formatMoney(lineTotal)} đ</span>
-                            <button type="button" onclick="CustomerOrdering.removeItem(${id})" class="text-slate-500 hover:text-rose-400 ml-1 text-xs" title="Xóa món">&times;</button>
+                        <div class="flex items-center justify-between pt-0.5">
+                            <span class="text-xs font-mono font-bold text-amber-400">${this.formatMoney(p.price)} đ</span>
+                            <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-1 bg-slate-950/60 p-0.5 rounded-lg border border-white/10">
+                                    <button type="button" onclick="CustomerOrdering.changeQty(${id}, -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-rose-500/30 text-slate-300 hover:text-rose-300 flex items-center justify-center font-bold text-xs transition-colors">−</button>
+                                    <span class="w-6 text-center text-xs font-mono font-black text-sky-400">${qty}</span>
+                                    <button type="button" onclick="CustomerOrdering.changeQty(${id}, 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-sky-500/30 text-slate-300 hover:text-sky-300 flex items-center justify-center font-bold text-xs transition-colors">+</button>
+                                </div>
+                                <button type="button" onclick="CustomerOrdering.promptItemNote(${id})" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 flex items-center gap-1 transition-colors">
+                                    <i class="fas fa-pen text-[10px]"></i> <span>Ghi chú</span>
+                                </button>
+                                <button type="button" onclick="CustomerOrdering.removeItem(${id})" class="text-xs px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 flex items-center justify-center transition-colors" title="Xóa món">
+                                    <i class="fas fa-trash-alt text-[10px]"></i>
+                                </button>
+                            </div>
                         </div>
+                        ${itemNote ? `<div class="text-[11px] text-amber-300/90 italic bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Ghi chú: ${itemNote}</div>` : ''}
                     `;
                     list.appendChild(row);
                 });
 
                 totalEl.textContent = `${this.formatMoney(total)} đ`;
+                if (bottomTotal) bottomTotal.textContent = `${this.formatMoney(total)} đ`;
             },
 
             bounceCartButton() {
-                const btn = document.getElementById('customer-cart-open');
+                const btn = document.getElementById('btn-cart-capsule');
                 if (btn) {
-                    btn.classList.add('scale-125');
-                    setTimeout(() => btn.classList.remove('scale-125'), 200);
+                    btn.classList.add('scale-105');
+                    setTimeout(() => btn.classList.remove('scale-105'), 200);
                 }
             },
 
@@ -1974,8 +2037,7 @@
                 }
             },
 
-            async submitOrder(event) {
-                event.preventDefault();
+            async submitOrderDirect() {
                 const pids = Object.keys(this.cart);
                 if (!pids.length) {
                     alert('Giỏ hàng đang trống! Vui lòng chọn món trước.');
@@ -1986,8 +2048,24 @@
                 const phone = document.getElementById('customer-order-phone')?.value.trim();
                 const address = document.getElementById('customer-order-address')?.value.trim();
                 const note = document.getElementById('customer-order-note')?.value.trim();
-                const submitBtn = document.getElementById('customer-order-submit');
+                const submitBtn = document.getElementById('btn-sheet-submit');
                 const errorBox = document.getElementById('customer-order-error');
+
+                if (!name) {
+                    alert('Vui lòng nhập tên của bạn để quán phục vụ chính xác!');
+                    document.getElementById('customer-order-name')?.focus();
+                    return;
+                }
+                if (!phone) {
+                    alert('Vui lòng nhập số điện thoại để quán liên hệ giao hàng / phục vụ!');
+                    document.getElementById('customer-order-phone')?.focus();
+                    return;
+                }
+                if (!address) {
+                    alert(this.orderMode === 'table' ? 'Vui lòng nhập số bàn bạn đang ngồi!' : 'Vui lòng nhập địa chỉ nhận món!');
+                    document.getElementById('customer-order-address')?.focus();
+                    return;
+                }
 
                 if (errorBox) errorBox.classList.add('hidden');
                 if (submitBtn) {
@@ -1999,9 +2077,18 @@
                     localStorage.setItem('pos_customer_order_info', JSON.stringify({ name, phone }));
                 } catch (e) {}
 
+                const itemNotesSummary = pids
+                    .filter(id => this.itemNotes[id])
+                    .map(id => {
+                        const p = this.getProductInfo(id);
+                        return `${p ? p.name : id}: ${this.itemNotes[id]}`;
+                    })
+                    .join('; ');
+
                 const fullNote = [
                     address ? `${this.orderMode === 'table' ? 'Bàn' : 'Địa chỉ giao'}: ${address}` : '',
-                    note ? `Ghi chú: ${note}` : ''
+                    note ? `Ghi chú chung: ${note}` : '',
+                    itemNotesSummary ? `Chi tiết món: ${itemNotesSummary}` : ''
                 ].filter(Boolean).join(' | ');
 
                 const items = pids.map(id => {
@@ -2010,7 +2097,8 @@
                         id: Number(id),
                         quantity: Number(this.cart[id]) || 1,
                         price: p ? p.price : 0,
-                        name: p ? p.name : ''
+                        name: p ? p.name : '',
+                        note: this.itemNotes[id] || ''
                     };
                 });
 
@@ -2035,6 +2123,7 @@
 
                     // Reset cart
                     this.cart = {};
+                    this.itemNotes = {};
                     this.saveCart();
                     this.renderCart();
 
@@ -2050,7 +2139,7 @@
                 } finally {
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Gửi Đơn Đặt Hàng Đến Quán';
+                        submitBtn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> <span>Xác Nhận & Đặt Món</span>';
                     }
                 }
             },
