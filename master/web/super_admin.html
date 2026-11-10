@@ -1040,6 +1040,98 @@
         </div>
     </div>
 
+    <!-- ==================================================== -->
+    <!-- MODAL 5: QUẢN LÝ BẢN QUYỀN & KHÓA PHẦN CỨNG (NODE-LOCK) -->
+    <!-- ==================================================== -->
+    <div id="modal-tenant-license" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[580px] max-w-full text-white shadow-2xl border border-purple-500/30 space-y-4 my-auto">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center text-lg">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-purple-300">Quản Lý Bản Quyền &amp; Khóa Phần Cứng</h3>
+                        <p id="lic-store-name" class="text-[11px] text-slate-400">Cửa hàng: --</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-tenant-license')">&times;</button>
+            </div>
+
+            <!-- Mã bản quyền License Key -->
+            <div class="rounded-xl border border-white/10 bg-slate-950/60 p-3.5 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-400 font-medium"><i class="fas fa-key text-amber-400 mr-1.5"></i>Mã Bản Quyền (License Key)</span>
+                    <span id="lic-badge-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">HỢP LỆ</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 rounded-lg bg-slate-900 border border-purple-500/30 px-3 py-2 font-mono text-sm font-bold text-purple-200 tracking-wider select-all" id="lic-key-display">
+                        LIC-XXXX-XXXX-XXXX-XXXX
+                    </div>
+                    <button type="button" id="btn-lic-copy" onclick="SuperAdmin.copyLicenseKey()" class="btn-glass px-3 py-2 text-xs font-bold bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 border-sky-400/30 flex items-center gap-1.5 shrink-0" title="Sao chép License Key">
+                        <i class="fas fa-copy"></i>
+                        <span id="btn-lic-copy-text">Sao chép</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Khóa phần cứng Node-Lock Info -->
+            <div class="rounded-xl border border-white/10 bg-slate-950/60 p-3.5 space-y-2.5 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-400 font-medium"><i class="fas fa-desktop text-sky-400 mr-1.5"></i>Khóa Phần Cứng (Hardware Node-Lock)</span>
+                    <span id="lic-node-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">CHƯA GẮN MÁY</span>
+                </div>
+                
+                <div class="space-y-1.5 pt-1 text-[11px] text-slate-300">
+                    <div class="flex justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-400">Mã máy tính (Machine ID):</span>
+                        <span id="lic-machine-id" class="font-mono font-bold text-sky-300 truncate max-w-[280px]">Chưa kích hoạt</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-400">Tên thiết bị (Hostname):</span>
+                        <span id="lic-machine-name" class="font-semibold text-slate-200">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-400">Thời điểm gắn khóa máy:</span>
+                        <span id="lic-machine-bound" class="font-mono text-slate-300">—</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-400">Lần Ping Heartbeat gần nhất:</span>
+                        <span id="lic-last-check" class="font-mono text-emerald-300">Chưa lần nào</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Các nút hành động quản trị -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <button type="button" id="btn-lic-reset-machine" onclick="SuperAdmin.doResetMachine()" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600/80 to-orange-600/80 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center justify-center gap-2 border border-amber-500/30 shadow-md transition-all">
+                    <i class="fas fa-laptop-code text-sm"></i>
+                    <span>Gỡ Khóa Phần Cứng</span>
+                </button>
+                <button type="button" id="btn-lic-regen-key" onclick="SuperAdmin.doRegenerateKey()" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600/80 to-red-600/80 hover:from-rose-600 hover:to-red-600 text-white font-bold text-xs flex items-center justify-center gap-2 border border-rose-500/30 shadow-md transition-all">
+                    <i class="fas fa-arrows-rotate text-sm"></i>
+                    <span>Cấp Lại License Mới</span>
+                </button>
+            </div>
+            <p class="text-[10px] text-slate-400 italic text-center">
+                * "Gỡ Khóa Phần Cứng": Dùng khi quán đổi máy tính mới, cho phép kích hoạt lại ngay.<br>
+                * "Cấp Lại License Mới": Thu hồi key cũ lập tức và sinh key mới để ngăn dùng lậu.
+            </p>
+
+            <!-- Ân hạn Offline -->
+            <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-3 text-xs">
+                <label for="lic-grace-input" class="text-slate-400 text-[11px]">Ân hạn offline khi mất mạng Internet:</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="lic-grace-input" min="0" max="90" value="7" class="liquid-input w-16 text-center font-bold text-xs py-1" />
+                    <span class="text-slate-400 text-xs">ngày</span>
+                    <button type="button" onclick="SuperAdmin.saveGraceDays()" class="btn-glass px-2.5 py-1 text-xs font-bold text-emerald-300 hover:text-white border-emerald-500/30">
+                        Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
 
 <!-- Super Admin Core Javascript Logic -->

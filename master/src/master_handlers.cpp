@@ -323,14 +323,14 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 sendJson(res, {
                     {"success", true},
                     {"data", {
-                        {"store_name", row.value("store_name", "")},
-                        {"license_key", row.value("license_key", "")},
-                        {"machine_id", row.value("machine_id", "")},
-                        {"machine_name", row.value("machine_name", "")},
-                        {"machine_bound_at", row.value("machine_bound_at", "")},
-                        {"last_check_at", row.value("last_check_at", "")},
-                        {"last_check_ip", row.value("last_check_ip", "")},
-                        {"last_app_version", row.value("last_app_version", "2.1.8")}
+                        {"store_name", getString(row, "store_name")},
+                        {"license_key", getString(row, "license_key")},
+                        {"machine_id", getString(row, "machine_id")},
+                        {"machine_name", getString(row, "machine_name")},
+                        {"machine_bound_at", getString(row, "machine_bound_at")},
+                        {"last_check_at", getString(row, "last_check_at")},
+                        {"last_check_ip", getString(row, "last_check_ip")},
+                        {"last_app_version", getString(row, "last_app_version", "2.1.8")}
                     }}
                 });
                 return;

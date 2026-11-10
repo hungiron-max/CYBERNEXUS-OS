@@ -272,8 +272,12 @@ const SuperAdmin = {
                             <div class="min-w-0">
                                 <div class="font-bold text-white text-xs">${t.store_name}</div>
                                 <div class="text-[11px] text-slate-400 truncate max-w-xs">${t.address || 'Chưa cập nhật địa chỉ'}</div>
-                                ${t.provision_state ? `<div class="text-[10px] ${t.provision_state === 'ready' ? 'text-emerald-300' : 'text-amber-300'}">MySQL: ${t.provision_state === 'ready' ? 'Đã cấp phát' : 'Chưa hoàn tất — kiểm tra máy chủ'}</div>` : ''}
-                                ${t.package_state ? `<div class="text-[10px] ${t.package_state === 'ready' ? 'text-emerald-300' : 'text-amber-300'}">Gói quán: ${t.package_state === 'ready' ? 'Đã tạo' : 'Chưa hoàn tất — kiểm tra máy chủ'}</div>` : ''}
+                                <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                    ${t.machine_id 
+                                        ? `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono" title="Đã khóa phần cứng: ${t.machine_name || t.machine_id}"><i class="fas fa-desktop text-[8px]"></i> Đã Khóa Máy</span>` 
+                                        : `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono" title="Chưa kích hoạt trên máy nào"><i class="fas fa-unlock text-[8px]"></i> Chưa Gắn Máy</span>`
+                                    }
+                                </div>
                             </div>
                         </div>
                     </td>
@@ -305,15 +309,14 @@ const SuperAdmin = {
                     </td>
                     <td class="py-3 px-4 text-right">
                         <div class="inline-flex items-center gap-1.5">
-                            ${t.package_state && t.package_state !== 'ready' && t.provision_state === 'ready' ? `<button type="button" onclick="SuperAdmin.retryStorePackage(${Number(t.id)})" class="btn-glass text-[11px] py-1 px-2 text-amber-300" title="Thử tạo lại gói sau khi kiểm tra máy chủ">Tạo lại gói</button>` : ''}
+                            <button type="button" onclick="SuperAdmin.openLicense(${t.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30 font-bold flex items-center gap-1" title="Quản lý License & Khóa Máy">
+                                <i class="fas fa-key text-amber-400"></i> <span>License</span>
+                            </button>
                             <button type="button" onclick="SuperAdmin.openQuickExtend(${t.id}, '${t.store_name}', '${t.plan_name}', '${t.expire_date}')" class="btn-glass text-[11px] py-1 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1" title="Gia hạn gói">
                                 <i class="fas fa-calendar-plus"></i> <span>Gia Hạn</span>
                             </button>
                             <button type="button" onclick="SuperAdmin.toggleTenantStatus(${t.id}, '${isSuspended ? 'active' : 'suspended'}')" class="btn-glass text-[11px] py-1 px-2 text-${isSuspended ? 'emerald' : 'rose'}-400 hover:text-white" title="${isSuspended ? 'Mở khóa cửa hàng' : 'Tạm khóa cửa hàng'}">
                                 <i class="fas fa-${isSuspended ? 'unlock' : 'lock'}"></i>
-                            </button>
-                            <button type="button" onclick="SuperAdmin.openLicense(${t.id})" class="btn-glass text-[11px] py-1 px-2 text-sky-300 hover:text-white" title="Giấy phép số / License Key / Mã máy">
-                                <i class="fas fa-key"></i>
                             </button>
                             <button type="button" onclick="SuperAdmin.editTenant(${t.id})" class="btn-glass text-[11px] py-1 px-2 text-slate-300 hover:text-white" title="Chỉnh sửa thông tin">
                                 <i class="fas fa-pen"></i>
@@ -530,80 +533,144 @@ const SuperAdmin = {
         }
     },
 
-    // --- GIẤY PHÉP SỐ (License Key, mã máy, khóa ký) ---
+    // --- GIẤY PHÉP SỐ & KHÓA PHẦN CỨNG (License Key, Node-Lock) ---
+    currentLicenseTenantId: null,
+
     async licApi(action, body) {
         const opt = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
-        const res = await fetch('api/super_admin.php?action=' + action, opt);
+        const url = 'api/super_admin?action=' + action;
+        const res = await fetch(url, opt);
         return res.json();
     },
 
     async openLicense(tenantId) {
+        this.currentLicenseTenantId = tenantId;
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         try {
             const [ov, tl] = await Promise.all([
                 this.licApi('license_overview'),
                 this.licApi('get_tenant_license&tenant_id=' + tenantId)
             ]);
-            if (!tl.success) { alert(tl.message || 'Lỗi tải giấy phép'); return; }
-            const o = ov.data || {}, d = tl.data;
-            let box = document.getElementById('license-modal');
-            if (box) box.remove();
-            box = document.createElement('div');
-            box.id = 'license-modal';
-            box.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,.8);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
-            const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.07)"><span style="color:#94a3b8">${k}</span><b style="font-family:ui-monospace,Consolas,monospace;text-align:right;word-break:break-all">${v}</b></div>`;
-            const btn = (id, txt, grad) => `<button id="${id}" style="padding:9px 14px;border-radius:10px;border:0;cursor:pointer;color:#fff;font-weight:700;font-size:12px;background:${grad}">${txt}</button>`;
-            box.innerHTML = `
-              <div style="width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:24px;border-radius:20px;background:#0f172a;border:1px solid rgba(168,85,247,.35);color:#e2e8f0;font-size:13px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                  <b style="font-size:16px"><i class="fas fa-key" style="color:#c084fc"></i> Giấy phép số - ${esc(d.store_name)}</b>
-                  <button id="lic-close" style="background:none;border:0;color:#94a3b8;font-size:20px;cursor:pointer">&times;</button>
-                </div>
-                ${!o.has_keys ? `<div style="padding:12px;border-radius:12px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fcd34d;margin-bottom:12px">
-                    Chưa có <b>cặp khóa Ed25519</b>. Hãy tạo để ký giấy phép mới.${o.has_legacy_keys ? '<br>Khóa RSA cũ vẫn được giữ để xác minh giấy phép đã phát hành.' : ''}${!o.sodium ? '<br><b>Bật extension=sodium trong php.ini trước khi tạo khóa.</b>' : ''}<br><br>${btn('lic-init','Tạo khóa ký Ed25519','linear-gradient(90deg,#d97706,#f59e0b)')}</div>` : ''}
-                ${row('License Key', `<span id="lic-key">${esc(d.license_key)}</span>`)}
-                ${row('Mã máy đã gắn', esc(d.machine_id || '(chưa kích hoạt)'))}
-                ${row('Tên máy', esc(d.machine_name || '—'))}
-                ${row('Gắn máy lúc', esc(d.machine_bound_at || '—'))}
-                ${row('Kiểm tra gần nhất', esc(d.last_check_at || 'Chưa lần nào'))}
-                ${row('IP gần nhất', esc(d.last_check_ip || '—'))}
-                ${row('Phiên bản app', esc(d.last_app_version || '—'))}
-                ${row('Vân tay khóa công khai', esc(o.fingerprint || '—'))}
-                ${row('Thuật toán ký mới', esc(o.algorithm || '—'))}
-                ${!o.sodium ? '<div style="padding:10px;border-radius:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fcd34d;margin-top:10px">PHP chưa bật extension sodium; không thể ký/xác minh Ed25519.</div>' : ''}
-                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
-                  ${btn('lic-copy','Sao chép key','linear-gradient(90deg,#2563eb,#0ea5e9)')}
-                  ${btn('lic-reset','Gỡ ràng buộc máy','linear-gradient(90deg,#7c3aed,#9333ea)')}
-                  ${btn('lic-regen','Cấp key mới (thu hồi key cũ)','linear-gradient(90deg,#e11d48,#f43f5e)')}
-                </div>
-                <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">
-                  <label style="display:block;color:#94a3b8;margin-bottom:6px">Ân hạn offline (ngày) - quán mất mạng vẫn dùng được trong thời gian này</label>
-                  <div style="display:flex;gap:8px">
-                    <input id="lic-grace" type="number" min="0" max="90" value="${esc(o.grace_days ?? 7)}" style="width:100px;padding:8px 10px;border-radius:10px;background:#020617;border:1px solid rgba(148,163,184,.3);color:#fff">
-                    ${btn('lic-grace-save','Lưu','linear-gradient(90deg,#059669,#10b981)')}
-                  </div>
-                </div>
-              </div>`;
-            document.body.appendChild(box);
-            const close = () => box.remove();
-            box.addEventListener('click', e => { if (e.target === box) close(); });
-            box.querySelector('#lic-close').onclick = close;
-            box.querySelector('#lic-copy').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.license_key); alert('Đã sao chép: ' + d.license_key); };
-            const init = box.querySelector('#lic-init');
-            if (init) init.onclick = async () => { const r = await this.licApi('license_init_keys', {}); alert(r.success ? 'Đã tạo khóa. Vân tay: ' + r.fingerprint : r.message); if (r.success) { close(); this.openLicense(tenantId); } };
-            box.querySelector('#lic-reset').onclick = async () => {
-                if (!confirm('Gỡ ràng buộc máy? Quán sẽ kích hoạt lại được trên máy mới.')) return;
-                const r = await this.licApi('reset_machine', { tenant_id: tenantId }); alert(r.message); close(); this.openLicense(tenantId);
-            };
-            box.querySelector('#lic-regen').onclick = async () => {
-                if (!confirm('Cấp License Key MỚI? Key cũ sẽ bị thu hồi và quán phải nhập key mới.')) return;
-                const r = await this.licApi('regenerate_license_key', { tenant_id: tenantId }); alert(r.message + (r.license_key ? '\n' + r.license_key : '')); close(); this.openLicense(tenantId);
-            };
-            box.querySelector('#lic-grace-save').onclick = async () => {
-                const r = await this.licApi('license_save_grace', { grace_days: parseInt(box.querySelector('#lic-grace').value, 10) }); alert(r.message);
-            };
+            if (!tl.success) { 
+                alert(tl.message || 'Lỗi tải thông tin giấy phép'); 
+                return; 
+            }
+            const o = ov.data || {}, d = tl.data || {};
+
+            // Cập nhật thông tin lên Modal
+            const elStore = document.getElementById('lic-store-name');
+            if (elStore) elStore.textContent = `Cửa hàng: ${d.store_name || '--'}`;
+
+            const elKey = document.getElementById('lic-key-display');
+            if (elKey) elKey.textContent = d.license_key || 'LIC-CHƯA-CẤP-MÃ';
+
+            // Trạng thái Node-Lock
+            const elNodeStatus = document.getElementById('lic-node-status');
+            const elMachineId = document.getElementById('lic-machine-id');
+            const elMachineName = document.getElementById('lic-machine-name');
+            const elMachineBound = document.getElementById('lic-machine-bound');
+            const elLastCheck = document.getElementById('lic-last-check');
+            const btnReset = document.getElementById('btn-lic-reset-machine');
+
+            if (d.machine_id && d.machine_id.trim() !== '') {
+                if (elNodeStatus) {
+                    elNodeStatus.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
+                    elNodeStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ĐÃ KHÓA PHẦN CỨNG';
+                }
+                if (elMachineId) {
+                    elMachineId.textContent = d.machine_id;
+                    elMachineId.className = 'font-mono font-bold text-emerald-300 truncate max-w-[280px]';
+                }
+                if (elMachineName) elMachineName.textContent = d.machine_name || 'PC Quán POS';
+                if (elMachineBound) elMachineBound.textContent = d.machine_bound_at || '—';
+                if (btnReset) {
+                    btnReset.disabled = false;
+                    btnReset.classList.remove('opacity-40', 'cursor-not-allowed');
+                }
+            } else {
+                if (elNodeStatus) {
+                    elNodeStatus.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5';
+                    elNodeStatus.innerHTML = '<i class="fas fa-unlock text-[9px]"></i>CHƯA GẮN MÁY (Sẵn sàng kích hoạt)';
+                }
+                if (elMachineId) {
+                    elMachineId.textContent = '(Chưa kích hoạt trên máy nào)';
+                    elMachineId.className = 'font-mono text-amber-300/80 truncate max-w-[280px] italic';
+                }
+                if (elMachineName) elMachineName.textContent = '—';
+                if (elMachineBound) elMachineBound.textContent = '—';
+                if (btnReset) {
+                    btnReset.disabled = true;
+                    btnReset.classList.add('opacity-40', 'cursor-not-allowed');
+                }
+            }
+
+            if (elLastCheck) {
+                if (d.last_check_at) {
+                    elLastCheck.textContent = `${d.last_check_at} (IP: ${d.last_check_ip || 'LAN/WAN'})`;
+                } else {
+                    elLastCheck.textContent = 'Chưa lần nào';
+                }
+            }
+
+            const elGrace = document.getElementById('lic-grace-input');
+            if (elGrace) elGrace.value = o.grace_days ?? 7;
+
+            this.openModal('modal-tenant-license');
         } catch (err) {
+            console.error('openLicense error:', err);
             alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    copyLicenseKey() {
+        const elKey = document.getElementById('lic-key-display');
+        const text = elKey ? elKey.textContent.trim() : '';
+        if (!text) return;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+        }
+        const btnText = document.getElementById('btn-lic-copy-text');
+        if (btnText) {
+            const original = btnText.textContent;
+            btnText.innerHTML = '<i class="fas fa-check text-emerald-400"></i> Đã chép!';
+            setTimeout(() => { btnText.textContent = original; }, 2000);
+        }
+    },
+
+    async doResetMachine() {
+        if (!this.currentLicenseTenantId) return;
+        if (!confirm('Bạn có chắc chắn muốn GỠ KHÓA PHẦN CỨNG cho cửa hàng này?\n\nSau khi gỡ, mã máy cũ sẽ bị hủy liên kết và quán có thể mở ứng dụng trên máy tính mới để kích hoạt lại.')) return;
+        try {
+            const r = await this.licApi('reset_machine', { tenant_id: this.currentLicenseTenantId });
+            alert(r.message || 'Đã gỡ liên kết phần cứng thành công!');
+            this.openLicense(this.currentLicenseTenantId);
+            this.loadTenants();
+        } catch (e) {
+            alert('Lỗi gỡ khóa phần cứng: ' + e.message);
+        }
+    },
+
+    async doRegenerateKey() {
+        if (!this.currentLicenseTenantId) return;
+        if (!confirm('CẢNH BÁO NGUY HIỂM:\nCấp mã License Key MỚI sẽ THU HỒI key cũ ngay lập tức!\n\nQuán sẽ không thể đồng bộ cho đến khi nhập mã key mới này. Bạn có muốn tiếp tục?')) return;
+        try {
+            const r = await this.licApi('regenerate_license_key', { tenant_id: this.currentLicenseTenantId });
+            alert(r.message + (r.license_key ? '\n\nMã mới: ' + r.license_key : ''));
+            this.openLicense(this.currentLicenseTenantId);
+            this.loadTenants();
+        } catch (e) {
+            alert('Lỗi cấp lại mã license: ' + e.message);
+        }
+    },
+
+    async saveGraceDays() {
+        const input = document.getElementById('lic-grace-input');
+        const val = parseInt(input?.value || '7', 10);
+        try {
+            const r = await this.licApi('license_save_grace', { grace_days: val });
+            alert(r.message || 'Đã lưu cấu hình thời gian ân hạn offline!');
+        } catch (e) {
+            alert('Lỗi lưu ân hạn: ' + e.message);
         }
     },
     async toggleTenantStatus(tenantId, newStatus) {
