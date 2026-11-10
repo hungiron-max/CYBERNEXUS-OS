@@ -8,6 +8,8 @@
     
     <!-- Local Precompiled Tailwind CSS (100% Offline, Instant Rendering) -->
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <!-- Liquid Glass POS Styles -->
+    <link rel="stylesheet" href="assets/css/liquid-glass.css">
     <!-- Local FontAwesome 6 Icons (Offline) -->
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     
@@ -64,6 +66,23 @@
         .btn-glass:hover {
             background: rgba(255, 255, 255, 0.16);
             transform: translateY(-1px);
+        }
+
+        .btn-glass-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            border: 1px solid rgba(52, 211, 153, 0.6) !important;
+            border-radius: 12px !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45) !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-glass-success:hover {
+            background: linear-gradient(135deg, #34d399 0%, #10b981 100%) !important;
+            box-shadow: 0 6px 22px rgba(16, 185, 129, 0.65) !important;
+            transform: translateY(-1px);
+        }
+        .btn-glass-success:active {
+            transform: scale(0.96) !important;
         }
 
         .liquid-blob {
@@ -1501,8 +1520,8 @@
                         <button type="button" onclick="showQuickVietQr()" class="btn-glass text-xs py-2.5 px-3 bg-purple-600/20 text-purple-300 border border-purple-500/40 font-bold flex items-center justify-center gap-1 shrink-0">
                             <i class="fas fa-qrcode"></i> VietQR
                         </button>
-                        <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30 whitespace-nowrap" onclick="CustomerOrdering.submitOrderDirect()">
-                            <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận</span>
+                        <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success rounded-xl text-xs py-2.5 px-3 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/40 whitespace-nowrap active:scale-95 transition-all cursor-pointer" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 1px solid rgba(52, 211, 153, 0.6); color: #ffffff;" onclick="CustomerOrdering.submitOrderDirect()">
+                            <i class="fas fa-check-circle text-xs"></i> <span id="btn-sheet-submit-text">Xác Nhận</span>
                         </button>
                     </div>
                 </div>

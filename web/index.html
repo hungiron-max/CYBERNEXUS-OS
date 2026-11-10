@@ -474,33 +474,37 @@
         </div>
     </div>
 
-    <!-- LAN / Mobile QR Code Modal -->
+    <!-- Mã QR Khách Hàng Gọi Món (customer.html) -->
     <div id="lan-qr-modal" class="liquid-modal-overlay">
-        <div class="liquid-glass liquid-modal-content p-6 w-96 max-w-[90vw] text-white shadow-2xl border border-sky-500/40 text-center">
+        <div class="liquid-glass liquid-modal-content p-6 w-[430px] max-w-[92vw] text-white shadow-2xl border border-sky-500/40 text-center rounded-2xl">
             <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
                 <h3 class="font-bold text-base text-sky-400 flex items-center gap-2">
-                    <i class="fas fa-qrcode"></i> Mở POS Trên Điện Thoại
+                    <i class="fas fa-qrcode text-purple-400"></i> Mã QR Khách Hàng Gọi Món
                 </h3>
                 <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="closeLanQrModal()">&times;</button>
             </div>
             
-            <p class="text-xs text-slate-300 mb-3">Kết nối điện thoại cùng mạng Wi-Fi và quét mã bên dưới bằng Camera:</p>
+            <p class="text-xs text-slate-300 mb-3">Khách dùng máy ảnh điện thoại quét mã bên dưới để xem menu và tự đặt món:</p>
             
-            <div class="bg-white p-3 rounded-xl inline-block shadow-lg mb-3">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" alt="QR POS LAN" class="w-44 h-44 mx-auto" />
+            <div class="bg-white p-3 rounded-2xl inline-flex items-center justify-center shadow-xl shadow-black/50 mb-3 mx-auto">
+                <div id="index-customer-qr-canvas" class="flex items-center justify-center min-w-[190px] min-h-[190px]"></div>
             </div>
 
-            <div class="bg-slate-900/80 p-2.5 rounded-xl border border-sky-500/20 text-xs mb-3 text-left">
-                <div class="text-slate-400 mb-1">Hoặc gõ thủ công trên trình duyệt điện thoại:</div>
-                <div class="font-mono font-bold text-emerald-400 text-sm select-all break-all"></div>
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-sky-500/30 text-xs mb-3 text-left">
+                <div class="text-slate-400 text-[11px] mb-1.5 flex items-center justify-between">
+                    <span>Đường dẫn gọi món (Customer Menu):</span>
+                    <button type="button" onclick="copyCustomerUrl()" class="text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer">
+                        <i class="fas fa-copy"></i> Sao chép
+                    </button>
+                </div>
+                <div id="index-customer-url-text" class="font-mono font-bold text-emerald-400 text-xs select-all break-all bg-black/40 p-2 rounded border border-white/5"></div>
             </div>
 
-            <div class="text-[11px] text-amber-300/90 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20 text-left">
-                <i class="fas fa-exclamation-triangle mr-1"></i> <b>Lưu ý:</b> Bắt buộc dùng <b>http://</b> (không dùng https:// vì mạng nội bộ không có chứng chỉ SSL).
-            </div>
-
-            <div class="mt-4 flex justify-end">
-                <button type="button" class="btn-glass text-xs py-2 px-4" onclick="closeLanQrModal()">Đóng</button>
+            <div class="mt-4 flex items-center justify-between gap-2">
+                <a id="index-customer-direct-link" href="customer.html" target="_blank" class="btn-glass text-xs py-2 px-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold flex items-center gap-1.5 rounded-xl">
+                    <i class="fas fa-external-link-alt"></i> Mở trang khách
+                </a>
+                <button type="button" class="btn-glass text-xs py-2 px-5 font-bold rounded-xl" onclick="closeLanQrModal()">Đóng</button>
             </div>
         </div>
     </div>
@@ -746,12 +750,66 @@
     <script>window.SALEAPP_VIETQR_ENABLED = true;</script>
     <script src="assets/js/pos.js?v=3"></script>
     <script>
+        let indexCustomerQrInstance = null;
+        function getCustomerMenuUrl() {
+            var origin = window.location.origin;
+            if (!origin || origin === 'null') {
+                origin = window.location.protocol + '//' + window.location.host;
+            }
+            var path = window.location.pathname;
+            var dir = path.substring(0, path.lastIndexOf('/'));
+            return origin + (dir ? dir + '/' : '/') + 'customer.html';
+        }
+
         function showLanQrModal() {
-            document.getElementById('lan-qr-modal').classList.add('open');
+            var url = getCustomerMenuUrl();
+            var modal = document.getElementById('lan-qr-modal');
+            var urlEl = document.getElementById('index-customer-url-text');
+            var linkEl = document.getElementById('index-customer-direct-link');
+            var canvasContainer = document.getElementById('index-customer-qr-canvas');
+
+            if (urlEl) urlEl.textContent = url;
+            if (linkEl) linkEl.href = url;
+
+            if (canvasContainer) {
+                canvasContainer.innerHTML = '';
+                try {
+                    indexCustomerQrInstance = new QRCode(canvasContainer, {
+                        text: url,
+                        width: 190,
+                        height: 190,
+                        colorDark: "#0b0f19",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } catch(e) {
+                    console.error("Lỗi vẽ QR code:", e);
+                    canvasContainer.innerHTML = '<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>';
+                }
+            }
+
+            modal.classList.add('open');
         }
 
         function closeLanQrModal() {
             document.getElementById('lan-qr-modal').classList.remove('open');
+        }
+
+        function copyCustomerUrl() {
+            var url = getCustomerMenuUrl();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() {
+                    alert('Đã sao chép đường link gọi món:\n' + url);
+                });
+            } else {
+                var t = document.createElement('textarea');
+                t.value = url;
+                document.body.appendChild(t);
+                t.select();
+                document.execCommand('copy');
+                document.body.removeChild(t);
+                alert('Đã sao chép đường link gọi món:\n' + url);
+            }
         }
 
         // Switch between Menu & Cart on Mobile (< lg)
@@ -1198,6 +1256,7 @@
             }
         });
     </script>
-<script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
+    <script src="assets/vendor/qrcode.min.js"></script>
+    <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
 </body>
 </html>
