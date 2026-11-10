@@ -3281,10 +3281,8 @@
         }
 
         function orderAdvertisingSlides(slides) {
-            return [
-                ...slides.filter(slide => slide.media_type === 'image'),
-                ...slides.filter(slide => slide.media_type === 'video')
-            ];
+            // Giữ nguyên thứ tự do người dùng sắp xếp tự do bằng nút Lên / Xuống
+            return Array.isArray(slides) ? [...slides] : [];
         }
 
         function adManagerAlert(message, success = true) {
@@ -3524,11 +3522,14 @@
         function moveAdvertisingSlide(index, direction) {
             const target = index + direction;
             if (target < 0 || target >= adminAdSlides.length) return;
-            [adminAdSlides[index], adminAdSlides[target]] = [adminAdSlides[target], adminAdSlides[index]];
+            const movedSlide = adminAdSlides[index];
+            adminAdSlides[index] = adminAdSlides[target];
+            adminAdSlides[target] = movedSlide;
             if (editingSlideIndex === index) editingSlideIndex = target;
             else if (editingSlideIndex === target) editingSlideIndex = index;
             renderAdvertisingSlides();
             setAdvertisingSlidesDirty(true);
+            adManagerAlert(`Đã di chuyển slide lên vị trí #${target + 1}. Bấm “Lưu & Xuất Bản Ngay” để áp dụng.`, true);
         }
 
         function removeAdvertisingSlide(index) {
