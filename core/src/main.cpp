@@ -234,12 +234,36 @@ int main(int argc, char* argv[]) {
         if (action == "activate_license") {
             std::string key = body.value("license_key", "");
             if (key.empty()) {
-                res.status = 400;
+                if (action == "status" || action == "check") {
+            json ok = {
+                {"success", true},
+                {"running", true},
+                {"port", port},
+                {"engine", "CyberNexus C++ Standalone"},
+                {"database", "SQLite WAL"}
+            };
+            res.set_content(ok.dump(), "application/json; charset=utf-8");
+            return;
+        }
+
+        res.status = 400;
                 res.set_content(json({{"success", false}, {"message", "Vui lòng nhập License Key!"}}).dump(), "application/json; charset=utf-8");
                 return;
             }
             auto actRes = SaleApp::Backend::LicenseService::instance().activateLicense(key);
             res.set_content(actRes.dump(), "application/json; charset=utf-8");
+            return;
+        }
+
+        if (action == "status" || action == "check") {
+            json ok = {
+                {"success", true},
+                {"running", true},
+                {"port", port},
+                {"engine", "CyberNexus C++ Standalone"},
+                {"database", "SQLite WAL"}
+            };
+            res.set_content(ok.dump(), "application/json; charset=utf-8");
             return;
         }
 
