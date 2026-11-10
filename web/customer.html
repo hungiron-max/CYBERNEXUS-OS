@@ -134,7 +134,7 @@
         }
     </style>
 </head>
-<body class="antialiased flex flex-col min-h-screen relative overflow-x-hidden selection:bg-sky-500 selection:text-white">
+<body class="antialiased flex flex-col min-h-screen relative overflow-x-hidden selection:bg-sky-500 selection:text-white" style="padding-bottom: 90px;">
 
     <!-- Ambient Glowing Blobs -->
     <div class="liquid-blob w-96 h-96 bg-purple-600 -top-20 -left-20"></div>
@@ -1404,35 +1404,37 @@
         <span id="customer-cart-toast-msg">Đã thêm món vào giỏ hàng!</span>
     </div>
 
-    <!-- Floating Cart Bar (Chuẩn Capsule Order Phục Vụ) -->
-    <div id="customer-bottom-bar" class="fixed bottom-4 inset-x-3 sm:inset-x-auto sm:right-6 z-40 flex items-center gap-2 max-w-md w-full sm:w-auto">
-        <button type="button" onclick="CustomerOrdering.openCart()" id="btn-cart-capsule" class="flex-1 sm:flex-initial flex items-center justify-between gap-4 py-2.5 px-3.5 rounded-2xl bg-slate-900/95 border border-sky-400/50 shadow-2xl backdrop-blur-md hover:border-sky-400 transition-all cursor-pointer">
-            <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-black font-mono border border-sky-500/30">
-                    <span id="customer-cart-count">0</span>
+    <!-- Floating Cart Bar (Chuẩn 100% Sticky Đáy Giống order.html) -->
+    <div id="customer-bottom-bar" class="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/95 backdrop-blur-md border-t border-white/10 z-40" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; padding: 12px; background: rgba(2, 6, 23, 0.95); border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <div class="max-w-2xl mx-auto flex items-center justify-between gap-2" style="max-width: 672px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <button type="button" onclick="CustomerOrdering.openCart()" id="btn-cart-capsule" class="flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-900 border border-sky-500/30 hover:border-sky-400 cursor-pointer transition-all" style="flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4);">
+                <div class="flex items-center gap-2.5" style="display: flex; align-items: center; gap: 10px;">
+                    <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-black font-mono border border-sky-500/30" style="width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                        <span id="customer-cart-count">0</span>
+                    </div>
+                    <div class="text-left">
+                        <div class="text-xs font-black text-white leading-tight">Chi tiết giỏ món</div>
+                        <div id="customer-cart-status-text" class="text-[10px] text-slate-400 font-mono">Chưa chọn món nào</div>
+                    </div>
                 </div>
-                <div class="text-left">
-                    <div class="text-xs font-black text-white leading-tight">Chi tiết giỏ món</div>
-                    <div id="customer-cart-status-text" class="text-[10px] text-amber-400 font-medium">Chưa chọn món mới</div>
-                </div>
-            </div>
-            <span id="customer-bottom-total" class="font-black text-sm text-emerald-400 font-mono">0 đ</span>
-        </button>
+                <span id="customer-bottom-total" class="font-black text-sm text-emerald-400 font-mono">0 đ</span>
+            </button>
 
-        <!-- VietQR Quick Button -->
-        <button type="button" onclick="showQuickVietQr()" id="btn-float-vietqr" class="btn-glass py-2.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 font-bold text-xs flex items-center gap-1 shadow-md shadow-purple-600/10 shrink-0">
-            <i class="fas fa-qrcode text-sm"></i>
-            <span>VietQR</span>
-        </button>
+            <!-- VietQR Quick Button -->
+            <button type="button" onclick="showQuickVietQr()" id="btn-float-vietqr" class="btn-glass py-2.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 font-bold text-xs flex items-center gap-1 shadow-md shadow-purple-600/10 shrink-0" style="padding: 10px 14px; border-radius: 12px; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-qrcode text-sm"></i>
+                <span>VietQR</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Bottom Sheet / Modal: Cart Details & Notes (Chuẩn Order Phục Vụ) -->
-    <div id="customer-cart-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md transition-all">
-        <div class="liquid-glass w-full rounded-3xl border border-sky-500/40 p-4 sm:p-5 shadow-2xl max-h-[90vh] flex flex-col relative" style="max-width: 520px !important;">
+    <!-- Bottom Sheet / Modal: Cart Details & Notes (Chuẩn 100% Bottom Sheet order.html) -->
+    <div id="customer-cart-modal" class="fixed inset-0 z-50 items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md transition-all" style="position: fixed; inset: 0; z-index: 50; display: none; background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px);">
+        <div class="liquid-glass w-full max-w-2xl mx-auto rounded-t-3xl sm:rounded-3xl border border-sky-500/40 p-4 sm:p-5 shadow-2xl max-h-[88vh] flex flex-col relative" style="max-width: 672px; width: 100%; border-top: 1px solid rgba(56, 189, 248, 0.4); background: #0f172a; max-height: 88vh; display: flex; flex-direction: column;">
             <!-- Header -->
             <div class="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
                 <div class="flex items-center gap-2">
-                    <span class="w-7 h-1 rounded-full bg-slate-600 block"></span>
+                    <span class="w-8 h-1 rounded-full bg-slate-600 block"></span>
                     <h3 class="font-bold text-sm text-sky-400" id="customer-cart-title">Danh Sách Món Tại Bàn</h3>
                 </div>
                 <button type="button" onclick="CustomerOrdering.closeCart()" class="text-slate-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 transition-all">&times;</button>
@@ -1500,6 +1502,11 @@
                             <i class="fas fa-qrcode"></i> VietQR
                         </button>
                         <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30" onclick="CustomerOrdering.submitOrderDirect()">
+                            <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận & Đặt Món (+0 món)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
                             <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận & Đặt Món (+0 món)</span>
                         </button>
                     </div>
@@ -2024,16 +2031,14 @@
             openCart() {
                 const modal = document.getElementById('customer-cart-modal');
                 if (modal) {
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
+                    modal.style.display = 'flex';
                 }
             },
 
             closeCart() {
                 const modal = document.getElementById('customer-cart-modal');
                 if (modal) {
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
+                    modal.style.display = 'none';
                 }
             },
 
