@@ -144,17 +144,24 @@
 <body class="min-h-screen bg-slate-950 text-slate-100">
     <div class="liquid-blob-1"></div>
     <div class="liquid-blob-2"></div>
-    <header class="liquid-header sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-        <div class="flex min-w-0 items-center gap-3">
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-400/30 bg-sky-500/15 text-sky-300"><i class="fas fa-bag-shopping"></i></span>
+    <header class="liquid-header sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2 bg-slate-950/85 backdrop-blur-xl">
+        <div class="flex min-w-0 items-center gap-2.5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-500/30 bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20"><i class="fas fa-bag-shopping text-sm"></i></span>
             <div class="min-w-0">
-                <h1 class="truncate text-sm font-black text-white sm:text-base">ĐƠN ĐẶT ONLINE</h1>
-                <p class="truncate text-[11px] text-slate-400">Chủ Quán (Admin) · Quy trình bếp, thanh toán và giao đơn</p>
+                <div class="flex items-center gap-2 flex-nowrap">
+                    <h1 class="font-black text-sm tracking-wide text-white uppercase whitespace-nowrap">GÓC PHỐ COFFEE & TEA</h1>
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/35 whitespace-nowrap shrink-0 shadow-sm">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                        Đơn Online
+                    </span>
+                </div>
+                <p class="truncate text-[10px] text-slate-400 whitespace-nowrap">Xử lý đơn giao hàng & Đơn mang về trực tuyến</p>
             </div>
         </div>
         <nav class="flex shrink-0 items-center gap-2">
-            <a href="index.html" class="btn-glass px-3 py-2 text-xs font-bold text-slate-200"><i class="fas fa-arrow-left mr-1"></i><span class="hidden sm:inline">Quay lại</span></a>
-            <button type="button" onclick="OnlineOrders.load()" class="btn-glass px-3 py-2 text-xs font-bold text-sky-200" title="Làm mới"><i class="fas fa-rotate"></i><span class="hidden sm:inline"> Làm mới</span></button>
+            <a href="index.html" class="btn-glass px-2.5 py-1.5 text-xs font-bold text-slate-200 whitespace-nowrap shrink-0"><i class="fas fa-cash-register mr-1"></i><span class="hidden sm:inline">Thu Ngân</span></a>
+            <a href="admin.html" class="btn-glass px-2.5 py-1.5 text-xs font-bold text-slate-200 whitespace-nowrap shrink-0"><i class="fas fa-chart-pie mr-1"></i><span class="hidden sm:inline">Quản Trị</span></a>
+            <button type="button" onclick="OnlineOrders.load()" class="btn-glass px-2.5 py-1.5 text-xs font-bold text-sky-200 whitespace-nowrap shrink-0" title="Làm mới"><i class="fas fa-rotate mr-1"></i><span class="hidden sm:inline">Làm mới</span></button>
         </nav>
     </header>
 

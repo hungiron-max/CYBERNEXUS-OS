@@ -190,38 +190,45 @@ full_html = f'''<!DOCTYPE html>
     <div class="liquid-blob w-96 h-96 bg-sky-600 top-1/3 -right-20"></div>
     <div class="liquid-blob w-96 h-96 bg-pink-600 bottom-10 left-1/4"></div>
 
-    <!-- Header Navigation -->
-    <header class="sticky top-0 z-40 liquid-glass border-b border-white/10 px-4 py-3 sm:px-8">
-        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
+    <!-- Header Navigation (Liquid Glass Aesthetic - 100% No-Wrap) -->
+    <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-white/10 px-3 py-2.5 sm:px-6">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
             <!-- Brand -->
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-500/20">
+            <div class="flex items-center gap-2.5 min-w-0 shrink-0">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-base shadow-lg shadow-indigo-500/25 shrink-0">
                     <i class="fas fa-mug-hot"></i>
                 </div>
-                <div>
-                    <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
-                        GÓC PHỐ COFFEE & TEA
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider hidden sm:inline">Khách Hàng</span>
-                    </h1>
-                    <p class="text-[11px] text-slate-400 hidden sm:block">Hệ Thống Phục Vụ Bán Hàng & Thực Đơn Điện Tử</p>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 whitespace-nowrap">
+                        <h1 class="text-sm sm:text-base font-black tracking-wide text-white uppercase whitespace-nowrap">
+                            GÓC PHỐ COFFEE & TEA
+                        </h1>
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 whitespace-nowrap shrink-0 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Khách Hàng
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 whitespace-nowrap truncate max-w-[260px] sm:max-w-none mt-0.5">
+                        Hệ Thống Phục Vụ Bán Hàng & Thực Đơn Điện Tử
+                    </p>
                 </div>
             </div>
 
             <!-- Wi-Fi & Contact Pill -->
-            <div class="flex items-center gap-2">
-                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/70 border border-white/10 text-xs text-slate-300 font-mono">
+            <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-slate-300 font-mono whitespace-nowrap shrink-0 shadow-sm">
                     <i class="fas fa-wifi text-sky-400"></i>
-                    <span>Wi-Fi: <b class="text-white">GocPho_Guest</b> (pass: <b class="text-amber-400">88888888</b>)</span>
+                    <span>Wi-Fi: <b class="text-white">GocPho_Guest</b> <span class="text-slate-500">·</span> pass: <b class="text-amber-300 font-bold">88888888</b></span>
                 </div>
 
-                <a href="tel:0903100001" class="btn-glass px-3 py-1.5 text-xs text-emerald-300 hover:text-white flex items-center gap-1.5 font-bold" title="Gọi Hotline">
-                    <i class="fas fa-phone-alt"></i>
+                <a href="tel:0903100001" class="btn-glass px-3 py-1.5 text-xs text-emerald-300 hover:text-white flex items-center gap-1.5 font-bold whitespace-nowrap shrink-0 border border-emerald-500/30 bg-emerald-500/10 shadow-sm" title="Gọi Hotline">
+                    <i class="fas fa-phone-alt text-[10px]"></i>
                     <span class="hidden sm:inline">0903 100 001</span>
                 </a>
 
-                <div id="user-nav-zone" class="flex items-center gap-1.5">
-                    <a href="index.html" class="btn-glass px-3 py-1.5 text-xs text-sky-300 hover:text-white font-bold flex items-center gap-1">
-                        <i class="fas fa-sign-in-alt"></i>
+                <div id="user-nav-zone" class="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                    <a href="index.html" class="btn-glass px-3 py-1.5 text-xs text-sky-300 hover:text-white font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 border border-sky-500/30 bg-sky-500/10 shadow-sm">
+                        <i class="fas fa-sign-in-alt text-xs"></i>
                         <span>Đăng Nhập</span>
                     </a>
                 </div>
@@ -1047,13 +1054,13 @@ full_html = f'''<!DOCTYPE html>
                     const zone = document.getElementById('user-nav-zone');
                     if (zone && u) {{
                         zone.innerHTML = `
-                            <div class="flex items-center gap-1.5 pl-2 border-l border-white/10">
-                                <span class="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 border border-pink-500/30 text-xs font-bold flex items-center gap-1">
-                                    <i class="fas fa-user-circle"></i>
+                            <div class="flex items-center gap-1.5 pl-2 border-l border-white/10 shrink-0 whitespace-nowrap">
+                                <span class="px-2.5 py-1 rounded-xl bg-indigo-500/20 text-indigo-200 border border-indigo-500/35 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+                                    <i class="fas fa-user-circle text-sky-300"></i>
                                     <span class="max-w-[120px] truncate">${{u.fullname || u.username}}</span>
                                 </span>
-                                ${{u.role === 'admin' ? '<a href="admin.html" class="btn-glass px-2.5 py-1 text-xs text-indigo-300" title="Trang Quản Trị"><i class="fas fa-chart-pie"></i></a>' : ''}}
-                                <button type="button" onclick="handleLogout()" class="w-8 h-8 rounded-xl btn-glass bg-rose-500/20 text-rose-300 hover:text-white flex items-center justify-center p-0" title="Đăng xuất">
+                                ${{u.role === 'admin' ? '<a href="admin.html" class="btn-glass px-2 py-1 text-xs text-indigo-300 hover:text-white shrink-0 border border-indigo-500/30" title="Trang Quản Trị"><i class="fas fa-chart-pie"></i></a>' : ''}}
+                                <button type="button" onclick="handleLogout()" class="w-7 h-7 rounded-lg btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 hover:text-white flex items-center justify-center p-0 border border-rose-500/30 transition-all shrink-0" title="Đăng xuất">
                                     <i class="fas fa-sign-out-alt text-xs"></i>
                                 </button>
                             </div>
