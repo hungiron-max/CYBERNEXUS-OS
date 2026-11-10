@@ -54,6 +54,7 @@ public:
 private:
     LicenseService();
     void initCatalog();
+    void ensureTableExists();
 
     std::vector<SaasModule> m_catalog;
     std::unordered_map<std::string, size_t> m_catalogIndex;

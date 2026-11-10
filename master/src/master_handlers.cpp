@@ -704,6 +704,7 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
         auto& db = Database::instance();
         json body = parseBody(req);
         std::string action = getAction(req, body);
+        if (action.empty()) action = "verify";
 
         if (action == "verify" || action == "ping") {
             std::string licKey = getString(body, "license_key");
@@ -721,9 +722,15 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
                 return;
             }
 
-            int64_t tid = tenant.value("id", 0LL);
-            std::string boundMachine = tenant.value("machine_id", "");
-            std::string subStatus = tenant.value("subscription_status", "active");
+            int64_t tid = 0;
+            if (tenant.contains("id") && !tenant["id"].is_null()) {
+                try {
+                    if (tenant["id"].is_number()) tid = tenant["id"].get<int64_t>();
+                    else if (tenant["id"].is_string()) tid = std::stoll(tenant["id"].get<std::string>());
+                } catch (...) {}
+            }
+            std::string boundMachine = getString(tenant, "machine_id", "");
+            std::string subStatus = getString(tenant, "subscription_status", "active");
 
             // Hardware node-locking binding
             if (boundMachine.empty() && !machineId.empty()) {
@@ -746,9 +753,9 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
             sendJson(res, {
                 {"success", true},
                 {"state", subStatus},
-                {"store_name", tenant.value("store_name", "")},
-                {"plan_name", tenant.value("plan_name", "")},
-                {"expire_date", tenant.value("expire_date", "")},
+                {"store_name", getString(tenant, "store_name", "")},
+                {"plan_name", getString(tenant, "plan_name", "")},
+                {"expire_date", getString(tenant, "expire_date", "")},
                 {"enabled_modules", enabledMods},
                 {"server_time", std::time(nullptr)}
             });

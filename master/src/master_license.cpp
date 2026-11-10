@@ -19,6 +19,11 @@ LicenseService& LicenseService::instance() {
 
 LicenseService::LicenseService() {
     initCatalog();
+    ensureTableExists();
+}
+
+void LicenseService::ensureTableExists() {
+    // Master database tables are managed in cybernexus_master.db
 }
 
 void LicenseService::initCatalog() {

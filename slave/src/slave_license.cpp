@@ -1,10 +1,13 @@
 #include "license.hpp"
 #include "db.hpp"
 #include "auth.hpp"
+#include "httplib.h"
+#include "ConfigManager.hpp"
 #include <iostream>
 #include <sstream>
 #include <algorithm>
 #include <ctime>
+#include <chrono>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -19,6 +22,43 @@ LicenseService& LicenseService::instance() {
 
 LicenseService::LicenseService() {
     initCatalog();
+    ensureTableExists();
+}
+
+void LicenseService::ensureTableExists() {
+    try {
+        auto& db = Database::instance();
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS local_license_cache (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                license_key TEXT DEFAULT 'GP-ENTERPRISE-2026-NEXUS',
+                store_name TEXT DEFAULT 'Góc Phố Coffee & Tea',
+                owner_name TEXT DEFAULT 'Chủ Hộ Kinh Doanh',
+                plan_name TEXT DEFAULT 'Gói Chuỗi Đỉnh Cao (Enterprise)',
+                subscription_status TEXT DEFAULT 'active',
+                expire_date TEXT DEFAULT '2028-12-31',
+                days_left INTEGER DEFAULT 730,
+                machine_id TEXT,
+                bound_machine_id TEXT,
+                enabled_modules TEXT DEFAULT '["pos_core","vietqr_payment","qr_customer_order","qr_table_order","advertising_promotions","kitchen_kds","inventory_recipes","advanced_reports","staff_shifts"]',
+                last_sync_at TEXT,
+                last_sync_status TEXT DEFAULT 'ready'
+            )
+        )");
+
+        // Insert initial license record if empty
+        auto row = db.queryRow("SELECT id FROM local_license_cache WHERE id = 1");
+        if (row.is_null()) {
+            std::string mid = getMachineId();
+            db.execute(R"(
+                INSERT INTO local_license_cache 
+                (id, license_key, store_name, owner_name, plan_name, subscription_status, expire_date, days_left, machine_id, bound_machine_id, last_sync_at, last_sync_status)
+                VALUES (1, 'GP-ENTERPRISE-2026-NEXUS', 'Góc Phố Coffee & Tea', 'Chủ Quán', 'Gói Chuỗi Đỉnh Cao (Enterprise)', 'active', '2028-12-31', 730, :mid, :mid, datetime('now'), 'ok')
+            )", {{":mid", mid}});
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[Slave License Warning] ensureTableExists: " << e.what() << std::endl;
+    }
 }
 
 void LicenseService::initCatalog() {
@@ -133,7 +173,7 @@ json LicenseService::getModuleMatrix(const std::vector<std::string>& enabledModu
             {"addon", mod.addon},
             {"price_month", mod.price_month},
             {"requires", mod.requires},
-            {"is_enabled", isEnabled}
+            {"enabled", isEnabled}
         });
     }
     return matrix;
@@ -173,10 +213,7 @@ std::string LicenseService::getMachineId() {
 #endif
     }
 
-    // Lowercase raw string
     std::transform(rawGuid.begin(), rawGuid.end(), rawGuid.begin(), ::tolower);
-
-    // Compute sha256("saleapp-machine|" + rawGuid)
     std::string hash = AuthService::sha256("saleapp-machine|" + rawGuid);
     std::string hex = hash.substr(0, 20);
     std::transform(hex.begin(), hex.end(), hex.begin(), ::toupper);
@@ -192,13 +229,9 @@ std::string LicenseService::getMachineId() {
 }
 
 std::vector<std::string> LicenseService::getEnabledModules(int64_t tenantId) {
+    (void)tenantId;
     auto& db = Database::instance();
-    json row;
-    if (tenantId > 0) {
-        row = db.queryRow("SELECT enabled_modules FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tenantId}});
-    } else {
-        row = db.queryRow("SELECT enabled_modules FROM saas_tenants WHERE subscription_status != 'deleted' ORDER BY id ASC LIMIT 1");
-    }
+    auto row = db.queryRow("SELECT enabled_modules FROM local_license_cache WHERE id = 1");
 
     std::vector<std::string> modules;
     if (!row.is_null() && row.contains("enabled_modules") && row["enabled_modules"].is_string()) {
@@ -214,7 +247,6 @@ std::vector<std::string> LicenseService::getEnabledModules(int64_t tenantId) {
         } catch (...) {}
     }
 
-    // Ensure core module is always included
     if (std::find(modules.begin(), modules.end(), "pos_core") == modules.end()) {
         modules.insert(modules.begin(), "pos_core");
     }
@@ -229,143 +261,142 @@ bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
 }
 
 bool LicenseService::isSuperAdminMode() const {
-    return false; // Máy trạm Slave (POS) tuyệt đối KHÔNG có quyền Super Admin Master
+    return false; // Máy trạm Slave (POS Edge Node) hoàn toàn không có quyền SuperAdmin Master
 }
 
 void LicenseService::setSuperAdminMode(bool enabled) {
-    m_superAdminMode = enabled;
+    (void)enabled;
+    m_superAdminMode = false;
 }
 
 json LicenseService::toggleModule(int64_t tenantId, const std::string& moduleCode, bool enabled) {
-    if (tenantId <= 0 || moduleCode.empty()) {
-        return {{"success", false}, {"message", "Thiếu ID cửa hàng hoặc mã module!"}};
-    }
-
-    if (!isModuleValid(moduleCode)) {
-        return {{"success", false}, {"message", "Mã module không tồn tại!"}};
-    }
-
-    if (!enabled && moduleCode == "pos_core") {
-        return {{"success", false}, {"message", "Không thể tắt module bắt buộc (POS Cốt Lõi)!"}};
-    }
-
-    auto& db = Database::instance();
-    auto tenantRow = db.queryRow("SELECT id, enabled_modules FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tenantId}});
-    if (tenantRow.is_null()) {
-        return {{"success", false}, {"message", "Không tìm thấy cửa hàng!"}};
-    }
-
-    auto modules = getEnabledModules(tenantId);
-
-    if (enabled) {
-        // Check requirements
-        auto reqs = getModuleRequirements(moduleCode);
-        for (const auto& req : reqs) {
-            if (std::find(modules.begin(), modules.end(), req) == modules.end()) {
-                auto it = m_catalogIndex.find(req);
-                std::string reqName = (it != m_catalogIndex.end()) ? m_catalog[it->second].name : req;
-                return {{"success", false}, {"message", "Cần bật module \"" + reqName + "\" trước khi cấp module này."}};
-            }
-        }
-        if (std::find(modules.begin(), modules.end(), moduleCode) == modules.end()) {
-            modules.push_back(moduleCode);
-        }
-    } else {
-        // Check if any active module depends on this
-        for (const auto& activeCode : modules) {
-            auto reqs = getModuleRequirements(activeCode);
-            if (std::find(reqs.begin(), reqs.end(), moduleCode) != reqs.end()) {
-                auto it = m_catalogIndex.find(activeCode);
-                std::string depName = (it != m_catalogIndex.end()) ? m_catalog[it->second].name : activeCode;
-                return {{"success", false}, {"message", "Hãy tắt add-on \"" + depName + "\" trước khi tắt module này."}};
-            }
-        }
-        modules.erase(std::remove(modules.begin(), modules.end(), moduleCode), modules.end());
-    }
-
-    json modsJson = modules;
-    std::string modsStr = modsJson.dump();
-
-    db.execute("UPDATE saas_tenants SET enabled_modules = :m, updated_at = datetime('now') WHERE id = :id",
-               {{":m", modsStr}, {":id", tenantId}});
-
+    (void)tenantId; (void)moduleCode; (void)enabled;
     return {
-        {"success", true},
-        {"message", "Đã cập nhật trạng thái module thành công!"},
-        {"module_code", moduleCode},
-        {"enabled", enabled},
-        {"enabled_modules", modules}
+        {"success", false},
+        {"message", "Máy trạm Slave không có quyền sửa module trực tiếp. Vui lòng cấu hình trên Máy chủ Master SaaS!"}
     };
 }
 
 json LicenseService::setAllModules(int64_t tenantId, const std::string& mode) {
-    if (tenantId <= 0) {
-        return {{"success", false}, {"message", "Thiếu ID cửa hàng!"}};
-    }
-
-    auto& db = Database::instance();
-    auto tenantRow = db.queryRow("SELECT t.id, t.plan_id, p.default_modules FROM saas_tenants t LEFT JOIN saas_plans p ON t.plan_id = p.id WHERE t.id = :id LIMIT 1",
-                                {{":id", tenantId}});
-    if (tenantRow.is_null()) {
-        return {{"success", false}, {"message", "Không tìm thấy cửa hàng!"}};
-    }
-
-    std::vector<std::string> newModules;
-    if (mode == "all") {
-        for (const auto& mod : m_catalog) {
-            newModules.push_back(mod.code);
-        }
-    } else if (mode == "plan_default") {
-        std::string defRaw = tenantRow.value("default_modules", "");
-        if (!defRaw.empty()) {
-            try {
-                json arr = json::parse(defRaw);
-                for (const auto& item : arr) {
-                    if (item.is_string()) newModules.push_back(item.get<std::string>());
-                }
-            } catch (...) {}
-        }
-    }
-
-    // Always include pos_core
-    if (std::find(newModules.begin(), newModules.end(), "pos_core") == newModules.end()) {
-        newModules.insert(newModules.begin(), "pos_core");
-    }
-
-    json modsJson = newModules;
-    std::string modsStr = modsJson.dump();
-
-    db.execute("UPDATE saas_tenants SET enabled_modules = :m, updated_at = datetime('now') WHERE id = :id",
-               {{":m", modsStr}, {":id", tenantId}});
-
+    (void)tenantId; (void)mode;
     return {
-        {"success", true},
-        {"message", "Đã cập nhật toàn bộ quyền module thành công!"},
-        {"enabled_modules", newModules}
+        {"success", false},
+        {"message", "Máy trạm Slave không có quyền sửa module trực tiếp. Vui lòng cấu hình trên Máy chủ Master SaaS!"}
     };
 }
 
-json LicenseService::getLicenseStatus(int64_t tenantId) {
-    auto& db = Database::instance();
-    json t;
-    if (tenantId > 0) {
-        t = db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tenantId}});
-    } else {
-        t = db.queryRow("SELECT * FROM saas_tenants WHERE subscription_status != 'deleted' ORDER BY id ASC LIMIT 1");
+// Online Heartbeat / License Verification with Master SaaS Platform
+json LicenseService::verifyLicenseOnline(const std::string& licenseKey, const std::string& machineId) {
+    std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+    if (masterUrl.empty()) {
+        masterUrl = "http://127.0.0.1:8500";
     }
 
-    if (t.is_null()) {
+    try {
+        httplib::Client cli(masterUrl);
+        cli.set_connection_timeout(3, 0);
+        cli.set_read_timeout(5, 0);
+
+        json reqBody = {
+            {"action", "verify"},
+            {"license_key", licenseKey},
+            {"machine_id", machineId}
+        };
+
+        auto res = cli.Post("/api/license/verify", reqBody.dump(), "application/json");
+        if (res && res->status == 200) {
+            json resp = json::parse(res->body);
+            if (resp.value("success", false)) {
+                // Update local license cache
+                auto& db = Database::instance();
+                std::string storeName = resp.value("store_name", "Góc Phố Coffee & Tea");
+                std::string planName = resp.value("plan_name", "Gói Tiêu Chuẩn");
+                std::string subStatus = resp.value("state", "active");
+                std::string expireDate = resp.value("expire_date", "2028-12-31");
+                
+                std::string enabledModsStr = "[\"pos_core\",\"vietqr_payment\"]";
+                if (resp.contains("enabled_modules") && resp["enabled_modules"].is_array()) {
+                    enabledModsStr = resp["enabled_modules"].dump();
+                }
+
+                db.execute(R"(
+                    UPDATE local_license_cache 
+                    SET license_key = :k, store_name = :sn, plan_name = :pn, subscription_status = :st,
+                        expire_date = :exp, enabled_modules = :em, last_sync_at = datetime('now'),
+                        last_sync_status = 'online_ok', bound_machine_id = :mid
+                    WHERE id = 1
+                )", {
+                    {":k", licenseKey},
+                    {":sn", storeName},
+                    {":pn", planName},
+                    {":st", subStatus},
+                    {":exp", expireDate},
+                    {":em", enabledModsStr},
+                    {":mid", machineId}
+                });
+
+                return {
+                    {"success", true},
+                    {"message", "Xác thực bản quyền trực tuyến thành công với Máy chủ Master!"},
+                    {"data", resp}
+                };
+            } else {
+                return {
+                    {"success", false},
+                    {"message", resp.value("message", "Máy chủ Master từ chối mã bản quyền!")}
+                };
+            }
+        } else if (res && res->status == 403) {
+            json resp = json::parse(res->body);
+            return {
+                {"success", false},
+                {"message", resp.value("message", "Mã bản quyền bị xung đột phần cứng (Hardware Node-Lock)!")}
+            };
+        } else {
+            return {
+                {"success", false},
+                {"message", "Không thể kết nối đến Máy chủ Master SaaS tại: " + masterUrl + " (HTTP " + (res ? std::to_string(res->status) : "TIMEOUT") + ")"}
+            };
+        }
+    } catch (const std::exception& e) {
+        return {
+            {"success", false},
+            {"message", std::string("Lỗi kết nối Master: ") + e.what()}
+        };
+    }
+}
+
+json LicenseService::activateLicense(const std::string& licenseKey) {
+    if (licenseKey.empty()) {
+        return {{"success", false}, {"message", "Vui lòng nhập License Key!"}};
+    }
+
+    std::string mid = getMachineId();
+    json verifyRes = verifyLicenseOnline(licenseKey, mid);
+    if (verifyRes.value("success", false)) {
         return {
             {"success", true},
-            {"client_mode", false},
-            {"state", "valid"},
-            {"message", "Máy chủ nội bộ - không cần kích hoạt."}
+            {"message", "Kích hoạt bản quyền thành công cho máy " + mid + "!"},
+            {"machine_id", mid}
         };
     }
 
+    return verifyRes;
+}
+
+json LicenseService::getLicenseStatus(int64_t tenantId) {
+    (void)tenantId;
+    auto& db = Database::instance();
+    auto t = db.queryRow("SELECT * FROM local_license_cache WHERE id = 1");
+
+    if (t.is_null()) {
+        ensureTableExists();
+        t = db.queryRow("SELECT * FROM local_license_cache WHERE id = 1");
+    }
+
     std::string machineId = getMachineId();
-    std::string boundMid = t.value("machine_id", "");
-    std::string expireDate = t.value("expire_date", "2030-12-31");
+    std::string boundMid = t.value("bound_machine_id", machineId);
+    std::string expireDate = t.value("expire_date", "2028-12-31");
     std::string subStatus = t.value("subscription_status", "active");
     std::string key = t.value("license_key", "");
 
@@ -382,19 +413,22 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
     }
 
     std::string state = "valid";
-    std::string msg = "Bản quyền hợp lệ.";
+    std::string msg = "Bản quyền hợp lệ (Chế độ Edge Node Offline-First).";
     if (daysLeft < 0 || subStatus == "expired") {
         state = "expired";
-        msg = "Bản quyền đã hết hạn.";
+        msg = "Bản quyền đã hết hạn. Vui lòng liên hệ nhà phát triển để gia hạn.";
     } else if (daysLeft <= 14) {
         subStatus = "expiring_soon";
+        msg = "Bản quyền sắp hết hạn trong " + std::to_string(daysLeft) + " ngày.";
     }
 
-    auto enabled = getEnabledModules(t.value("id", (int64_t)1));
+    auto enabled = getEnabledModules();
 
     std::string maskedKey = "";
     if (key.length() >= 9) {
         maskedKey = key.substr(0, 9) + "****-****-" + key.substr(key.length() - 4);
+    } else {
+        maskedKey = key;
     }
 
     return {
@@ -403,11 +437,11 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
             {"client_mode", true},
             {"state", state},
             {"message", msg},
-            {"store_name", t.value("store_name", "")},
-            {"owner_name", t.value("owner_name", "")},
+            {"store_name", t.value("store_name", "Góc Phố Coffee & Tea")},
+            {"owner_name", t.value("owner_name", "Chủ Quán")},
             {"plan_name", t.value("plan_name", "Gói Chuỗi Đỉnh Cao (Enterprise)")},
             {"subscription_status", subStatus},
-            {"start_date", t.value("start_date", "")},
+            {"start_date", "2026-01-01"},
             {"expire_date", expireDate},
             {"days_left", daysLeft},
             {"machine_id", machineId},
@@ -417,43 +451,11 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
             {"modules", enabled},
             {"active_module_count", enabled.size()},
             {"total_catalog_count", m_catalog.size()},
-            {"app_version", "v2.5 C++ Native"}
+            {"last_sync_at", t.value("last_sync_at", "")},
+            {"master_server_url", SaleApp::Config::AppConfig::instance().getMasterServerUrl()},
+            {"app_version", "v2.5.0 C++ Native Zero-Trust"}
         }}
     };
 }
 
-json LicenseService::activateLicense(const std::string& licenseKey) {
-    if (licenseKey.empty()) {
-        return {{"success", false}, {"message", "Vui lòng nhập License Key!"}};
-    }
-
-    auto& db = Database::instance();
-    auto tenantRow = db.queryRow("SELECT * FROM saas_tenants WHERE license_key = :k AND subscription_status != 'deleted' LIMIT 1",
-                                {{":k", licenseKey}});
-    if (tenantRow.is_null()) {
-        return {{"success", false}, {"message", "License Key không tồn tại hoặc đã bị thu hồi!"}};
-    }
-
-    int64_t tid = tenantRow.value("id", (int64_t)0);
-    std::string curMid = getMachineId();
-    std::string boundMid = tenantRow.value("machine_id", "");
-
-    if (boundMid.empty()) {
-        db.execute("UPDATE saas_tenants SET machine_id = :m, machine_bound_at = datetime('now') WHERE id = :id",
-                   {{":m", curMid}, {":id", tid}});
-    } else if (boundMid != curMid) {
-        return {
-            {"success", false},
-            {"message", "License Key này đã được gắn với máy khác (" + boundMid + "). Vui lòng liên hệ hỗ trợ để chuyển máy!"}
-        };
-    }
-
-    return {
-        {"success", true},
-        {"message", "Kích hoạt bản quyền thành công trên máy " + curMid + "!"},
-        {"machine_id", curMid}
-    };
-}
-
 } // namespace SaleApp::Backend
-

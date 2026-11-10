@@ -4,6 +4,7 @@
 #include "body_parser.hpp"
 #include "license.hpp"
 #include "pos_bcrypt.h"
+#include "ConfigManager.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -2603,9 +2604,10 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
                 std::string hashName = AuthService::sha256(filename + std::to_string(nowMs));
                 std::string saveName = hashName.substr(0, 32) + ext;
 
-                std::string targetDir = "web/uploads/advertisements";
-                std::filesystem::create_directories(targetDir);
-                std::string targetPath = targetDir + "/" + saveName;
+                namespace fs = std::filesystem;
+                fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "advertisements";
+                fs::create_directories(targetDir);
+                fs::path targetPath = targetDir / saveName;
 
                 std::ofstream ofs(targetPath, std::ios::binary);
                 if (ofs) {
