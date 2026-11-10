@@ -138,13 +138,13 @@ full_html = f'''<!DOCTYPE html>
             z-index: 0;
         }}
 
-        /* Slide & Carousel Styling */
+        /* Slide & Carousel Styling - Cinematic Liquid Glass */
         .customer-ad-slide {{
             position: absolute;
             inset: 0;
             opacity: 0;
             pointer-events: none;
-            transition: opacity .8s ease, transform .8s ease;
+            transition: opacity .7s cubic-bezier(0.4, 0, 0.2, 1), transform .7s cubic-bezier(0.4, 0, 0.2, 1);
             transform: scale(1.02);
         }}
         .customer-ad-slide.is-active {{
@@ -155,22 +155,30 @@ full_html = f'''<!DOCTYPE html>
         .customer-store-backdrop {{
             position: absolute;
             inset: 0;
-            background: linear-gradient(100deg, rgba(8, 13, 31, 0.92) 0%, rgba(18, 20, 53, 0.8) 55%, rgba(20, 23, 58, 0.55) 100%), linear-gradient(0deg, rgba(8, 12, 30, 0.45), transparent 60%);
+            background: linear-gradient(90deg, rgba(4, 7, 20, 0.94) 0%, rgba(4, 7, 20, 0.72) 40%, rgba(4, 7, 20, 0.15) 75%, transparent 100%),
+                        linear-gradient(0deg, rgba(4, 7, 20, 0.7) 0%, transparent 45%);
+            pointer-events: none;
         }}
         .customer-store-glow {{
             position: absolute;
-            width: 14rem;
-            height: 14rem;
+            width: 16rem;
+            height: 16rem;
             border-radius: 9999px;
-            filter: blur(65px);
-            opacity: .2;
+            filter: blur(55px);
+            opacity: .35;
             pointer-events: none;
             z-index: 1;
+            mix-blend-mode: screen;
         }}
         .customer-store-glow-gold {{
-            right: 8%;
-            top: -6rem;
-            background: #818cf8;
+            left: -2rem;
+            top: -2rem;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.45) 0%, rgba(244, 63, 94, 0.2) 60%, transparent 80%);
+        }}
+        .customer-store-glow-accent {{
+            right: 20%;
+            bottom: -3rem;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.35) 0%, rgba(139, 92, 246, 0.15) 60%, transparent 80%);
         }}
         .customer-ad-dot {{
             transition: all 0.25s ease;
@@ -250,26 +258,28 @@ full_html = f'''<!DOCTYPE html>
                     <div id="customer-ad-slides-container" class="relative flex-1">
                         <!-- Slide 0: Hình ảnh mở đầu (6s) -->
                         <article class="customer-ad-slide customer-store-slide is-active" data-ad-index="0" data-ad-duration="6">
-                            <img class="absolute inset-0 h-full w-full object-cover" src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Góc Phố" />
+                            <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Góc Phố" />
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-gold"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-5 pb-16 pt-6 sm:px-8 sm:pb-16 sm:pt-8">
-                                <span class="inline-flex items-center gap-2 rounded-full border border-amber-200/45 bg-amber-900/40 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-100 shadow-md backdrop-blur-md">
-                                    <i class="fas fa-sparkles text-amber-300"></i> ƯU ĐÃI ĐẶC BIỆT HÔM NAY
+                            <div class="customer-store-glow customer-store-glow-accent"></div>
+                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-6 py-6 sm:px-9 sm:py-8 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-200 shadow-sm backdrop-blur-md">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                    <i class="fas fa-sparkles text-amber-300 text-[9px]"></i> ƯU ĐÃI ĐẶC BIỆT · KM1
                                 </span>
-                                <h2 class="customer-store-title mt-3 max-w-xl text-xl sm:text-3xl font-extrabold leading-tight text-white">
-                                    Thưởng Thức Hương Vị Đậm Đà Tại <span class="bg-gradient-to-r from-amber-400 via-rose-400 to-sky-400 bg-clip-text text-transparent">Góc Phố</span>
+                                <h2 class="mt-2 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                                    Thưởng Thức Hương Vị Đậm Đà Tại <span class="bg-gradient-to-r from-amber-300 via-rose-300 to-sky-300 bg-clip-text text-transparent">Góc Phố</span>
                                 </h2>
-                                <div class="mt-2.5 h-0.5 w-14 bg-gradient-to-r from-sky-300 via-indigo-300 to-transparent"></div>
-                                <p class="customer-store-copy mt-2.5 max-w-lg text-xs sm:text-sm text-slate-200 leading-relaxed">
-                                    Cà phê pha phin truyền thống, trà sữa thơm béo cùng các món điểm tâm bánh mì chảo, bò bít tết hảo hạng. Không gian thoáng mát, Wi-Fi tốc độ cao phục vụ quý khách.
+                                <div class="mt-2 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
+                                <p class="mt-2 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">
+                                    Cà phê phin truyền thống thơm lừng, trà sữa béo ngậy cùng các món điểm tâm bánh mì chảo, bò bít tết hảo hạng.
                                 </p>
-                                <div class="flex flex-wrap items-center gap-2 pt-3 text-[11px] font-semibold">
-                                    <span class="px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                                        <i class="fas fa-check-circle"></i> Giảm 10% khi thanh toán VietQR
+                                <div class="flex flex-wrap items-center gap-1.5 pt-3 text-[10px] font-semibold">
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                        <i class="fas fa-check-circle text-[9px]"></i> Giảm 10% VietQR
                                     </span>
-                                    <span class="px-2.5 py-1 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                                        <i class="fas fa-gift"></i> Tặng topping Flan cho hóa đơn từ 50k
+                                    <span class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                        <i class="fas fa-gift text-[9px]"></i> Tặng topping Flan
                                     </span>
                                 </div>
                             </div>
@@ -279,28 +289,38 @@ full_html = f'''<!DOCTYPE html>
                         <article class="customer-ad-slide is-video" data-ad-index="1" data-ad-duration="0">
                             <video class="absolute inset-0 h-full w-full object-cover" src="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4" muted playsinline preload="auto"></video>
                             <div class="customer-store-backdrop"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-5 pb-16 pt-6 sm:px-8 sm:pb-16 sm:pt-8">
-                                <span class="inline-flex items-center gap-2 rounded-full border border-sky-300/40 bg-sky-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-sky-200 backdrop-blur-md">
-                                    <i class="fas fa-play-circle text-sky-400"></i> VIDEO QUÁN
+                            <div class="customer-store-glow customer-store-glow-accent"></div>
+                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-6 pb-14 pt-6 sm:px-9 sm:pb-16 sm:pt-8 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-200 backdrop-blur-md">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                                    <i class="fas fa-play text-sky-300 text-[9px]"></i> VIDEO TRẢI NGHIỆM · QC1
                                 </span>
-                                <h3 class="mt-2 text-lg sm:text-2xl font-black text-white">Video Trải Nghiệm & Không Gian Quán</h3>
-                                <p class="mt-1 text-xs text-slate-200">Xem không gian thực tế và các món nước đặc sắc tại Góc Phố.</p>
+                                <h3 class="mt-2 text-base sm:text-xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
+                                <p class="mt-1.5 text-xs text-slate-200/90 leading-relaxed max-w-md line-clamp-2">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
                             </div>
-                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-8 w-8 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
+                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
                             </button>
                         </article>
 
                         <!-- Slide 2: Bánh mì giòn rụm (6s) -->
                         <article class="customer-ad-slide" data-ad-index="2" data-ad-duration="6">
-                            <img class="absolute inset-0 h-full w-full object-cover" src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh mì chảo" />
+                            <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh mì chảo" />
                             <div class="customer-store-backdrop"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-5 pb-16 pt-6 sm:px-8 sm:pb-16 sm:pt-8">
-                                <span class="inline-flex items-center gap-2 rounded-full border border-rose-300/40 bg-rose-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-rose-200 backdrop-blur-md">
-                                    <i class="fas fa-fire text-rose-400"></i> MÓN BÁN CHẠY NHẤT
+                            <div class="customer-store-glow customer-store-glow-gold"></div>
+                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-6 py-6 sm:px-9 sm:py-8 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-200 backdrop-blur-md shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                                    <i class="fas fa-fire text-rose-300 text-[9px]"></i> MÓN BÁN CHẠY NHẤT · KM2
                                 </span>
-                                <h3 class="mt-2 text-lg sm:text-2xl font-black text-white">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
-                                <p class="mt-1.5 max-w-md text-xs sm:text-sm text-slate-200">Bánh mì nóng hổi ăn kèm pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn khó cưỡng.</p>
+                                <h3 class="mt-2 text-base sm:text-xl lg:text-2xl font-black text-white leading-snug tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
+                                <div class="mt-2 h-0.5 w-10 rounded-full bg-gradient-to-r from-rose-400 to-amber-400"></div>
+                                <p class="mt-2 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.</p>
+                                <div class="flex flex-wrap items-center gap-1.5 pt-3 text-[10px] font-semibold">
+                                    <span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                        <i class="fas fa-bread-slice text-[9px]"></i> Giòn rụm nóng hổi
+                                    </span>
+                                </div>
                             </div>
                         </article>
                     </div>
@@ -554,10 +574,24 @@ full_html = f'''<!DOCTYPE html>
                 container.innerHTML = '';
                 if (dotsContainer) dotsContainer.innerHTML = '';
 
+                const formatLabel = (rawLabel, isVid) => {{
+                    if (!rawLabel) return {{ text: isVid ? 'VIDEO TRẢI NGHIỆM' : 'ƯU ĐÃI ĐẶC BIỆT', icon: isVid ? 'fa-play' : 'fa-sparkles', badge: isVid ? 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' : 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' }};
+                    const s = String(rawLabel).trim();
+                    if (s === 'KM1') return {{ text: 'ƯU ĐÃI ĐẶC BIỆT · KM1', icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' }};
+                    if (s === 'KM2') return {{ text: 'MÓN BÁN CHẠY NHẤT · KM2', icon: 'fa-fire', badge: 'border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 text-rose-200' }};
+                    if (s === 'KM3') return {{ text: 'MÓN MỚI TUẦN NÀY · KM3', icon: 'fa-star', badge: 'border-emerald-300/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-200' }};
+                    if (s === 'QC1') return {{ text: 'VIDEO TRẢI NGHIỆM · QC1', icon: 'fa-play', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' }};
+                    if (s === 'QC2') return {{ text: 'KHÁM PHÁ GÓC PHỐ · QC2', icon: 'fa-compass', badge: 'border-purple-300/40 bg-gradient-to-r from-purple-500/25 to-fuchsia-500/25 text-purple-200' }};
+                    if (/^KM/i.test(s)) return {{ text: `ƯU ĐÃI · ${{s}}`, icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' }};
+                    if (/^QC/i.test(s)) return {{ text: `QUẢNG CÁO · ${{s}}`, icon: 'fa-video', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' }};
+                    return {{ text: s.toUpperCase(), icon: isVid ? 'fa-play' : 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' }};
+                }};
+
                 slidesList.forEach((slide, idx) => {{
                     const isVideo = slide.media_type === 'video';
                     const duration = isVideo ? 0 : (Number(slide.duration) || 6);
                     const isActive = idx === 0;
+                    const meta = formatLabel(slide.label, isVideo);
 
                     const article = document.createElement('article');
                     article.className = `customer-ad-slide ${{isActive ? 'is-active' : ''}} ${{isVideo ? 'is-video' : ''}}`;
@@ -568,29 +602,41 @@ full_html = f'''<!DOCTYPE html>
                         article.innerHTML = `
                             <video class="absolute inset-0 h-full w-full object-cover" src="${{slide.media_path}}" muted playsinline preload="auto"></video>
                             <div class="customer-store-backdrop"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-5 pb-16 pt-6 sm:px-8 sm:pb-16 sm:pt-8">
-                                <span class="inline-flex items-center gap-2 rounded-full border border-sky-300/40 bg-sky-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-sky-200 backdrop-blur-md">
-                                    <i class="fas fa-play-circle text-sky-400"></i> ${{slide.label || 'VIDEO QUẢNG CÁO'}}
+                            <div class="customer-store-glow customer-store-glow-accent"></div>
+                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-6 pb-14 pt-6 sm:px-9 sm:pb-16 sm:pt-8 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border ${{meta.badge}} px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                                    <i class="fas ${{meta.icon}} text-[9px]"></i> ${{meta.text}}
                                 </span>
-                                <h3 class="mt-2 text-lg sm:text-2xl font-black text-white">${{slide.title || 'Video Trải Nghiệm Góc Phố'}}</h3>
-                                <p class="mt-1 text-xs text-slate-200">${{slide.description || ''}}</p>
+                                <h3 class="mt-2 text-base sm:text-xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">${{slide.title || 'Video Trải Nghiệm Góc Phố'}}</h3>
+                                <p class="mt-1.5 text-xs text-slate-200/90 leading-relaxed max-w-md line-clamp-2">${{slide.description || ''}}</p>
                             </div>
-                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-8 w-8 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
+                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
                             </button>
                         `;
                     }} else {{
                         article.innerHTML = `
-                            <img class="absolute inset-0 h-full w-full object-cover" src="${{slide.media_path}}" alt="${{slide.title}}" />
+                            <img class="absolute inset-0 h-full w-full object-cover object-center" src="${{slide.media_path}}" alt="${{slide.title}}" />
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-gold"></div>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-5 pb-16 pt-6 sm:px-8 sm:pb-16 sm:pt-8">
-                                <span class="inline-flex items-center gap-2 rounded-full border border-amber-200/45 bg-amber-900/40 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-100 shadow-md backdrop-blur-md">
-                                    <i class="fas fa-sparkles text-amber-300"></i> ${{slide.label || 'ƯU ĐÃI ĐẶC BIỆT'}}
+                            <div class="customer-store-glow customer-store-glow-accent"></div>
+                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-center px-6 py-6 sm:px-9 sm:py-8 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border ${{meta.badge}} px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                    <i class="fas ${{meta.icon}} text-[9px]"></i> ${{meta.text}}
                                 </span>
-                                <h2 class="customer-store-title mt-3 max-w-xl text-xl sm:text-3xl font-extrabold leading-tight text-white">${{slide.title}}</h2>
-                                <div class="mt-2.5 h-0.5 w-14 bg-gradient-to-r from-sky-300 via-indigo-300 to-transparent"></div>
-                                <p class="customer-store-copy mt-2.5 max-w-lg text-xs sm:text-sm text-slate-200 leading-relaxed">${{slide.description || ''}}</p>
+                                <h2 class="mt-2 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">${{slide.title}}</h2>
+                                <div class="mt-2 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
+                                <p class="mt-2 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">${{slide.description || ''}}</p>
+                                <div class="flex flex-wrap items-center gap-1.5 pt-3 text-[10px] font-semibold">
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                        <i class="fas fa-check-circle text-[9px]"></i> Món ngon phục vụ nhanh
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
+                                        <i class="fas fa-qrcode text-[9px]"></i> Thanh toán VietQR
+                                    </span>
+                                </div>
                             </div>
                         `;
                     }}

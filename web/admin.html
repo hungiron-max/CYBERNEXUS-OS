@@ -1298,77 +1298,176 @@
                         </div>
                     </div>
 
-                    <div class="relative overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-gradient-to-br from-slate-950 via-fuchsia-950/30 to-indigo-950/50 p-4 sm:p-5 space-y-4">
+                    <!-- STUDIO QUẢNG CÁO & SLIDE THÔNG MINH (Compact, Gorgeous, Intelligent Layout) -->
+                    <div class="relative overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-gradient-to-br from-slate-950 via-fuchsia-950/20 to-indigo-950/35 p-4 sm:p-5 space-y-4">
                         <div class="absolute -right-10 -top-16 h-40 w-40 rounded-full bg-fuchsia-500/15 blur-3xl pointer-events-none"></div>
-                        <div class="relative flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-fuchsia-500/15 text-fuchsia-200 border border-fuchsia-300/20"><i class="fas fa-wand-magic-sparkles"></i></span>
-                                    <div>
-                                        <h4 class="text-sm font-black text-white">Studio Quảng Cáo & Khuyến Mãi</h4>
-                                        <p class="mt-0.5 text-[10px] text-slate-300">Tạo slide ảnh/video lung linh ngay ô giới thiệu trên trang khách hàng.</p>
+                        
+                        <!-- Studio Header -->
+                        <div class="relative flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+                            <div class="flex items-center gap-2.5">
+                                <span class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-500 to-indigo-600 text-white shadow-md shadow-fuchsia-500/20 text-sm">
+                                    <i class="fas fa-wand-magic-sparkles"></i>
+                                </span>
+                                <div>
+                                    <h4 class="text-xs sm:text-sm font-black text-white uppercase tracking-wide flex items-center gap-2">
+                                        Studio Quảng Cáo & Trình Chiếu Khách Hàng
+                                    </h4>
+                                    <p class="text-[10px] text-slate-300">Tạo slide ảnh & video tự động chuyển đổi lung linh tại ô giới thiệu trang khách.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="ad-slide-count-badge" class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">
+                                    3 / 12 Slide
+                                </span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Tự Động Chiếu
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- 1-Click Smart Presets (Gợi ý thông minh 1 chạm) -->
+                        <div class="p-3 rounded-xl bg-slate-900/60 border border-white/10 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fas fa-bolt text-amber-400"></i> Gợi ý mẫu thông minh (1-Click chọn ngay)
+                                </span>
+                                <span class="text-[9px] text-slate-400">Click mẫu để tự động điền hình ảnh & thông điệp chuẩn</span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <button type="button" onclick="applySlidePreset('cafe')" class="preset-btn group p-2 rounded-lg bg-slate-800/80 hover:bg-amber-500/15 border border-white/10 hover:border-amber-400/40 text-left transition-all">
+                                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 group-hover:text-amber-200">
+                                        <i class="fas fa-mug-hot text-xs"></i> Cafe Đặc Sản (KM1)
+                                    </div>
+                                    <div class="text-[9px] text-slate-400 truncate mt-0.5">Ảnh cafe + Hương vị đậm đà</div>
+                                </button>
+                                <button type="button" onclick="applySlidePreset('banhmi')" class="preset-btn group p-2 rounded-lg bg-slate-800/80 hover:bg-rose-500/15 border border-white/10 hover:border-rose-400/40 text-left transition-all">
+                                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-rose-300 group-hover:text-rose-200">
+                                        <i class="fas fa-bread-slice text-xs"></i> Bánh Mì Chảo (KM2)
+                                    </div>
+                                    <div class="text-[9px] text-slate-400 truncate mt-0.5">Món bán chạy + Trứng ốp la</div>
+                                </button>
+                                <button type="button" onclick="applySlidePreset('bittet')" class="preset-btn group p-2 rounded-lg bg-slate-800/80 hover:bg-orange-500/15 border border-white/10 hover:border-orange-400/40 text-left transition-all">
+                                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-orange-300 group-hover:text-orange-200">
+                                        <i class="fas fa-utensils text-xs"></i> Bò Bít Tết (KM3)
+                                    </div>
+                                    <div class="text-[9px] text-slate-400 truncate mt-0.5">Sốt tiêu đen hảo hạng</div>
+                                </button>
+                                <button type="button" onclick="applySlidePreset('video')" class="preset-btn group p-2 rounded-lg bg-slate-800/80 hover:bg-sky-500/15 border border-white/10 hover:border-sky-400/40 text-left transition-all">
+                                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-sky-300 group-hover:text-sky-200">
+                                        <i class="fas fa-video text-xs"></i> Video Quán (QC1)
+                                    </div>
+                                    <div class="text-[9px] text-slate-400 truncate mt-0.5">Clip MP4 phát trọn vẹn</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 2-Column Smart Workspace -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                            
+                            <!-- Cột Trái (lg:col-span-5): Form tạo Slide Tinh Gọn & Trực Quan -->
+                            <div class="lg:col-span-5 rounded-xl border border-white/10 bg-slate-950/60 p-3.5 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <b class="text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fas fa-plus-circle text-fuchsia-400"></i> Thêm Slide Mới
+                                    </b>
+                                    <span class="text-[9px] text-slate-400 font-mono">Ảnh (6s) · Video (hết clip)</span>
+                                </div>
+
+                                <!-- Visual Media Preview Box -->
+                                <div class="relative h-28 w-full rounded-xl overflow-hidden border border-white/15 bg-slate-900 flex items-center justify-center group shadow-inner">
+                                    <img id="ad-media-thumb-img" src="assets/images/dishes/dish_1793448692_5cbbfa81.jpg" alt="Preview" class="h-full w-full object-cover" />
+                                    <video id="ad-media-thumb-video" class="hidden h-full w-full object-cover" muted playsinline></video>
+                                    
+                                    <!-- Overlay Action Buttons -->
+                                    <div class="absolute inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity">
+                                        <label for="ad-media-file" class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-fuchsia-600/90 hover:bg-fuchsia-500 text-white text-[11px] font-bold shadow-md flex items-center gap-1 transition-all">
+                                            <i class="fas fa-cloud-arrow-up text-xs"></i> <span>Tải File Máy</span>
+                                        </label>
+                                        <input id="ad-media-file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" class="hidden" />
+
+                                        <select id="ad-media-picker-preset" onchange="if(this.value){document.getElementById('ad-media-url').value=this.value; updateAdMediaPreview(this.value);}" class="px-2 py-1.5 rounded-lg bg-slate-800/90 text-slate-200 border border-white/20 text-[10px] font-bold cursor-pointer hover:bg-slate-700">
+                                            <option value="">🖼 Kho Media Có Sẵn</option>
+                                            <option value="assets/images/dishes/dish_1793448692_5cbbfa81.jpg">Ảnh Cafe Sữa</option>
+                                            <option value="assets/images/dishes/dish_1793438761_26c1602f.jpg">Ảnh Bánh Mì Chảo</option>
+                                            <option value="assets/images/dishes/dish_1793448377_d168bdbb.jpg">Ảnh Bò Bít Tết</option>
+                                            <option value="assets/images/dishes/dish_1793447406_e3759f8d.jpg">Ảnh Tổng Hợp Món</option>
+                                            <option value="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4">Video Quán MP4</option>
+                                        </select>
                                     </div>
                                 </div>
+                                <input id="ad-media-url" type="text" class="liquid-input w-full text-[10px] font-mono text-slate-400 py-1" placeholder="Đường dẫn media (assets/... hoặc URL)" value="assets/images/dishes/dish_1793448692_5cbbfa81.jpg" oninput="updateAdMediaPreview(this.value)" />
+
+                                <!-- Fields: Row 1: Label & Duration -->
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="mb-1 block text-[10px] font-semibold text-slate-300">Nhãn chiến dịch</label>
+                                        <select id="ad-slide-label-select" onchange="document.getElementById('ad-slide-label').value=this.value;" class="liquid-input w-full bg-slate-900 text-xs">
+                                            <option value="KM1">Ưu Đãi Đặc Biệt (KM1)</option>
+                                            <option value="KM2">Món Bán Chạy (KM2)</option>
+                                            <option value="KM3">Món Mới Tuần Này (KM3)</option>
+                                            <option value="QC1">Video Trải Nghiệm (QC1)</option>
+                                            <option value="QC2">Khám Phá Quán (QC2)</option>
+                                            <option value="store">Thông Tin Quán</option>
+                                        </select>
+                                        <input id="ad-slide-label" type="hidden" value="KM1" />
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-[10px] font-semibold text-slate-300">Thời lượng mỗi slide</label>
+                                        <select id="ad-slide-duration" class="liquid-input w-full bg-slate-900 text-xs">
+                                            <option value="4">4 giây</option>
+                                            <option value="6" selected>6 giây (Chuẩn)</option>
+                                            <option value="8">8 giây</option>
+                                            <option value="10">10 giây</option>
+                                            <option value="0">Tự động (Video)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Fields: Row 2: Title -->
+                                <div>
+                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Tiêu đề slide</label>
+                                    <input id="ad-slide-title" maxlength="120" class="liquid-input w-full text-xs font-bold" placeholder="Ví dụ: Bánh Mì Chảo Thơm Giòn Nóng Hổi" value="Hương Vị Cà Phê Pha Phin Truyền Thống" />
+                                </div>
+
+                                <!-- Fields: Row 3: Description -->
+                                <div>
+                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Mô tả thông điệp ngắn</label>
+                                    <textarea id="ad-slide-description" maxlength="300" rows="2" class="liquid-input w-full text-xs" placeholder="Mô tả hương vị, ưu đãi hoặc lưu ý món...">Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.</textarea>
+                                </div>
+
+                                <!-- Add Slide Button -->
+                                <button type="button" id="ad-slide-add-button" onclick="uploadAndAddAdSlide()" class="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5">
+                                    <i class="fas fa-sparkles"></i>
+                                    <span>Thêm Vào Trình Chiếu</span>
+                                </button>
                             </div>
-                            <span class="rounded-full border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-300"><i class="fas fa-check-circle mr-1"></i>Đang Hoạt Động</span>
+
+                            <!-- Cột Phải (lg:col-span-7): Danh Sách Slide Đang Trình Chiếu (Slide Deck Cards) -->
+                            <div class="lg:col-span-7 rounded-xl border border-white/10 bg-slate-950/60 p-3.5 space-y-3">
+                                <div class="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
+                                    <div>
+                                        <b class="text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                                            <i class="fas fa-layer-group text-sky-400"></i> Danh Sách Slide Chiếu
+                                        </b>
+                                        <span id="ad-slide-count" class="text-[10px] text-slate-400 ml-1">3/12 slide</span>
+                                    </div>
+                                    <button type="button" onclick="saveAdvertisingSlides()" class="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-black text-white shadow-md shadow-emerald-600/30 transition flex items-center gap-1">
+                                        <i class="fas fa-circle-check"></i> Lưu & Xuất Bản Ngay
+                                    </button>
+                                </div>
+
+                                <div id="ad-manager-alert" class="hidden relative rounded-lg p-2 text-[11px] font-semibold"></div>
+
+                                <!-- Slides Container -->
+                                <div id="ad-slide-list" class="space-y-2 max-h-[360px] overflow-y-auto pr-1"></div>
+
+                                <div class="p-2.5 rounded-lg bg-slate-900/60 border border-white/5 text-[10px] text-slate-400 flex items-start gap-2">
+                                    <i class="fas fa-circle-info text-sky-400 mt-0.5 shrink-0"></i>
+                                    <span>Trình chiếu chuyển mượt mà: Ảnh chiếu theo thời lượng đã cài (6s), video phát hết clip mới tự động chuyển. Tối đa 12 slide. Dữ liệu lưu an toàn trên SQLite WAL.</span>
+                                </div>
+                            </div>
+
                         </div>
-                        
-                        <p class="relative text-[10px] leading-relaxed text-slate-300">Công cụ tạo slide thông minh: Tải lên video/hình ảnh hoặc chọn media có sẵn. Ảnh chạy 6s/hình, video phát hết thời lượng file rồi tự động chuyển.</p>
-                        <div id="ad-slide-form" class="relative grid grid-cols-1 gap-3 rounded-xl border border-white/10 bg-slate-950/55 p-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <div class="sm:col-span-2 lg:col-span-1">
-                                <label class="mb-1 block text-[10px] font-semibold text-slate-300">Tải ảnh/video hoặc chọn media</label>
-                                <input id="ad-media-file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" class="block w-full text-[10px] text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-fuchsia-500/20 file:px-2 file:py-1.5 file:text-[10px] file:font-bold file:text-fuchsia-100" />
-                                <div class="mt-1.5 flex items-center gap-1">
-                                    <input id="ad-media-url" type="text" class="liquid-input w-full text-[11px]" placeholder="Hoặc dán URL / đường dẫn ảnh, video..." />
-                                    <select onchange="if(this.value){document.getElementById('ad-media-url').value=this.value;}" class="liquid-input bg-slate-900 text-[10px] max-w-[110px]">
-                                        <option value="">Media mẫu</option>
-                                        <option value="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4">Video Quán</option>
-                                        <option value="assets/images/dishes/dish_1793447406_e3759f8d.jpg">Ảnh Bánh Mì</option>
-                                        <option value="assets/images/dishes/dish_1793448377_d168bdbb.jpg">Ảnh Bò Bít Tết</option>
-                                        <option value="assets/images/dishes/dish_1793448692_5cbbfa81.jpg">Ảnh Cafe Sữa</option>
-                                    </select>
-                                </div>
-                            </div>
-                                <div>
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Nhãn chiến dịch</label>
-                                    <input id="ad-slide-label" maxlength="40" class="liquid-input w-full text-xs" placeholder="Ví dụ: KM mùa hè, QC1..." />
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Tiêu đề</label>
-                                    <input id="ad-slide-title" maxlength="120" class="liquid-input w-full text-xs" placeholder="Ví dụ: Mừng khai trương -20%" />
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Liên kết khi bấm (không bắt buộc)</label>
-                                    <input id="ad-slide-link" type="url" class="liquid-input w-full text-xs" placeholder="https://..." />
-                                </div>
-                                <div class="sm:col-span-2 lg:col-span-4">
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Mô tả / điều kiện áp dụng</label>
-                                    <textarea id="ad-slide-description" maxlength="400" rows="2" class="liquid-input w-full text-xs" placeholder="Thời gian, món áp dụng, điều kiện hoặc thông điệp muốn gửi đến khách..."></textarea>
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Bắt đầu hiển thị</label>
-                                    <input id="ad-slide-start" type="date" class="liquid-input w-full text-xs" />
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Ngừng hiển thị</label>
-                                    <input id="ad-slide-end" type="date" class="liquid-input w-full text-xs" />
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Thời lượng mỗi slide</label>
-                                    <select id="ad-slide-duration" class="liquid-input w-full bg-slate-900 text-xs"><option value="4">4 giây</option><option value="5">5 giây</option><option value="6" selected>6 giây</option><option value="8">8 giây</option><option value="10">10 giây</option><option value="12">12 giây</option><option value="15">15 giây</option><option value="20">20 giây</option></select>
-                                </div>
-                                <div class="flex items-end">
-                                    <button type="button" id="ad-slide-add-button" onclick="uploadAndAddAdSlide()" class="w-full rounded-xl bg-gradient-to-r from-fuchsia-500 to-indigo-500 px-3 py-2.5 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 disabled:opacity-50"><i class="fas fa-cloud-arrow-up mr-1"></i>Tải media & thêm slide</button>
-                                </div>
-                            </div>
-                            <div id="ad-manager-alert" class="hidden relative rounded-lg p-2.5 text-[11px] font-semibold"></div>
-                            <div class="relative flex flex-wrap items-center justify-between gap-2">
-                                <div><b class="text-xs text-white">Danh sách trình chiếu</b><span id="ad-slide-count" class="ml-2 text-[10px] text-slate-400"></span><span id="ad-manager-state" class="ml-2 text-[10px] text-slate-400" role="status">Đã xuất bản · sửa trực tiếp nội dung bên dưới</span><p id="ad-publish-note" class="mt-1 text-[10px] text-slate-500">Trang khách chỉ hiển thị nội dung sau khi bạn bấm “Lưu thay đổi & xuất bản”.</p></div>
-                                <button type="button" onclick="saveAdvertisingSlides()" class="rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-black text-emerald-100 transition hover:bg-emerald-400/20"><i class="fas fa-circle-check mr-1"></i>Lưu thay đổi & xuất bản</button>
-                            </div>
-                            <div id="ad-slide-list" class="relative grid grid-cols-1 gap-3 lg:grid-cols-2"></div>
-                            <p class="relative text-[9px] leading-relaxed text-slate-500">Thứ tự phát cố định: thông tin quán đầu tiên → các slide ảnh → video. Ảnh và thông tin quán chuyển theo thời lượng đã chọn; mỗi video phát hết mới chuyển slide. Tối đa 12 media; ảnh đã tải được cache để xem offline, video cần mạng. Xóa hết slide rồi bấm “Lưu thay đổi & xuất bản” để gỡ quảng cáo cũ khỏi trang khách.</p>
-                        
                     </div>
 
                     <div class="p-4 rounded-xl bg-slate-900/80 border border-sky-500/20 space-y-3">
@@ -2844,10 +2943,89 @@
         const adSlideLabels = {
             store: 'Thông tin quán',
             KM1: 'KM1 · Ưu đãi',
-            KM2: 'KM2 · Ưu đãi',
-            QC1: 'QC1 · Quảng cáo',
-            QC2: 'QC2 · Quảng cáo'
+            KM2: 'KM2 · Bán chạy',
+            KM3: 'KM3 · Món mới',
+            QC1: 'QC1 · Video quán',
+            QC2: 'QC2 · Khám phá quán'
         };
+
+        function updateAdMediaPreview(path, type = null) {
+            const img = document.getElementById('ad-media-thumb-img');
+            const vid = document.getElementById('ad-media-thumb-video');
+            if (!img || !vid) return;
+
+            const isVideo = type === 'video' || /\.(mp4|webm)$/i.test(path || '');
+            if (isVideo) {
+                img.classList.add('hidden');
+                vid.classList.remove('hidden');
+                vid.src = path;
+                vid.load();
+            } else {
+                vid.classList.add('hidden');
+                img.classList.remove('hidden');
+                img.src = path || 'assets/images/dishes/dish_1793448692_5cbbfa81.jpg';
+            }
+        }
+
+        function applySlidePreset(presetType) {
+            const presets = {
+                cafe: {
+                    label: 'KM1',
+                    title: 'Hương Vị Cà Phê Pha Phin Truyền Thống',
+                    description: 'Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.',
+                    media_path: 'assets/images/dishes/dish_1793448692_5cbbfa81.jpg',
+                    media_type: 'image',
+                    duration: 6
+                },
+                banhmi: {
+                    label: 'KM2',
+                    title: 'Bánh Mì Chảo Thơm Giòn Nóng Hổi',
+                    description: 'Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.',
+                    media_path: 'assets/images/dishes/dish_1793438761_26c1602f.jpg',
+                    media_type: 'image',
+                    duration: 6
+                },
+                bittet: {
+                    label: 'KM3',
+                    title: 'Bò Bít Tết Sốt Tiêu Đen Thượng Hạng',
+                    description: 'Thịt bò tươi mềm mọng nước, sốt tiêu cay nồng thơm lừng kèm khoai tây chiên giòn tan.',
+                    media_path: 'assets/images/dishes/dish_1793448377_d168bdbb.jpg',
+                    media_type: 'image',
+                    duration: 6
+                },
+                video: {
+                    label: 'QC1',
+                    title: 'Không Gian Thư Giãn & Hương Vị Nguyên Bản',
+                    description: 'Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.',
+                    media_path: 'uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4',
+                    media_type: 'video',
+                    duration: 0
+                }
+            };
+
+            const p = presets[presetType];
+            if (!p) return;
+
+            const labelSelect = document.getElementById('ad-slide-label-select');
+            if (labelSelect) labelSelect.value = p.label;
+            const labelInput = document.getElementById('ad-slide-label');
+            if (labelInput) labelInput.value = p.label;
+
+            const titleInput = document.getElementById('ad-slide-title');
+            if (titleInput) titleInput.value = p.title;
+
+            const descInput = document.getElementById('ad-slide-description');
+            if (descInput) descInput.value = p.description;
+
+            const urlInput = document.getElementById('ad-media-url');
+            if (urlInput) urlInput.value = p.media_path;
+
+            const durationSelect = document.getElementById('ad-slide-duration');
+            if (durationSelect) durationSelect.value = String(p.duration);
+
+            updateAdMediaPreview(p.media_path, p.media_type);
+            adManagerAlert(`Đã chọn mẫu: ${p.title}. Bấm “Thêm Vào Trình Chiếu” để bổ sung.`, true);
+        }
 
         function orderAdvertisingSlides(slides) {
             return [
@@ -2860,189 +3038,115 @@
             const alertBox = document.getElementById('ad-manager-alert');
             if (!alertBox) return;
             alertBox.textContent = message;
-            alertBox.className = `relative rounded-lg border p-2.5 text-[11px] font-semibold ${success ? 'border-emerald-400/30 bg-emerald-950/40 text-emerald-200' : 'border-rose-400/30 bg-rose-950/40 text-rose-200'}`;
+            alertBox.className = `relative rounded-lg p-2.5 text-[11px] font-semibold border ${success ? 'border-emerald-400/30 bg-emerald-950/50 text-emerald-200' : 'border-rose-400/30 bg-rose-950/50 text-rose-200'}`;
+            alertBox.classList.remove('hidden');
+            setTimeout(() => { alertBox.classList.add('hidden'); }, 5000);
         }
 
         function setAdvertisingSlidesDirty(dirty) {
             advertisingSlidesDirty = dirty;
-            const state = document.getElementById('ad-manager-state');
-            if (!state) return;
-            state.textContent = dirty ? 'Bản nháp chưa xuất bản · khách vẫn thấy nội dung cũ' : 'Đã xuất bản · sửa trực tiếp nội dung bên dưới';
-            state.className = `ml-2 text-[10px] ${dirty ? 'text-amber-300' : 'text-slate-400'}`;
-        }
-
-        function adField(label, value, options = {}) {
-            const wrapper = document.createElement('label');
-            wrapper.className = options.wide ? 'block sm:col-span-2' : 'block';
-            const caption = document.createElement('span');
-            caption.className = 'mb-1 block text-[9px] font-semibold text-slate-400';
-            caption.textContent = label;
-            const input = document.createElement(options.multiline ? 'textarea' : 'input');
-            if (options.multiline) input.rows = 2;
-            else input.type = options.type || 'text';
-            input.className = 'liquid-input w-full text-[11px]';
-            input.value = value || '';
-            input.maxLength = options.maxLength || 400;
-            if (options.type === 'date') input.classList.add('ad-date');
-            if (options.type === 'url') input.classList.add('ad-link');
-            if (options.multiline) input.classList.add('ad-description');
-            else if (!options.type || options.type === 'text') input.classList.add('ad-title');
-            wrapper.append(caption, input);
-            return wrapper;
-        }
-
-        function readAdvertisingSlidesFromDom() {
-            const list = document.getElementById('ad-slide-list');
-            if (!list) return adminAdSlides;
-            const slides = Array.from(list.querySelectorAll('.ad-slide-editor')).map((card, index) => {
-                const field = selector => card.querySelector(selector)?.value || '';
-                return {
-                    ...adminAdSlides[index],
-                    label: field('.ad-label'),
-                    title: field('.ad-title'),
-                    description: field('.ad-description'),
-                    link_url: field('.ad-link'),
-                    starts_at: field('.ad-start'),
-                    ends_at: field('.ad-end'),
-                    duration: Number(field('.ad-duration')) || 6,
-                    enabled: card.querySelector('.ad-enabled')?.checked || false
-                };
-            });
-            return orderAdvertisingSlides(slides);
         }
 
         function renderAdvertisingSlides() {
             adminAdSlides = orderAdvertisingSlides(adminAdSlides);
             const list = document.getElementById('ad-slide-list');
             const count = document.getElementById('ad-slide-count');
-            if (!list || !count) return;
+            const badge = document.getElementById('ad-slide-count-badge');
+            if (count) count.textContent = `${adminAdSlides.length}/12 slide`;
+            if (badge) badge.textContent = `${adminAdSlides.length} / 12 Slide`;
+            if (!list) return;
+
             list.replaceChildren();
-            count.textContent = `${adminAdSlides.length}/12 slide`;
 
             if (!adminAdSlides.length) {
                 const empty = document.createElement('div');
-                empty.className = 'rounded-xl border border-dashed border-white/15 bg-slate-950/30 p-6 text-center text-[11px] text-slate-400 lg:col-span-2';
-                empty.innerHTML = '<i class="fas fa-photo-film mb-2 block text-xl text-fuchsia-300/70"></i>Chưa có slide. Tạo slide đầu tiên để bắt đầu quảng bá.';
+                empty.className = 'rounded-xl border border-dashed border-white/15 bg-slate-950/40 p-6 text-center text-[11px] text-slate-400';
+                empty.innerHTML = '<i class="fas fa-photo-film mb-2 block text-xl text-fuchsia-300/70"></i>Chưa có slide nào. Hãy chọn mẫu ở trên hoặc tải ảnh lên để bắt đầu.';
                 list.appendChild(empty);
                 return;
             }
 
             adminAdSlides.forEach((slide, index) => {
+                const isVideo = slide.media_type === 'video';
                 const card = document.createElement('article');
-                card.className = 'ad-slide-editor overflow-hidden rounded-xl border border-white/10 bg-slate-950/55 p-3';
+                card.className = 'ad-slide-item flex items-center justify-between gap-3 p-2.5 rounded-xl border border-white/10 bg-slate-900/80 hover:border-fuchsia-500/30 transition-all shadow-sm';
                 card.dataset.index = String(index);
 
-                const top = document.createElement('div');
-                top.className = 'mb-3 flex items-center justify-between gap-2';
-                const preview = document.createElement('div');
-                preview.className = 'h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-slate-900';
-                if (slide.media_type === 'video') {
-                    const video = document.createElement('video');
-                    video.src = slide.media_path;
-                    video.muted = true;
-                    video.playsInline = true;
-                    video.preload = 'metadata';
-                    video.className = 'h-full w-full object-cover';
-                    preview.appendChild(video);
+                // Thumbnail
+                const thumb = document.createElement('div');
+                thumb.className = 'relative w-20 h-14 shrink-0 rounded-lg overflow-hidden border border-white/10 bg-slate-950';
+                if (isVideo) {
+                    thumb.innerHTML = `
+                        <video src="${slide.media_path}" muted playsinline class="w-full h-full object-cover"></video>
+                        <span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-xs"><i class="fas fa-play"></i></span>
+                    `;
                 } else {
-                    const image = document.createElement('img');
-                    image.src = slide.media_path;
-                    image.alt = '';
-                    image.className = 'h-full w-full object-cover';
-                    preview.appendChild(image);
+                    thumb.innerHTML = `<img src="${slide.media_path}" alt="" class="w-full h-full object-cover" onerror="this.src='assets/images/dishes/default_dish.jpg';" />`;
                 }
+
+                // Middle Info
                 const info = document.createElement('div');
-                info.className = 'min-w-0 flex-1';
-                const title = document.createElement('div');
-                title.className = 'truncate text-[10px] font-bold text-fuchsia-100';
-                title.textContent = `${adSlideLabels[slide.label] || slide.label} · ${slide.media_type === 'video' ? 'Video' : 'Ảnh'}`;
-                const path = document.createElement('div');
-                path.className = 'mt-1 truncate text-[9px] text-slate-500';
-                path.textContent = slide.media_path;
-                info.append(title, path);
+                info.className = 'min-w-0 flex-1 space-y-1';
+                
+                const metaRow = document.createElement('div');
+                metaRow.className = 'flex items-center gap-1.5 flex-wrap';
+                
+                const badgeEl = document.createElement('span');
+                const labelText = adSlideLabels[slide.label] || slide.label || (isVideo ? 'Video' : 'Ảnh');
+                badgeEl.className = `px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${isVideo ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : (slide.label === 'KM2' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30')}`;
+                badgeEl.textContent = labelText;
+                
+                const durationPill = document.createElement('span');
+                durationPill.className = 'text-[9px] text-slate-400 font-mono';
+                durationPill.textContent = isVideo ? '⏱ Hết video' : `⏱ ${slide.duration || 6}s`;
 
+                metaRow.append(badgeEl, durationPill);
+
+                const titleEl = document.createElement('h5');
+                titleEl.className = 'text-xs font-bold text-white truncate';
+                titleEl.textContent = slide.title || 'Slide không tên';
+
+                const descEl = document.createElement('p');
+                descEl.className = 'text-[10px] text-slate-400 truncate';
+                descEl.textContent = slide.description || 'Chưa có mô tả';
+
+                info.append(metaRow, titleEl, descEl);
+
+                // Actions: Up, Down, Delete
                 const actions = document.createElement('div');
-                actions.className = 'flex shrink-0 items-center gap-1';
-                [
-                    ['↑', 'Lên', () => moveAdvertisingSlide(index, -1)],
-                    ['↓', 'Xuống', () => moveAdvertisingSlide(index, 1)],
-                    ['×', 'Xóa slide', () => removeAdvertisingSlide(index)]
-                ].forEach(([symbol, action, callback]) => {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.title = action;
-                    button.textContent = symbol;
-                    button.className = 'h-7 w-7 rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-slate-300 hover:bg-rose-500/20 hover:text-white disabled:opacity-30';
-                    button.disabled = (action === 'Lên' && (index === 0 || adminAdSlides[index - 1]?.media_type !== slide.media_type))
-                        || (action === 'Xuống' && (index === adminAdSlides.length - 1 || adminAdSlides[index + 1]?.media_type !== slide.media_type));
-                    button.addEventListener('click', callback);
-                    actions.appendChild(button);
-                });
-                top.append(preview, info, actions);
+                actions.className = 'flex items-center gap-1 shrink-0';
 
-                const grid = document.createElement('div');
-                grid.className = 'grid grid-cols-1 gap-2 sm:grid-cols-2';
-                const labelWrap = document.createElement('label');
-                labelWrap.className = 'block';
-                const labelText = document.createElement('span');
-                labelText.className = 'mb-1 block text-[9px] font-semibold text-slate-400';
-                labelText.textContent = 'Nhãn';
-                const labelInput = document.createElement('input');
-                labelInput.type = 'text';
-                labelInput.maxLength = 40;
-                labelInput.placeholder = 'Ví dụ: KM mùa hè, QC1';
-                labelInput.value = slide.label || '';
-                labelInput.className = 'ad-label liquid-input w-full text-[11px]';
-                labelWrap.append(labelText, labelInput);
+                const btnUp = document.createElement('button');
+                btnUp.type = 'button';
+                btnUp.title = 'Di chuyển lên';
+                btnUp.innerHTML = '<i class="fas fa-arrow-up text-[10px]"></i>';
+                btnUp.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
+                btnUp.disabled = index === 0;
+                btnUp.onclick = () => moveAdvertisingSlide(index, -1);
 
-                const titleField = adField('Tiêu đề', slide.title, { maxLength: 120 });
-                const titleInput = titleField.querySelector('input');
-                titleInput.classList.add('ad-title');
-                const descriptionField = adField('Mô tả / điều kiện', slide.description, { multiline: true, wide: true, maxLength: 400 });
-                const descriptionInput = descriptionField.querySelector('textarea');
-                descriptionInput.classList.add('ad-description');
-                const linkField = adField('Liên kết', slide.link_url, { type: 'url' });
-                const linkInput = linkField.querySelector('input');
-                linkInput.classList.add('ad-link');
-                const startField = adField('Ngày bắt đầu', slide.starts_at, { type: 'date' });
-                startField.querySelector('input').classList.add('ad-start');
-                const endField = adField('Ngày kết thúc', slide.ends_at, { type: 'date' });
-                endField.querySelector('input').classList.add('ad-end');
-                const durationWrap = document.createElement('label');
-                durationWrap.className = 'block';
-                const durationCaption = document.createElement('span');
-                durationCaption.className = 'mb-1 block text-[9px] font-semibold text-slate-400';
-                durationCaption.textContent = 'Thời lượng';
-                const durationSelect = document.createElement('select');
-                durationSelect.className = 'ad-duration liquid-input w-full bg-slate-900 text-[11px]';
-                Array.from({ length: 17 }, (_, index) => index + 4).forEach(seconds => {
-                    const option = document.createElement('option');
-                    option.value = String(seconds);
-                    option.textContent = `${seconds} giây`;
-                    option.selected = Number(slide.duration) === seconds;
-                    durationSelect.appendChild(option);
-                });
-                durationWrap.append(durationCaption, durationSelect);
-                grid.append(labelWrap, titleField, descriptionField, linkField, startField, endField, durationWrap);
+                const btnDown = document.createElement('button');
+                btnDown.type = 'button';
+                btnDown.title = 'Di chuyển xuống';
+                btnDown.innerHTML = '<i class="fas fa-arrow-down text-[10px]"></i>';
+                btnDown.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
+                btnDown.disabled = index === adminAdSlides.length - 1;
+                btnDown.onclick = () => moveAdvertisingSlide(index, 1);
 
-                const footer = document.createElement('label');
-                footer.className = 'mt-3 flex cursor-pointer items-center justify-between border-t border-white/5 pt-2 text-[10px]';
-                const state = document.createElement('span');
-                state.className = 'text-slate-300';
-                state.textContent = 'Cho phép hiển thị trong trình chiếu';
-                const enabled = document.createElement('input');
-                enabled.type = 'checkbox';
-                enabled.className = 'ad-enabled h-4 w-4 accent-fuchsia-500';
-                enabled.checked = slide.enabled !== false;
-                footer.append(state, enabled);
+                const btnDel = document.createElement('button');
+                btnDel.type = 'button';
+                btnDel.title = 'Xóa slide';
+                btnDel.innerHTML = '<i class="fas fa-trash-can text-[10px]"></i>';
+                btnDel.className = 'h-7 w-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/30 hover:text-rose-100 flex items-center justify-center transition-all';
+                btnDel.onclick = () => removeAdvertisingSlide(index);
 
-                card.append(top, grid, footer);
+                actions.append(btnUp, btnDown, btnDel);
+
+                card.append(thumb, info, actions);
                 list.appendChild(card);
             });
         }
 
         function moveAdvertisingSlide(index, direction) {
-            adminAdSlides = readAdvertisingSlidesFromDom();
             const target = index + direction;
             if (target < 0 || target >= adminAdSlides.length) return;
             [adminAdSlides[index], adminAdSlides[target]] = [adminAdSlides[target], adminAdSlides[index]];
@@ -3050,42 +3154,34 @@
             setAdvertisingSlidesDirty(true);
         }
 
-        document.getElementById('ad-slide-list')?.addEventListener('input', () => setAdvertisingSlidesDirty(true));
-        document.getElementById('ad-slide-list')?.addEventListener('change', () => setAdvertisingSlidesDirty(true));
-        document.getElementById('ad-slide-form')?.addEventListener('input', () => setAdvertisingSlidesDirty(true));
-        document.getElementById('ad-slide-form')?.addEventListener('change', () => setAdvertisingSlidesDirty(true));
-        document.getElementById('ad-slide-label')?.addEventListener('input', event => {
-            event.target.dataset.customized = 'true';
-        });
-        window.addEventListener('beforeunload', event => {
-            if (!advertisingSlidesDirty) return;
-            event.preventDefault();
-            event.returnValue = '';
-        });
+        function removeAdvertisingSlide(index) {
+            adminAdSlides.splice(index, 1);
+            renderAdvertisingSlides();
+            setAdvertisingSlidesDirty(true);
+            adManagerAlert('Đã xóa slide khỏi danh sách. Hãy bấm “Lưu & Xuất Bản Ngay”.', true);
+        }
 
         document.getElementById('ad-media-file')?.addEventListener('change', event => {
             const file = event.target.files?.[0];
             if (!file) return;
 
             const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
+            const labelSelect = document.getElementById('ad-slide-label-select');
+            if (labelSelect) labelSelect.value = isVideo ? 'QC1' : 'KM1';
             const labelInput = document.getElementById('ad-slide-label');
-            if (labelInput && !labelInput.dataset.customized) {
-                labelInput.value = isVideo ? 'Quảng cáo' : 'Khuyến mãi';
-            }
+            if (labelInput) labelInput.value = isVideo ? 'QC1' : 'KM1';
 
             const titleInput = document.getElementById('ad-slide-title');
-            if (titleInput && !titleInput.value.trim()) {
+            if (titleInput && (!titleInput.value.trim() || titleInput.value.startsWith('Hương Vị'))) {
                 const fileTitle = file.name.replace(/\.[^.]+$/, '').replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
-                titleInput.value = fileTitle.slice(0, 120) || (isVideo ? 'Video quảng cáo' : 'Hình ảnh quảng cáo');
+                titleInput.value = fileTitle.slice(0, 120) || (isVideo ? 'Video quảng cáo quán' : 'Hình ảnh món ngon');
             }
-        });
 
-        function removeAdvertisingSlide(index) {
-            adminAdSlides = readAdvertisingSlidesFromDom();
-            adminAdSlides.splice(index, 1);
-            renderAdvertisingSlides();
-            setAdvertisingSlidesDirty(true);
-        }
+            // Preview local file
+            const reader = new FileReader();
+            reader.onload = e => updateAdMediaPreview(e.target.result, isVideo ? 'video' : 'image');
+            reader.readAsDataURL(file);
+        });
 
         async function uploadAndAddAdSlide() {
             const fileInput = document.getElementById('ad-media-file');
@@ -3094,16 +3190,18 @@
             const directPath = urlInput?.value.trim() || '';
 
             if (adminAdSlides.length >= 12) return adManagerAlert('Đã đạt giới hạn 12 slide.', false);
-            if (!file && !directPath) return adManagerAlert('Vui lòng chọn tệp ảnh/video hoặc nhập đường dẫn media.', false);
+            if (!file && !directPath) return adManagerAlert('Vui lòng chọn ảnh/video hoặc dán URL media.', false);
 
             const isVideo = file 
                 ? Boolean(file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name))
                 : /\.(mp4|webm)$/i.test(directPath);
 
             const titleInput = document.getElementById('ad-slide-title');
-            const title = titleInput?.value.trim() || (isVideo ? 'Video quảng cáo' : 'Hình ảnh quảng cáo');
+            const title = titleInput?.value.trim() || (isVideo ? 'Video quảng cáo' : 'Hình ảnh món ngon');
             const labelInput = document.getElementById('ad-slide-label');
-            const label = labelInput?.value.trim() || (isVideo ? 'Quảng cáo' : 'Khuyến mãi');
+            const label = labelInput?.value.trim() || (isVideo ? 'QC1' : 'KM1');
+            const desc = document.getElementById('ad-slide-description')?.value.trim() || '';
+            const duration = isVideo ? 0 : (Number(document.getElementById('ad-slide-duration')?.value) || 6);
 
             const button = document.getElementById('ad-slide-add-button');
             button.disabled = true;
@@ -3123,66 +3221,45 @@
                     mediaType = data.media.type;
                 }
 
-                adminAdSlides = readAdvertisingSlidesFromDom();
                 adminAdSlides.push({
                     label,
                     title,
-                    description: document.getElementById('ad-slide-description').value.trim(),
+                    description: desc,
                     media_path: mediaPath,
                     media_type: mediaType,
-                    link_url: document.getElementById('ad-slide-link').value.trim(),
-                    starts_at: document.getElementById('ad-slide-start').value,
-                    ends_at: document.getElementById('ad-slide-end').value,
-                    duration: isVideo ? 0 : (Number(document.getElementById('ad-slide-duration').value) || 6),
+                    duration,
                     enabled: true
                 });
 
                 renderAdvertisingSlides();
                 setAdvertisingSlidesDirty(true);
                 if (fileInput) fileInput.value = '';
-                if (urlInput) urlInput.value = '';
-                if (labelInput) { labelInput.value = ''; delete labelInput.dataset.customized; }
-                if (titleInput) titleInput.value = '';
-                document.getElementById('ad-slide-description').value = '';
-                document.getElementById('ad-slide-link').value = '';
-                document.getElementById('ad-slide-start').value = '';
-                document.getElementById('ad-slide-end').value = '';
-                adManagerAlert('Media đã được thêm vào danh sách. Bấm “Lưu thay đổi & xuất bản” để hiển thị cho khách.');
+                adManagerAlert('Đã thêm slide vào danh sách! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.', true);
             } catch (error) {
                 adManagerAlert(error.message || 'Không thể tải media lên.', false);
             } finally {
                 button.disabled = false;
-                button.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i>Tải media & thêm slide';
+                button.innerHTML = '<i class="fas fa-sparkles mr-1"></i>Thêm Vào Trình Chiếu';
             }
         }
 
         async function saveAdvertisingSlides() {
-            const draftHasMedia = document.getElementById('ad-media-file')?.files?.length > 0;
-            const draftHasContent = ['ad-slide-label', 'ad-slide-title', 'ad-slide-description', 'ad-slide-link', 'ad-slide-start', 'ad-slide-end']
-                .some(id => document.getElementById(id)?.value.trim());
-            if (draftHasMedia || draftHasContent) {
-                adManagerAlert('Media hoặc nội dung mới chưa được thêm vào danh sách. Hãy bấm “Tải media & thêm slide” trước khi xuất bản.', false);
-                return;
-            }
-            const slides = readAdvertisingSlidesFromDom();
             const button = document.querySelector('button[onclick="saveAdvertisingSlides()"]');
             if (button) button.disabled = true;
             try {
                 const response = await fetch('api/advertising?action=save_slides', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ slides })
+                    body: JSON.stringify({ slides: adminAdSlides })
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) throw new Error(data.message || 'Không thể lưu trình chiếu.');
-                adminAdSlides = data.slides;
+                adminAdSlides = data.slides || adminAdSlides;
                 renderAdvertisingSlides();
                 setAdvertisingSlidesDirty(false);
-                adManagerAlert(slides.length
-                    ? (data.message || 'Đã lưu và xuất bản trình chiếu thành công!')
-                    : 'Danh sách hiện không có slide quảng cáo. Trang khách sẽ hiển thị thông tin quán mặc định.');
+                adManagerAlert('Đã lưu & xuất bản trình chiếu thành công lên màn hình khách hàng!', true);
             } catch (error) {
-                adManagerAlert(error.message || 'Không thể lưu trình chiếu.', false);
+                adManagerAlert(error.message || 'Lỗi lưu trình chiếu.', false);
             } finally {
                 if (button) button.disabled = false;
             }
