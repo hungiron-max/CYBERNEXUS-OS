@@ -62,11 +62,11 @@ int main(int argc, char* argv[]) {
     std::cout << "  Chay thuan C++ Native doc lap - Hoan toan KHONG dung PHP " << std::endl;
     std::cout << "==========================================================" << std::endl;
 
-    // 1. Xác định và mở Cơ sở dữ liệu SQLite
-    std::string dbPath = "database/pos_database.sqlite";
-    if (!fs::exists(dbPath)) dbPath = "database/cybernexus.db";
-    if (!fs::exists(dbPath)) dbPath = "../database/pos_database.sqlite";
+    // 1. Xác định và mở Cơ sở dữ liệu SQLite (Ưu tiên database hoàn chỉnh cybernexus.db)
+    std::string dbPath = "database/cybernexus.db";
+    if (!fs::exists(dbPath)) dbPath = "database/pos_database.sqlite";
     if (!fs::exists(dbPath)) dbPath = "../database/cybernexus.db";
+    if (!fs::exists(dbPath)) dbPath = "../database/pos_database.sqlite";
 
     if (!Database::instance().open(dbPath)) {
         std::cerr << "[CRITICAL] Khong the mo CSDL SQLite tai: " << dbPath << std::endl;
@@ -417,16 +417,22 @@ int main(int argc, char* argv[]) {
     svr.Get("/online_orders.html", serveProtectedView("online_orders", "staff"));
     svr.Get("/online_orders.php", serveProtectedView("online_orders", "staff"));
 
-    svr.Get("/super_admin", serveProtectedView("super_admin", "admin"));
-    svr.Get("/super_admin.html", serveProtectedView("super_admin", "admin"));
-    svr.Get("/super_admin.php", serveProtectedView("super_admin", "admin"));
+    // KÊNH QUẢN TRỊ HỆ ĐIỀU HÀNH & NỀN TẢNG SAAS (SUPER ADMIN MASTER PLATFORM)
+    // Hoàn toàn ĐỘC LẬP với việc đăng nhập bán hàng hay nhân viên của quán POS:
+    svr.Get("/super_admin", serveView("super_admin"));
+    svr.Get("/super_admin.html", serveView("super_admin"));
+    svr.Get("/super_admin.php", serveView("super_admin"));
+    svr.Get("/master", serveView("super_admin"));
+    svr.Get("/master.html", serveView("super_admin"));
+    svr.Get("/licensing", serveView("super_admin"));
+    svr.Get("/platform", serveView("super_admin"));
 
     // Bắt toàn bộ các request file .php để render HTML mượt mà và bảo mật
     svr.Get(R"(/([\w-]+)\.php)", [serveProtectedView, serveView](const httplib::Request& req, httplib::Response& res) {
         std::string viewName = req.matches[1];
-        if (viewName == "customer" || viewName == "login") {
+        if (viewName == "customer" || viewName == "login" || viewName == "super_admin" || viewName == "master") {
             serveView(viewName)(req, res);
-        } else if (viewName == "admin" || viewName == "super_admin") {
+        } else if (viewName == "admin") {
             serveProtectedView(viewName, "admin")(req, res);
         } else {
             serveProtectedView(viewName, "any")(req, res);

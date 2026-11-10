@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> - Trung Tâm Chỉ Huy Super Admin</title>
+    <title>CYBERNEXUS OS - Trung Tâm Chỉ Huy Super Admin Master Platform</title>
 
     <!-- Precompiled Offline Tailwind CSS & FontAwesome -->
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
@@ -223,8 +223,8 @@
     <div class="sa-login-wrap">
         <div class="sa-card">
             <div class="sa-logo"><i class="fas fa-shield-halved"></i></div>
-            <h1 class="sa-title"></h1>
-            <p class="sa-sub">Cổng quản trị &amp; cấp quyền phân hệ</p>
+            <h1 class="sa-title">CYBERNEXUS OS PLATFORM</h1>
+            <p class="sa-sub">Cổng Quản Trị Hệ Thống &amp; Cấp Quyền Phân Hệ Toàn Năng</p>
 
             <div id="login-error-alert" class="sa-err hidden">
                 <i class="fas fa-circle-exclamation"></i>
@@ -233,31 +233,24 @@
 
             <form onsubmit="SuperAdmin.handleLogin(event)" autocomplete="on">
                 <div class="sa-field">
-                    <label for="login-username">Tài khoản</label>
+                    <label for="login-username">Tài khoản Quản Trị Master</label>
                     <div class="sa-input-box">
-                        <i class="fas fa-user sa-ico"></i>
-                        <input type="text" id="login-username" class="sa-input" placeholder="Tên đăng nhập" required autocomplete="username" autocapitalize="off" />
+                        <i class="fas fa-user-shield sa-ico"></i>
+                        <input type="text" id="login-username" class="sa-input" placeholder="Tên đăng nhập (superadmin)" required autocomplete="username" autocapitalize="off" />
                     </div>
                 </div>
                 <div class="sa-field">
-                    <label for="login-password">Mật khẩu</label>
+                    <label for="login-password">Mật khẩu Bảo Mật</label>
                     <div class="sa-input-box">
                         <i class="fas fa-lock sa-ico"></i>
-                        <input type="password" id="login-password" class="sa-input" placeholder="Nhập mật khẩu" required autocomplete="current-password" />
+                        <input type="password" id="login-password" class="sa-input" placeholder="Nhập mật khẩu Master" required autocomplete="current-password" />
                         <button type="button" class="sa-eye" onclick="SuperAdmin.togglePasswordView('login-password', this)" aria-label="Hiện/ẩn mật khẩu"><i class="fas fa-eye"></i></button>
                     </div>
                 </div>
                 <button type="submit" id="btn-login-submit" class="sa-btn">
-                    <i class="fas fa-right-to-bracket"></i><span>Đăng nhập</span>
+                    <i class="fas fa-right-to-bracket"></i><span>Đăng Nhập Trung Tâm Chỉ Huy</span>
                 </button>
             </form>
-
-            
-            <div class="sa-foot">
-                <a href="admin.html"><i class="fas fa-store"></i> Quản trị quán</a>
-                <a href="index.html"><i class="fas fa-cash-register"></i> Màn hình POS</a>
-            </div>
-            
         </div>
     </div>
 
@@ -1080,7 +1073,7 @@
             if (submitBtn) submitBtn.disabled = true;
 
             try {
-                const res = await fetch('api/super_admin.html?action=login', {
+                const res = await fetch('api/super_admin?action=login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -1109,7 +1102,7 @@
         SuperAdmin.handleLogout = async function() {
             if (!confirm('Bạn có muốn đăng xuất khỏi Super Admin?')) return;
             try {
-                await fetch('api/super_admin.html?action=logout');
+                await fetch('api/super_admin?action=logout');
             } catch (e) {}
             sessionStorage.removeItem('sa_logged_in');
             document.cookie = 'sa_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';

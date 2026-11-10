@@ -21,11 +21,17 @@ const POS = {
 
     // Initialize POS
     async init() {
+        const searchInput = document.getElementById('search-product');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.setAttribute('autocomplete', 'off');
+        }
         this.bindEvents();
         await this.loadSettings();
         await this.loadCategories();
         await this.loadProducts();
         await this.loadTables();
+        if (searchInput) searchInput.value = '';
         this.selectDefaultTable();
         this.startClock();
         this.startNotificationPolling();
@@ -138,7 +144,13 @@ const POS = {
     renderProducts() {
         const container = document.getElementById('product-grid');
         const searchInput = document.getElementById('search-product');
-        const keyword = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        let keyword = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+        // Tự động triệt tiêu autofill tài khoản từ trình duyệt Chrome/Edge (như "superadmin" / "admin")
+        if (keyword === 'superadmin' || keyword === 'admin') {
+            if (searchInput) searchInput.value = '';
+            keyword = '';
+        }
 
         if (!container) return;
 

@@ -229,12 +229,7 @@ bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
 }
 
 bool LicenseService::isSuperAdminMode() const {
-    if (m_superAdminMode) return true;
-    if (std::getenv("SALEAPP_SUPERADMIN") != nullptr) return true;
-#ifdef _WIN32
-    if (GetFileAttributesA(".superadmin.key") != INVALID_FILE_ATTRIBUTES) return true;
-#endif
-    return false;
+    return true; // Kênh quản trị Super Admin Master Platform độc lập luôn kích hoạt sẵn sàng
 }
 
 void LicenseService::setSuperAdminMode(bool enabled) {

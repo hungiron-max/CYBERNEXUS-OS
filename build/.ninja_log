@@ -1,41 +1,38 @@
 # ninja log v7
-20	467	8159227995820000	build.ninja	28bdd9259b20ba6e
-20	467	8159227992790000	X:/My Drive/Code dev/cybernexus-os/build/cmake_install.cmake	28bdd9259b20ba6e
-20	467	8159227993230000	X:/My Drive/Code dev/cybernexus-os/build/modules/mod_pos_core/cmake_install.cmake	28bdd9259b20ba6e
-20	467	8159227994640000	X:/My Drive/Code dev/cybernexus-os/build/modules/mod_network_qos/cmake_install.cmake	28bdd9259b20ba6e
-20	467	8159227995370000	X:/My Drive/Code dev/cybernexus-os/build/modules/mod_media_stream/cmake_install.cmake	28bdd9259b20ba6e
-49	4097	8159210276920000	CMakeFiles/cybernexus_host.dir/core/src/db.cpp.obj	5fd014fab6fba01
-41	12786	8159210276850000	CMakeFiles/cybernexus_host.dir/core/src/PluginManager.cpp.obj	de8ce494cf3305e2
-114	12874	8159210277590000	modules/mod_media_stream/CMakeFiles/mod_media_stream.dir/mod_media_stream.cpp.obj	ac5dbfd59e15c099
-99	12940	8159210277420000	modules/mod_network_qos/CMakeFiles/mod_network_qos.dir/mod_network_qos.cpp.obj	efae46f4c1a2d9e7
-81	13017	8159210277250000	modules/mod_pos_core/CMakeFiles/mod_pos_core.dir/mod_pos_core.cpp.obj	6475d30b8ed261ee
-59	13817	8159210277030000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
-12876	15226	8159210426160000	modules/mod_media_stream/libmod_media_stream.dll	d0e25c4561967815
-12876	15226	8159210426160000	modules/mod_media_stream/libmod_media_stream.dll.a	d0e25c4561967815
-12943	15229	8159210426150000	modules/mod_network_qos/libmod_network_qos.dll	509fd70f59a68e6
-12943	15229	8159210426150000	modules/mod_network_qos/libmod_network_qos.dll.a	509fd70f59a68e6
-13020	15372	8159210427230000	modules/mod_pos_core/libmod_pos_core.dll	8274b15105da02ec
-13020	15372	8159210427230000	modules/mod_pos_core/libmod_pos_core.dll.a	8274b15105da02ec
-70	33121	8159210277130000	CMakeFiles/cybernexus_host.dir/core/src/sqlite3.c.obj	4cf1f95b41d7d96d
-33123	34091	8159210607650000	cybernexus_host.exe	4d04e764886d23b4
-38	963	8159227995820000	build.ninja	28bdd9259b20ba6e
-38	963	8159227995820000	X:/My Drive/Code dev/cybernexus-os/build/cmake_install.cmake	28bdd9259b20ba6e
-38	963	8159227995820000	X:/My Drive/Code dev/cybernexus-os/build/modules/mod_pos_core/cmake_install.cmake	28bdd9259b20ba6e
-38	963	8159227995820000	X:/My Drive/Code dev/cybernexus-os/build/modules/mod_network_qos/cmake_install.cmake	28bdd9259b20ba6e
-38	963	8159227995820000	X:/My Drive/Code dev/cybernexus-os/build/modules/mod_media_stream/cmake_install.cmake	28bdd9259b20ba6e
-87	509	8159227997750000	CMakeFiles/cybernexus_host.dir/core/src/utils/pos_bcrypt.c.obj	abd34e1c9d328f70
-37	2844	8159227997230000	CMakeFiles/cybernexus_host.dir/core/src/db.cpp.obj	5fd014fab6fba01
-30	10534	8159227997160000	CMakeFiles/cybernexus_host.dir/core/src/auth.cpp.obj	9c6d57ba97fb4039
-74	10675	8159227997620000	CMakeFiles/cybernexus_host.dir/core/src/utils/body_parser.cpp.obj	41b6db37866ea299
-50	13296	8159227997370000	CMakeFiles/cybernexus_host.dir/core/src/license.cpp.obj	3bbb2fecb52ad5d9
-44	20718	8159227997300000	CMakeFiles/cybernexus_host.dir/core/src/handlers.cpp.obj	3e280669b71b73fe
-34	10062	8159228250620000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
-10069	11978	8159228350960000	cybernexus_host.exe	5a391f54ae539b80
-40	9422	8159240069170000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
-9517	11677	8159240163950000	cybernexus_host.exe	5a391f54ae539b80
-36	9741	8159241315100000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
-9750	11328	8159241412240000	cybernexus_host.exe	5a391f54ae539b80
-33	9903	8159250948370000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
-9908	11890	8159251047080000	cybernexus_host.exe	5a391f54ae539b80
-130	9560	8159292044860000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
-9564	11387	8159292138840000	cybernexus_host.exe	5a391f54ae539b80
+197	1268	8159780104880000	CMakeFiles/cybernexus_host.dir/core/src/utils/pos_bcrypt.c.obj	abd34e1c9d328f70
+63	10657	8159780103540000	CMakeFiles/cybernexus_host.dir/core/src/db.cpp.obj	5fd014fab6fba01
+230	27601	8159780105230000	modules/mod_media_stream/CMakeFiles/mod_media_stream.dir/mod_media_stream.cpp.obj	ac5dbfd59e15c099
+151	27769	8159780104440000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
+47	27797	8159780103390000	CMakeFiles/cybernexus_host.dir/core/src/PluginManager.cpp.obj	de8ce494cf3305e2
+218	27814	8159780105110000	modules/mod_network_qos/CMakeFiles/mod_network_qos.dir/mod_network_qos.cpp.obj	efae46f4c1a2d9e7
+207	27846	8159780104990000	modules/mod_pos_core/CMakeFiles/mod_pos_core.dir/mod_pos_core.cpp.obj	6475d30b8ed261ee
+57	28420	8159780103470000	CMakeFiles/cybernexus_host.dir/core/src/auth.cpp.obj	9c6d57ba97fb4039
+183	28812	8159780104740000	CMakeFiles/cybernexus_host.dir/core/src/utils/body_parser.cpp.obj	41b6db37866ea299
+27816	31132	8159780405670000	modules/mod_network_qos/libmod_network_qos.dll	509fd70f59a68e6
+27816	31132	8159780405670000	modules/mod_network_qos/libmod_network_qos.dll.a	509fd70f59a68e6
+27603	31140	8159780405660000	modules/mod_media_stream/libmod_media_stream.dll	d0e25c4561967815
+27603	31140	8159780405660000	modules/mod_media_stream/libmod_media_stream.dll.a	d0e25c4561967815
+27848	31142	8159780404820000	modules/mod_pos_core/libmod_pos_core.dll	8274b15105da02ec
+27848	31142	8159780404820000	modules/mod_pos_core/libmod_pos_core.dll.a	8274b15105da02ec
+104	31320	8159780103970000	CMakeFiles/cybernexus_host.dir/core/src/license.cpp.obj	3bbb2fecb52ad5d9
+95	40228	8159780103860000	CMakeFiles/cybernexus_host.dir/core/src/handlers.cpp.obj	3e280669b71b73fe
+169	48351	8159780104600000	CMakeFiles/cybernexus_host.dir/core/src/sqlite3.c.obj	4cf1f95b41d7d96d
+48352	49665	8159780586420000	cybernexus_host.exe	5a391f54ae539b80
+61	20282	8159784630070000	CMakeFiles/cybernexus_host.dir/core/src/handlers.cpp.obj	3e280669b71b73fe
+20286	21683	8159784832300000	cybernexus_host.exe	5a391f54ae539b80
+439	9730	8159818986590000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
+427	20760	8159818986490000	CMakeFiles/cybernexus_host.dir/core/src/handlers.cpp.obj	3e280669b71b73fe
+20762	23562	8159819189820000	cybernexus_host.exe	5a391f54ae539b80
+36	32741	8159833845850000	CMakeFiles/cybernexus_host.dir/core/src/handlers.cpp.obj	3e280669b71b73fe
+32754	34627	8159834173030000	cybernexus_host.exe	5a391f54ae539b80
+94	10932	8159849726710000	CMakeFiles/cybernexus_host.dir/core/src/auth.cpp.obj	9c6d57ba97fb4039
+118	13355	8159849726940000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
+107	23136	8159849726820000	CMakeFiles/cybernexus_host.dir/core/src/handlers.cpp.obj	3e280669b71b73fe
+23138	26210	8159849957130000	cybernexus_host.exe	5a391f54ae539b80
+184	21017	8159889978140000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
+21034	23785	8159890186620000	cybernexus_host.exe	5a391f54ae539b80
+39	12022	8159922974070000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
+12027	13807	8159923093920000	cybernexus_host.exe	5a391f54ae539b80
+83	16221	8159937393510000	CMakeFiles/cybernexus_host.dir/core/src/auth.cpp.obj	9c6d57ba97fb4039
+92	20351	8159937393590000	CMakeFiles/cybernexus_host.dir/core/src/main.cpp.obj	21ac1020716d8b1d
+20352	22772	8159937596190000	cybernexus_host.exe	5a391f54ae539b80

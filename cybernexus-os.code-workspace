@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "../media-server"
+		},
+		{
+			"path": "../sale-app"
+		},
+		{
+			"path": "../saleapp-cpp-native"
+		},
+		{
+			"path": "../snm"
+		},
+		{
+			"path": "."
+		}
+	]
+}
