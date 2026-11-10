@@ -198,15 +198,15 @@ full_html = f'''<!DOCTYPE html>
             transition: all 0.25s ease;
         }}
 
-        /* Banner Hero 150% Height */
+        /* Banner Hero 150% Height (Gốc ~200px x 150% = 300px - 320px) */
         .customer-banner-hero-box {{
-            min-height: 480px !important;
-            height: 480px !important;
+            min-height: 290px !important;
+            height: 290px !important;
         }}
         @media (min-width: 640px) {{
             .customer-banner-hero-box {{
-                min-height: 520px !important;
-                height: 520px !important;
+                min-height: 315px !important;
+                height: 315px !important;
             }}
         }}
     </style>
@@ -282,24 +282,24 @@ full_html = f'''<!DOCTYPE html>
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-gold"></div>
                             <div class="customer-store-glow customer-store-glow-accent"></div>
-                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-14 pt-8 sm:px-10 sm:pb-16 sm:pt-10 max-w-xl">
+                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-6 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-200 shadow-sm backdrop-blur-md">
                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                                     <i class="fas fa-sparkles text-amber-300 text-[9px]"></i> ƯU ĐÃI ĐẶC BIỆT · KM1
                                 </span>
-                                <h2 class="mt-2.5 text-lg sm:text-2xl lg:text-3xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                                <h2 class="mt-2 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
                                     Thưởng Thức Hương Vị Đậm Đà Tại <span class="bg-gradient-to-r from-amber-300 via-rose-300 to-sky-300 bg-clip-text text-transparent">Góc Phố</span>
                                 </h2>
-                                <div class="mt-2 h-0.5 w-12 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
-                                <p class="mt-2.5 max-w-md text-xs sm:text-sm text-slate-200/95 leading-relaxed line-clamp-3 drop-shadow-sm font-normal">
+                                <div class="mt-1.5 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
+                                <p class="mt-1.5 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">
                                     Cà phê phin truyền thống thơm lừng, trà sữa béo ngậy cùng các món điểm tâm bánh mì chảo, bò bít tết hảo hạng.
                                 </p>
-                                <div class="flex flex-wrap items-center gap-2 pt-3.5 text-[11px] font-semibold">
-                                    <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
-                                        <i class="fas fa-check-circle text-[10px]"></i> Giảm 10% VietQR
+                                <div class="flex flex-wrap items-center gap-1.5 pt-2.5 text-[10px] font-semibold">
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                        <i class="fas fa-check-circle text-[9px]"></i> Giảm 10% VietQR
                                     </span>
-                                    <span class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 shadow-sm">
-                                        <i class="fas fa-gift text-[10px]"></i> Tặng topping Flan
+                                    <span class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                        <i class="fas fa-gift text-[9px]"></i> Tặng topping Flan
                                     </span>
                                 </div>
                             </div>
@@ -310,15 +310,15 @@ full_html = f'''<!DOCTYPE html>
                             <video class="absolute inset-0 h-full w-full object-cover" src="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4" muted playsinline preload="auto"></video>
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-accent"></div>
-                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-14 pt-8 sm:px-10 sm:pb-16 sm:pt-10 max-w-xl">
+                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-6 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-200 backdrop-blur-md">
                                     <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                                     <i class="fas fa-play text-sky-300 text-[9px]"></i> VIDEO TRẢI NGHIỆM · QC1
                                 </span>
-                                <h3 class="mt-2.5 text-lg sm:text-2xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
-                                <p class="mt-2 text-xs sm:text-sm text-slate-200/95 leading-relaxed max-w-md line-clamp-3">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
+                                <h3 class="mt-2 text-base sm:text-xl font-black text-white leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
+                                <p class="mt-1.5 text-xs sm:text-[13px] text-slate-200/90 leading-relaxed max-w-md line-clamp-2">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
                             </div>
-                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-white/20 bg-slate-950/70 text-sm text-white backdrop-blur flex items-center justify-center hover:bg-white/20 transition-all" title="Bật/Tắt tiếng">
+                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20 transition-all" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
                             </button>
                         </article>
@@ -328,17 +328,17 @@ full_html = f'''<!DOCTYPE html>
                             <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh mì chảo" />
                             <div class="customer-store-backdrop"></div>
                             <div class="customer-store-glow customer-store-glow-gold"></div>
-                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-14 pt-8 sm:px-10 sm:pb-16 sm:pt-10 max-w-xl">
+                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-6 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-6 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-200 backdrop-blur-md shadow-sm">
                                     <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
                                     <i class="fas fa-fire text-rose-300 text-[9px]"></i> MÓN BÁN CHẠY NHẤT · KM2
                                 </span>
-                                <h3 class="mt-2.5 text-lg sm:text-2xl lg:text-3xl font-black text-white leading-snug tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
-                                <div class="mt-2 h-0.5 w-12 rounded-full bg-gradient-to-r from-rose-400 to-amber-400"></div>
-                                <p class="mt-2.5 max-w-md text-xs sm:text-sm text-slate-200/95 leading-relaxed line-clamp-3 drop-shadow-sm font-normal">Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.</p>
-                                <div class="flex flex-wrap items-center gap-2 pt-3.5 text-[11px] font-semibold">
-                                    <span class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5 shadow-sm">
-                                        <i class="fas fa-bread-slice text-[10px]"></i> Giòn rụm nóng hổi
+                                <h3 class="mt-2 text-base sm:text-xl lg:text-2xl font-black text-white leading-snug tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
+                                <div class="mt-1.5 h-0.5 w-10 rounded-full bg-gradient-to-r from-rose-400 to-amber-400"></div>
+                                <p class="mt-1.5 max-w-md text-xs sm:text-[13px] text-slate-200/90 leading-relaxed line-clamp-2 drop-shadow-sm font-normal">Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.</p>
+                                <div class="flex flex-wrap items-center gap-1.5 pt-2.5 text-[10px] font-semibold">
+                                    <span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                        <i class="fas fa-bread-slice text-[9px]"></i> Giòn rụm nóng hổi
                                     </span>
                                 </div>
                             </div>
@@ -346,7 +346,7 @@ full_html = f'''<!DOCTYPE html>
                     </div>
 
                     <!-- Slide Controls (Bottom Bar) -->
-                    <div class="relative z-20 flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent">
+                    <div class="relative z-20 flex items-center justify-between gap-3 px-4 py-2 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent">
                         <div id="customer-ad-dots" class="flex items-center gap-1.5">
                             <button type="button" class="customer-ad-dot h-1.5 w-7 rounded-full bg-white transition-all" onclick="CustomerAdCarousel.show(0)"></button>
                             <button type="button" class="customer-ad-dot h-1.5 w-2 rounded-full bg-white/45 transition-all" onclick="CustomerAdCarousel.show(1)"></button>
@@ -367,17 +367,17 @@ full_html = f'''<!DOCTYPE html>
                 </div>
 
                 <!-- Fast Contact & Info Card (Right Column) -->
-                <div class="p-6 rounded-2xl bg-slate-900/80 border border-white/10 flex flex-col justify-between text-center space-y-4 customer-banner-hero-box shadow-inner">
-                    <div class="space-y-3">
+                <div class="p-5 rounded-2xl bg-slate-900/80 border border-white/10 flex flex-col justify-between text-center space-y-3 customer-banner-hero-box shadow-inner">
+                    <div class="space-y-2">
                         <div class="text-xs text-slate-400 font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5">
                             <i class="fas fa-store text-sky-400"></i> ĐỊA CHỈ QUÁN
                         </div>
                         <div class="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed">123 Đường Số 1, Phường Tân Phú, TP. HCM</div>
-                        <div class="text-xs text-amber-400 font-mono pt-1">Giờ mở cửa: <b class="text-sm">06:00 - 22:30</b></div>
+                        <div class="text-xs text-amber-400 font-mono pt-0.5">Giờ mở cửa: <b class="text-sm">06:00 - 22:30</b></div>
                     </div>
 
-                    <div class="pt-2">
-                        <button type="button" onclick="showQuickVietQr()" class="w-full py-3 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all">
+                    <div class="pt-1">
+                        <button type="button" onclick="showQuickVietQr()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all">
                             <i class="fas fa-qrcode"></i> Mã Thanh Toán VietQR
                         </button>
                     </div>
