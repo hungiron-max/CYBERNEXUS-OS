@@ -29,7 +29,7 @@ Khác với các ứng dụng nguyên khối (Monolithic EXE), **CYBERNEXUS OS**
 |  - Cấp phép & Ký số License Token (RSA-4096)                             |
 |  - Phân phối cập nhật OTA (Over-The-Air) từng file .dll                  |
 |  - Công tắc bật/tắt tính năng từ xa (Remote Feature Toggle)              |
-|  - Cổng AI Token Gateway & Giám sát vận hành toàn cầu                   |
+|  - Cổng AI Token Gateway & Giám sát vận hành toàn cầu                    |
 +--------------------------------------------------------------------------+
                                      ^
                                      | HTTPS (TLS 1.3 / WebSocket)

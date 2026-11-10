@@ -16,23 +16,33 @@ using namespace CyberNexus;
 
 // Trình nạp và phục vụ giao diện HTML5 chuẩn Liquid Glass (100% C++ Native, không phụ thuộc PHP)
 static std::string loadHtmlView(const std::string& name) {
-    std::string webHtml = "web/" + name + ".html";
-    std::string directHtml = name + ".html";
+    std::vector<std::string> candidates = {
+        "web/" + name + ".html",
+        name + ".html",
+        "../web/" + name + ".html"
+    };
 
-    if (fs::exists(webHtml)) {
-        std::ifstream f(webHtml, std::ios::binary);
-        std::stringstream ss; ss << f.rdbuf();
-        return ss.str();
-    }
-    if (fs::exists(directHtml)) {
-        std::ifstream f(directHtml, std::ios::binary);
-        std::stringstream ss; ss << f.rdbuf();
-        return ss.str();
+    for (const auto& path : candidates) {
+        if (fs::exists(path)) {
+            std::ifstream f(path, std::ios::binary);
+            std::stringstream ss; ss << f.rdbuf();
+            return ss.str();
+        }
     }
     return "<h1>404 Not Found - Không tìm thấy giao diện " + name + "</h1>";
 }
 
 int main(int argc, char* argv[]) {
+    // Tự động chuyển working directory về thư mục gốc dự án
+    try {
+        fs::path exeDir = fs::absolute(argv[0]).parent_path();
+        if (fs::exists(exeDir / "web")) {
+            fs::current_path(exeDir);
+        } else if (fs::exists(exeDir / "../web")) {
+            fs::current_path(exeDir / "..");
+        }
+    } catch (...) {}
+
     int port = 8500;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -185,9 +195,17 @@ int main(int argc, char* argv[]) {
     std::cout << "     -> SuperAdmin Master: http://localhost:" << port << "/super_admin.php" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
-    if (!svr.listen("0.0.0.0", port)) {
-        std::cerr << "[Loi] Khong the lang nghe tren port " << port << std::endl;
+    std::cout << "[INFO] Bat dau svr.listen tren port " << port << std::endl;
+    try {
+        if (!svr.listen("0.0.0.0", port)) {
+            std::cerr << "[Loi] svr.listen return false cho port " << port << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[CRITICAL EXCEPTION] Trong svr.listen: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "[CRITICAL UNKNOWN EXCEPTION] Trong svr.listen!" << std::endl;
     }
+    std::cout << "[INFO] svr.listen da ket thuc!" << std::endl;
 
     return 0;
 }

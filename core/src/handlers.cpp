@@ -8,6 +8,8 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <fstream>
+#include <filesystem>
 
 namespace SaleApp::Backend {
 
@@ -1085,6 +1087,22 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
+            // Customer Order Status (Trang khách tra cứu đơn hàng)
+            if (action == "customer_status") {
+                std::string token = BodyParser::getParam(req, body, "token", BodyParser::getParam(req, body, "code", ""));
+                if (token.empty() && req.has_param("token")) token = req.get_param_value("token");
+                auto ord = db.queryRow("SELECT * FROM orders WHERE order_code = :c OR id = :c LIMIT 1", {{":c", token}});
+                if (ord.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy đơn hàng!"}}, 404);
+                    return;
+                }
+                sendJson(res, {
+                    {"success", true},
+                    {"order", ord}
+                });
+                return;
+            }
+
             // History
             if (action == "history") {
                 std::string today = getCurrentDate();
@@ -1143,12 +1161,20 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         // B. POST REQUESTS
         // ------------------------------------------
         if (req.method == "POST") {
-            // Step 3.1: Save / Update Draft Order (Tạo đơn bán / cập nhật giỏ hàng)
-            if (action == "save_order" || action == "save") {
+            // Step 3.1: Save / Update Draft Order (Tạo đơn bán / cập nhật giỏ hàng / đặt hàng online)
+            if (action == "save_order" || action == "save" || action == "customer_order") {
                 int64_t tableId = 0;
                 try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
                 std::string tableCode = BodyParser::getParam(req, body, "table_code", "MANG VỀ");
                 std::string customerName = BodyParser::getParam(req, body, "customer_name", "Khách vãng lai");
+                std::string customerPhone = BodyParser::getParam(req, body, "customer_phone");
+                if (!customerPhone.empty() && customerName.find(customerPhone) == std::string::npos) {
+                    if (customerName.empty() || customerName == "Khách vãng lai") {
+                        customerName = "Khách online (" + customerPhone + ")";
+                    } else {
+                        customerName += " (" + customerPhone + ")";
+                    }
+                }
                 int guestCount = 1;
                 try { guestCount = std::max(1, std::stoi(BodyParser::getParam(req, body, "guest_count", "1"))); } catch (...) {}
 
@@ -1169,6 +1195,20 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 if (items.empty()) {
                     sendJson(res, {{"success", false}, {"message", "Giỏ hàng không có sản phẩm nào!"}}, 400);
                     return;
+                }
+
+                // Auto fill item info if missing (e.g. from customer_order)
+                for (auto& item : items) {
+                    int64_t pid = getInt(item, "id", getInt(item, "product_id", 0));
+                    if (pid > 0 && (getDouble(item, "price", 0.0) <= 0 || getString(item, "name", "").empty())) {
+                        auto pRow = db.queryRow("SELECT id, code, name, sale_price as price, unit FROM products WHERE id = :id", {{":id", pid}});
+                        if (!pRow.is_null()) {
+                            if (getString(item, "code", "").empty()) item["code"] = getString(pRow, "code", "");
+                            if (getString(item, "name", "").empty()) item["name"] = getString(pRow, "name", "");
+                            if (getDouble(item, "price", 0.0) <= 0) item["price"] = getDouble(pRow, "price", 0.0);
+                            if (getString(item, "unit", "").empty()) item["unit"] = getString(pRow, "unit", "phần");
+                        }
+                    }
                 }
 
                 auto userOpt = AuthService::instance().authenticate(req);
@@ -1354,6 +1394,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     {"message", "Lưu đơn hàng thành công!"},
                     {"order_id", orderId},
                     {"order_code", orderCode},
+                    {"tracking_token", orderCode},
                     {"table_code", tableCode},
                     {"total_amount", totalAmount}
                 });
@@ -2565,6 +2606,96 @@ void ApiHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Respons
 }
 
 // ==========================================
+// ADVERTISING & SLIDES HANDLER (Customer Ad Carousel)
+// ==========================================
+void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Response& res) {
+    try {
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string action = getAction(req, body);
+
+        // Upload media (image or video)
+        if (action == "upload_media" || req.has_file("media")) {
+            if (req.has_file("media")) {
+                const auto& file = req.get_file_value("media");
+                std::string filename = file.filename;
+                std::string ext = "";
+                size_t dotPos = filename.find_last_of('.');
+                if (dotPos != std::string::npos) {
+                    ext = filename.substr(dotPos);
+                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                }
+                if (ext.empty()) ext = ".jpg";
+
+                bool isVideo = (ext == ".mp4" || ext == ".webm");
+                auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+                std::string hashName = AuthService::sha256(filename + std::to_string(nowMs));
+                std::string saveName = hashName.substr(0, 32) + ext;
+
+                std::string targetDir = "web/uploads/advertisements";
+                std::filesystem::create_directories(targetDir);
+                std::string targetPath = targetDir + "/" + saveName;
+
+                std::ofstream ofs(targetPath, std::ios::binary);
+                if (ofs) {
+                    ofs.write(file.content.data(), file.content.size());
+                    ofs.close();
+                    std::string webPath = "uploads/advertisements/" + saveName;
+                    sendJson(res, {
+                        {"success", true},
+                        {"media", {
+                            {"path", webPath},
+                            {"type", isVideo ? "video" : "image"}
+                        }}
+                    });
+                    return;
+                }
+            }
+            sendJson(res, {{"success", false}, {"message", "Không thể lưu tệp tải lên."}}, 400);
+            return;
+        }
+
+        // Save slides
+        if (action == "save_slides" || (req.method == "POST" && action.empty())) {
+            json slides = json::array();
+            if (body.contains("slides") && body["slides"].is_array()) {
+                slides = body["slides"];
+            }
+            std::string slidesJson = slides.dump();
+            db.execute(
+                "INSERT INTO store_settings (setting_key, setting_value) VALUES ('customer_ad_slides', :v) "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                {{":v", slidesJson}}
+            );
+            sendJson(res, {
+                {"success", true},
+                {"message", "Đã lưu và xuất bản trình chiếu thành công!"},
+                {"slides", slides}
+            });
+            return;
+        }
+
+        // Get slides
+        auto row = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'customer_ad_slides'");
+        json slides = json::array();
+        if (!row.is_null()) {
+            std::string val = row.value("setting_value", "[]");
+            try {
+                slides = json::parse(val);
+            } catch (...) {
+                slides = json::array();
+            }
+        }
+        sendJson(res, {
+            {"success", true},
+            {"slides", slides}
+        });
+    } catch (const std::exception& e) {
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi quảng cáo: ") + e.what()}}, 500);
+    }
+}
+
+// ==========================================
 // ROUTE REGISTRATION (Supports both clean & .php)
 // ==========================================
 void ApiHandlers::registerRoutes(httplib::Server& svr) {
@@ -2641,6 +2772,12 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     svr.Post("/api/super_admin", handleSuperAdmin);
     svr.Get("/api/super_admin.php", handleSuperAdmin);
     svr.Post("/api/super_admin.php", handleSuperAdmin);
+
+    // Advertising & Smart Slides
+    svr.Get("/api/advertising", handleAdvertising);
+    svr.Post("/api/advertising", handleAdvertising);
+    svr.Get("/api/advertising.php", handleAdvertising);
+    svr.Post("/api/advertising.php", handleAdvertising);
 }
 
 } // namespace SaleApp::Backend

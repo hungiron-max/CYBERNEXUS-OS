@@ -30,6 +30,7 @@ public:
     static void handleLicense(const httplib::Request& req, httplib::Response& res);
     static void handleLicenseClient(const httplib::Request& req, httplib::Response& res);
     static void handleSuperAdmin(const httplib::Request& req, httplib::Response& res);
+    static void handleAdvertising(const httplib::Request& req, httplib::Response& res);
 };
 
 } // namespace SaleApp::Backend

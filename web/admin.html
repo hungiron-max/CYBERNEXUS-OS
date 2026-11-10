@@ -1310,27 +1310,25 @@
                                     </div>
                                 </div>
                             </div>
-                            <span class="rounded-full border border-fuchsia-300/25 bg-fuchsia-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-fuchsia-200">Module tính phí</span>
+                            <span class="rounded-full border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-300"><i class="fas fa-check-circle mr-1"></i>Đang Hoạt Động</span>
                         </div>
                         
-                            <div class="relative flex flex-col gap-3 rounded-xl border border-amber-300/20 bg-amber-400/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="flex items-start gap-3">
-                                    <i class="fas fa-lock mt-0.5 text-amber-300"></i>
-                                    <div><b class="text-xs text-amber-100">Module chưa được kích hoạt</b><p class="mt-1 text-[11px] text-slate-400">Liên hệ Super Admin để thêm Quảng Cáo & Khuyến Mãi vào gói của quán.</p></div>
+                        <p class="relative text-[10px] leading-relaxed text-slate-300">Công cụ tạo slide thông minh: Tải lên video/hình ảnh hoặc chọn media có sẵn. Ảnh chạy 6s/hình, video phát hết thời lượng file rồi tự động chuyển.</p>
+                        <div id="ad-slide-form" class="relative grid grid-cols-1 gap-3 rounded-xl border border-white/10 bg-slate-950/55 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div class="sm:col-span-2 lg:col-span-1">
+                                <label class="mb-1 block text-[10px] font-semibold text-slate-300">Tải ảnh/video hoặc chọn media</label>
+                                <input id="ad-media-file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" class="block w-full text-[10px] text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-fuchsia-500/20 file:px-2 file:py-1.5 file:text-[10px] file:font-bold file:text-fuchsia-100" />
+                                <div class="mt-1.5 flex items-center gap-1">
+                                    <input id="ad-media-url" type="text" class="liquid-input w-full text-[11px]" placeholder="Hoặc dán URL / đường dẫn ảnh, video..." />
+                                    <select onchange="if(this.value){document.getElementById('ad-media-url').value=this.value;}" class="liquid-input bg-slate-900 text-[10px] max-w-[110px]">
+                                        <option value="">Media mẫu</option>
+                                        <option value="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4">Video Quán</option>
+                                        <option value="assets/images/dishes/dish_1793447406_e3759f8d.jpg">Ảnh Bánh Mì</option>
+                                        <option value="assets/images/dishes/dish_1793448377_d168bdbb.jpg">Ảnh Bò Bít Tết</option>
+                                        <option value="assets/images/dishes/dish_1793448692_5cbbfa81.jpg">Ảnh Cafe Sữa</option>
+                                    </select>
                                 </div>
-                                <a href="customer.html" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-center text-[10px] font-bold text-slate-200 hover:bg-white/10">Xem trang khách hàng</a>
                             </div>
-                        
-                            
-                                <div class="relative rounded-lg border border-rose-400/30 bg-rose-950/40 p-3 text-[11px] text-rose-200">Cấu hình slide quảng cáo hiện tại bị lỗi dữ liệu. Lưu danh sách mới để thay thế.</div>
-                            
-                            <p class="relative text-[10px] leading-relaxed text-slate-400">Quy trình: chọn media → “Tải media & thêm slide” → “Lưu & xuất bản”. Tiêu đề được lấy từ tên tệp nếu để trống.</p>
-                            <div id="ad-slide-form" class="relative grid grid-cols-1 gap-3 rounded-xl border border-white/10 bg-slate-950/55 p-3 sm:grid-cols-2 lg:grid-cols-4">
-                                <div class="sm:col-span-2 lg:col-span-1">
-                                    <label class="mb-1 block text-[10px] font-semibold text-slate-300">Ảnh hoặc video</label>
-                                    <input id="ad-media-file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" class="block w-full text-[10px] text-slate-300 file:mr-2 file:rounded-lg file:border-0 file:bg-fuchsia-500/20 file:px-2 file:py-2 file:text-[10px] file:font-bold file:text-fuchsia-100" />
-                                    <p class="mt-1 text-[9px] text-slate-500">JPG/PNG/WebP ≤15 MB · MP4/WebM ≤30 MB</p>
-                                </div>
                                 <div>
                                     <label class="mb-1 block text-[10px] font-semibold text-slate-300">Nhãn chiến dịch</label>
                                     <input id="ad-slide-label" maxlength="40" class="liquid-input w-full text-xs" placeholder="Ví dụ: KM mùa hè, QC1..." />
@@ -3092,48 +3090,64 @@
         async function uploadAndAddAdSlide() {
             const fileInput = document.getElementById('ad-media-file');
             const file = fileInput?.files?.[0];
+            const urlInput = document.getElementById('ad-media-url');
+            const directPath = urlInput?.value.trim() || '';
+
+            if (adminAdSlides.length >= 12) return adManagerAlert('Đã đạt giới hạn 12 slide.', false);
+            if (!file && !directPath) return adManagerAlert('Vui lòng chọn tệp ảnh/video hoặc nhập đường dẫn media.', false);
+
+            const isVideo = file 
+                ? Boolean(file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name))
+                : /\.(mp4|webm)$/i.test(directPath);
+
             const titleInput = document.getElementById('ad-slide-title');
-            const isVideo = Boolean(file && (file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name)));
             const title = titleInput?.value.trim() || (isVideo ? 'Video quảng cáo' : 'Hình ảnh quảng cáo');
             const labelInput = document.getElementById('ad-slide-label');
             const label = labelInput?.value.trim() || (isVideo ? 'Quảng cáo' : 'Khuyến mãi');
-            if (adminAdSlides.length >= 12) return adManagerAlert('Đã đạt giới hạn 12 slide.', false);
-            if (!file) return adManagerAlert('Vui lòng chọn ảnh hoặc video cho slide.', false);
 
             const button = document.getElementById('ad-slide-add-button');
             button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang tải media...';
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang xử lý media...';
+
             try {
-                const formData = new FormData();
-                const uploadFile = isVideo ? file : await ImageProcessor.processFile(file, 'advertisement');
-                formData.append('media', uploadFile);
-                const response = await fetch('api/advertising.php?action=upload_media', { method: 'POST', body: formData });
-                const data = await response.json();
-                if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải media lên.');
+                let mediaPath = directPath;
+                let mediaType = isVideo ? 'video' : 'image';
+
+                if (file) {
+                    const formData = new FormData();
+                    formData.append('media', file);
+                    const response = await fetch('api/advertising?action=upload_media', { method: 'POST', body: formData });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải media lên.');
+                    mediaPath = data.media.path;
+                    mediaType = data.media.type;
+                }
+
                 adminAdSlides = readAdvertisingSlidesFromDom();
                 adminAdSlides.push({
                     label,
                     title,
                     description: document.getElementById('ad-slide-description').value.trim(),
-                    media_path: data.media.path,
-                    media_type: data.media.type,
+                    media_path: mediaPath,
+                    media_type: mediaType,
                     link_url: document.getElementById('ad-slide-link').value.trim(),
                     starts_at: document.getElementById('ad-slide-start').value,
                     ends_at: document.getElementById('ad-slide-end').value,
-                    duration: Number(document.getElementById('ad-slide-duration').value) || 6,
+                    duration: isVideo ? 0 : (Number(document.getElementById('ad-slide-duration').value) || 6),
                     enabled: true
                 });
+
                 renderAdvertisingSlides();
                 setAdvertisingSlidesDirty(true);
-                fileInput.value = '';
-                labelInput.value = '';
-                delete labelInput.dataset.customized;
-                titleInput.value = '';
+                if (fileInput) fileInput.value = '';
+                if (urlInput) urlInput.value = '';
+                if (labelInput) { labelInput.value = ''; delete labelInput.dataset.customized; }
+                if (titleInput) titleInput.value = '';
                 document.getElementById('ad-slide-description').value = '';
                 document.getElementById('ad-slide-link').value = '';
                 document.getElementById('ad-slide-start').value = '';
                 document.getElementById('ad-slide-end').value = '';
-                adManagerAlert('Media đã tải xong. Hãy lưu & xuất bản để hiển thị cho khách.');
+                adManagerAlert('Media đã được thêm vào danh sách. Bấm “Lưu thay đổi & xuất bản” để hiển thị cho khách.');
             } catch (error) {
                 adManagerAlert(error.message || 'Không thể tải media lên.', false);
             } finally {
@@ -3147,14 +3161,14 @@
             const draftHasContent = ['ad-slide-label', 'ad-slide-title', 'ad-slide-description', 'ad-slide-link', 'ad-slide-start', 'ad-slide-end']
                 .some(id => document.getElementById(id)?.value.trim());
             if (draftHasMedia || draftHasContent) {
-                adManagerAlert('Media hoặc nội dung mới chưa được thêm vào danh sách. Hãy chọn media và bấm “Tải media & thêm slide” trước khi xuất bản.', false);
+                adManagerAlert('Media hoặc nội dung mới chưa được thêm vào danh sách. Hãy bấm “Tải media & thêm slide” trước khi xuất bản.', false);
                 return;
             }
             const slides = readAdvertisingSlidesFromDom();
-            const button = document.querySelector('#ad-manager-alert')?.parentElement?.querySelector('button[onclick="saveAdvertisingSlides()"]');
+            const button = document.querySelector('button[onclick="saveAdvertisingSlides()"]');
             if (button) button.disabled = true;
             try {
-                const response = await fetch('api/advertising.php?action=save_slides', {
+                const response = await fetch('api/advertising?action=save_slides', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ slides })
@@ -3165,7 +3179,7 @@
                 renderAdvertisingSlides();
                 setAdvertisingSlidesDirty(false);
                 adManagerAlert(slides.length
-                    ? (data.message || 'Đã lưu và xuất bản trình chiếu.')
+                    ? (data.message || 'Đã lưu và xuất bản trình chiếu thành công!')
                     : 'Danh sách hiện không có slide quảng cáo. Trang khách sẽ hiển thị thông tin quán mặc định.');
             } catch (error) {
                 adManagerAlert(error.message || 'Không thể lưu trình chiếu.', false);
@@ -3173,6 +3187,20 @@
                 if (button) button.disabled = false;
             }
         }
+
+        async function loadAdminAdSlides() {
+            try {
+                const response = await fetch('api/advertising');
+                const data = await response.json();
+                if (data.success && Array.isArray(data.slides)) {
+                    adminAdSlides = data.slides;
+                    renderAdvertisingSlides();
+                }
+            } catch (e) {
+                console.log('Error loading slides:', e);
+            }
+        }
+        loadAdminAdSlides();
 
         renderAdvertisingSlides();
         setAdvertisingSlidesDirty(false);
