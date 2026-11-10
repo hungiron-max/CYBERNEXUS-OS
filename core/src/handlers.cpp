@@ -143,6 +143,15 @@ static void syncOrderStatus(Database& db, int64_t orderId) {
 // ==========================================
 // 1. AUTH HANDLER (GIAI ĐOẠN 1 HOÀN CHỈNH)
 // ==========================================
+struct PendingQrLogin {
+    std::string token;
+    std::chrono::system_clock::time_point createdAt;
+    bool approved = false;
+    SessionUser user;
+};
+static std::mutex s_qrLoginMutex;
+static std::unordered_map<std::string, PendingQrLogin> s_pendingQrLogins;
+
 void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res) {
     json body = parseBody(req);
     std::string action = getAction(req, body);
@@ -275,6 +284,144 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_remember"));
 
         sendJson(res, {{"success", true}, {"message", "Đã đăng xuất thành công!"}});
+        return;
+    }
+
+    // 1.6 Action: create_owner_qr (Khởi tạo mã QR đăng nhập cho Chủ Quán)
+    if (action == "create_owner_qr") {
+        auto now = std::chrono::system_clock::now();
+        int64_t ts = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+        std::string raw = std::to_string(ts) + "-" + std::to_string(std::rand());
+        std::string qrToken = "OWNER-QR-" + AuthService::sha256(raw).substr(0, 16);
+
+        {
+            std::lock_guard<std::mutex> lock(s_qrLoginMutex);
+            // Dọn dẹp token quá hạn (> 3 phút)
+            for (auto it = s_pendingQrLogins.begin(); it != s_pendingQrLogins.end(); ) {
+                auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.createdAt).count();
+                if (diff > 180) it = s_pendingQrLogins.erase(it);
+                else ++it;
+            }
+            s_pendingQrLogins[qrToken] = {qrToken, now, false, {}};
+        }
+
+        sendJson(res, {
+            {"success", true},
+            {"qr_token", qrToken},
+            {"expires_in", 120},
+            {"message", "Đã tạo mã QR đăng nhập Chủ Quán"}
+        });
+        return;
+    }
+
+    // 1.7 Action: check_owner_qr (Kiểm tra xem Chủ Quán đã duyệt trên App/Điện thoại chưa)
+    if (action == "check_owner_qr") {
+        std::string qrToken = BodyParser::getParam(req, body, "qr_token");
+        if (qrToken.empty()) {
+            sendError(res, "Thiếu tham số qr_token", 400);
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(s_qrLoginMutex);
+        auto it = s_pendingQrLogins.find(qrToken);
+        if (it == s_pendingQrLogins.end()) {
+            sendJson(res, {{"success", false}, {"expired", true}, {"message", "Mã QR không tồn tại hoặc đã hết hạn"}}, 404);
+            return;
+        }
+
+        auto now = std::chrono::system_clock::now();
+        auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.createdAt).count();
+        if (diff > 120) {
+            s_pendingQrLogins.erase(it);
+            sendJson(res, {{"success", false}, {"expired", true}, {"message", "Mã QR đã hết hạn, vui lòng lấy mã mới"}}, 410);
+            return;
+        }
+
+        if (it->second.approved) {
+            // Đã được duyệt thành công bởi Chủ Quán
+            SessionUser u = it->second.user;
+            s_pendingQrLogins.erase(it);
+
+            std::string sessionToken = auth.createSession(u);
+            res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", sessionToken));
+            res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", sessionToken));
+
+            sendJson(res, {
+                {"success", true},
+                {"approved", true},
+                {"token", sessionToken},
+                {"user", {
+                    {"id", u.id},
+                    {"username", u.username},
+                    {"fullname", u.fullname},
+                    {"role", u.role},
+                    {"is_super_admin", u.is_super_admin}
+                }},
+                {"message", "Xác thực Chủ Quán thành công!"}
+            });
+            return;
+        }
+
+        sendJson(res, {
+            {"success", true},
+            {"approved", false},
+            {"remaining_seconds", 120 - diff},
+            {"message", "Đang chờ Chủ Quán phê duyệt từ App"}
+        });
+        return;
+    }
+
+    // 1.8 Action: approve_owner_qr (Chủ Quán bấm phê duyệt trên App / Điện thoại hoặc nhập PIN bảo mật)
+    if (action == "approve_owner_qr") {
+        std::string qrToken = BodyParser::getParam(req, body, "qr_token");
+        std::string pin = BodyParser::getParam(req, body, "pin");
+
+        // Xác thực Chủ Quán: hoặc qua Session hiện tại (đã login trên App/Mobile), hoặc qua PIN 9999
+        bool isAuthorized = false;
+        SessionUser approvedUser;
+
+        auto callerOpt = auth.authenticate(req);
+        if (callerOpt.has_value() && (callerOpt->role == "admin" || callerOpt->is_super_admin)) {
+            isAuthorized = true;
+            approvedUser = *callerOpt;
+        } else if (pin == "9999") {
+            auto ownerRow = db.queryRow("SELECT * FROM users WHERE role = 'admin' LIMIT 1");
+            if (!ownerRow.is_null()) {
+                approvedUser.id = ownerRow.value("id", 1);
+                approvedUser.username = ownerRow.value("username", "admin");
+                approvedUser.fullname = ownerRow.value("fullname", "Chủ Quán");
+                approvedUser.role = "admin";
+                approvedUser.is_super_admin = true;
+                isAuthorized = true;
+            } else {
+                approvedUser.id = 1;
+                approvedUser.username = "admin";
+                approvedUser.fullname = "Chủ Quán";
+                approvedUser.role = "admin";
+                approvedUser.is_super_admin = true;
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            sendError(res, "Chỉ Chủ Quán (Mã PIN 9999 hoặc App Quản Trị) mới có quyền duyệt!", 403);
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(s_qrLoginMutex);
+        auto it = s_pendingQrLogins.find(qrToken);
+        if (it == s_pendingQrLogins.end()) {
+            sendError(res, "Mã QR đã hết hạn hoặc không tồn tại", 404);
+            return;
+        }
+
+        it->second.approved = true;
+        it->second.user = approvedUser;
+
+        sendJson(res, {
+            {"success", true},
+            {"message", "Đã phê duyệt đăng nhập Chủ Quán thành công!"}
+        });
         return;
     }
 

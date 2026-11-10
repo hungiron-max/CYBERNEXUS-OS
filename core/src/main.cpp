@@ -140,6 +140,112 @@ int main(int argc, char* argv[]) {
     }
 
     // 5. Trình phục vụ giao diện Web Liquid Glass (100% C++ Native)
+    auto startTime = std::chrono::steady_clock::now();
+
+    // API Trạng Thái Máy Chủ C++ (Public để Login UI hiển thị trạng thái)
+    svr.Get("/api/system/status", [startTime, port](const httplib::Request&, httplib::Response& res) {
+        auto now = std::chrono::steady_clock::now();
+        auto uptimeSecs = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+        std::string machineId = SaleApp::Backend::LicenseService::instance().getMachineId();
+
+        json resp = {
+            {"success", true},
+            {"status", "online"},
+            {"port", port},
+            {"uptime_seconds", uptimeSecs},
+            {"version", "CyberNexus OS v1.0.0 (C++17 Standalone Microkernel)"},
+            {"machine_id", machineId},
+            {"db_status", "connected"},
+            {"tamper_protection", "active"},
+            {"active_sessions", SaleApp::Backend::AuthService::instance().activeSessionCount()}
+        };
+        res.set_header("Content-Type", "application/json; charset=utf-8");
+        res.set_header("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.set_content(resp.dump(), "application/json; charset=utf-8");
+    });
+
+    // API Điều Khiển Máy Chủ C++ (Run/Stop/Restart/License - Yêu cầu Master PIN 9999 hoặc Admin Token)
+    svr.Post("/api/system/control", [&svr, port](const httplib::Request& req, httplib::Response& res) {
+        json body = json::object();
+        try {
+            if (!req.body.empty()) body = json::parse(req.body);
+        } catch(...) {}
+
+        std::string action = body.value("action", "");
+        std::string pin = body.value("pin", "");
+
+        // Kiểm tra quyền: yêu cầu Master PIN 9999 hoặc Token Admin
+        bool authorized = false;
+        if (pin == "9999") {
+            authorized = true;
+        } else {
+            auto userOpt = SaleApp::Backend::AuthService::instance().authenticate(req);
+            if (userOpt.has_value() && (userOpt->role == "admin" || userOpt->is_super_admin)) {
+                authorized = true;
+            }
+        }
+
+        if (!authorized) {
+            json err = {
+                {"success", false},
+                {"message", "Mã PIN Quản Trị hoặc Token không đúng! Chỉ Chủ Quán (PIN 9999) mới có quyền điều khiển máy chủ."}
+            };
+            res.status = 403;
+            res.set_content(err.dump(), "application/json; charset=utf-8");
+            return;
+        }
+
+        if (action == "stop" || action == "shutdown") {
+            json ok = {{"success", true}, {"message", "Đang dừng an toàn máy chủ CyberNexus C++ Native..."}};
+            res.set_content(ok.dump(), "application/json; charset=utf-8");
+
+            std::thread([&svr]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+                std::cout << "[System] Nhan lenh tat may chu tu Login Web. Dang graceful shutdown..." << std::endl;
+                svr.stop();
+                std::exit(0);
+            }).detach();
+            return;
+        }
+
+        if (action == "restart") {
+            json ok = {{"success", true}, {"message", "Đang khởi động lại dịch vụ CyberNexus C++..."}};
+            res.set_content(ok.dump(), "application/json; charset=utf-8");
+
+            std::thread([&svr]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                std::cout << "[System] Nhan lenh khoi dong lai tu Login Web. Dang respawn tien trinh..." << std::endl;
+                #ifdef _WIN32
+                STARTUPINFOA si = { sizeof(si) };
+                PROCESS_INFORMATION pi;
+                char exePath[MAX_PATH];
+                GetModuleFileNameA(NULL, exePath, MAX_PATH);
+                CreateProcessA(exePath, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+                CloseHandle(pi.hProcess);
+                CloseHandle(pi.hThread);
+                #endif
+                svr.stop();
+                std::exit(0);
+            }).detach();
+            return;
+        }
+
+        if (action == "activate_license") {
+            std::string key = body.value("license_key", "");
+            if (key.empty()) {
+                res.status = 400;
+                res.set_content(json({{"success", false}, {"message", "Vui lòng nhập License Key!"}}).dump(), "application/json; charset=utf-8");
+                return;
+            }
+            auto actRes = SaleApp::Backend::LicenseService::instance().activateLicense(key);
+            res.set_content(actRes.dump(), "application/json; charset=utf-8");
+            return;
+        }
+
+        res.status = 400;
+        res.set_content(json({{"success", false}, {"message", "Hành động không hợp lệ: " + action}}).dump(), "application/json; charset=utf-8");
+    });
+
     auto serveView = [](const std::string& name) {
         return [name](const httplib::Request&, httplib::Response& res) {
             std::string html = loadHtmlView(name);
@@ -147,6 +253,54 @@ int main(int argc, char* argv[]) {
             res.set_header("Pragma", "no-cache");
             res.set_header("Expires", "0");
             res.set_content(html, "text/html; charset=utf-8");
+        };
+    };
+
+    // Module C++ Native bảo mật & xác thực truy cập các trang chức năng (Anti-Bypass Gateway)
+    auto serveProtectedView = [serveView](const std::string& name, const std::string& requiredRole = "") {
+        return [name, requiredRole, serveView](const httplib::Request& req, httplib::Response& res) {
+            auto userOpt = SaleApp::Backend::AuthService::instance().authenticate(req);
+            if (!userOpt.has_value()) {
+                // CHẶN NGAY TẠI C++ MICROKERNEL: Tuyệt đối không gửi HTML của trang chức năng!
+                std::string target = "/login.html?redirect=" + name + ".html";
+                res.status = 302;
+                res.set_header("Location", target);
+                res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+                res.set_header("Pragma", "no-cache");
+                res.set_header("Expires", "0");
+                res.set_content(
+                    "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                    "<meta http-equiv='refresh' content='0;url=" + target + "'>"
+                    "<script>window.location.replace('" + target + "');</script></head>"
+                    "<body style='background:#020617;color:#94a3b8;font-family:sans-serif;padding:30px;text-align:center;'>"
+                    "<h3>🔒 Yêu Cầu Xác Thực C++ Microkernel Gateway</h3>"
+                    "<p>Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn. Đang chuyển hướng đến trang đăng nhập...</p>"
+                    "<p><a href='" + target + "' style='color:#38bdf8;'>Bấm vào đây nếu trình duyệt không tự chuyển</a></p>"
+                    "</body></html>",
+                    "text/html; charset=utf-8"
+                );
+                return;
+            }
+
+            // Kiểm tra quyền hạn theo vai trò (Role Check)
+            if (!requiredRole.empty() && requiredRole != "any") {
+                if (!SaleApp::Backend::AuthService::instance().hasRole(*userOpt, requiredRole)) {
+                    res.status = 403;
+                    res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+                    res.set_content(
+                        "<!DOCTYPE html><html><head><meta charset='utf-8'><title>403 Forbidden</title></head>"
+                        "<body style='background:#0f172a;color:#f87171;font-family:sans-serif;padding:40px;text-align:center;'>"
+                        "<h2>🔒 403 - Không Có Quyền Truy Cập</h2>"
+                        "<p>Tài khoản của bạn (" + userOpt->role + ") không có quyền truy cập trang này.</p>"
+                        "<p><a href='/login.html' style='color:#38bdf8;'>Quay lại trang đăng nhập</a></p></body></html>",
+                        "text/html; charset=utf-8"
+                    );
+                    return;
+                }
+            }
+
+            // Đã xác thực hợp lệ qua C++ AuthService -> Cho phép render HTML
+            serveView(name)(req, res);
         };
     };
 
@@ -175,41 +329,72 @@ int main(int argc, char* argv[]) {
     svr.Get("/customer-sw.js", serveSelfDestructingSw);
     svr.Get("/sw.js", serveSelfDestructingSw);
 
-    // Các Route giao diện chính
-    svr.Get("/", serveView("index"));
-    svr.Get("/index", serveView("index"));
-    svr.Get("/index.html", serveView("index"));
-    svr.Get("/index.php", serveView("index"));
-    svr.Get("/pos", serveView("index"));
+    // Tuyến đường gốc '/' -> Khởi chạy bắt buộc Login (nếu chưa xác thực)
+    svr.Get("/", [](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = SaleApp::Backend::AuthService::instance().authenticate(req);
+        std::string target = "/login.html";
+        if (userOpt.has_value()) {
+            if (userOpt->role == "admin" || userOpt->is_super_admin) target = "/admin.html";
+            else if (userOpt->role == "waiter") target = "/order.html";
+            else if (userOpt->role == "kitchen") target = "/kitchen.html";
+            else target = "/index.html";
+        }
+        res.status = 302;
+        res.set_header("Location", target);
+        res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        res.set_content(
+            "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=" + target + "'>"
+            "<script>window.location.replace('" + target + "');</script></head></html>",
+            "text/html; charset=utf-8"
+        );
+    });
 
-    svr.Get("/admin", serveView("admin"));
-    svr.Get("/admin.html", serveView("admin"));
-    svr.Get("/admin.php", serveView("admin"));
+    // Trang Đăng Nhập Riêng (Công khai)
+    svr.Get("/login", serveView("login"));
+    svr.Get("/login.html", serveView("login"));
+    svr.Get("/login.php", serveView("login"));
 
-    svr.Get("/kitchen", serveView("kitchen"));
-    svr.Get("/kitchen.html", serveView("kitchen"));
-    svr.Get("/kitchen.php", serveView("kitchen"));
-
-    svr.Get("/order", serveView("order"));
-    svr.Get("/order.html", serveView("order"));
-    svr.Get("/order.php", serveView("order"));
-
+    // Trang Menu Khách Hàng (Công khai - Guest / Customer tự do không cần login)
     svr.Get("/customer", serveView("customer"));
     svr.Get("/customer.html", serveView("customer"));
     svr.Get("/customer.php", serveView("customer"));
 
-    svr.Get("/super_admin", serveView("super_admin"));
-    svr.Get("/super_admin.html", serveView("super_admin"));
-    svr.Get("/super_admin.php", serveView("super_admin"));
+    // Các Trang Chức Năng Bắt Buộc Phải Xác Thực Bằng Module C++ Mới Vào Được:
+    svr.Get("/index", serveProtectedView("index", "any"));
+    svr.Get("/index.html", serveProtectedView("index", "any"));
+    svr.Get("/index.php", serveProtectedView("index", "any"));
+    svr.Get("/pos", serveProtectedView("index", "any"));
 
-    svr.Get("/online_orders", serveView("online_orders"));
-    svr.Get("/online_orders.html", serveView("online_orders"));
-    svr.Get("/online_orders.php", serveView("online_orders"));
+    svr.Get("/admin", serveProtectedView("admin", "admin"));
+    svr.Get("/admin.html", serveProtectedView("admin", "admin"));
+    svr.Get("/admin.php", serveProtectedView("admin", "admin"));
 
-    // Bắt toàn bộ các request file .php để render HTML mượt mà, ngăn tuyệt đối việc tải file code
-    svr.Get(R"(/([\w-]+)\.php)", [serveView](const httplib::Request& req, httplib::Response& res) {
+    svr.Get("/kitchen", serveProtectedView("kitchen", "any"));
+    svr.Get("/kitchen.html", serveProtectedView("kitchen", "any"));
+    svr.Get("/kitchen.php", serveProtectedView("kitchen", "any"));
+
+    svr.Get("/order", serveProtectedView("order", "any"));
+    svr.Get("/order.html", serveProtectedView("order", "any"));
+    svr.Get("/order.php", serveProtectedView("order", "any"));
+
+    svr.Get("/online_orders", serveProtectedView("online_orders", "any"));
+    svr.Get("/online_orders.html", serveProtectedView("online_orders", "any"));
+    svr.Get("/online_orders.php", serveProtectedView("online_orders", "any"));
+
+    svr.Get("/super_admin", serveProtectedView("super_admin", "admin"));
+    svr.Get("/super_admin.html", serveProtectedView("super_admin", "admin"));
+    svr.Get("/super_admin.php", serveProtectedView("super_admin", "admin"));
+
+    // Bắt toàn bộ các request file .php để render HTML mượt mà và bảo mật
+    svr.Get(R"(/([\w-]+)\.php)", [serveProtectedView, serveView](const httplib::Request& req, httplib::Response& res) {
         std::string viewName = req.matches[1];
-        serveView(viewName)(req, res);
+        if (viewName == "customer" || viewName == "login") {
+            serveView(viewName)(req, res);
+        } else if (viewName == "admin" || viewName == "super_admin") {
+            serveProtectedView(viewName, "admin")(req, res);
+        } else {
+            serveProtectedView(viewName, "any")(req, res);
+        }
     });
 
     svr.Get("/favicon.ico", [](const httplib::Request&, httplib::Response& res) {

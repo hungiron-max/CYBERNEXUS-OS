@@ -166,6 +166,16 @@ std::string AuthService::extractToken(const httplib::Request& req) {
         }
     }
 
+    // 3. Check Query parameter: ?token=...
+    if (req.has_param("token")) {
+        token = req.get_param_value("token");
+        token.erase(0, token.find_first_not_of(" \t\r\n"));
+        token.erase(token.find_last_not_of(" \t\r\n") + 1);
+        if (!token.empty()) {
+            return token;
+        }
+    }
+
     return token;
 }
 

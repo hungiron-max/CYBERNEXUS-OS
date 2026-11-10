@@ -23,7 +23,52 @@
     </style>
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
+
+    <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY DÀNH CHO PHỤC VỤ -->
+    <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
     <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            var token = localStorage.getItem('pos_token') || '';
+            if (!u || !u.id) {
+                window.location.replace('login.html?redirect=order.html');
+                throw new Error('Chặn truy cập: Chưa đăng nhập!');
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.withCredentials = true;
+            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            try {
+                xhr.send();
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res && res.authenticated === true && res.user) {
+                        localStorage.setItem('pos_user', JSON.stringify(res.user));
+                        window.currentUser = res.user;
+                        function uncloak() {
+                            var el = document.getElementById('auth-cloak');
+                            if (el) el.remove();
+                            document.documentElement.style.removeProperty('display');
+                            document.documentElement.style.removeProperty('visibility');
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', uncloak);
+                        } else {
+                            uncloak();
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi xác thực C++ Native:", e);
+            }
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            window.location.replace('login.html?redirect=order.html');
+            throw new Error('Chặn truy cập: Phiên không hợp lệ!');
+        })();
+
         // Tự động dọn sạch Service Worker cũ & CacheStorage
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -35,14 +80,6 @@
                 for (var k of keys) caches.delete(k);
             });
         }
-        (function() {
-            var u = null;
-            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
-            if (!u) {
-                alert('Vui lòng đăng nhập trước khi sử dụng màn hình Phục Vụ!');
-                window.location.replace('index.html?need_login=true');
-            }
-        })();
     </script>
 </head>
 <body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100 bg-slate-950">
@@ -1529,8 +1566,13 @@
 
         async function handleLogout() {
             if (!confirm('Đăng xuất khỏi tài khoản phục vụ?')) return;
-            await fetch('api/auth.php?action=logout');
-            window.location = 'index.html';
+            try {
+                await fetch('api/auth.php?action=logout');
+            } catch(e) {}
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            window.location.replace('login.html?logout=1');
         }
 
         document.addEventListener('DOMContentLoaded', () => {

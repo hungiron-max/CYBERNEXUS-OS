@@ -1428,9 +1428,9 @@
         </div>
     </div>
 
-    <!-- Bottom Sheet / Modal: Cart Details & Notes (Chuẩn 100% Bottom Sheet order.html) -->
-    <div id="customer-cart-modal" class="fixed inset-0 z-50 items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md transition-all" style="position: fixed; inset: 0; z-index: 50; display: none; background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px);">
-        <div class="liquid-glass w-full max-w-2xl mx-auto rounded-t-3xl sm:rounded-3xl border border-sky-500/40 p-4 sm:p-5 shadow-2xl max-h-[88vh] flex flex-col relative" style="max-width: 672px; width: 100%; border-top: 1px solid rgba(56, 189, 248, 0.4); background: #0f172a; max-height: 88vh; display: flex; flex-direction: column;">
+    <!-- Bottom Sheet / Modal: Cart Details & Notes (Chuẩn 100% Giao Diện Gọn Gàng Giống order.html) -->
+    <div id="customer-cart-modal" class="fixed inset-0 z-50 items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md transition-all" style="position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px); padding: 16px;">
+        <div class="liquid-glass w-full max-w-lg mx-auto rounded-3xl border border-sky-500/40 p-4 sm:p-5 shadow-2xl max-h-[88vh] flex flex-col relative" style="max-width: 520px; width: 95%; margin: auto; border: 1px solid rgba(56, 189, 248, 0.4); background: #0f172a; border-radius: 24px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;">
             <!-- Header -->
             <div class="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
                 <div class="flex items-center gap-2">
@@ -1502,11 +1502,6 @@
                             <i class="fas fa-qrcode"></i> VietQR
                         </button>
                         <button type="button" id="btn-sheet-submit" class="flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/30" onclick="CustomerOrdering.submitOrderDirect()">
-                            <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận & Đặt Món (+0 món)</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
                             <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text">Xác Nhận & Đặt Món (+0 món)</span>
                         </button>
                     </div>

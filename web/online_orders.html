@@ -8,7 +8,52 @@
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="assets/css/liquid-glass.css">
+
+    <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY DÀNH CHO ĐƠN ONLINE -->
+    <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
     <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            var token = localStorage.getItem('pos_token') || '';
+            if (!u || !u.id) {
+                window.location.replace('login.html?redirect=online_orders.html');
+                throw new Error('Chặn truy cập: Chưa đăng nhập!');
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.withCredentials = true;
+            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            try {
+                xhr.send();
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res && res.authenticated === true && res.user) {
+                        localStorage.setItem('pos_user', JSON.stringify(res.user));
+                        window.currentUser = res.user;
+                        function uncloak() {
+                            var el = document.getElementById('auth-cloak');
+                            if (el) el.remove();
+                            document.documentElement.style.removeProperty('display');
+                            document.documentElement.style.removeProperty('visibility');
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', uncloak);
+                        } else {
+                            uncloak();
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi xác thực C++ Native:", e);
+            }
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            window.location.replace('login.html?redirect=online_orders.html');
+            throw new Error('Chặn truy cập: Phiên không hợp lệ!');
+        })();
+
         // Tự động dọn sạch Service Worker cũ & CacheStorage
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -20,14 +65,6 @@
                 for (var k of keys) caches.delete(k);
             });
         }
-        (function() {
-            var u = null;
-            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
-            if (!u) {
-                alert('Vui lòng đăng nhập trước khi xử lý Đơn Online!');
-                window.location.replace('index.html?need_login=true');
-            }
-        })();
     </script>
     <style>
         .online-payment-modal {

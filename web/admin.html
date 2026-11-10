@@ -62,6 +62,58 @@
     </style>
     <script>
         // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
+    <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY DÀNH CHO QUẢN TRỊ VIÊN -->
+    <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
+    <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            var token = localStorage.getItem('pos_token') || '';
+            if (!u || !u.id) {
+                window.location.replace('login.html?redirect=admin.html');
+                throw new Error('Chặn truy cập: Chưa đăng nhập!');
+            }
+            // Xác thực trực tiếp với C++ Auth Service
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.withCredentials = true;
+            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            try {
+                xhr.send();
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res && res.authenticated === true && res.user) {
+                        // Bắt buộc quyền Quản trị (Admin)
+                        if (res.user.role !== 'admin' && !res.user.is_super_admin) {
+                            alert('Truy cập bị từ chối! Chỉ Chủ Quán (Admin) mới có quyền vào trang quản trị.');
+                            window.location.replace('login.html?redirect=admin.html');
+                            throw new Error('Chặn quyền truy cập vai trò!');
+                        }
+                        localStorage.setItem('pos_user', JSON.stringify(res.user));
+                        window.currentUser = res.user;
+                        function uncloak() {
+                            var el = document.getElementById('auth-cloak');
+                            if (el) el.remove();
+                            document.documentElement.style.removeProperty('display');
+                            document.documentElement.style.removeProperty('visibility');
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', uncloak);
+                        } else {
+                            uncloak();
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi xác thực C++ Native:", e);
+            }
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            window.location.replace('login.html?redirect=admin.html');
+            throw new Error('Chặn truy cập: Phiên không hợp lệ!');
+        })();
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
                 for (var r of regs) r.unregister();
@@ -72,14 +124,6 @@
                 for (var k of keys) caches.delete(k);
             });
         }
-        (function() {
-            var u = null;
-            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
-            if (!u || u.role !== 'admin') {
-                alert('Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.');
-                window.location.replace('index.html?need_login=admin');
-            }
-        })();
     </script>
 </head>
 <body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100">

@@ -16,7 +16,56 @@
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
+
+    <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY (NGHIÊM NGẶT) -->
+    <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
     <script>
+        (function() {
+            // 1. Kiểm tra session đồng bộ từ LocalStorage
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            var token = localStorage.getItem('pos_token') || '';
+            if (!u || !u.id) {
+                window.location.replace('login.html?redirect=index.html');
+                throw new Error('Chặn truy cập: Chưa đăng nhập!');
+            }
+            // 2. Chống bypass: Xác thực trực tiếp với C++ Auth Service qua synchronous XHR
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.withCredentials = true;
+            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            try {
+                xhr.send();
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res && res.authenticated === true && res.user) {
+                        localStorage.setItem('pos_user', JSON.stringify(res.user));
+                        window.currentUser = res.user;
+                        // Gỡ bỏ cloak hiển thị giao diện
+                        function uncloak() {
+                            var el = document.getElementById('auth-cloak');
+                            if (el) el.remove();
+                            document.documentElement.style.removeProperty('display');
+                            document.documentElement.style.removeProperty('visibility');
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', uncloak);
+                        } else {
+                            uncloak();
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi xác thực C++ Native:", e);
+            }
+            // Token không hợp lệ hoặc C++ từ chối -> xóa storage và đẩy về login
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            window.location.replace('login.html?redirect=index.html');
+            throw new Error('Chặn truy cập: Phiên đăng nhập không hợp lệ!');
+        })();
+
         // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -1065,9 +1114,10 @@
                 await fetch('api/auth.php?action=logout');
             } catch (e) {}
             localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             window.currentUser = null;
-            updateAuthHeaderUI();
-            openLoginModal();
+            window.location.replace('login.html?logout=1');
         }
 
         // Tự động kiểm tra phiên đăng nhập khi tải trang
