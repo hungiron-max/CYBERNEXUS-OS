@@ -35,7 +35,7 @@ set(SHARED_SRCS
 # ========================================================
 set(MASTER_SRCS
     ${SHARED_SRCS}
-    core/src/license.cpp
+    master/src/master_license.cpp
     master/src/master_handlers.cpp
     master/src/main_master.cpp
 )

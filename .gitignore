@@ -1,3 +1,18 @@
+# Build outputs
+build/
+bin/
+*.exe
+*.dll
+*.obj
+*.o
+*.a
+*.lib
+
+# SQLite WAL and journal files
+*.db-shm
+*.db-wal
+*.db-journal
+
 # Logs and Temporary files
 *.log
 *.tmp
@@ -11,4 +26,3 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
-
