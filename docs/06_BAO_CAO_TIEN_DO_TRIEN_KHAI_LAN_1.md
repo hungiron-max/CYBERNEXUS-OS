@@ -98,8 +98,13 @@ cybernexus-os/
 
 ---
 
-## 📌 5. Đề Xuất Kế Hoạch Triển Khai Đợt Kế Tiếp (Phase 3.2 & 4.1)
+## 📌 5. Tiến Độ Triển Khai Thực Tế Các Bước Tiếp Theo (Cập nhật mới nhất)
 
-1. **Tuần 1:** Triển khai API kết nối Heartbeat định kỳ giữa Slave Node và Master SaaS Platform qua HTTP/HTTPS.
-2. **Tuần 2:** Hoàn thiện giao diện SuperAdmin cho phép tạo Tenant mới, phát hành License Key, cấp quyền kích hoạt/khóa các module từ xa theo hạn hợp đồng.
-3. **Tuần 3:** Tích hợp giao thức điều khiển phần cứng Router qua SSH để kích hoạt tính năng VIP WiFi QoS.
+Sau khi hoàn tất Báo cáo Lần 1 và chạy các đợt triển khai kế tiếp ("triển khai tiếp tục" & "triển khai bước tiếp theo"), tiến độ thực tế đạt được như sau:
+
+| Nhiệm Vụ Kế Hoạch | Tiến Độ Thực Tế | Chi Tiết Kỹ Thuật Đã Triển Khai |
+| :--- | :---: | :--- |
+| **1. License Heartbeat & Node-Locking** | **100% HOÀN THÀNH** | • Background Worker Thread tự động chạy ngầm mỗi 30 phút trên Slave, ping đồng bộ trạng thái thuê bao về Master (`/api/license/verify`).<br>• Node-Locking: Tự động khóa cứng license với mã định danh máy tính (`machine_id`), chống sao chép bản quyền sang máy khác.<br>• Bộ đệm SQLite `local_license_cache` lưu cục bộ đảm bảo Offline-First 100% khi mất mạng Internet. |
+| **2. Dynamic Sub-Modules (Microkernel Plugin DLLs)** | **100% HOÀN THÀNH** | • Tách module thành các file DLL độc lập: `libmod_pos_core.dll`, `libmod_network_qos.dll`, `libmod_media_stream.dll`.<br>• `cybernexus_slave.exe` tự động quét thư mục `slave/modules/`, nạp DLL động vào bộ nhớ và đăng ký router HTTP (`GET /api/plugins/matrix`, `/api/network/devices`). |
+| **3. Cổng SuperAdmin Quản Lý Thuê Bao & License** | **95% HOÀN THÀNH** | • Master Port 8500 chạy độc lập hoàn toàn, không liên quan giao diện quán.<br>• Đã có đầy đủ API cấp mã, phân bổ hạn dùng, bật/tắt module.<br>• Đang bổ sung 2 nút bấm thao tác trực quan trên UI: *Reset Khóa Phần Cứng* và *Cấp Lại Mã Mới*. |
+| **4. Điều Khiển Phần Cứng Router (QoS WiFi VIP)** | **ĐANG TRIỂN KHAI** | • Tích hợp luồng SSH / REST API từ module `mod_network_qos` sang router Ubiquiti / MikroTik khi sự kiện `ORDER_PAID` kích hoạt. |
