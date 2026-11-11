@@ -97,6 +97,16 @@ void LicenseService::initCatalog() {
             "cloud_sync_backup", "Sao Lưu & Đồng Bộ Đa Chi Nhánh",
             "Tự động sao lưu dữ liệu SQLite/MySQL, hỗ trợ đồng bộ dữ liệu đám mây đa chi nhánh và khôi phục khi cần.",
             "fa-cloud-arrow-up", "Đám Mây", "sky", "Hệ Thống", false, false, 0.0, {}
+        },
+        {
+            "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox",
+            "Stream nhạc Lossless Offline 100%, 10-Band DSP Equalizer Studio, QR Jukebox khách chọn bài và cơ chế Auto Audio Ducking.",
+            "fa-compact-disc", "Add-on", "fuchsia", "Giải Trí", false, true, 149000.0, {}
+        },
+        {
+            "mod_network_qos", "Quản Trị Băng Thông & Tường Lửa Router (SNM)",
+            "Điều khiển Router Ubiquiti / MikroTik: Cấp băng thông VIP cho khách có hóa đơn, chặn web đen, lọc DNS và bảo vệ mạng quán.",
+            "fa-network-wired", "Add-on", "amber", "Hạ Tầng", false, true, 199000.0, {}
         }
     };
 
