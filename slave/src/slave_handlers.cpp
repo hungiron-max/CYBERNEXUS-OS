@@ -2723,8 +2723,25 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
 void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Response& res) {
     try {
         auto& db = Database::instance();
-        json body = parseBody(req);
-        std::string action = BodyParser::getAction(req, body);
+        std::string action = "";
+        if (req.has_param("action")) {
+            action = req.get_param_value("action");
+        }
+        if (action.empty()) {
+            if (req.path.find("/delete") != std::string::npos) action = "delete";
+            else if (req.path.find("/upload") != std::string::npos) action = "upload";
+            else if (req.path.find("/rescan") != std::string::npos) action = "rescan";
+            else if (req.path.find("/save") != std::string::npos) action = "save";
+        }
+
+        json body = json::object();
+        std::string contentType = req.get_header_value("Content-Type");
+        if (contentType.find("multipart") == std::string::npos && !req.body.empty()) {
+            body = parseBody(req);
+        }
+        if (action.empty()) {
+            action = BodyParser::getAction(req, body);
+        }
 
         // 1. Upload audio file(s) (MP3, WAV, FLAC, OGG) - Supports Single & Multiple Batch Files
         if (action == "upload" || !req.files.empty()) {
@@ -2847,8 +2864,18 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
         // 3. Delete track
         if (action == "delete") {
             int64_t id = 0;
-            try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+            if (req.has_param("id")) {
+                try { id = std::stoll(req.get_param_value("id")); } catch (...) {}
+            }
+            if (id == 0 && body.is_object() && body.contains("id")) {
+                if (body["id"].is_number()) {
+                    id = body["id"].get<int64_t>();
+                } else if (body["id"].is_string()) {
+                    try { id = std::stoll(body["id"].get<std::string>()); } catch (...) {}
+                }
+            }
             if (id > 0) {
+                db.execute("DELETE FROM media_jukebox_queue WHERE track_id = :id", {{":id", id}});
                 db.execute("DELETE FROM media_tracks WHERE id = :id", {{":id", id}});
                 sendJson(res, {{"success", true}, {"message", "Đã xóa bài hát khỏi kho nhạc!"}});
                 return;

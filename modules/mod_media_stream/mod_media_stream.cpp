@@ -134,14 +134,12 @@ private:
         if (countRow.is_object() && countRow.value("c", 0) == 0) {
             execSql(R"(
                 INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path) VALUES
-                ('Lofi Chill Morning Coffee', 'CyberNexus Sound', 'Cyber Cafe Session Vol 1', 'Lofi Chill', 215, 'assets/media/lofi_morning.mp3'),
-                ('Hương Vị Cà Phê Ban Mai', 'Acoustic Indie Team', 'Góc Phố Acoustic', 'Acoustic', 198, 'assets/media/acoustic_banmai.mp3'),
-                ('Góc Phố Hoàng Hôn', 'Chill Hop City', 'Vietnam Sunset Beats', 'Chillhop', 245, 'assets/media/gocpho_sunset.mp3'),
-                ('Cyber Neon Night Pulse', 'Synthwave Club', 'Cyber Lounge 2026', 'EDM Gaming', 280, 'assets/media/cyber_neon.mp3'),
-                ('Bossa Nova Afternoon', 'Cafe Lounge Trio', 'Warm Bossa Collection', 'Bossa Nova', 210, 'assets/media/bossa_afternoon.mp3'),
-                ('Phút Giây Thư Thái', 'Piano Instrumental', 'Deep Focus Study', 'Piano', 185, 'assets/media/piano_relax.mp3'),
-                ('Acoustic Pop Summer Breeze', 'Summer Band', 'Sunny Acoustic 2026', 'Acoustic Pop', 224, 'assets/media/summer_breeze.mp3'),
-                ('Deep House Midnight Groove', 'Nexus DJ Team', 'Club Bass Night', 'Deep House', 260, 'assets/media/midnight_groove.mp3');
+                ('Baby Blue', 'Bad Boys Blue', 'Super 20', 'Eurodance', 228, 'assets/media/BABY_BLUE___BAD_BOYS_BLUE.MP3'),
+                ('74 - 75', 'The Connells', 'Ring', 'Pop Rock', 278, 'assets/media/74-75-The-Connels.mp3'),
+                ('Yesterday Once More', 'Carpenters', 'Now & Then', 'Pop Ballad', 238, 'assets/media/Yesterday-Once-More.mp3'),
+                ('Trouble Is A Friend', 'Lenka', 'Lenka', 'Indie Pop', 216, 'assets/media/Trouble Is A Friend - Lenka.mp3'),
+                ('The Day You Went Away', 'M2M', 'Shades of Purple', 'Teen Pop', 223, 'assets/media/The day you went away - M2M.mp3'),
+                ('Circle In The Sand', 'Belinda Carlisle', 'Heaven on Earth', 'Pop Rock', 242, 'assets/media/Circle-In-The-Sand.mp3');
             )");
         }
 
@@ -163,9 +161,9 @@ private:
         if (queueCount.is_object() && queueCount.value("c", 0) == 0) {
             execSql(R"(
                 INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_name, status, requested_at, played_at) VALUES
-                (1, 'Lofi Chill Morning Coffee', 'CyberNexus Sound', 215, 'Hệ Thống Quán (Mặc định)', 'playing', datetime('now', '-2 minutes'), datetime('now', '-2 minutes')),
-                (2, 'Hương Vị Cà Phê Ban Mai', 'Acoustic Indie Team', 198, 'Bàn 02', 'pending', datetime('now', '-1 minutes'), NULL),
-                (3, 'Góc Phố Hoàng Hôn', 'Chill Hop City', 245, 'Bàn 05 (VIP)', 'pending', datetime('now'), NULL);
+                (1, 'Baby Blue', 'Bad Boys Blue', 228, 'Hệ Thống Quán (Mặc định)', 'playing', datetime('now', '-2 minutes'), datetime('now', '-2 minutes')),
+                (2, '74 - 75', 'The Connells', 278, 'Bàn 02', 'pending', datetime('now', '-1 minutes'), NULL),
+                (3, 'Yesterday Once More', 'Carpenters', 238, 'Bàn 05 (VIP)', 'pending', datetime('now'), NULL);
             )");
         }
     }
@@ -239,18 +237,38 @@ public:
         svr.Get("/api/media/jukebox/status", [this](const httplib::Request& req, httplib::Response& res) {
             // Lấy bài đang phát
             json nowPlaying = queryOne(R"(
-                SELECT q.*, t.cover_image, t.genre, t.file_path 
+                SELECT q.*, COALESCE(t.cover_image, '') as cover_image, COALESCE(t.genre, 'Lossless') as genre, COALESCE(t.file_path, '') as file_path 
                 FROM media_jukebox_queue q
-                JOIN media_tracks t ON q.track_id = t.id
+                LEFT JOIN media_tracks t ON q.track_id = t.id
                 WHERE q.status = 'playing' 
                 ORDER BY q.id DESC LIMIT 1
             )");
 
+            // If nowPlaying has no valid file_path or track was removed, link to first available track
+            if (nowPlaying.is_object() && nowPlaying.value("file_path", "").empty()) {
+                json firstTrack = queryOne("SELECT id, title, artist, duration_sec, file_path, genre FROM media_tracks WHERE is_active = 1 LIMIT 1");
+                if (firstTrack.is_object()) {
+                    int64_t qId = nowPlaying.value("id", 0LL);
+                    int64_t trId = firstTrack.value("id", 0LL);
+                    std::string trTitle = firstTrack.value("title", "");
+                    std::string trArtist = firstTrack.value("artist", "");
+                    int trDur = firstTrack.value("duration_sec", 180);
+                    execSql("UPDATE media_jukebox_queue SET track_id = " + std::to_string(trId) + 
+                            ", track_title = '" + trTitle + "', track_artist = '" + trArtist + "', track_duration = " + std::to_string(trDur) + 
+                            " WHERE id = " + std::to_string(qId));
+                    nowPlaying = queryOne(R"(
+                        SELECT q.*, COALESCE(t.cover_image, '') as cover_image, COALESCE(t.genre, 'Lossless') as genre, COALESCE(t.file_path, '') as file_path 
+                        FROM media_jukebox_queue q
+                        LEFT JOIN media_tracks t ON q.track_id = t.id
+                        WHERE q.id = )" + std::to_string(qId));
+                }
+            }
+
             // Lấy danh sách hàng đợi
             json queue = queryAll(R"(
-                SELECT q.*, t.cover_image, t.genre
+                SELECT q.*, COALESCE(t.cover_image, '') as cover_image, COALESCE(t.genre, 'Lossless') as genre
                 FROM media_jukebox_queue q
-                JOIN media_tracks t ON q.track_id = t.id
+                LEFT JOIN media_tracks t ON q.track_id = t.id
                 WHERE q.status = 'pending'
                 ORDER BY q.is_priority DESC, q.vote_count DESC, q.id ASC
                 LIMIT 15
@@ -258,9 +276,9 @@ public:
 
             // Lấy lịch sử 5 bài vừa phát
             json history = queryAll(R"(
-                SELECT q.*, t.genre
+                SELECT q.*, COALESCE(t.genre, 'Lossless') as genre
                 FROM media_jukebox_queue q
-                JOIN media_tracks t ON q.track_id = t.id
+                LEFT JOIN media_tracks t ON q.track_id = t.id
                 WHERE q.status IN ('played', 'skipped')
                 ORDER BY q.id DESC
                 LIMIT 5

@@ -346,10 +346,30 @@
                 padding: 6mm !important;
             }
         }
-        /* Transparent Glass QR Canvas */
-        .qr-transparent-canvas canvas, 
-        .qr-transparent-canvas img {
-            background: transparent !important;
+        /* Strict Square QR Code Dimensions - Exact 1:1 Aspect Ratio Matching Cashier POS */
+        #admin-table-qr-code,
+        [id^="table-qr-"] {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        #admin-table-qr-code canvas,
+        #admin-table-qr-code img {
+            width: 190px !important;
+            height: 190px !important;
+            max-width: 190px !important;
+            max-height: 190px !important;
+            aspect-ratio: 1 / 1 !important;
+            display: block !important;
+            margin: 0 auto !important;
+        }
+        [id^="table-qr-"] canvas,
+        [id^="table-qr-"] img {
+            width: 94px !important;
+            height: 94px !important;
+            max-width: 94px !important;
+            max-height: 94px !important;
+            aspect-ratio: 1 / 1 !important;
             display: block !important;
             margin: 0 auto !important;
         }
@@ -3766,9 +3786,9 @@
                     <span class="text-xs text-slate-300 font-bold" id="standee-display-name">Bàn Tại Quán 01</span>
                 </div>
 
-                <!-- QR Code Box (Transparent Glassmorphic) -->
-                <div class="p-3.5 rounded-2xl inline-flex items-center justify-center mx-auto my-2 border border-white/20 bg-white/[0.05] backdrop-blur-md shadow-2xl qr-transparent-canvas">
-                    <div id="admin-table-qr-code" class="w-48 h-48 flex items-center justify-center"></div>
+                <!-- QR Code Box (Standard White Card Matching Cashier POS) -->
+                <div class="bg-white p-3 rounded-2xl inline-flex items-center justify-center shadow-xl shadow-black/50 my-2 mx-auto">
+                    <div id="admin-table-qr-code" class="w-[190px] h-[190px] min-w-[190px] min-h-[190px] flex items-center justify-center"></div>
                 </div>
 
                 <!-- Step Instructions -->
@@ -3947,7 +3967,7 @@
 
             <!-- Drag & Drop Zone -->
             <div id="media-dropzone" class="border-2 border-dashed border-teal-500/50 hover:border-teal-400 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-5 text-center cursor-pointer transition-all group shrink-0 mb-3" onclick="document.getElementById('media-upload-file-input').click()">
-                <input id="media-upload-file-input" type="file" accept=".mp3,.wav,.flac,.ogg" multiple class="hidden" onchange="Admin.handleBatchAudioPicked(this.files)">
+                <input id="media-upload-file-input" type="file" accept=".mp3,.wav,.flac,.ogg" multiple class="hidden" onclick="event.stopPropagation()" onchange="Admin.handleBatchAudioPicked(this.files); this.value=''">
                 <div class="flex flex-col items-center justify-center gap-2">
                     <div class="w-12 h-12 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-500/40 flex items-center justify-center text-xl group-hover:scale-110 transition-transform shadow-lg shadow-teal-500/20">
                         <i class="fas fa-folder-open"></i>

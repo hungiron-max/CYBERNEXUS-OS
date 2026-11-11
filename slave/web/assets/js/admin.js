@@ -1225,10 +1225,10 @@ const Admin = {
                             </span>
                         </div>
 
-                        <!-- QR Code Thumbnail Box (Interactive Standee Preview - Transparent Glass) -->
-                        <div class="rounded-2xl p-2 my-2 mx-auto w-32 h-32 flex flex-col items-center justify-center relative cursor-pointer border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] hover:border-sky-400/50 backdrop-blur-md transition-all group/qr shadow-inner qr-transparent-canvas" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để xem và in thẻ standee QR">
-                            <div id="table-qr-${t.id}" class="w-28 h-28 flex items-center justify-center"></div>
-                            <div class="absolute inset-0 bg-slate-950/75 rounded-2xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center backdrop-blur-[2px]">
+                        <!-- QR Code Thumbnail Box (Clean Standard White Card) -->
+                        <div class="bg-white p-2 rounded-xl my-2 mx-auto w-[110px] h-[110px] min-w-[110px] min-h-[110px] flex items-center justify-center relative cursor-pointer hover:scale-105 transition-all group/qr shadow-lg shadow-black/40" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để phóng to & In Standee">
+                            <div id="table-qr-${t.id}" class="w-[94px] h-[94px] min-w-[94px] min-h-[94px] flex items-center justify-center"></div>
+                            <div class="absolute inset-0 bg-slate-950/80 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center">
                                 <i class="fas fa-search-plus text-base text-sky-400"></i>
                                 <span>Phóng to & In</span>
                             </div>
@@ -1279,10 +1279,10 @@ const Admin = {
                     try {
                         new QRCode(qrContainer, {
                             text: orderUrl,
-                            width: 108,
-                            height: 108,
-                            colorDark: "#38bdf8",
-                            colorLight: "rgba(0,0,0,0)",
+                            width: 94,
+                            height: 94,
+                            colorDark: "#0b0f19",
+                            colorLight: "#ffffff",
                             correctLevel: QRCode.CorrectLevel.M
                         });
                     } catch (e) {
@@ -1392,11 +1392,11 @@ const Admin = {
             try {
                 new QRCode(qrContainer, {
                     text: orderUrl,
-                    width: 192,
-                    height: 192,
-                    colorDark: "#38bdf8",
-                    colorLight: "rgba(0,0,0,0)",
-                    correctLevel: QRCode.CorrectLevel.H
+                    width: 190,
+                    height: 190,
+                    colorDark: "#0b0f19",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
                 });
             } catch (e) {
                 console.error('Error drawing modal QR:', e);
@@ -5004,23 +5004,82 @@ const Admin = {
 
     handleBatchAudioPicked(fileList) {
         if (!fileList || fileList.length === 0) return;
-        this.selectedUploadFiles = Array.from(fileList);
+        const newFiles = Array.from(fileList).filter(f => {
+            const ext = (f.name.substring(f.name.lastIndexOf('.')) || '').toLowerCase();
+            return ['.mp3', '.wav', '.flac', '.ogg'].includes(ext);
+        });
+
+        if (newFiles.length === 0) {
+            this.showToast('Vui lòng chỉ chọn các tệp âm thanh định dạng .mp3, .wav, .flac, .ogg!', 'warning');
+            return;
+        }
+
+        // Append to existing queue or set
+        this.selectedUploadFiles = [...this.selectedUploadFiles, ...newFiles];
+        this.renderBatchFilesQueue();
+        this.showToast(`Đã nhận diện ${newFiles.length} file nhạc vào hàng đợi tải lên!`, 'info');
+    },
+
+    removeUploadQueueItem(idx) {
+        if (idx >= 0 && idx < this.selectedUploadFiles.length) {
+            this.selectedUploadFiles.splice(idx, 1);
+            this.renderBatchFilesQueue();
+        }
+    },
+
+    clearUploadQueue() {
+        this.selectedUploadFiles = [];
         this.renderBatchFilesQueue();
     },
 
+    applyBatchGenre(genre) {
+        this.showToast(`Đã gán thể loại "${genre}" cho toàn bộ danh sách tải lên!`, 'info');
+    },
+
     renderBatchFilesQueue() {
-        const tbody = document.getElementById('media-upload-batch-queue');
-        const countBadge = document.getElementById('media-upload-count-badge');
+        const tbody = document.getElementById('media-upload-queue-body');
+        const controlBar = document.getElementById('media-batch-control-bar');
+        const countBadge = document.getElementById('media-batch-count-badge');
+        const sizeBadge = document.getElementById('media-batch-size-badge');
+        const startBtn = document.getElementById('media-upload-start-btn');
         const progressContainer = document.getElementById('media-upload-progress-container');
+        
         if (progressContainer) progressContainer.classList.add('hidden');
 
-        if (countBadge) countBadge.textContent = `${this.selectedUploadFiles.length} file đã chọn`;
-        if (!tbody) return;
+        const totalFiles = this.selectedUploadFiles.length;
 
-        if (this.selectedUploadFiles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">Chưa có file nào được chọn</td></tr>';
+        if (totalFiles === 0) {
+            if (controlBar) controlBar.classList.add('hidden');
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-slate-500">
+                            Chưa có file nào được chọn. Hãy chọn hoặc kéo thả nhiều file nhạc vào khung bên trên.
+                        </td>
+                    </tr>
+                `;
+            }
             return;
         }
+
+        // Has files -> Show control bar and enable submit button
+        if (controlBar) controlBar.classList.remove('hidden');
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        const totalBytes = this.selectedUploadFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+        if (countBadge) countBadge.textContent = `${totalFiles} bài hát`;
+        if (sizeBadge) sizeBadge.textContent = `${totalMb} MB`;
+
+        if (!tbody) return;
 
         tbody.innerHTML = this.selectedUploadFiles.map((file, idx) => {
             let name = file.name;
@@ -5039,14 +5098,24 @@ const Admin = {
             const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
 
             return `
-                <tr class="hover:bg-slate-800/30 transition text-xs">
+                <tr class="hover:bg-slate-800/40 transition text-xs">
                     <td class="p-2 font-mono text-slate-500">#${idx + 1}</td>
                     <td class="p-2 font-bold text-white flex items-center gap-1.5 truncate max-w-[240px]">
-                        <span class="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/20 text-sky-300 font-mono">${ext}</span>
-                        <span class="truncate">${title}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] bg-teal-500/20 text-teal-300 font-mono font-bold">${ext}</span>
+                        <span class="truncate" title="${title}">${title}</span>
                     </td>
-                    <td class="p-2 text-slate-400 truncate max-w-[140px]">${artist}</td>
-                    <td class="p-2 text-right font-mono text-slate-500">${sizeMb} MB</td>
+                    <td class="p-2 text-slate-400 truncate max-w-[140px]" title="${artist}">${artist}</td>
+                    <td class="p-2 text-center font-mono text-slate-300">${sizeMb} MB</td>
+                    <td class="p-2 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                            Sẵn sàng
+                        </span>
+                    </td>
+                    <td class="p-2 text-right">
+                        <button type="button" onclick="Admin.removeUploadQueueItem(${idx})" class="w-6 h-6 rounded-lg bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 hover:text-white transition" title="Bỏ file này">
+                            <i class="fas fa-times text-[10px]"></i>
+                        </button>
+                    </td>
                 </tr>
             `;
         }).join('');
@@ -5058,15 +5127,16 @@ const Admin = {
             return;
         }
 
-        const btn = document.getElementById('media-upload-btn-submit');
+        const startBtn = document.getElementById('media-upload-start-btn');
         const progressContainer = document.getElementById('media-upload-progress-container');
         const progressBar = document.getElementById('media-upload-progress-bar');
-        const progressPercent = document.getElementById('media-upload-progress-percent');
-        const genre = document.getElementById('media-batch-genre')?.value || 'Acoustic';
+        const percentText = document.getElementById('media-upload-percent-text');
+        const statusText = document.getElementById('media-upload-status-text');
+        const genre = document.getElementById('media-batch-genre-select')?.value || 'Acoustic';
 
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải lên...';
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải lên...';
         }
         if (progressContainer) progressContainer.classList.remove('hidden');
 
@@ -5084,7 +5154,8 @@ const Admin = {
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
                     if (progressBar) progressBar.style.width = `${percent}%`;
-                    if (progressPercent) progressPercent.textContent = `${percent}%`;
+                    if (percentText) percentText.textContent = `${percent}%`;
+                    if (statusText) statusText.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải lên ${this.selectedUploadFiles.length} bài hát (${percent}%)...`;
                 }
             };
 
@@ -5094,8 +5165,8 @@ const Admin = {
                         const data = JSON.parse(xhr.responseText);
                         if (data.success) {
                             this.showToast(data.message || `Đã tải lên thành công ${this.selectedUploadFiles.length} bài hát!`, 'success');
-                            document.getElementById('admin-media-upload-modal')?.classList.add('hidden');
                             this.selectedUploadFiles = [];
+                            this.closeUploadMediaModal();
                             await this.loadMediaTracksCatalog();
                             this.renderMediaManagerTable();
                         } else {
@@ -5103,24 +5174,25 @@ const Admin = {
                         }
                     } catch (e) {
                         this.showToast('Đã tải lên bài hát thành công!', 'success');
-                        document.getElementById('admin-media-upload-modal')?.classList.add('hidden');
+                        this.selectedUploadFiles = [];
+                        this.closeUploadMediaModal();
                         await this.loadMediaTracksCatalog();
                         this.renderMediaManagerTable();
                     }
                 } else {
                     this.showToast(`Lỗi HTTP ${xhr.status} khi tải lên bài hát`, 'error');
                 }
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Nạp Vào Kho Nhạc';
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Tải Lên Tất Cả';
                 }
             };
 
             xhr.onerror = () => {
                 this.showToast('Lỗi kết nối khi tải lên bài hát', 'error');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Nạp Vào Kho Nhạc';
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Tải Lên Tất Cả';
                 }
             };
 
@@ -5128,9 +5200,9 @@ const Admin = {
         } catch (err) {
             console.error('startBatchUpload error:', err);
             this.showToast('Lỗi gửi dữ liệu lên máy chủ', 'error');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Nạp Vào Kho Nhạc';
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Tải Lên Tất Cả';
             }
         }
     },
@@ -5138,10 +5210,10 @@ const Admin = {
     async deleteMediaTrack(id) {
         // Direct delete with feedback toast! Zero blocking popups!
         try {
-            const res = await fetch('/api/media/tracks/delete', {
+            const res = await fetch(`/api/media/tracks/delete?action=delete&id=${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
+                body: JSON.stringify({ action: 'delete', id: id })
             });
             const data = await res.json();
             if (data.success) {
