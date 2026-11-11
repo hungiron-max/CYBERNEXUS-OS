@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Admin Back-Office Engine
  * Dashboard, Products CRUD, Categories CRUD, Tables & Revenue Reports
  */
@@ -1175,7 +1175,7 @@ const Admin = {
 
         if (filtered.length === 0) {
             container.innerHTML = `
-                <div class="col-span-full py-12 text-center text-slate-500">
+                <div class="col-span-full py-12 text-center text-slate-500" style="grid-column:1/-1;">
                     <i class="fas fa-chair text-4xl mb-3 text-slate-600 block"></i>
                     <p class="text-sm font-semibold">Không tìm thấy bàn nào phù hợp</p>
                     <p class="text-xs text-slate-600 mt-1">Bấm "Thêm Bàn" hoặc "Tạo Hàng Loạt" để tạo mới</p>
@@ -1191,8 +1191,35 @@ const Admin = {
         const dir = path.substring(0, path.lastIndexOf('/'));
         const baseUrl = origin + (dir ? dir + '/' : '/');
 
+        // Nhóm: Tại Quán trước, Mang Về sau — mỗi nhóm xuống hàng riêng có tiêu đề
+        const groupOf = t => (t.area_type === 'MANG_VE' ? 'MANG_VE' : 'TAI_QUAN');
+        filtered = [
+            ...filtered.filter(t => groupOf(t) === 'TAI_QUAN'),
+            ...filtered.filter(t => groupOf(t) === 'MANG_VE')
+        ];
+        const groupMeta = {
+            TAI_QUAN: { label: 'Bàn Tại Quán', icon: 'fa-chair', color: '#38bdf8', border: 'rgba(56,189,248,.35)' },
+            MANG_VE:  { label: 'Đơn Mang Về',  icon: 'fa-bag-shopping', color: '#fbbf24', border: 'rgba(251,191,36,.35)' }
+        };
+        const groupCounts = {
+            TAI_QUAN: filtered.filter(t => groupOf(t) === 'TAI_QUAN').length,
+            MANG_VE: filtered.filter(t => groupOf(t) === 'MANG_VE').length
+        };
+
         let html = '';
+        let currentGroup = null;
         filtered.forEach(t => {
+            const g = groupOf(t);
+            if (g !== currentGroup) {
+                const m = groupMeta[g];
+                html += `
+                <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:6px 2px 8px;margin-top:${currentGroup ? '14px' : '0'};border-bottom:1px solid ${m.border};">
+                    <i class="fas ${m.icon}" style="color:${m.color};font-size:14px;"></i>
+                    <span style="color:${m.color};font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.05em;">${m.label}</span>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:1px 8px;">${groupCounts[g]}</span>
+                </div>`;
+                currentGroup = g;
+            }
             const isOccupied = t.status === 'occupied';
             const isTakeaway = t.area_type === 'MANG_VE';
             const guestCount = t.guest_count || (isTakeaway ? 1 : 4);
