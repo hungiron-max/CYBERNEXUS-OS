@@ -353,25 +353,20 @@
             align-items: center !important;
             justify-content: center !important;
         }
+        /* KHÔNG ép display: qrcode.js tự ẩn canvas hoặc img */
         #admin-table-qr-code canvas,
         #admin-table-qr-code img {
             width: 190px !important;
             height: 190px !important;
-            max-width: 190px !important;
-            max-height: 190px !important;
-            aspect-ratio: 1 / 1 !important;
-            display: block !important;
-            margin: 0 auto !important;
+            max-width: none !important;
+            flex: 0 0 auto !important;
         }
         [id^="table-qr-"] canvas,
         [id^="table-qr-"] img {
-            width: 94px !important;
-            height: 94px !important;
-            max-width: 94px !important;
-            max-height: 94px !important;
-            aspect-ratio: 1 / 1 !important;
-            display: block !important;
-            margin: 0 auto !important;
+            width: 96px !important;
+            height: 96px !important;
+            max-width: none !important;
+            flex: 0 0 auto !important;
         }
     </style>
     <script>
@@ -3787,8 +3782,8 @@
                 </div>
 
                 <!-- QR Code Box (Standard White Card Matching Cashier POS) -->
-                <div class="bg-white p-3 rounded-2xl inline-flex items-center justify-center shadow-xl shadow-black/50 my-2 mx-auto">
-                    <div id="admin-table-qr-code" class="w-[190px] h-[190px] min-w-[190px] min-h-[190px] flex items-center justify-center"></div>
+                <div style="background:#fff;padding:12px;border-radius:16px;width:214px;height:214px;margin:8px auto;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px rgba(0,0,0,.5);box-sizing:border-box;">
+                    <div id="admin-table-qr-code" style="width:190px;height:190px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
                 </div>
 
                 <!-- Step Instructions -->
@@ -4186,7 +4181,7 @@
         }
     </script>
     <script src="assets/js/image_processor.js?v=1"></script>
-    <script src="assets/js/admin.js?v=19"></script>
+    <script src="assets/js/admin.js?v=20"></script>
     <script>
         // Master list of Vietnamese banks supported by VietQR / NAPAS 247
         const VIETQR_BANKS = [

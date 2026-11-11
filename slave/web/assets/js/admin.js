@@ -1226,8 +1226,8 @@ const Admin = {
                         </div>
 
                         <!-- QR Code Thumbnail Box (Clean Standard White Card) -->
-                        <div class="bg-white p-2 rounded-xl my-2 mx-auto w-[110px] h-[110px] min-w-[110px] min-h-[110px] flex items-center justify-center relative cursor-pointer hover:scale-105 transition-all group/qr shadow-lg shadow-black/40" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để phóng to & In Standee">
-                            <div id="table-qr-${t.id}" class="w-[94px] h-[94px] min-w-[94px] min-h-[94px] flex items-center justify-center"></div>
+                        <div class="relative cursor-pointer transition-all group/qr" style="background:#fff;padding:8px;border-radius:12px;width:112px;height:112px;margin:8px auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 6px 16px rgba(0,0,0,.4);" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để phóng to & In Standee">
+                            <div id="table-qr-${t.id}" style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
                             <div class="absolute inset-0 bg-slate-950/80 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center">
                                 <i class="fas fa-search-plus text-base text-sky-400"></i>
                                 <span>Phóng to & In</span>
@@ -1279,8 +1279,8 @@ const Admin = {
                     try {
                         new QRCode(qrContainer, {
                             text: orderUrl,
-                            width: 94,
-                            height: 94,
+                            width: 96,
+                            height: 96,
                             colorDark: "#0b0f19",
                             colorLight: "#ffffff",
                             correctLevel: QRCode.CorrectLevel.M
