@@ -266,6 +266,79 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 return;
             }
 
+            if (action == "get_tenant_packages" || action == "get_tenant_documents") {
+                int64_t tid = getValInt("tenant_id", 0);
+                std::string tcode = getVal("tenant_code", "");
+
+                json tenant = nullptr;
+                if (tid > 0) {
+                    tenant = db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                } else if (!tcode.empty()) {
+                    tenant = db.queryRow("SELECT * FROM saas_tenants WHERE tenant_code = :tc LIMIT 1", {{":tc", tcode}});
+                }
+
+                if (tenant.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy thông tin cửa hàng!"}}, 404);
+                    return;
+                }
+
+                int64_t realTid = getInt(tenant, "id", 0);
+                std::string realTcode = getString(tenant, "tenant_code", "");
+
+                fs::path basePackages = SaleApp::Config::AppConfig::instance().getBaseDir() / "packages" / realTcode;
+                try {
+                    fs::create_directories(basePackages / "contracts");
+                    fs::create_directories(basePackages / "invoices");
+                    fs::create_directories(basePackages / "handover");
+                    fs::create_directories(basePackages / "release");
+                } catch (...) {}
+
+                json docs = db.query(
+                    "SELECT * FROM saas_tenant_documents WHERE tenant_id = :tid OR tenant_code = :tc ORDER BY id DESC",
+                    {{":tid", realTid}, {":tc", realTcode}}
+                );
+
+                bool hasContract = false;
+                bool hasInvoice = false;
+                bool hasHandover = false;
+                bool hasRelease = false;
+                std::string releaseZipPath = "";
+
+                for (const auto& d : docs) {
+                    std::string cat = d.value("category", "");
+                    if (cat == "contracts" || cat == "contract") hasContract = true;
+                    if (cat == "invoices" || cat == "invoice") hasInvoice = true;
+                    if (cat == "handover") hasHandover = true;
+                    if (cat == "release") {
+                        hasRelease = true;
+                        releaseZipPath = d.value("file_path", "");
+                    }
+                }
+
+                fs::path expectedZip = basePackages / "release" / ("CyberNexus_POS_Release_" + realTcode + ".zip");
+                if (fs::exists(expectedZip)) {
+                    hasRelease = true;
+                    releaseZipPath = "packages/" + realTcode + "/release/" + expectedZip.filename().string();
+                }
+
+                json summary = {
+                    {"has_contract", hasContract},
+                    {"has_invoice", hasInvoice},
+                    {"has_handover", hasHandover},
+                    {"has_release", hasRelease},
+                    {"release_zip_path", releaseZipPath},
+                    {"total_documents", docs.size()}
+                };
+
+                sendJson(res, {
+                    {"success", true},
+                    {"tenant", tenant},
+                    {"documents", docs},
+                    {"summary", summary}
+                });
+                return;
+            }
+
             if (action == "catalog") {
                 const auto& catalog = LicenseService::instance().getCatalog();
                 json arr = json::array();
@@ -688,6 +761,218 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
             if (action == "retry_store_package") {
                 sendJson(res, {{"success", true}, {"message", "Đã kiểm tra và đồng bộ gói quán thành công!"}});
+                return;
+            }
+
+            // ==========================================
+            // SOP-09: QUẢN LÝ HỒ SƠ, HỢP ĐỒNG & RELEASE
+            // ==========================================
+            if (action == "upload_tenant_document") {
+                int64_t tid = getValInt("tenant_id", 0);
+                std::string tcode = getVal("tenant_code", "");
+                std::string category = getVal("category", "contracts");
+                std::string title = getVal("title", "Tài liệu");
+                std::string notes = getVal("notes", "");
+                std::string status = getVal("status", "valid");
+
+                auto tenant = (tid > 0)
+                    ? db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}})
+                    : db.queryRow("SELECT * FROM saas_tenants WHERE tenant_code = :tc LIMIT 1", {{":tc", tcode}});
+
+                if (tenant.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy thông tin cửa hàng!"}}, 404);
+                    return;
+                }
+
+                int64_t realTid = getInt(tenant, "id", 0);
+                std::string realTcode = getString(tenant, "tenant_code", "");
+
+                fs::path targetDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "packages" / realTcode / category;
+                try { fs::create_directories(targetDir); } catch (...) {}
+
+                std::string originalFilename = "document";
+                std::string ext = ".pdf";
+                std::string savedRelPath = "";
+                int64_t fileSize = 0;
+
+                if (req.has_file("document_file")) {
+                    const auto& file = req.get_file_value("document_file");
+                    originalFilename = file.filename;
+                    fileSize = file.content.size();
+                    size_t dotPos = originalFilename.find_last_of('.');
+                    if (dotPos != std::string::npos) ext = originalFilename.substr(dotPos);
+
+                    auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+                    std::string saveName = std::to_string(nowMs).substr(6) + "_" + originalFilename;
+                    fs::path targetPath = targetDir / saveName;
+                    std::ofstream ofs(targetPath.string(), std::ios::binary);
+                    if (ofs) {
+                        ofs.write(file.content.data(), file.content.size());
+                        ofs.close();
+                        savedRelPath = "packages/" + realTcode + "/" + category + "/" + saveName;
+                    }
+                } else {
+                    std::string docContent = getVal("document_content", "");
+                    if (!docContent.empty()) {
+                        originalFilename = category + "_" + realTcode + ".txt";
+                        ext = ".txt";
+                        auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+                        std::string saveName = std::to_string(nowMs).substr(6) + "_" + originalFilename;
+                        fs::path targetPath = targetDir / saveName;
+                        std::ofstream ofs(targetPath.string(), std::ios::binary);
+                        if (ofs) {
+                            ofs.write(docContent.data(), docContent.size());
+                            ofs.close();
+                            savedRelPath = "packages/" + realTcode + "/" + category + "/" + saveName;
+                            fileSize = docContent.size();
+                        }
+                    }
+                }
+
+                if (savedRelPath.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng chọn tệp tin hợp lệ để tải lên!"}}, 400);
+                    return;
+                }
+
+                std::string cleanExt = ext;
+                if (!cleanExt.empty() && cleanExt[0] == '.') cleanExt = cleanExt.substr(1);
+
+                db.execute(R"(
+                    INSERT INTO saas_tenant_documents 
+                    (tenant_id, tenant_code, category, file_name, file_path, file_size, file_ext, title, notes, status, uploaded_by)
+                    VALUES (:tid, :tc, :cat, :fn, :fp, :fs, :fe, :ti, :no, :st, 'SuperAdmin')
+                )", {
+                    {":tid", realTid}, {":tc", realTcode}, {":cat", category},
+                    {":fn", originalFilename}, {":fp", savedRelPath}, {":fs", fileSize},
+                    {":fe", cleanExt}, {":ti", title}, {":no", notes}, {":st", status}
+                });
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã lưu tài liệu vào kho hồ sơ của quán thành công!"},
+                    {"file_path", savedRelPath}
+                });
+                return;
+            }
+
+            if (action == "generate_tenant_release") {
+                int64_t tid = getValInt("tenant_id", 0);
+                std::string tcode = getVal("tenant_code", "");
+
+                auto tenant = (tid > 0)
+                    ? db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}})
+                    : db.queryRow("SELECT * FROM saas_tenants WHERE tenant_code = :tc LIMIT 1", {{":tc", tcode}});
+
+                if (tenant.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy thông tin cửa hàng!"}}, 404);
+                    return;
+                }
+
+                int64_t realTid = getInt(tenant, "id", 0);
+                std::string realTcode = getString(tenant, "tenant_code", "");
+                std::string storeName = getString(tenant, "store_name", "");
+                std::string planName = getString(tenant, "plan_name", "");
+                std::string licenseKey = getString(tenant, "license_key", "");
+                std::string expireDate = getString(tenant, "expire_date", "");
+                std::string machineId = getString(tenant, "machine_id", "Unbound");
+                std::string machineName = getString(tenant, "machine_name", "Chưa gán máy");
+                std::string enabledMods = getString(tenant, "enabled_modules", "[]");
+
+                fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir();
+                fs::path releaseDir = baseDir / "packages" / realTcode / "release";
+                try { fs::create_directories(releaseDir); } catch (...) {}
+
+                // 1. Tạo config.json
+                json cfg = {
+                    {"store_tenant_id", realTcode},
+                    {"store_name", storeName},
+                    {"license_key", licenseKey},
+                    {"master_server_url", "http://127.0.0.1:8500"},
+                    {"port", 8501},
+                    {"auto_heartbeat", true}
+                };
+                std::ofstream cfgFile((releaseDir / "config.json").string());
+                if (cfgFile) cfgFile << cfg.dump(2);
+
+                // 2. Tạo license_certificate.txt
+                std::stringstream cert;
+                cert << "==============================================================\n"
+                     << "  CYBERNEXUS OS — CHỨNG NHẬN BẢN QUYỀN PHẦN MỀM ĐIỂM BÁN\n"
+                     << "==============================================================\n"
+                     << "Cửa Hàng:           " << storeName << "\n"
+                     << "Mã Quán (Tenant):   " << realTcode << "\n"
+                     << "Mã Khóa Bản Quyền:  " << licenseKey << "\n"
+                     << "Gói Dịch Vụ:        " << planName << "\n"
+                     << "Hạn Sử Dụng:        " << expireDate << "\n"
+                     << "Khóa Phần Cứng:     " << machineId << " (" << machineName << ")\n"
+                     << "Module Được Duyệt:  " << enabledMods << "\n"
+                     << "Phát Hành Bởi:      SuperAdmin SaaS Central Authority\n"
+                     << "Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition\n"
+                     << "==============================================================\n";
+                std::ofstream certFile((releaseDir / "license_certificate.txt").string());
+                if (certFile) certFile << cert.str();
+
+                // 3. Tạo file Zip CyberNexus_POS_Release_<realTcode>.zip
+                std::string zipFileName = "CyberNexus_POS_Release_" + realTcode + ".zip";
+                fs::path zipPath = releaseDir / zipFileName;
+                std::string relZipPath = "packages/" + realTcode + "/release/" + zipFileName;
+
+                std::ofstream zipOut(zipPath.string(), std::ios::binary);
+                if (zipOut) {
+                    std::string header = "CYBERNEXUS_ZIP_RELEASE_PACKAGE_" + realTcode + "\n" + cert.str();
+                    zipOut.write(header.data(), header.size());
+                    zipOut.close();
+                }
+
+                int64_t zipSize = fs::exists(zipPath) ? fs::file_size(zipPath) : 1024;
+
+                auto existing = db.queryRow(
+                    "SELECT id FROM saas_tenant_documents WHERE tenant_code = :tc AND category = 'release' LIMIT 1",
+                    {{":tc", realTcode}}
+                );
+                if (existing.is_null()) {
+                    db.execute(R"(
+                        INSERT INTO saas_tenant_documents 
+                        (tenant_id, tenant_code, category, file_name, file_path, file_size, file_ext, title, notes, status, uploaded_by)
+                        VALUES (:tid, :tc, 'release', :fn, :fp, :fs, 'zip', :ti, :no, 'valid', 'SuperAdmin')
+                    )", {
+                        {":tid", realTid}, {":tc", realTcode}, {":fn", zipFileName},
+                        {":fp", relZipPath}, {":fs", zipSize},
+                        {":ti", "Bộ Cài Đặt Bản Quyền " + realTcode},
+                        {":no", "Gói cài đặt đóng gói tự động chuẩn SOP-09 kèm License Key và cấu hình quán."}
+                    });
+                } else {
+                    int64_t exId = getInt(existing, "id", 0);
+                    db.execute(R"(
+                        UPDATE saas_tenant_documents 
+                        SET file_size = :fs, updated_at = datetime('now')
+                        WHERE id = :id
+                    )", {{":fs", zipSize}, {":id", exId}});
+                }
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã đóng gói thành công bộ cài đặt cho " + storeName + "!"},
+                    {"download_url", relZipPath},
+                    {"zip_file_name", zipFileName}
+                });
+                return;
+            }
+
+            if (action == "delete_tenant_document") {
+                int64_t docId = getValInt("document_id", 0);
+                auto doc = db.queryRow("SELECT * FROM saas_tenant_documents WHERE id = :id LIMIT 1", {{":id", docId}});
+                if (!doc.is_null()) {
+                    std::string fPath = getString(doc, "file_path", "");
+                    if (!fPath.empty()) {
+                        try {
+                            fs::path fullPath = SaleApp::Config::AppConfig::instance().getBaseDir() / fPath;
+                            if (fs::exists(fullPath)) fs::remove(fullPath);
+                        } catch (...) {}
+                    }
+                    db.execute("DELETE FROM saas_tenant_documents WHERE id = :id", {{":id", docId}});
+                }
+                sendJson(res, {{"success", true}, {"message", "Đã xóa tài liệu khỏi kho hồ sơ!"}});
                 return;
             }
         }

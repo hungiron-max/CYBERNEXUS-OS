@@ -309,6 +309,9 @@ const SuperAdmin = {
                     </td>
                     <td class="py-3 px-4 text-right">
                         <div class="inline-flex items-center gap-1.5">
+                            <button type="button" onclick="SuperAdmin.openPackagesModal(${t.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1" title="Quản lý Hồ sơ, Hợp đồng & Đóng gói cài đặt (SOP-09)">
+                                <i class="fas fa-box-archive text-amber-400"></i> <span>Hồ Sơ & Gói</span>
+                            </button>
                             <button type="button" onclick="SuperAdmin.openLicense(${t.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30 font-bold flex items-center gap-1" title="Quản lý License & Khóa Máy">
                                 <i class="fas fa-key text-amber-400"></i> <span>License</span>
                             </button>
@@ -1295,6 +1298,240 @@ const SuperAdmin = {
         } else {
             input.type = 'password';
             if (icon) { icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
+        }
+    },
+
+    // ========================================================
+    // SOP-09: QUẢN LÝ HỒ SƠ KHÁCH HÀNG & GÓI CÀI ĐẶT RELEASE
+    // ========================================================
+    currentPackageTenantId: null,
+    currentPackageTenantCode: '',
+
+    async openPackagesModal(tenantId) {
+        this.currentPackageTenantId = tenantId;
+        this.openModal('modal-tenant-packages');
+
+        const tbody = document.getElementById('pkg-documents-tbody');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu hồ sơ và tài liệu...</td></tr>`;
+        }
+
+        await this.loadTenantPackages(tenantId);
+    },
+
+    async loadTenantPackages(tenantId) {
+        try {
+            const res = await fetch(`api/super_admin.php?action=get_tenant_packages&tenant_id=${tenantId}`);
+            const data = await res.json();
+            if (data.success) {
+                this.renderPackagesModal(data);
+            } else {
+                alert(data.message || 'Không thể tải thông tin hồ sơ.');
+            }
+        } catch (err) {
+            console.error('loadTenantPackages error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    renderPackagesModal(data) {
+        const tenant = data.tenant || {};
+        const summary = data.summary || {};
+        const docs = data.documents || [];
+
+        this.currentPackageTenantCode = tenant.tenant_code || '';
+
+        // Header info
+        const badgeEl = document.getElementById('pkg-modal-badge');
+        const nameEl = document.getElementById('pkg-modal-store-name');
+        const dirEl = document.getElementById('pkg-storage-dir');
+        const countEl = document.getElementById('pkg-doc-count');
+
+        if (badgeEl) badgeEl.textContent = tenant.tenant_code;
+        if (nameEl) nameEl.textContent = `${tenant.store_name} • Gói: ${tenant.plan_name} (Hạn: ${new Date(tenant.expire_date).toLocaleDateString('vi-VN')})`;
+        if (dirEl) dirEl.textContent = `master/packages/${tenant.tenant_code}/`;
+        if (countEl) countEl.textContent = docs.length;
+
+        // KPI Status Cards
+        const kpiContract = document.getElementById('pkg-kpi-contract');
+        const kpiInvoice = document.getElementById('pkg-kpi-invoice');
+        const kpiHandover = document.getElementById('pkg-kpi-handover');
+        const kpiRelease = document.getElementById('pkg-kpi-release');
+        const btnDownloadZip = document.getElementById('btn-pkg-download-zip');
+
+        if (kpiContract) {
+            kpiContract.innerHTML = summary.has_contract ? 
+                `<i class="fas fa-circle-check text-emerald-400"></i> <span class="text-emerald-400">Đã Ký Kết</span>` : 
+                `<i class="fas fa-circle-exclamation text-amber-400"></i> <span class="text-amber-400">Chưa Có Hợp Đồng</span>`;
+        }
+        if (kpiInvoice) {
+            kpiInvoice.innerHTML = summary.has_invoice ? 
+                `<i class="fas fa-circle-check text-emerald-400"></i> <span class="text-emerald-400">Đã Xuất VAT</span>` : 
+                `<i class="fas fa-circle-exclamation text-amber-400"></i> <span class="text-amber-400">Chưa Xuất VAT</span>`;
+        }
+        if (kpiHandover) {
+            kpiHandover.innerHTML = summary.has_handover ? 
+                `<i class="fas fa-circle-check text-emerald-400"></i> <span class="text-emerald-400">Đã Nghiệm Thu</span>` : 
+                `<i class="fas fa-clock text-amber-400"></i> <span class="text-amber-400">Chờ Nghiệm Thu</span>`;
+        }
+        if (kpiRelease) {
+            kpiRelease.innerHTML = summary.has_release ? 
+                `<i class="fas fa-box-open text-amber-400"></i> <span class="text-amber-300">Đã Đóng Gói (.ZIP)</span>` : 
+                `<i class="fas fa-circle-question text-slate-400"></i> <span class="text-slate-400">Chưa Tạo Gói</span>`;
+        }
+
+        if (btnDownloadZip) {
+            if (summary.has_release && summary.release_zip_path) {
+                btnDownloadZip.href = summary.release_zip_path;
+                btnDownloadZip.classList.remove('hidden');
+            } else {
+                btnDownloadZip.classList.add('hidden');
+            }
+        }
+
+        // Render documents table
+        const tbody = document.getElementById('pkg-documents-tbody');
+        if (!tbody) return;
+
+        if (docs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Thư mục chưa có tài liệu nào. Sử dụng form bên trên để tải lên Hợp đồng, Hóa đơn hoặc bấm Đóng Gói Release.</td></tr>`;
+            return;
+        }
+
+        const catNames = {
+            'contracts': '<span class="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30">Hợp Đồng</span>',
+            'invoices': '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Hóa Đơn VAT</span>',
+            'handover': '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30">Biên Bản Bàn Giao</span>',
+            'release': '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Bộ Cài Đặt Release</span>',
+            'other': '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-500/20 text-slate-300 border border-slate-500/30">Tài Liệu Khác</span>'
+        };
+
+        tbody.innerHTML = docs.map(doc => {
+            const kb = (doc.file_size / 1024).toFixed(1);
+            const sizeStr = doc.file_size >= 1048576 ? `${(doc.file_size / 1048576).toFixed(1)} MB` : `${kb} KB`;
+            const dateStr = doc.created_at ? new Date(doc.created_at).toLocaleString('vi-VN') : '--';
+            const catBadge = catNames[doc.category] || `<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">${doc.category}</span>`;
+
+            return `
+                <tr class="hover:bg-white/5 transition-all">
+                    <td class="py-2.5 px-3">
+                        <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                            <i class="fas fa-file text-slate-400 text-xs"></i>
+                            <span class="text-sky-300">${doc.title || doc.file_name}</span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 font-mono mt-0.5">${doc.file_name} ${doc.notes ? `• <i>${doc.notes}</i>` : ''}</div>
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">${catBadge}</td>
+                    <td class="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-300">${sizeStr}</td>
+                    <td class="py-2.5 px-3 whitespace-nowrap text-[10px] text-slate-400">${dateStr}</td>
+                    <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                        <div class="inline-flex items-center gap-1">
+                            <a href="${doc.file_path}" target="_blank" download class="btn-glass text-[10px] py-1 px-2.5 bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 border border-sky-500/30 font-bold flex items-center gap-1" title="Tải xuống tài liệu">
+                                <i class="fas fa-download"></i> <span>Tải</span>
+                            </a>
+                            <button type="button" onclick="SuperAdmin.deleteTenantDocument(${doc.id})" class="btn-glass text-[10px] py-1 px-2 text-rose-400 hover:text-white border border-rose-500/30" title="Xóa tài liệu">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    async uploadTenantDocument(event) {
+        event.preventDefault();
+        const tid = this.currentPackageTenantId;
+        const tcode = this.currentPackageTenantCode;
+        if (!tid) return;
+
+        const category = document.getElementById('pkg-upload-category')?.value || 'contracts';
+        const title = document.getElementById('pkg-upload-title')?.value.trim() || 'Tài liệu đính kèm';
+        const fileInput = document.getElementById('pkg-upload-file');
+
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            alert('Vui lòng chọn một tệp tin hợp lệ!');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('tenant_id', tid);
+        formData.append('tenant_code', tcode);
+        formData.append('category', category);
+        formData.append('title', title);
+        formData.append('document_file', fileInput.files[0]);
+
+        const btn = document.getElementById('btn-pkg-upload');
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await fetch('api/super_admin.php?action=upload_tenant_document', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã tải lên tài liệu thành công!');
+                document.getElementById('pkg-upload-title').value = '';
+                fileInput.value = '';
+                await this.loadTenantPackages(tid);
+            } else {
+                alert(data.message || 'Lỗi khi tải lên tài liệu');
+            }
+        } catch (err) {
+            console.error('uploadTenantDocument error:', err);
+            alert('Lỗi kết nối máy chủ');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async generateTenantRelease() {
+        const tid = this.currentPackageTenantId;
+        const tcode = this.currentPackageTenantCode;
+        if (!tid) return;
+
+        const btn = document.getElementById('btn-pkg-generate-release');
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await fetch('api/super_admin.php?action=generate_tenant_release', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_id: tid, tenant_code: tcode })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã đóng gói thành công bộ cài đặt!');
+                await this.loadTenantPackages(tid);
+            } else {
+                alert(data.message || 'Lỗi khi đóng gói release');
+            }
+        } catch (err) {
+            console.error('generateTenantRelease error:', err);
+            alert('Lỗi kết nối máy chủ');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async deleteTenantDocument(docId) {
+        if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này khỏi kho hồ sơ?')) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=delete_tenant_document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ document_id: docId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                await this.loadTenantPackages(this.currentPackageTenantId);
+            } else {
+                alert(data.message || 'Lỗi khi xóa tài liệu');
+            }
+        } catch (err) {
+            console.error('deleteTenantDocument error:', err);
+            alert('Lỗi kết nối máy chủ');
         }
     },
 

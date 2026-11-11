@@ -1,0 +1,14 @@
+CYBERNEXUS_ZIP_RELEASE_PACKAGE_GP001
+==============================================================
+  CYBERNEXUS OS — CHỨNG NHẬN BẢN QUYỀN PHẦN MỀM ĐIỂM BÁN
+==============================================================
+Cửa Hàng:           GÓC PHỐ COFFEE & TEA
+Mã Quán (Tenant):   GP001
+Mã Khóa Bản Quyền:  SALE-721C-C752-CE27-2D32
+Gói Dịch Vụ:        Gói Chuỗi Đỉnh Cao (Enterprise)
+Hạn Sử Dụng:        2031-12-31
+Khóa Phần Cứng:     05C9-C8E6-B923-5B6C-A768 (Chưa gán máy)
+Module Được Duyệt:  ["pos_core", "vietqr_payment", "qr_customer_order", "qr_table_order", "advertising_promotions", "kitchen_kds", "inventory_recipes", "ai_invoice_ocr", "ai_dish_studio", "advanced_reports", "staff_shifts", "staff_kpi", "finance_reports", "cloud_sync_backup", "mod_network_qos", "mod_media_stream"]
+Phát Hành Bởi:      SuperAdmin SaaS Central Authority
+Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition
+==============================================================

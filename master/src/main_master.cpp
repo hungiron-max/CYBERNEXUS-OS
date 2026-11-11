@@ -65,6 +65,13 @@ int main(int argc, char* argv[]) {
         std::cout << "[Master Static] Mount /uploads -> " << uploadsDir.string() << std::endl;
     }
 
+    fs::path packagesDir = config.getBaseDir() / "packages";
+    if (!fs::exists(packagesDir)) {
+        try { fs::create_directories(packagesDir); } catch (...) {}
+    }
+    svr.set_mount_point("/packages", packagesDir.string());
+    std::cout << "[Master Static] Mount /packages -> " << packagesDir.string() << std::endl;
+
     // Helper view server
     auto serveMasterView = [webDir](const httplib::Request& req, httplib::Response& res) {
         fs::path htmlPath = webDir / "super_admin.html";

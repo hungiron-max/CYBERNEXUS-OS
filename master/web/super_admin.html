@@ -1132,6 +1132,160 @@
         </div>
     </div>
 
+    <!-- ==================================================== -->
+    <!-- MODAL: QUẢN LÝ HỒ SƠ, HỢP ĐỒNG & ĐÓNG GÓI CÀI ĐẶT (SOP-09) -->
+    <!-- ==================================================== -->
+    <div id="modal-tenant-packages" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[860px] max-w-full text-white shadow-2xl border border-amber-500/30 space-y-4 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-lg shadow-inner">
+                        <i class="fas fa-box-archive"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-amber-300 flex items-center gap-2">
+                            <span>Quản Lý Hồ Sơ Khách Hàng & Gói Cài Đặt (SOP-09)</span>
+                            <span id="pkg-modal-badge" class="px-2 py-0.5 rounded-full text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">GP001</span>
+                        </h3>
+                        <p id="pkg-modal-store-name" class="text-xs text-slate-300 font-semibold">GÓC PHỐ COFFEE & TEA</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-tenant-packages')">&times;</button>
+            </div>
+
+            <!-- KPI 4 Trạng Thái Tiêu Chuẩn SOP-09 -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <!-- 1. Hợp đồng -->
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                        <span>Hợp Đồng Dịch Vụ</span>
+                        <i class="fas fa-file-contract text-sky-400"></i>
+                    </div>
+                    <div id="pkg-kpi-contract" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                        <i class="fas fa-circle-check"></i> <span>Đã Ký Kết</span>
+                    </div>
+                </div>
+
+                <!-- 2. Hóa đơn VAT -->
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                        <span>Hóa Đơn Tài Chính</span>
+                        <i class="fas fa-file-invoice-dollar text-emerald-400"></i>
+                    </div>
+                    <div id="pkg-kpi-invoice" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                        <i class="fas fa-circle-check"></i> <span>Đã Xuất VAT</span>
+                    </div>
+                </div>
+
+                <!-- 3. Biên bản nghiệm thu -->
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                        <span>Biên Bản Nghiệm Thu</span>
+                        <i class="fas fa-clipboard-check text-purple-400"></i>
+                    </div>
+                    <div id="pkg-kpi-handover" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                        <i class="fas fa-circle-check"></i> <span>Đã Nghiệm Thu</span>
+                    </div>
+                </div>
+
+                <!-- 4. Gói phần mềm cài đặt -->
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                        <span>Gói Bản Quyền (.ZIP)</span>
+                        <i class="fas fa-file-zipper text-amber-400"></i>
+                    </div>
+                    <div id="pkg-kpi-release" class="mt-2 text-xs font-bold text-amber-300 flex items-center gap-1">
+                        <i class="fas fa-box-open"></i> <span>Sẵn Sàng</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Khối 1-Click Đóng Gói Bản Cài Đặt (Release Packaging) -->
+            <div class="p-4 rounded-xl bg-gradient-to-r from-purple-950/40 to-slate-900/80 border border-purple-500/30 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                        <i class="fas fa-wand-magic-sparkles text-amber-400"></i> 1-Click Đóng Gói Bộ Cài Cấp Phép (SOP-09)
+                    </h4>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Tự động nạp License Key, tạo chứng nhận bản quyền và đóng gói các module được cấp phép thành file ZIP.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btn-pkg-generate-release" onclick="SuperAdmin.generateTenantRelease()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/30">
+                        <i class="fas fa-gears"></i> <span>Đóng Gói Release (.ZIP)</span>
+                    </button>
+                    <a id="btn-pkg-download-zip" href="#" target="_blank" class="hidden btn-glass text-xs py-2 px-3.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5">
+                        <i class="fas fa-download"></i> <span>Tải Về (.ZIP)</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Khối Tải Lên Tài Liệu Mới (Upload Document) -->
+            <div class="p-4 rounded-xl bg-slate-900/80 border border-white/10 space-y-3">
+                <div class="flex items-center justify-between pb-1 border-b border-white/5">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <i class="fas fa-cloud-arrow-up text-sky-400"></i> Tải Lên Tài Liệu / Hợp Đồng / Biên Bản Mới
+                    </span>
+                    <span class="text-[10px] text-slate-400">Hỗ trợ PDF, DOCX, PNG, JPG, ZIP (Lưu vào /packages/)</span>
+                </div>
+
+                <form id="pkg-upload-form" onsubmit="SuperAdmin.uploadTenantDocument(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end text-xs">
+                    <div class="sm:col-span-3">
+                        <label class="block text-[10px] font-bold text-slate-300 mb-1">Loại Tài Liệu (*):</label>
+                        <select id="pkg-upload-category" class="liquid-input w-full py-1.5 text-xs bg-slate-900" required>
+                            <option value="contracts">Hợp Đồng Dịch Vụ</option>
+                            <option value="invoices">Hóa Đơn Tài Chính VAT</option>
+                            <option value="handover">Biên Bản Bàn Giao & Nghiệm Thu</option>
+                            <option value="other">Tài Liệu / Phụ Lục Khác</option>
+                        </select>
+                    </div>
+
+                    <div class="sm:col-span-4">
+                        <label class="block text-[10px] font-bold text-slate-300 mb-1">Tiêu Đề Tài Liệu (*):</label>
+                        <input type="text" id="pkg-upload-title" placeholder="VD: Hợp đồng dịch vụ 2026" class="liquid-input w-full py-1.5 text-xs" required />
+                    </div>
+
+                    <div class="sm:col-span-3">
+                        <label class="block text-[10px] font-bold text-slate-300 mb-1">Chọn Tệp Tin (*):</label>
+                        <input type="file" id="pkg-upload-file" class="liquid-input w-full py-1 text-[11px] text-slate-300" required />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <button type="submit" id="btn-pkg-upload" class="btn-glass w-full py-2 bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 border border-sky-500/40 font-bold flex items-center justify-center gap-1 shadow">
+                            <i class="fas fa-upload"></i> <span>Tải Lên</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bảng Danh Sách Tài Liệu Đã Lưu Trữ -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <i class="fas fa-folder-open text-amber-400"></i> Kho Hồ Sơ Đã Lưu Trữ Trên Đĩa (<span id="pkg-doc-count">0</span> tài liệu)
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-mono" id="pkg-storage-dir">packages/GP001/</span>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-slate-950/60 overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900/90 text-[10px] uppercase font-bold text-slate-400 border-b border-white/10">
+                            <tr>
+                                <th class="py-2.5 px-3">Tên Tài Liệu & Ghi Chú</th>
+                                <th class="py-2.5 px-3">Phân Loại</th>
+                                <th class="py-2.5 px-3">Dung Lượng</th>
+                                <th class="py-2.5 px-3">Ngày Tải</th>
+                                <th class="py-2.5 px-3 text-right">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pkg-documents-tbody" class="divide-y divide-white/5 font-medium">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
 
 <!-- Super Admin Core Javascript Logic -->
