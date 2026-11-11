@@ -2726,52 +2726,79 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
         json body = parseBody(req);
         std::string action = BodyParser::getAction(req, body);
 
-        // 1. Upload audio file (MP3, WAV, FLAC, OGG)
-        if (action == "upload" || req.has_file("audio_file") || req.has_file("file")) {
-            const auto& file = req.has_file("audio_file") ? req.get_file_value("audio_file") : req.get_file_value("file");
-            std::string filename = file.filename;
-            std::string ext = "";
-            size_t dotPos = filename.find_last_of('.');
-            if (dotPos != std::string::npos) {
-                ext = filename.substr(dotPos);
-                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            }
-            if (ext.empty()) ext = ".mp3";
-
+        // 1. Upload audio file(s) (MP3, WAV, FLAC, OGG) - Supports Single & Multiple Batch Files
+        if (action == "upload" || !req.files.empty()) {
             namespace fs = std::filesystem;
             fs::path mediaDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "assets" / "media";
             try { fs::create_directories(mediaDir); } catch (...) {}
 
-            std::string cleanName = (dotPos != std::string::npos) ? filename.substr(0, dotPos) : filename;
-            std::string saveFile = filename;
-            fs::path targetPath = mediaDir / saveFile;
+            int uploadedCount = 0;
+            std::string lastPath = "";
+            int64_t lastId = 0;
 
-            std::ofstream ofs(targetPath, std::ios::binary);
-            if (ofs) {
-                ofs.write(file.content.data(), file.content.size());
-                ofs.close();
+            for (const auto& item : req.files) {
+                const auto& file = item.second;
+                std::string filename = file.filename;
+                if (filename.empty()) continue;
+
+                std::string ext = "";
+                size_t dotPos = filename.find_last_of('.');
+                if (dotPos != std::string::npos) {
+                    ext = filename.substr(dotPos);
+                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                }
+                if (ext != ".mp3" && ext != ".wav" && ext != ".flac" && ext != ".ogg") {
+                    continue; // Skip non-audio files
+                }
+
+                std::string cleanName = (dotPos != std::string::npos) ? filename.substr(0, dotPos) : filename;
+                std::string saveFile = filename;
+                fs::path targetPath = mediaDir / saveFile;
+
+                std::ofstream ofs(targetPath, std::ios::binary);
+                if (ofs) {
+                    ofs.write(file.content.data(), file.content.size());
+                    ofs.close();
+                }
+
+                fs::path webMediaDir = SaleApp::Config::AppConfig::instance().getWebDir() / "assets" / "media";
+                try {
+                    fs::create_directories(webMediaDir);
+                    fs::copy_file(targetPath, webMediaDir / saveFile, fs::copy_options::overwrite_existing);
+                } catch (...) {}
+
+                std::string relPath = "assets/media/" + saveFile;
+                std::string title = req.has_param("title") ? req.get_param_value("title") : cleanName;
+                std::string artist = req.has_param("artist") ? req.get_param_value("artist") : "Various Artists";
+                std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "Lossless";
+                int64_t duration = 210;
+
+                // Check if already in DB
+                auto check = db.queryRow("SELECT id FROM media_tracks WHERE file_path = :fp LIMIT 1", {{":fp", relPath}});
+                if (check.is_null()) {
+                    lastId = db.execute(R"(
+                        INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path, bitrate, is_active, created_at)
+                        VALUES (:ti, :ar, 'Cyber Lounge', :ge, :du, :fp, 320, 1, datetime('now'))
+                    )", {
+                        {":ti", title}, {":ar", artist}, {":ge", genre}, {":du", duration}, {":fp", relPath}
+                    });
+                } else {
+                    lastId = check.value("id", 0LL);
+                }
+                lastPath = relPath;
+                uploadedCount++;
             }
 
-            std::string relPath = "assets/media/" + saveFile;
-            std::string title = req.has_param("title") ? req.get_param_value("title") : cleanName;
-            std::string artist = req.has_param("artist") ? req.get_param_value("artist") : "Various Artists";
-            std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "Lossless";
-            int64_t duration = 210;
-
-            int64_t newId = db.execute(R"(
-                INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path, bitrate, is_active, created_at)
-                VALUES (:ti, :ar, 'Cyber Lounge', :ge, :du, :fp, 320, 1, datetime('now'))
-            )", {
-                {":ti", title}, {":ar", artist}, {":ge", genre}, {":du", duration}, {":fp", relPath}
-            });
-
-            sendJson(res, {
-                {"success", true},
-                {"message", "Tải lên và nạp bài hát vào kho nhạc thành công!"},
-                {"track_id", newId},
-                {"file_path", relPath}
-            });
-            return;
+            if (uploadedCount > 0) {
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã nạp thành công " + std::to_string(uploadedCount) + " bài hát vào kho nhạc!"},
+                    {"uploaded_count", uploadedCount},
+                    {"track_id", lastId},
+                    {"file_path", lastPath}
+                });
+                return;
+            }
         }
 
         // 2. Save / Edit track

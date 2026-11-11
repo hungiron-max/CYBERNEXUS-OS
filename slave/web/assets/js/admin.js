@@ -1225,10 +1225,10 @@ const Admin = {
                             </span>
                         </div>
 
-                        <!-- QR Code Thumbnail Box (Interactive Standee Preview) -->
-                        <div class="bg-white rounded-xl p-2 my-2 mx-auto w-32 h-32 flex flex-col items-center justify-center shadow-lg relative cursor-pointer border border-slate-200 group/qr" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để xem và in thẻ standee QR">
+                        <!-- QR Code Thumbnail Box (Interactive Standee Preview - Transparent Glass) -->
+                        <div class="rounded-2xl p-2 my-2 mx-auto w-32 h-32 flex flex-col items-center justify-center relative cursor-pointer border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] hover:border-sky-400/50 backdrop-blur-md transition-all group/qr shadow-inner qr-transparent-canvas" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để xem và in thẻ standee QR">
                             <div id="table-qr-${t.id}" class="w-28 h-28 flex items-center justify-center"></div>
-                            <div class="absolute inset-0 bg-slate-950/75 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center backdrop-blur-[2px]">
+                            <div class="absolute inset-0 bg-slate-950/75 rounded-2xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center backdrop-blur-[2px]">
                                 <i class="fas fa-search-plus text-base text-sky-400"></i>
                                 <span>Phóng to & In</span>
                             </div>
@@ -1281,8 +1281,8 @@ const Admin = {
                             text: orderUrl,
                             width: 108,
                             height: 108,
-                            colorDark: "#020617",
-                            colorLight: "#ffffff",
+                            colorDark: "#38bdf8",
+                            colorLight: "rgba(0,0,0,0)",
                             correctLevel: QRCode.CorrectLevel.M
                         });
                     } catch (e) {
@@ -1394,8 +1394,8 @@ const Admin = {
                     text: orderUrl,
                     width: 192,
                     height: 192,
-                    colorDark: "#020617",
-                    colorLight: "#ffffff",
+                    colorDark: "#38bdf8",
+                    colorLight: "rgba(0,0,0,0)",
                     correctLevel: QRCode.CorrectLevel.H
                 });
             } catch (e) {
@@ -1636,7 +1636,6 @@ const Admin = {
     },
 
     async deleteTable(tableId) {
-        if (!confirm('Bạn có chắc muốn xóa bàn này khỏi hệ thống?')) return;
         try {
             const res = await fetch('api/tables.php?action=delete_table', {
                 method: 'POST',
@@ -1645,13 +1644,14 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
+                this.showToast('🗑️ Đã xóa bàn thành công!', 'info');
                 await this.loadTables();
             } else {
-                alert(data.message || 'Lỗi xóa bàn');
+                this.showToast(data.message || 'Lỗi xóa bàn', 'error');
             }
         } catch (e) {
             console.error('Error deleting table:', e);
-            alert('Lỗi kết nối máy chủ');
+            this.showToast('Lỗi kết nối máy chủ', 'error');
         }
     },
 
@@ -4521,6 +4521,9 @@ const Admin = {
             const s = Math.floor(durSeconds % 60);
             durationEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
+
+        // Real Audio Playback via HTML5 Audio + Web Audio DSP
+        this.mediaPlayer.playTrack(track);
     },
 
     renderMediaQueue(queue) {
@@ -4628,6 +4631,201 @@ const Admin = {
         this.renderMediaCatalog(filtered);
     },
 
+    // ==========================================
+    // CYBERTOAST NOTIFICATION ENGINE (NON-BLOCKING)
+    // ==========================================
+    showToast(message, type = 'info', duration = 3000) {
+        let container = document.getElementById('cyber-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'cyber-toast-container';
+            container.className = 'fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        const colorMap = {
+            success: 'border-emerald-500/40 bg-slate-900/95 text-emerald-300 shadow-emerald-500/10',
+            error: 'border-rose-500/40 bg-slate-900/95 text-rose-300 shadow-rose-500/10',
+            warning: 'border-amber-500/40 bg-slate-900/95 text-amber-300 shadow-amber-500/10',
+            info: 'border-sky-500/40 bg-slate-900/95 text-sky-300 shadow-sky-500/10'
+        };
+        const iconMap = {
+            success: 'fa-check-circle text-emerald-400',
+            error: 'fa-times-circle text-rose-400',
+            warning: 'fa-triangle-exclamation text-amber-400',
+            info: 'fa-info-circle text-sky-400'
+        };
+
+        const borderClass = colorMap[type] || colorMap.info;
+        const iconClass = iconMap[type] || iconMap.info;
+
+        toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-2 opacity-0 text-xs font-semibold ${borderClass}`;
+        toast.innerHTML = `
+            <i class="fas ${iconClass} text-sm shrink-0"></i>
+            <span class="text-white">${message}</span>
+            <button type="button" class="ml-2 text-slate-400 hover:text-white text-xs">&times;</button>
+        `;
+
+        toast.querySelector('button').onclick = () => {
+            toast.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => toast.remove(), 250);
+        };
+
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        });
+
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 250);
+            }
+        }, duration);
+    },
+
+    // ==========================================
+    // NATIVE HTML5 & WEB AUDIO API PLAYER ENGINE
+    // ==========================================
+    mediaPlayer: {
+        audio: null,
+        audioCtx: null,
+        sourceNode: null,
+        preampNode: null,
+        eqFilters: [],
+        isPlaying: false,
+        currentTrack: null,
+        init() {
+            if (this.audio) return;
+            this.audio = new Audio();
+            this.audio.preload = 'auto';
+
+            this.audio.addEventListener('play', () => {
+                this.isPlaying = true;
+                const icon = document.getElementById('now-playing-play-icon');
+                if (icon) icon.className = 'fas fa-pause text-[9px] text-white';
+                const ctrlIcon = document.getElementById('jukebox-ctrl-play-icon');
+                if (ctrlIcon) ctrlIcon.className = 'fas fa-pause text-xs';
+                const ctrlText = document.getElementById('jukebox-ctrl-play-text');
+                if (ctrlText) ctrlText.textContent = 'Tạm Dừng';
+            });
+
+            this.audio.addEventListener('pause', () => {
+                this.isPlaying = false;
+                const icon = document.getElementById('now-playing-play-icon');
+                if (icon) icon.className = 'fas fa-play text-[9px] text-white';
+                const ctrlIcon = document.getElementById('jukebox-ctrl-play-icon');
+                if (ctrlIcon) ctrlIcon.className = 'fas fa-play text-xs';
+                const ctrlText = document.getElementById('jukebox-ctrl-play-text');
+                if (ctrlText) ctrlText.textContent = 'Phát';
+            });
+
+            this.audio.addEventListener('timeupdate', () => {
+                if (!this.audio.duration || isNaN(this.audio.duration)) return;
+                const cur = this.audio.currentTime;
+                const dur = this.audio.duration;
+                const bar = document.getElementById('now-playing-progress');
+                if (bar) bar.style.width = `${(cur / dur) * 100}%`;
+                const curTimeEl = document.getElementById('now-playing-current-time');
+                if (curTimeEl) {
+                    const m = Math.floor(cur / 60);
+                    const s = Math.floor(cur % 60);
+                    curTimeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                }
+            });
+
+            this.audio.addEventListener('ended', () => {
+                Admin.skipMediaTrack(); // Automatically advance to next queued song!
+            });
+        },
+
+        setupWebAudio() {
+            if (this.audioCtx) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                this.audioCtx = new AudioCtx();
+                this.sourceNode = this.audioCtx.createMediaElementSource(this.audio);
+                this.preampNode = this.audioCtx.createGain();
+                this.preampNode.gain.value = 1.0;
+
+                const bands = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+                this.eqFilters = bands.map((freq, idx) => {
+                    const f = this.audioCtx.createBiquadFilter();
+                    f.type = (idx === 0) ? 'lowshelf' : (idx === bands.length - 1 ? 'highshelf' : 'peaking');
+                    f.frequency.value = freq;
+                    f.Q.value = 1.4;
+                    f.gain.value = 0.0;
+                    return f;
+                });
+
+                let prev = this.sourceNode;
+                prev.connect(this.preampNode);
+                prev = this.preampNode;
+                this.eqFilters.forEach(node => {
+                    prev.connect(node);
+                    prev = node;
+                });
+                prev.connect(this.audioCtx.destination);
+            } catch (err) {
+                console.warn('Web Audio DSP not supported:', err);
+            }
+        },
+
+        playTrack(track) {
+            this.init();
+            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            } else if (!this.audioCtx) {
+                this.setupWebAudio();
+            }
+            if (!track || !track.file_path) return;
+            this.currentTrack = track;
+            let fullSrc = track.file_path.startsWith('/') ? track.file_path : ('/' + track.file_path);
+            
+            if (this.audio.getAttribute('data-current-src') !== fullSrc) {
+                this.audio.setAttribute('data-current-src', fullSrc);
+                this.audio.src = fullSrc;
+                this.audio.load();
+                this.audio.play().catch(e => {
+                    console.log('Autoplay policy caught, click Play to listen:', e);
+                });
+            }
+        },
+
+        togglePlay() {
+            this.init();
+            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            }
+            if (this.audio.paused) {
+                this.audio.play().catch(e => console.log('Play error:', e));
+            } else {
+                this.audio.pause();
+            }
+        },
+
+        seek(e) {
+            if (!this.audio || !this.audio.duration) return;
+            const bar = e.currentTarget;
+            const rect = bar.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+            this.audio.currentTime = ratio * this.audio.duration;
+        },
+
+        setVolume(val) {
+            if (!this.audio) this.init();
+            this.audio.volume = Math.max(0, Math.min(1, Number(val) / 100));
+        },
+
+        setDucking(enable) {
+            if (!this.audio) this.init();
+            this.audio.volume = enable ? 0.3 : 1.0;
+        }
+    },
+
     async requestMediaTrack(trackId) {
         try {
             const res = await fetch('/api/media/jukebox/request', {
@@ -4643,14 +4841,14 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
-                alert('Đã thêm bài hát vào hàng đợi Jukebox!');
+                this.showToast('🎵 Đã thêm bài hát vào hàng đợi Jukebox!', 'success');
                 this.loadMediaJukeboxStatus();
             } else {
-                alert(data.message || 'Lỗi khi yêu cầu bài hát');
+                this.showToast(data.message || 'Lỗi khi yêu cầu bài hát', 'error');
             }
         } catch (err) {
             console.error('requestMediaTrack error:', err);
-            alert('Lỗi kết nối máy chủ');
+            this.showToast('Lỗi kết nối máy chủ Media', 'error');
         }
     },
 
@@ -4663,9 +4861,10 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
+                this.showToast('👍 Đã bình chọn bài hát!', 'success');
                 this.loadMediaJukeboxStatus();
             } else {
-                alert(data.message || 'Lỗi bình chọn');
+                this.showToast(data.message || 'Lỗi bình chọn', 'warning');
             }
         } catch (err) {
             console.error('voteMediaItem error:', err);
@@ -4673,7 +4872,7 @@ const Admin = {
     },
 
     async skipMediaTrack() {
-        if (!confirm('Bạn có chắc chắn muốn bỏ qua bài hát đang phát?')) return;
+        // Instant non-blocking skip without freezing prompt!
         try {
             const res = await fetch('/api/media/jukebox/skip', {
                 method: 'POST',
@@ -4682,22 +4881,23 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Đã chuyển bài hát!');
-                this.loadMediaJukeboxStatus();
+                this.showToast('⏭️ Đã chuyển sang bài hát tiếp theo!', 'success');
+                await this.loadMediaJukeboxStatus();
             } else {
-                alert(data.message || 'Lỗi khi chuyển bài');
+                this.showToast(data.message || 'Lỗi khi chuyển bài', 'error');
             }
         } catch (err) {
             console.error('skipMediaTrack error:', err);
-            alert('Lỗi kết nối máy chủ');
+            this.showToast('Lỗi kết nối máy chủ Media', 'error');
         }
     },
 
     toggleAudioDucking(enabled) {
+        this.mediaPlayer.setDucking(enabled);
         const msg = enabled ? 
-            'Đã BẬT chế độ Auto-Ducking: Âm lượng nhạc tự động hạ -10dB khi nhân viên POS thông báo món.' : 
-            'Đã TẮT chế độ Auto-Ducking: Giữ nguyên mức âm lượng khi gọi món.';
-        alert(msg);
+            'Đã BẬT Auto-Ducking: Âm lượng nhạc tự động hạ -10dB khi POS gọi món.' : 
+            'Đã TẮT Auto-Ducking: Giữ nguyên mức âm lượng khi gọi món.';
+        this.showToast(msg, 'info');
     },
 
     // ==========================================
@@ -4769,75 +4969,174 @@ const Admin = {
 
     openUploadMediaModal() {
         const modal = document.getElementById('admin-media-upload-modal');
-        if (modal) modal.classList.remove('hidden');
-    },
-
-    handleAudioFilePicked(input) {
-        if (!input.files || input.files.length === 0) return;
-        const file = input.files[0];
-        let name = file.name;
-        const dotIdx = name.lastIndexOf('.');
-        if (dotIdx > 0) name = name.substring(0, dotIdx);
-        
-        const titleInput = document.getElementById('media-upload-title');
-        if (titleInput && (!titleInput.value || titleInput.value.trim() === '')) {
-            titleInput.value = name;
+        if (modal) {
+            modal.classList.remove('hidden');
+            this.selectedUploadFiles = [];
+            this.renderBatchFilesQueue();
+            const dropzone = document.getElementById('media-dropzone');
+            if (dropzone && !dropzone.dataset.bound) {
+                dropzone.dataset.bound = 'true';
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('border-teal-300', 'bg-slate-900/90');
+                });
+                dropzone.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-teal-300', 'bg-slate-900/90');
+                });
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-teal-300', 'bg-slate-900/90');
+                    if (e.dataTransfer && e.dataTransfer.files) {
+                        Admin.handleBatchAudioPicked(e.dataTransfer.files);
+                    }
+                });
+            }
         }
     },
 
-    async submitUploadMedia(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        const fileInput = document.getElementById('media-upload-file-input');
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('Vui lòng chọn file nhạc MP3/WAV/FLAC!');
+    closeUploadMediaModal() {
+        const modal = document.getElementById('admin-media-upload-modal');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    selectedUploadFiles: [],
+
+    handleBatchAudioPicked(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        this.selectedUploadFiles = Array.from(fileList);
+        this.renderBatchFilesQueue();
+    },
+
+    renderBatchFilesQueue() {
+        const tbody = document.getElementById('media-upload-batch-queue');
+        const countBadge = document.getElementById('media-upload-count-badge');
+        const progressContainer = document.getElementById('media-upload-progress-container');
+        if (progressContainer) progressContainer.classList.add('hidden');
+
+        if (countBadge) countBadge.textContent = `${this.selectedUploadFiles.length} file đã chọn`;
+        if (!tbody) return;
+
+        if (this.selectedUploadFiles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">Chưa có file nào được chọn</td></tr>';
             return;
         }
 
-        const file = fileInput.files[0];
-        const title = document.getElementById('media-upload-title')?.value || file.name;
-        const artist = document.getElementById('media-upload-artist')?.value || 'Various Artists';
-        const genre = document.getElementById('media-upload-genre')?.value || 'Acoustic';
+        tbody.innerHTML = this.selectedUploadFiles.map((file, idx) => {
+            let name = file.name;
+            const dotIdx = name.lastIndexOf('.');
+            const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+            if (dotIdx > 0) name = name.substring(0, dotIdx);
 
-        const formData = new FormData();
-        formData.append('audio_file', file);
-        formData.append('title', title);
-        formData.append('artist', artist);
-        formData.append('genre', genre);
+            let artist = 'Various Artists';
+            let title = name;
+            if (name.includes(' - ')) {
+                const parts = name.split(' - ');
+                artist = parts[0].trim();
+                title = parts.slice(1).join(' - ').trim();
+            }
 
-        const btn = document.getElementById('media-upload-btn-submit');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải...';
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+
+            return `
+                <tr class="hover:bg-slate-800/30 transition text-xs">
+                    <td class="p-2 font-mono text-slate-500">#${idx + 1}</td>
+                    <td class="p-2 font-bold text-white flex items-center gap-1.5 truncate max-w-[240px]">
+                        <span class="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/20 text-sky-300 font-mono">${ext}</span>
+                        <span class="truncate">${title}</span>
+                    </td>
+                    <td class="p-2 text-slate-400 truncate max-w-[140px]">${artist}</td>
+                    <td class="p-2 text-right font-mono text-slate-500">${sizeMb} MB</td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    async startBatchUpload() {
+        if (!this.selectedUploadFiles || this.selectedUploadFiles.length === 0) {
+            this.showToast('Vui lòng chọn ít nhất 1 file âm thanh!', 'warning');
+            return;
         }
 
+        const btn = document.getElementById('media-upload-btn-submit');
+        const progressContainer = document.getElementById('media-upload-progress-container');
+        const progressBar = document.getElementById('media-upload-progress-bar');
+        const progressPercent = document.getElementById('media-upload-progress-percent');
+        const genre = document.getElementById('media-batch-genre')?.value || 'Acoustic';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải lên...';
+        }
+        if (progressContainer) progressContainer.classList.remove('hidden');
+
+        const formData = new FormData();
+        this.selectedUploadFiles.forEach((file) => {
+            formData.append('audio_files[]', file);
+        });
+        formData.append('genre', genre);
+
         try {
-            const res = await fetch('/api/media/tracks/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message || 'Đã tải lên bài hát thành công!');
-                document.getElementById('admin-media-upload-modal')?.classList.add('hidden');
-                fileInput.value = '';
-                await this.loadMediaTracksCatalog();
-                this.renderMediaManagerTable();
-            } else {
-                alert(data.message || 'Lỗi tải lên bài hát');
-            }
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/media/tracks/upload', true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    if (progressBar) progressBar.style.width = `${percent}%`;
+                    if (progressPercent) progressPercent.textContent = `${percent}%`;
+                }
+            };
+
+            xhr.onload = async () => {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            this.showToast(data.message || `Đã tải lên thành công ${this.selectedUploadFiles.length} bài hát!`, 'success');
+                            document.getElementById('admin-media-upload-modal')?.classList.add('hidden');
+                            this.selectedUploadFiles = [];
+                            await this.loadMediaTracksCatalog();
+                            this.renderMediaManagerTable();
+                        } else {
+                            this.showToast(data.message || 'Lỗi khi tải lên file nhạc', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('Đã tải lên bài hát thành công!', 'success');
+                        document.getElementById('admin-media-upload-modal')?.classList.add('hidden');
+                        await this.loadMediaTracksCatalog();
+                        this.renderMediaManagerTable();
+                    }
+                } else {
+                    this.showToast(`Lỗi HTTP ${xhr.status} khi tải lên bài hát`, 'error');
+                }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Nạp Vào Kho Nhạc';
+                }
+            };
+
+            xhr.onerror = () => {
+                this.showToast('Lỗi kết nối khi tải lên bài hát', 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Nạp Vào Kho Nhạc';
+                }
+            };
+
+            xhr.send(formData);
         } catch (err) {
-            console.error('submitUploadMedia error:', err);
-            alert('Lỗi kết nối khi tải lên bài hát');
-        } finally {
+            console.error('startBatchUpload error:', err);
+            this.showToast('Lỗi gửi dữ liệu lên máy chủ', 'error');
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-1"></i> Tải Lên Ngay';
+                btn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Nạp Vào Kho Nhạc';
             }
         }
     },
 
     async deleteMediaTrack(id) {
-        if (!confirm('Bạn có chắc muốn xóa bài hát này khỏi kho nhạc?')) return;
+        // Direct delete with feedback toast! Zero blocking popups!
         try {
             const res = await fetch('/api/media/tracks/delete', {
                 method: 'POST',
@@ -4846,15 +5145,15 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Đã xóa bài hát');
+                this.showToast(data.message || 'Đã xóa bài hát khỏi kho nhạc!', 'info');
                 await this.loadMediaTracksCatalog();
                 this.renderMediaManagerTable();
             } else {
-                alert(data.message || 'Lỗi xóa bài hát');
+                this.showToast(data.message || 'Lỗi xóa bài hát', 'error');
             }
         } catch (err) {
             console.error('deleteMediaTrack error:', err);
-            alert('Lỗi kết nối máy chủ');
+            this.showToast('Lỗi kết nối máy chủ', 'error');
         }
     },
 
@@ -4866,15 +5165,15 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Đã quét xong thư mục nhạc!');
+                this.showToast(data.message || 'Đã quét xong thư mục nhạc!', 'success');
                 await this.loadMediaTracksCatalog();
                 this.renderMediaManagerTable();
             } else {
-                alert(data.message || 'Lỗi quét thư mục nhạc');
+                this.showToast(data.message || 'Lỗi quét thư mục nhạc', 'error');
             }
         } catch (err) {
             console.error('rescanMediaTracks error:', err);
-            alert('Lỗi kết nối máy chủ');
+            this.showToast('Lỗi kết nối máy chủ', 'error');
         }
     }
 };

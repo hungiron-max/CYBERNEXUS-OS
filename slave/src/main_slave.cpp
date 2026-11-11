@@ -65,6 +65,10 @@ int main(int argc, char* argv[]) {
         svr.set_mount_point("/assets", assetsDir.string());
         std::cout << "[Slave Static] Mount /assets -> " << assetsDir.string() << std::endl;
     }
+    fs::path baseMediaDir = config.getBaseDir() / "assets" / "media";
+    try { fs::create_directories(baseMediaDir); } catch (...) {}
+    svr.set_mount_point("/assets/media", baseMediaDir.string());
+    std::cout << "[Slave Static] Mount /assets/media -> " << baseMediaDir.string() << std::endl;
     if (fs::exists(uploadsDir)) {
         svr.set_mount_point("/uploads", uploadsDir.string());
         std::cout << "[Slave Static] Mount /uploads -> " << uploadsDir.string() << std::endl;

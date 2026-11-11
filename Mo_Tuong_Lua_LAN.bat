@@ -33,6 +33,12 @@ netsh advfirewall firewall add rule name="CYBERNEXUS_MASTER_8500" dir=in action=
 netsh advfirewall firewall delete rule name="CYBERNEXUS_SLAVE_8501" >nul 2>&1
 netsh advfirewall firewall add rule name="CYBERNEXUS_SLAVE_8501" dir=in action=allow protocol=TCP localport=8501 profile=any
 
+netsh advfirewall firewall delete rule name="CYBERNEXUS_MEDIA_8080" >nul 2>&1
+netsh advfirewall firewall add rule name="CYBERNEXUS_MEDIA_8080" dir=in action=allow protocol=TCP localport=8080 profile=any
+
+netsh advfirewall firewall delete rule name="CYBERNEXUS_STREAM_8082" >nul 2>&1
+netsh advfirewall firewall add rule name="CYBERNEXUS_STREAM_8082" dir=in action=allow protocol=TCP localport=8082 profile=any
+
 echo.
 echo [THÀNH CÔNG] Đã cho phép cổng 8500 và 8501 qua tường lửa Windows!
 echo Bây giờ điện thoại / iPad / máy trạm trong mạng LAN/WAN có thể kết nối mượt mà.

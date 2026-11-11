@@ -346,6 +346,13 @@
                 padding: 6mm !important;
             }
         }
+        /* Transparent Glass QR Canvas */
+        .qr-transparent-canvas canvas, 
+        .qr-transparent-canvas img {
+            background: transparent !important;
+            display: block !important;
+            margin: 0 auto !important;
+        }
     </style>
     <script>
         // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
@@ -2351,9 +2358,9 @@
 
                         <div class="flex items-center gap-3.5 mb-3.5">
                             <!-- Spinning Vinyl Record -->
-                            <div class="vinyl-record shrink-0">
-                                <div class="vinyl-center flex items-center justify-center">
-                                    <i class="fas fa-play text-[8px] text-white"></i>
+                            <div class="vinyl-record shrink-0 cursor-pointer group" onclick="Admin.mediaPlayer.togglePlay()" title="Bấm để Phát / Tạm dừng">
+                                <div class="vinyl-center flex items-center justify-center group-hover:scale-110 transition">
+                                    <i id="now-playing-play-icon" class="fas fa-play text-[9px] text-white"></i>
                                 </div>
                             </div>
 
@@ -2379,22 +2386,31 @@
 
                         <!-- Progress Bar -->
                         <div class="space-y-1 mb-3">
-                            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/10">
-                                <div id="now-playing-progress" class="h-full bg-gradient-to-r from-sky-400 via-indigo-500 to-fuchsia-500 rounded-full transition-all duration-1000" style="width: 38%;"></div>
+                            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/10 cursor-pointer" onclick="Admin.mediaPlayer.seek(event)" title="Tua bài hát">
+                                <div id="now-playing-progress" class="h-full bg-gradient-to-r from-sky-400 via-indigo-500 to-fuchsia-500 rounded-full transition-all duration-300" style="width: 0%;"></div>
                             </div>
                             <div class="flex justify-between text-[10px] font-mono font-bold text-slate-400">
-                                <span id="now-playing-current-time">01:15</span>
+                                <span id="now-playing-current-time">00:00</span>
                                 <span id="now-playing-duration">03:18</span>
                             </div>
                         </div>
 
-                        <!-- Skip Button -->
-                        <div class="flex items-center justify-between pt-2.5 border-t border-white/10">
-                            <span class="text-[11px] text-slate-400">Quyền Admin Quán:</span>
-                            <button type="button" onclick="Admin.skipMediaTrack()" class="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition hover:scale-105 active:scale-95">
-                                <i class="fas fa-forward-step text-xs"></i>
-                                <span>Bỏ Qua Bài Này (Skip)</span>
-                            </button>
+                        <!-- Player Controls Strip -->
+                        <div class="flex items-center justify-between pt-2.5 border-t border-white/10 gap-2">
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="Admin.mediaPlayer.togglePlay()" class="px-2.5 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center gap-1 transition active:scale-95 shadow-sm" title="Phát / Tạm dừng nhạc">
+                                    <i id="jukebox-ctrl-play-icon" class="fas fa-play text-xs"></i>
+                                    <span id="jukebox-ctrl-play-text">Phát</span>
+                                </button>
+                                <button type="button" onclick="Admin.skipMediaTrack()" class="px-2.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1 transition active:scale-95 shadow-sm" title="Bỏ qua và chuyển sang bài tiếp theo">
+                                    <i class="fas fa-forward-step text-xs"></i>
+                                    <span>Chuyển Bài</span>
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <i class="fas fa-volume-up text-slate-400 text-xs"></i>
+                                <input type="range" min="0" max="100" value="100" oninput="Admin.mediaPlayer.setVolume(this.value)" class="w-16 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400" title="Âm lượng Master">
+                            </div>
                         </div>
                     </div>
 
@@ -3750,8 +3766,8 @@
                     <span class="text-xs text-slate-300 font-bold" id="standee-display-name">Bàn Tại Quán 01</span>
                 </div>
 
-                <!-- QR Code Box -->
-                <div class="bg-white p-3 rounded-2xl inline-block shadow-2xl mx-auto my-1 border border-slate-200">
+                <!-- QR Code Box (Transparent Glassmorphic) -->
+                <div class="p-3.5 rounded-2xl inline-flex items-center justify-center mx-auto my-2 border border-white/20 bg-white/[0.05] backdrop-blur-md shadow-2xl qr-transparent-canvas">
                     <div id="admin-table-qr-code" class="w-48 h-48 flex items-center justify-center"></div>
                 </div>
 
@@ -3914,50 +3930,106 @@
         </div>
     </div>
 
-    <!-- UPLOAD MEDIA TRACK MODAL -->
-    <div id="admin-media-upload-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
-        <form class="liquid-glass w-full max-w-md rounded-3xl border border-teal-500/30 p-5 text-white shadow-2xl" onsubmit="Admin.submitUploadMedia(event)">
-            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+    <!-- BATCH UPLOAD MEDIA TRACKS MODAL -->
+    <div id="admin-media-upload-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+        <div class="liquid-glass w-full max-w-2xl rounded-3xl border border-teal-500/30 p-5 text-white shadow-2xl flex flex-col max-h-[92vh]">
+            <!-- Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-cloud-arrow-up"></i></span>
+                    <div>
+                        <h3 class="font-black text-base text-white">Tải Lên File Nhạc Hàng Loạt (Batch Upload)</h3>
+                        <p class="text-[11px] text-slate-400">Chọn cùng lúc nhiều bài hát (.mp3, .wav, .flac, .ogg) hoặc kéo thả cả thư mục</p>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xl transition-all" onclick="Admin.closeUploadMediaModal()">&times;</button>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div id="media-dropzone" class="border-2 border-dashed border-teal-500/50 hover:border-teal-400 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-5 text-center cursor-pointer transition-all group shrink-0 mb-3" onclick="document.getElementById('media-upload-file-input').click()">
+                <input id="media-upload-file-input" type="file" accept=".mp3,.wav,.flac,.ogg" multiple class="hidden" onchange="Admin.handleBatchAudioPicked(this.files)">
+                <div class="flex flex-col items-center justify-center gap-2">
+                    <div class="w-12 h-12 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-500/40 flex items-center justify-center text-xl group-hover:scale-110 transition-transform shadow-lg shadow-teal-500/20">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <div class="font-bold text-xs sm:text-sm text-white">
+                        Kéo & Thả danh sách file nhạc vào đây hoặc <span class="text-teal-400 underline font-black">Bấm Để Chọn Nhiều File</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Chọn 10, 50 hay 100 file cùng lúc bằng phím <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-white/10 font-mono text-[9px]">Ctrl+A</kbd> hoặc <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-white/10 font-mono text-[9px]">Shift+Click</kbd></p>
+                </div>
+            </div>
+
+            <!-- Batch Options & Summary Bar (Shown when files selected) -->
+            <div id="media-batch-control-bar" class="hidden flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-white/10 mb-3 shrink-0 text-xs">
                 <div class="flex items-center gap-2">
-                    <span class="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-xs"><i class="fas fa-upload"></i></span>
-                    <h3 class="font-black text-sm text-teal-200">Tải File Nhạc Lên Server</h3>
+                    <span class="px-2 py-0.5 rounded-lg bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30" id="media-batch-count-badge">0 bài hát</span>
+                    <span class="text-slate-400 text-[11px]" id="media-batch-size-badge">0 MB</span>
                 </div>
-                <button type="button" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-lg" onclick="document.getElementById('admin-media-upload-modal').classList.add('hidden')">&times;</button>
-            </div>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="mb-1 block font-bold text-slate-300">Chọn file âm thanh (MP3, WAV, FLAC, OGG) <span class="text-rose-300">*</span></label>
-                    <input id="media-upload-file-input" type="file" accept=".mp3,.wav,.flac,.ogg" class="liquid-input w-full p-2 bg-slate-900 border border-dashed border-teal-500/50 rounded-xl" required onchange="Admin.handleAudioFilePicked(this)">
-                </div>
-                <div>
-                    <label class="mb-1 block font-bold text-slate-300">Tên bài hát <span class="text-rose-300">*</span></label>
-                    <input id="media-upload-title" type="text" class="liquid-input w-full" placeholder="Ví dụ: Lofi Quán Cà Phê" required>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="mb-1 block font-bold text-slate-300">Nghệ sĩ / Ca sĩ</label>
-                        <input id="media-upload-artist" type="text" class="liquid-input w-full" placeholder="Ví dụ: ChillHop Music" value="CyberNexus Artist">
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-bold text-slate-300">Thể loại</label>
-                        <select id="media-upload-genre" class="liquid-input w-full bg-slate-900">
-                            <option value="Acoustic">Acoustic</option>
-                            <option value="Lofi">Lofi Chill</option>
-                            <option value="Jazz">Jazz & Bossa</option>
-                            <option value="Pop">Acoustic Pop</option>
-                            <option value="Deep House">Deep House</option>
-                            <option value="Lossless">Lossless</option>
-                        </select>
-                    </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] text-slate-400">Gán thể loại:</span>
+                    <select id="media-batch-genre-select" onchange="Admin.applyBatchGenre(this.value)" class="liquid-input py-1 px-2 text-xs rounded-lg bg-slate-900 border border-white/10">
+                        <option value="Acoustic">Acoustic</option>
+                        <option value="Lofi Chill">Lofi Chill</option>
+                        <option value="Jazz & Bossa">Jazz & Bossa</option>
+                        <option value="Acoustic Pop">Acoustic Pop</option>
+                        <option value="Deep House">Deep House</option>
+                        <option value="Lossless">Lossless</option>
+                    </select>
+                    <button type="button" onclick="Admin.clearUploadQueue()" class="btn-glass text-[11px] py-1 px-2 text-rose-300 hover:text-white border-rose-500/30" title="Xóa toàn bộ hàng đợi">
+                        <i class="fas fa-trash-alt"></i> Xóa hết
+                    </button>
                 </div>
             </div>
-            <div class="mt-4 flex justify-end gap-2 border-t border-white/10 pt-3">
-                <button type="button" class="btn-glass px-3.5 py-1.5 text-xs" onclick="document.getElementById('admin-media-upload-modal').classList.add('hidden')">Hủy</button>
-                <button type="submit" id="media-upload-btn-submit" class="btn-glass-primary px-4 py-1.5 text-xs font-bold shadow-lg shadow-teal-500/20">
-                    <i class="fas fa-cloud-upload-alt mr-1"></i> Tải Lên Ngay
-                </button>
+
+            <!-- Live Upload Progress Bar (Shown during upload) -->
+            <div id="media-upload-progress-container" class="hidden space-y-1.5 mb-3 p-3 rounded-xl bg-slate-900/90 border border-teal-500/40 shrink-0">
+                <div class="flex justify-between text-xs font-bold">
+                    <span id="media-upload-status-text" class="text-teal-300 flex items-center gap-1.5">
+                        <i class="fas fa-spinner fa-spin"></i> Đang tải lên: 0 / 0 bài hát...
+                    </span>
+                    <span id="media-upload-percent-text" class="text-sky-400 font-mono">0%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-white/10">
+                    <div id="media-upload-progress-bar" class="h-full bg-gradient-to-r from-teal-400 via-sky-400 to-indigo-500 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                </div>
             </div>
-        </form>
+
+            <!-- File Queue Preview List -->
+            <div class="flex-1 overflow-y-auto media-custom-scroll rounded-xl border border-white/10 p-1 mb-3">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="sticky top-0 bg-slate-900/95 backdrop-blur-md text-slate-400 uppercase tracking-wider text-[10px] border-b border-white/10 z-10">
+                        <tr>
+                            <th class="p-2">#</th>
+                            <th class="p-2">Tên Bài Hát (Tự Nhận Diện)</th>
+                            <th class="p-2">Ca Sĩ / Nghệ Sĩ</th>
+                            <th class="p-2 text-center">Dung Lượng</th>
+                            <th class="p-2 text-center">Trạng Thái</th>
+                            <th class="p-2 text-right">Bỏ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="media-upload-queue-body" class="divide-y divide-white/5">
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-slate-500">
+                                Chưa có file nào được chọn. Hãy chọn hoặc kéo thả nhiều file nhạc vào khung bên trên.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="flex items-center justify-between border-t border-white/10 pt-3 shrink-0">
+                <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <i class="fas fa-shield-alt text-teal-400"></i> Server tự động phân tích bitrate & đồng bộ tức thì
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="btn-glass px-4 py-2 text-xs" onclick="Admin.closeUploadMediaModal()">Hủy / Đóng</button>
+                    <button type="button" id="media-upload-start-btn" onclick="Admin.startBatchUpload()" class="btn-glass-primary px-5 py-2 text-xs font-bold shadow-lg shadow-teal-500/20 flex items-center gap-1.5" disabled>
+                        <i class="fas fa-cloud-arrow-up"></i> Bắt Đầu Tải Lên Tất Cả
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- AD CAROUSEL / SLIDE LIVE PREVIEW MODAL (Mô Phỏng Trực Tiếp Màn Hình Khách Hàng) -->
