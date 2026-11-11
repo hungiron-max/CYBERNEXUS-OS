@@ -3901,7 +3901,10 @@ const Admin = {
             const slider = document.getElementById(`eq-slider-${b}`);
             const label = document.getElementById(`eq-val-${b}`);
             if (slider) slider.value = val;
-            if (label) label.textContent = (val >= 0 ? '+' : '') + val.toFixed(1);
+            if (label) {
+                label.textContent = (val > 0 ? '+' : '') + val.toFixed(1);
+                label.className = 'eq-val-badge ' + (val > 0 ? 'eq-val-boost' : (val < 0 ? 'eq-val-cut' : 'eq-val-flat'));
+            }
         });
 
         const preamp = typeof preset.preamp_gain === 'number' ? preset.preamp_gain : 0.0;
@@ -3909,7 +3912,7 @@ const Admin = {
         const preampSlider = document.getElementById('eq-slider-preamp');
         const preampLabel = document.getElementById('eq-val-preamp');
         if (preampSlider) preampSlider.value = preamp;
-        if (preampLabel) preampLabel.textContent = (preamp >= 0 ? '+' : '') + preamp.toFixed(1) + ' dB';
+        if (preampLabel) preampLabel.textContent = (preamp > 0 ? '+' : '') + preamp.toFixed(1) + ' dB';
 
         this.renderEqCurve();
     },
@@ -3918,7 +3921,10 @@ const Admin = {
         const num = parseFloat(val);
         this.eqBands[bandName] = num;
         const label = document.getElementById(`eq-val-${bandName}`);
-        if (label) label.textContent = (num >= 0 ? '+' : '') + num.toFixed(1);
+        if (label) {
+            label.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
+            label.className = 'eq-val-badge ' + (num > 0 ? 'eq-val-boost' : (num < 0 ? 'eq-val-cut' : 'eq-val-flat'));
+        }
         this.renderEqCurve();
     },
 
@@ -3926,7 +3932,7 @@ const Admin = {
         const num = parseFloat(val);
         this.eqPreamp = num;
         const label = document.getElementById('eq-val-preamp');
-        if (label) label.textContent = (num >= 0 ? '+' : '') + num.toFixed(1) + ' dB';
+        if (label) label.textContent = (num > 0 ? '+' : '') + num.toFixed(1) + ' dB';
     },
 
     onEqPresetSelect(presetId) {
@@ -4057,9 +4063,10 @@ const Admin = {
         if (genreEl) genreEl.textContent = track.genre || 'Lossless';
         if (tableEl) tableEl.textContent = track.table_name || 'Hệ Thống Quán';
         if (votesEl) votesEl.innerHTML = `<i class="fas fa-thumbs-up text-sky-400 mr-0.5"></i> ${track.vote_count || 1} votes`;
-        if (durationEl && track.track_duration) {
-            const m = Math.floor(track.track_duration / 60);
-            const s = track.track_duration % 60;
+        const durSeconds = Number(track.track_duration || track.duration_sec || track.duration || 198);
+        if (durationEl && !isNaN(durSeconds)) {
+            const m = Math.floor(durSeconds / 60);
+            const s = Math.floor(durSeconds % 60);
             durationEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
     },
@@ -4133,8 +4140,9 @@ const Admin = {
         }
 
         listEl.innerHTML = tracks.map(t => {
-            const m = Math.floor(t.duration / 60);
-            const s = t.duration % 60;
+            const durSeconds = Number(t.duration_sec || t.duration || 180);
+            const m = Math.floor(durSeconds / 60);
+            const s = Math.floor(durSeconds % 60);
             const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 
             return `

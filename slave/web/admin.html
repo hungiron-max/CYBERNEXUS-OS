@@ -79,7 +79,185 @@
             0% { opacity: 0; transform: scale(1.03); }
             100% { opacity: 1; transform: scale(1); }
         }
-        /* 10-Band DSP Equalizer Fader Styles */
+        /* ============================================================ */
+        /* PRO AUDIO 10-BAND DSP EQUALIZER & STUDIO MIXER STYLES        */
+        /* ============================================================ */
+        .eq-studio-rack {
+            background: radial-gradient(circle at 50% 0%, #0c1527 0%, #030712 100%) !important;
+            border: 1px solid rgba(56, 189, 248, 0.2) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+        .eq-faders-grid {
+            display: grid !important;
+            grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+            width: 100% !important;
+            align-items: stretch !important;
+        }
+        @media (max-width: 768px) {
+            .eq-faders-grid {
+                gap: 4px !important;
+            }
+        }
+        .eq-channel-strip {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            height: 245px !important;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(2, 6, 23, 0.9) 100%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 12px !important;
+            padding: 8px 2px !important;
+            position: relative !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        .eq-channel-strip:hover {
+            border-color: rgba(56, 189, 248, 0.45) !important;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 1) 100%) !important;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.2) !important;
+            transform: translateY(-2px) !important;
+        }
+        .eq-val-badge {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+            padding: 3px 4px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            min-width: 32px !important;
+            text-align: center !important;
+            transition: all 0.2s ease !important;
+        }
+        .eq-val-boost {
+            color: #34d399 !important;
+            background: rgba(16, 185, 129, 0.15) !important;
+            border-color: rgba(16, 185, 129, 0.35) !important;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3) !important;
+        }
+        .eq-val-flat {
+            color: #38bdf8 !important;
+            background: rgba(56, 189, 248, 0.12) !important;
+            border-color: rgba(56, 189, 248, 0.25) !important;
+        }
+        .eq-val-cut {
+            color: #fb7185 !important;
+            background: rgba(244, 63, 94, 0.15) !important;
+            border-color: rgba(244, 63, 94, 0.35) !important;
+            box-shadow: 0 0 8px rgba(244, 63, 94, 0.3) !important;
+        }
+        .eq-fader-slot {
+            position: relative !important;
+            width: 28px !important;
+            height: 146px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .eq-slot-groove {
+            position: absolute !important;
+            width: 5px !important;
+            height: 132px !important;
+            background: #050811 !important;
+            border-radius: 999px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9) !important;
+        }
+        .eq-zero-line {
+            position: absolute !important;
+            width: 16px !important;
+            height: 2px !important;
+            background: #38bdf8 !important;
+            box-shadow: 0 0 6px #38bdf8 !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            pointer-events: none !important;
+            z-index: 2 !important;
+        }
+        .eq-slider-input {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            position: absolute !important;
+            width: 132px !important;
+            height: 28px !important;
+            background: transparent !important;
+            transform: rotate(-90deg) !important;
+            cursor: pointer !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            outline: none !important;
+            z-index: 5 !important;
+        }
+        .eq-slider-input::-webkit-slider-runnable-track {
+            width: 100% !important;
+            height: 4px !important;
+            background: transparent !important;
+        }
+        .eq-slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            width: 26px !important;
+            height: 14px !important;
+            border-radius: 3px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 45%, #475569 50%, #1e293b 100%) !important;
+            border: 1px solid #ffffff !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 10px rgba(56, 189, 248, 0.7) !important;
+            cursor: grab !important;
+            position: relative !important;
+            transition: all 0.15s ease !important;
+        }
+        .eq-slider-input::-webkit-slider-thumb:hover {
+            transform: scale(1.12) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,1), 0 0 14px #38bdf8 !important;
+            background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 45%, #0284c7 50%, #0369a1 100%) !important;
+        }
+        .eq-freq-badge {
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            color: #e2e8f0 !important;
+            letter-spacing: -0.03em !important;
+            line-height: 1 !important;
+        }
+        .eq-band-role {
+            font-size: 8px !important;
+            font-weight: 700 !important;
+            color: #64748b !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            margin-top: 3px !important;
+        }
+        .vinyl-record {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #0f172a 22%, #020617 23%, #1e293b 25%, #020617 38%, #1e293b 40%, #020617 54%, #1e293b 56%, #020617 70%, #1e293b 72%, #020617 100%);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255,255,255,0.15);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: spin 6s linear infinite;
+        }
+        .vinyl-center {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0284c7, #a855f7);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);
+        }
+        @keyframes soundBars {
+            0%, 100% { height: 4px; }
+            50% { height: 18px; }
+        }
+        .sound-bar-1 { animation: soundBars 0.7s ease-in-out infinite; }
+        .sound-bar-2 { animation: soundBars 0.5s ease-in-out infinite 0.15s; }
+        .sound-bar-3 { animation: soundBars 0.8s ease-in-out infinite 0.3s; }
+        .sound-bar-4 { animation: soundBars 0.6s ease-in-out infinite 0.1s; }
+        .sound-bar-5 { animation: soundBars 0.9s ease-in-out infinite 0.25s; }
+        /* Legacy vertical slider fallback */
         .eq-vertical-slider {
             -webkit-appearance: none;
             appearance: none;
@@ -1780,31 +1958,31 @@
             <!-- Top Controls & System Status Header -->
             <div class="liquid-glass p-3.5 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-fuchsia-600/40 to-sky-500/40 border border-white/20 flex items-center justify-center text-fuchsia-300 shadow-inner">
-                        <i class="fas fa-compact-disc text-lg animate-[spin_6s_linear_infinite]"></i>
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-600/30 to-fuchsia-600/30 border border-sky-400/30 flex items-center justify-center text-sky-300 shadow-lg shadow-sky-500/10">
+                        <i class="fas fa-sliders text-xl text-sky-400"></i>
                     </div>
                     <div>
                         <h3 class="text-sm font-black text-white flex items-center gap-2">
-                            <span>Studio Âm Thanh & Jukebox Thông Minh</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Offline 100%
+                            <span>Studio Âm Thanh DSP & Jukebox Thông Minh</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1.5 shadow-sm">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Bit-Perfect Lossless
                             </span>
                         </h3>
-                        <p class="text-[11px] text-slate-400">Bộ cân bằng 10-Band DSP Equalizer Studio • Quản lý yêu cầu chọn bài từ khách quét QR tại bàn</p>
+                        <p class="text-[11px] text-slate-400">Bộ cân bằng 10-Band Hardware DSP Equalizer • Hệ thống Jukebox chọn bài thông minh từ QR bàn</p>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-3">
                     <!-- Audio Ducking Toggle -->
-                    <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-semibold text-slate-300 cursor-pointer hover:border-sky-500/40 transition">
-                        <input type="checkbox" id="media-ducking-toggle" checked class="accent-sky-500 w-4 h-4 cursor-pointer" onchange="Admin.toggleAudioDucking(this.checked)" />
+                    <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-white/10 text-xs font-semibold text-slate-300 cursor-pointer hover:border-amber-400/40 transition">
+                        <input type="checkbox" id="media-ducking-toggle" checked class="accent-amber-400 w-4 h-4 cursor-pointer" onchange="Admin.toggleAudioDucking(this.checked)" />
                         <span class="flex items-center gap-1.5">
-                            <i class="fas fa-volume-xmark text-amber-400 text-xs"></i>
+                            <i class="fas fa-volume-low text-amber-400 text-xs"></i>
                             <span>Hạ Nhạc Tự Động Khi POS Gọi Món (-10dB)</span>
                         </span>
                     </label>
 
-                    <button type="button" onclick="Admin.loadMediaTab()" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition">
+                    <button type="button" onclick="Admin.loadMediaTab()" class="px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-white/10 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition">
                         <i class="fas fa-rotate text-sky-400"></i>
                         <span>Làm Mới</span>
                     </button>
@@ -1816,158 +1994,235 @@
 
                 <!-- Left Column (lg:col-span-7): 10-Band DSP Equalizer Studio -->
                 <div class="lg:col-span-7 flex flex-col space-y-4">
-                    <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex-1 flex flex-col">
+                    <div class="eq-studio-rack p-4 rounded-2xl flex-1 flex flex-col">
                         <!-- EQ Header & Presets Selector -->
                         <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10 mb-3">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-sliders text-sky-400 text-sm"></i>
-                                <span class="text-xs font-black uppercase tracking-wider text-slate-200">10-Band DSP Equalizer Studio</span>
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping"></span>
+                                <span class="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
+                                    <i class="fas fa-wave-square text-sky-400"></i>
+                                    10-Band DSP Studio Console
+                                </span>
+                                <span class="text-[10px] font-mono text-slate-500 font-bold hidden sm:inline">[48kHz • 24-bit PCM]</span>
                             </div>
 
-                            <div class="flex items-center gap-2">
-                                <label class="text-[11px] text-slate-400 font-semibold">Preset Mẫu:</label>
-                                <select id="eq-preset-select" onchange="Admin.onEqPresetSelect(this.value)" class="liquid-input py-1 px-2.5 text-xs font-bold text-sky-300 bg-slate-900/90 rounded-lg border border-white/10">
-                                    <option value="1">Morning Acoustic (Êm Dịu)</option>
-                                    <option value="2">Lunch Lounge (Cân Bằng)</option>
-                                    <option value="3">Cyber Night Club (EDM/Gaming)</option>
-                                    <option value="4">Vocal Focus (Rõ Lời Ca Sĩ)</option>
-                                    <option value="5">Bypass Flat (Mặc Định 0dB)</option>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <label class="text-[11px] text-slate-400 font-bold">Preset:</label>
+                                <select id="eq-preset-select" onchange="Admin.onEqPresetSelect(this.value)" class="liquid-input py-1 px-2.5 text-xs font-bold text-sky-300 bg-slate-900 rounded-lg border border-sky-500/30">
+                                    <option value="1">Acoustic Cafe (Ấm Áp - Mộc Mạc)</option>
+                                    <option value="2">Lunch Lounge (Êm Dịu - Thư Giãn)</option>
+                                    <option value="3">Cyber Night Club (EDM / Uy Lực Bass)</option>
+                                    <option value="4">Vocal Clarity (Rõ Lời Ca Sĩ)</option>
+                                    <option value="5">Bypass Flat (Mặc Định 0 dB)</option>
                                 </select>
 
-                                <button type="button" onclick="Admin.resetEqFlat()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-white/10 transition" title="Đặt tất cả cần gạt về 0 dB">
-                                    Bypass Flat
+                                <button type="button" onclick="Admin.resetEqFlat()" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-white/10 transition" title="Đặt tất cả cần gạt về 0 dB">
+                                    <i class="fas fa-compress text-sky-400 mr-1"></i>Flat 0dB
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Realtime Frequency Response Curve SVG Canvas -->
-                        <div class="relative w-full h-28 bg-slate-950/80 rounded-xl border border-white/10 p-2 overflow-hidden mb-4 shadow-inner">
-                            <div class="absolute inset-0 grid grid-rows-4 pointer-events-none opacity-20">
-                                <div class="border-b border-slate-500 border-dashed"></div>
-                                <div class="border-b border-slate-500 border-dashed"></div>
-                                <div class="border-b border-cyan-400"></div>
-                                <div class="border-b border-slate-500 border-dashed"></div>
+                        <!-- Realtime Frequency Response Curve Display Canvas (Hi-Fi Screen) -->
+                        <div class="relative w-full h-32 bg-slate-950 rounded-xl border border-sky-500/30 p-2 overflow-hidden mb-4 shadow-inner" style="background: radial-gradient(ellipse at 50% 50%, #08172e 0%, #020713 100%);">
+                            <!-- Background Grid Lines -->
+                            <div class="absolute inset-x-8 inset-y-2 pointer-events-none opacity-20">
+                                <div class="w-full h-full border-b border-t border-slate-400 grid grid-rows-4">
+                                    <div class="border-b border-dashed border-slate-500"></div>
+                                    <div class="border-b border-cyan-400/80 shadow-[0_0_6px_rgba(34,211,238,0.5)]"></div>
+                                    <div class="border-b border-dashed border-slate-500"></div>
+                                    <div></div>
+                                </div>
                             </div>
-                            <div class="absolute left-2 top-1 text-[9px] font-mono text-emerald-400/80 font-bold">+12 dB</div>
-                            <div class="absolute left-2 top-[46%] text-[9px] font-mono text-cyan-400/80 font-bold">0 dB</div>
-                            <div class="absolute left-2 bottom-1 text-[9px] font-mono text-rose-400/80 font-bold">-12 dB</div>
 
-                            <svg id="eq-curve-svg" class="w-full h-full" viewBox="0 0 600 120" preserveAspectRatio="none">
+                            <!-- Non-overlapping Decibel Scale on Left -->
+                            <div class="absolute left-2.5 top-2 text-[9px] font-mono text-emerald-400 font-extrabold z-10">+12 dB</div>
+                            <div class="absolute left-2.5 top-[27%] text-[9px] font-mono text-emerald-400/60 font-semibold z-10">+6 dB</div>
+                            <div class="absolute left-2.5 top-[50%] -translate-y-1/2 text-[9px] font-mono text-cyan-400 font-extrabold z-10">0 dB</div>
+                            <div class="absolute left-2.5 bottom-[27%] text-[9px] font-mono text-rose-400/60 font-semibold z-10">-6 dB</div>
+                            <div class="absolute left-2.5 bottom-2 text-[9px] font-mono text-rose-400 font-extrabold z-10">-12 dB</div>
+
+                            <!-- Decibel Scale on Right -->
+                            <div class="absolute right-2.5 top-2 text-[9px] font-mono text-emerald-400 font-extrabold z-10">+12 dB</div>
+                            <div class="absolute right-2.5 top-[50%] -translate-y-1/2 text-[9px] font-mono text-cyan-400 font-extrabold z-10">0 dB</div>
+                            <div class="absolute right-2.5 bottom-2 text-[9px] font-mono text-rose-400 font-extrabold z-10">-12 dB</div>
+
+                            <!-- SVG Curve with Neon Cyan Glow -->
+                            <svg id="eq-curve-svg" class="w-full h-full relative z-1" viewBox="0 0 600 120" preserveAspectRatio="none">
                                 <defs>
                                     <linearGradient id="eqGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                                         <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.45" />
-                                        <stop offset="50%" stop-color="#818cf8" stop-opacity="0.25" />
-                                        <stop offset="100%" stop-color="#c084fc" stop-opacity="0.0" />
+                                        <stop offset="50%" stop-color="#818cf8" stop-opacity="0.2" />
+                                        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0" />
                                     </linearGradient>
+                                    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="3" result="blur" />
+                                        <feMerge>
+                                            <feMergeNode in="blur" />
+                                            <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                    </filter>
                                 </defs>
                                 <path id="eq-curve-fill" d="" fill="url(#eqGradient)" />
-                                <path id="eq-curve-stroke" d="" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" />
+                                <path id="eq-curve-stroke" d="" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" filter="url(#neonGlow)" />
                             </svg>
                         </div>
 
-                        <!-- 10 Vertical Faders Grid -->
-                        <div class="grid grid-cols-10 gap-1 sm:gap-2 flex-1 items-end pb-2">
-                            <!-- Band 1: 31Hz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_31hz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_31hz" data-band="band_31hz" oninput="Admin.onEqSliderInput('band_31hz', this.value)" class="eq-vertical-slider" />
+                        <!-- 10 Vertical Faders Hardware Rack (Side-by-Side 10 Columns) -->
+                        <div class="eq-faders-grid flex-1 items-stretch pb-2">
+                            <!-- Band 1: 31Hz (Sub-Bass) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_31hz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_31hz" data-band="band_31hz" oninput="Admin.onEqSliderInput('band_31hz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">31Hz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">31Hz</span>
+                                    <span class="eq-band-role">Sub</span>
+                                </div>
                             </div>
 
-                            <!-- Band 2: 62Hz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_62hz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_62hz" data-band="band_62hz" oninput="Admin.onEqSliderInput('band_62hz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 2: 62Hz (Bass) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_62hz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_62hz" data-band="band_62hz" oninput="Admin.onEqSliderInput('band_62hz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">62Hz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">62Hz</span>
+                                    <span class="eq-band-role">Bass</span>
+                                </div>
                             </div>
 
-                            <!-- Band 3: 125Hz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_125hz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_125hz" data-band="band_125hz" oninput="Admin.onEqSliderInput('band_125hz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 3: 125Hz (Low-Mid) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_125hz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_125hz" data-band="band_125hz" oninput="Admin.onEqSliderInput('band_125hz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">125Hz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">125Hz</span>
+                                    <span class="eq-band-role">Punch</span>
+                                </div>
                             </div>
 
-                            <!-- Band 4: 250Hz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_250hz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_250hz" data-band="band_250hz" oninput="Admin.onEqSliderInput('band_250hz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 4: 250Hz (Warmth) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_250hz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_250hz" data-band="band_250hz" oninput="Admin.onEqSliderInput('band_250hz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">250Hz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">250Hz</span>
+                                    <span class="eq-band-role">Warm</span>
+                                </div>
                             </div>
 
-                            <!-- Band 5: 500Hz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_500hz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_500hz" data-band="band_500hz" oninput="Admin.onEqSliderInput('band_500hz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 5: 500Hz (Body) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_500hz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_500hz" data-band="band_500hz" oninput="Admin.onEqSliderInput('band_500hz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">500Hz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">500Hz</span>
+                                    <span class="eq-band-role">Body</span>
+                                </div>
                             </div>
 
-                            <!-- Band 6: 1kHz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_1khz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_1khz" data-band="band_1khz" oninput="Admin.onEqSliderInput('band_1khz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 6: 1kHz (Vocal) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_1khz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_1khz" data-band="band_1khz" oninput="Admin.onEqSliderInput('band_1khz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">1kHz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">1kHz</span>
+                                    <span class="eq-band-role">Vocal</span>
+                                </div>
                             </div>
 
-                            <!-- Band 7: 2kHz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_2khz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_2khz" data-band="band_2khz" oninput="Admin.onEqSliderInput('band_2khz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 7: 2kHz (Clarity) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_2khz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_2khz" data-band="band_2khz" oninput="Admin.onEqSliderInput('band_2khz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">2kHz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">2kHz</span>
+                                    <span class="eq-band-role">Edge</span>
+                                </div>
                             </div>
 
-                            <!-- Band 8: 4kHz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_4khz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_4khz" data-band="band_4khz" oninput="Admin.onEqSliderInput('band_4khz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 8: 4kHz (Presence) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_4khz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_4khz" data-band="band_4khz" oninput="Admin.onEqSliderInput('band_4khz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">4kHz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">4kHz</span>
+                                    <span class="eq-band-role">Bite</span>
+                                </div>
                             </div>
 
-                            <!-- Band 9: 8kHz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_8khz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_8khz" data-band="band_8khz" oninput="Admin.onEqSliderInput('band_8khz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 9: 8kHz (Brilliance) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_8khz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_8khz" data-band="band_8khz" oninput="Admin.onEqSliderInput('band_8khz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">8kHz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">8kHz</span>
+                                    <span class="eq-band-role">Air</span>
+                                </div>
                             </div>
 
-                            <!-- Band 10: 16kHz -->
-                            <div class="flex flex-col items-center justify-between h-44 bg-slate-900/40 rounded-xl p-1.5 border border-white/5">
-                                <span id="eq-val-band_16khz" class="text-[10px] font-mono font-bold text-sky-400">0.0</span>
-                                <div class="h-28 flex items-center justify-center">
-                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_16khz" data-band="band_16khz" oninput="Admin.onEqSliderInput('band_16khz', this.value)" class="eq-vertical-slider" />
+                            <!-- Band 10: 16kHz (Shine) -->
+                            <div class="eq-channel-strip">
+                                <span id="eq-val-band_16khz" class="eq-val-badge eq-val-flat">0.0</span>
+                                <div class="eq-fader-slot">
+                                    <div class="eq-slot-groove"></div>
+                                    <div class="eq-zero-line"></div>
+                                    <input type="range" min="-12" max="12" step="0.5" value="0" id="eq-slider-band_16khz" data-band="band_16khz" oninput="Admin.onEqSliderInput('band_16khz', this.value)" class="eq-slider-input" />
                                 </div>
-                                <span class="text-[9px] font-bold text-slate-400 tracking-tighter">16kHz</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="eq-freq-badge">16kHz</span>
+                                    <span class="eq-band-role">Shine</span>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Preamp & Apply Footer -->
-                        <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/10 mt-2">
+                        <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/10 mt-3">
                             <div class="flex items-center gap-3">
-                                <span class="text-xs font-semibold text-slate-300">Master Preamp:</span>
-                                <input type="range" min="-6" max="6" step="0.5" value="0" id="eq-slider-preamp" oninput="Admin.onEqPreampInput(this.value)" class="w-28 accent-amber-400 cursor-pointer" />
-                                <span id="eq-val-preamp" class="text-xs font-mono font-bold text-amber-400">0.0 dB</span>
+                                <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                                    <i class="fas fa-gauge-high text-amber-400"></i>
+                                    Master Preamp:
+                                </span>
+                                <input type="range" min="-6" max="6" step="0.5" value="0" id="eq-slider-preamp" oninput="Admin.onEqPreampInput(this.value)" class="w-32 accent-amber-400 cursor-pointer" />
+                                <span id="eq-val-preamp" class="text-xs font-mono font-black text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30">0.0 dB</span>
                             </div>
 
-                            <button type="button" onclick="Admin.applyEqChanges()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-xs font-bold text-white shadow-lg shadow-sky-600/30 flex items-center gap-2 transition hover:brightness-110">
-                                <i class="fas fa-check-double"></i>
+                            <button type="button" onclick="Admin.applyEqChanges()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-xs font-black text-white shadow-lg shadow-sky-500/25 flex items-center gap-2 transition hover:scale-105 active:scale-95">
+                                <i class="fas fa-check-double text-sky-200"></i>
                                 <span>Áp Dụng Cấu Hình EQ</span>
                             </button>
                         </div>
@@ -1976,48 +2231,61 @@
 
                 <!-- Right Column (lg:col-span-5): Now Playing & Jukebox Queue -->
                 <div class="lg:col-span-5 flex flex-col space-y-4">
-                    <!-- Now Playing Card -->
-                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/30 relative overflow-hidden">
-                        <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none"></div>
+                    <!-- Now Playing Card with Spinning Vinyl & Dancing Bars -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/30 relative overflow-hidden shadow-xl shadow-black/40">
+                        <div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-sky-500/15 blur-2xl pointer-events-none"></div>
 
-                        <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+                        <div class="flex items-center justify-between pb-2.5 border-b border-white/10 mb-3">
                             <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
                                 <span class="text-xs font-black uppercase tracking-wider text-emerald-400">Đang Phát Hiện Tại</span>
                             </div>
-                            <span id="now-playing-genre" class="px-2 py-0.5 rounded-full text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">Lofi Chill</span>
+                            <span id="now-playing-genre" class="px-2.5 py-0.5 rounded-full text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold tracking-wide">Lossless 320k</span>
                         </div>
 
-                        <div class="flex items-center gap-3 mb-3">
-                            <div class="w-14 h-14 rounded-xl bg-slate-900 border border-white/15 flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group">
-                                <i class="fas fa-music text-xl text-sky-400 animate-bounce"></i>
+                        <div class="flex items-center gap-3.5 mb-3.5">
+                            <!-- Spinning Vinyl Record -->
+                            <div class="vinyl-record shrink-0">
+                                <div class="vinyl-center flex items-center justify-center">
+                                    <i class="fas fa-play text-[8px] text-white"></i>
+                                </div>
                             </div>
 
                             <div class="flex-1 min-w-0">
-                                <h4 id="now-playing-title" class="text-sm font-extrabold text-white truncate">Chưa có bài hát nào đang phát</h4>
-                                <p id="now-playing-artist" class="text-xs text-slate-400 truncate">Hệ thống sẵn sàng</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span id="now-playing-table" class="text-[10px] font-semibold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md border border-amber-500/20">Hệ Thống</span>
-                                    <span id="now-playing-votes" class="text-[10px] text-slate-400"><i class="fas fa-thumbs-up text-sky-400 mr-0.5"></i> 1 vote</span>
+                                <div class="flex items-center justify-between gap-2">
+                                    <h4 id="now-playing-title" class="text-sm font-black text-white truncate">Hương Vị Cà Phê Ban Mai</h4>
+                                    <!-- Dancing Audio Visualizer Bars -->
+                                    <div class="flex items-end gap-1 h-5 shrink-0 px-1.5 py-0.5 rounded bg-slate-950/60 border border-white/5">
+                                        <span class="w-1 bg-sky-400 rounded-full sound-bar-1"></span>
+                                        <span class="w-1 bg-cyan-400 rounded-full sound-bar-2"></span>
+                                        <span class="w-1 bg-emerald-400 rounded-full sound-bar-3"></span>
+                                        <span class="w-1 bg-amber-400 rounded-full sound-bar-4"></span>
+                                        <span class="w-1 bg-fuchsia-400 rounded-full sound-bar-5"></span>
+                                    </div>
+                                </div>
+                                <p id="now-playing-artist" class="text-xs text-slate-400 truncate mt-0.5">Acoustic Indie Team</p>
+                                <div class="flex items-center gap-2 mt-1.5">
+                                    <span id="now-playing-table" class="text-[10px] font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md border border-amber-500/25">Bàn 02</span>
+                                    <span id="now-playing-votes" class="text-[10px] text-slate-400 font-semibold"><i class="fas fa-thumbs-up text-sky-400 mr-0.5"></i> 1 votes</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Progress Bar -->
                         <div class="space-y-1 mb-3">
-                            <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/5">
-                                <div id="now-playing-progress" class="h-full bg-gradient-to-r from-sky-400 to-fuchsia-500 rounded-full transition-all duration-1000" style="width: 35%;"></div>
+                            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/10">
+                                <div id="now-playing-progress" class="h-full bg-gradient-to-r from-sky-400 via-indigo-500 to-fuchsia-500 rounded-full transition-all duration-1000" style="width: 38%;"></div>
                             </div>
-                            <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <div class="flex justify-between text-[10px] font-mono font-bold text-slate-400">
                                 <span id="now-playing-current-time">01:15</span>
-                                <span id="now-playing-duration">03:35</span>
+                                <span id="now-playing-duration">03:18</span>
                             </div>
                         </div>
 
                         <!-- Skip Button -->
-                        <div class="flex items-center justify-between pt-2 border-t border-white/10">
-                            <span class="text-[11px] text-slate-400">Quyền Admin Master:</span>
-                            <button type="button" onclick="Admin.skipMediaTrack()" class="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition">
+                        <div class="flex items-center justify-between pt-2.5 border-t border-white/10">
+                            <span class="text-[11px] text-slate-400">Quyền Admin Quán:</span>
+                            <button type="button" onclick="Admin.skipMediaTrack()" class="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition hover:scale-105 active:scale-95">
                                 <i class="fas fa-forward-step text-xs"></i>
                                 <span>Bỏ Qua Bài Này (Skip)</span>
                             </button>
@@ -2031,11 +2299,11 @@
                                 <i class="fas fa-list-ol text-fuchsia-400 text-xs"></i>
                                 <span class="text-xs font-black uppercase tracking-wider text-slate-200">Hàng Đợi Yêu Cầu (Jukebox Queue)</span>
                             </div>
-                            <span id="media-queue-count" class="text-[11px] font-bold text-sky-400">0 bài trong hàng đợi</span>
+                            <span id="media-queue-count" class="text-[11px] font-extrabold text-sky-400">2 bài trong hàng đợi</span>
                         </div>
 
                         <!-- Queue List Container -->
-                        <div id="media-queue-list" class="space-y-2 flex-1 overflow-y-auto max-h-56 pr-1">
+                        <div id="media-queue-list" class="space-y-2 flex-1 overflow-y-auto max-h-52 pr-1">
                             <!-- Populated dynamically via Admin.renderMediaQueue() -->
                         </div>
                     </div>
@@ -2047,9 +2315,9 @@
                                 <i class="fas fa-database text-teal-400 text-xs"></i>
                                 <span class="text-xs font-black uppercase tracking-wider text-slate-200">Kho Nhạc Offline</span>
                             </div>
-                            <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." class="liquid-input py-1 px-2.5 text-xs w-36 rounded-lg" />
+                            <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." class="liquid-input py-1 px-2.5 text-xs w-40 rounded-lg bg-slate-900 border border-white/10" />
                         </div>
-                        <div id="media-catalog-list" class="space-y-1.5 max-h-44 overflow-y-auto pr-1 text-xs">
+                        <div id="media-catalog-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-xs">
                             <!-- Populated dynamically via Admin.renderMediaCatalog() -->
                         </div>
                     </div>
