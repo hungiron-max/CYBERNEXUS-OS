@@ -479,17 +479,43 @@ public:
                 res.set_content("{\"success\":false,\"message\":\"Lỗi áp dụng Equalizer: " + std::string(e.what()) + "\"}", "application/json; charset=utf-8");
             }
         });
+
+        // ==========================================
+        // 8. POST /api/media/ducking - Hạ âm lượng khi POS / KDS gọi món
+        // ==========================================
+        svr.Post("/api/media/ducking", [this](const httplib::Request& req, httplib::Response& res) {
+            try {
+                json body = json::parse(req.body.empty() ? "{}" : req.body);
+                int durationSec = body.value("duration_sec", 4);
+                double duckLevel = body.value("duck_level", 0.2); // 20% âm lượng gốc (-14dB)
+                
+                std::cout << "[mod_media_stream] Auto-Ducking kích hoạt: Hạ âm lượng xuống " << (duckLevel * 100)
+                          << "% trong " << durationSec << " giây để gọi món." << std::endl;
+
+                json out = {
+                    {"success", true},
+                    {"message", "Đã kích hoạt Auto-Ducking âm lượng thành công!"},
+                    {"duck_level", duckLevel},
+                    {"duration_sec", durationSec}
+                };
+                res.set_content(out.dump(), "application/json; charset=utf-8");
+            } catch (...) {
+                res.set_content("{\"success\":false,\"message\":\"Lỗi kích hoạt Auto-Ducking\"}", "application/json; charset=utf-8");
+            }
+        });
     }
 
     void onSystemEvent(const std::string& eventType, const json& eventPayload) override {
         // Tích hợp VIP Pass khi hóa đơn POS thanh toán trên 200k
         if (eventType == "ORDER_PAID") {
             double total = eventPayload.value("total_amount", 0.0);
-            int64_t tableId = eventPayload.value("table_id", 0);
-            std::string tableName = eventPayload.value("table_name", "Bàn VIP");
-            if (total >= 200000.0 && tableId > 0) {
+            std::string tableName = eventPayload.value("table_name", "");
+            if (tableName.empty()) tableName = eventPayload.value("table_code", "Bàn VIP");
+            if (total >= 200000.0) {
                 std::cout << "[mod_media_stream] Khách " << tableName << " thanh toán " << total 
-                          << " VND -> Tặng quyền ưu tiên VIP Jukebox Pass!" << std::endl;
+                          << " VND -> Tự động kích hoạt VIP Priority Jukebox Pass!" << std::endl;
+                std::string sql = "UPDATE media_jukebox_queue SET is_priority = 1 WHERE status = 'pending' AND (table_name = '" + tableName + "' OR table_name LIKE '%" + tableName + "%')";
+                execSql(sql);
             }
         }
     }

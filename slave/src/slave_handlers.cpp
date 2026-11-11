@@ -5,6 +5,7 @@
 #include "license.hpp"
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
+#include "PluginManager.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -1837,6 +1838,19 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     {":cat", nowStr}
                 });
                 db.commit();
+
+                // [Cross-Module Orchestration]: Phát sự kiện toàn cục ORDER_PAID cho các Module Plugin (Media Stream & Network QoS)
+                try {
+                    json orderPaidEvt = {
+                        {"order_id", orderId},
+                        {"order_code", getString(completedOrder, "order_code", "")},
+                        {"table_code", getString(completedOrder, "table_code", "")},
+                        {"table_name", getString(completedOrder, "table_code", "")},
+                        {"total_amount", totalAmount},
+                        {"payment_method", paymentMethod}
+                    };
+                    CyberNexus::PluginManager::instance().dispatchEvent("ORDER_PAID", orderPaidEvt);
+                } catch (...) {}
 
                 json store = getStoreInfo(db);
                 json vietQrUrl = nullptr;
