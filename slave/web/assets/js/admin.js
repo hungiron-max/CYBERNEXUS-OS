@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin Back-Office Engine
  * Dashboard, Products CRUD, Categories CRUD, Tables & Revenue Reports
  */
@@ -1199,7 +1199,7 @@ const Admin = {
             const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
 
             html += `
-                <div class="liquid-glass-card p-3.5 rounded-2xl border ${isOccupied ? 'border-rose-500/40 bg-rose-950/10' : 'border-white/10 hover:border-sky-500/40'} flex flex-col justify-between transition-all duration-200 group relative">
+                <div class="liquid-glass-card p-3.5 rounded-2xl border ${isOccupied ? 'border-rose-500/40 bg-rose-950/10' : 'border-white/10 hover:border-sky-500/40'} flex flex-col justify-between transition-all duration-200 group relative" style="width:220px;height:300px;box-sizing:border-box;overflow:hidden;">
                     <!-- Top Bar: Code + Area + Status Pill -->
                     <div>
                         <div class="flex items-center justify-between gap-1.5 mb-2.5">
