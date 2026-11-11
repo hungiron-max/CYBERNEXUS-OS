@@ -1104,6 +1104,93 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::ofstream certFile((releaseDir / "license_certificate.txt").string());
                 if (certFile) certFile << cert.str();
 
+                // 2.1 Tạo file THONG_TIN_DANG_NHAP_BAN_DAU.txt
+                std::stringstream cred;
+                cred << "================================================================================\n"
+                     << "  CYBERNEXUS OS — PHIẾU BÀN GIAO TÀI KHOẢN VÀ MẬT KHẨU KHỞI TẠO ĐIỂM BÁN\n"
+                     << "================================================================================\n"
+                     << "Cửa Hàng:           " << storeName << "\n"
+                     << "Mã Cửa Hàng:        " << realTcode << "\n"
+                     << "Gói Bản Quyền:      " << planName << "\n"
+                     << "Mã Giấy Phép (Key): " << licenseKey << "\n"
+                     << "Hạn Sử Dụng:        " << expireDate << "\n"
+                     << "Quy Chuẩn Bàn Giao: SOP-CBNX-09 Enterprise Edition\n\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "1. DANH SÁCH TÀI KHOẢN & MÃ PIN KHỞI TẠO MẶC ĐỊNH\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "[1] TÀI KHOẢN QUẢN TRỊ VIÊN (CHỦ QUÁN / ADMIN)\n"
+                     << "    - Tên đăng nhập (Username): admin\n"
+                     << "    - Mật khẩu mặc định:        Admin@2026\n"
+                     << "    - Mã PIN đăng nhập nhanh:   9999\n"
+                     << "    - Phạm vi quyền hạn:        Toàn quyền quản trị quán, menu, doanh thu, cài đặt.\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/admin\n\n"
+                     << "[2] TÀI KHOẢN BẾP & PHA CHẾ (CHEF / KITCHEN)\n"
+                     << "    - Tên đăng nhập (Username): bep01\n"
+                     << "    - Mật khẩu mặc định:        Bep@2026\n"
+                     << "    - Mã PIN đăng nhập nhanh:   1111\n"
+                     << "    - Phạm vi quyền hạn:        Màn hình KDS, cập nhật trạng thái làm món.\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/kitchen\n\n"
+                     << "[3] TÀI KHOẢN THU NGÂN (CASHIER / POS)\n"
+                     << "    - Tên đăng nhập (Username): thungan01\n"
+                     << "    - Mật khẩu mặc định:        ThuNgan@2026\n"
+                     << "    - Mã PIN đăng nhập nhanh:   2222\n"
+                     << "    - Phạm vi quyền hạn:        Mở ca, bán hàng, in bill hóa đơn, thanh toán.\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/pos\n\n"
+                     << "[4] TÀI KHOẢN NHÂN VIÊN PHỤC VỤ (WAITER)\n"
+                     << "    - Tên đăng nhập (Username): phucvu01\n"
+                     << "    - Mật khẩu mặc định:        PhucVu@2026\n"
+                     << "    - Mã PIN đăng nhập nhanh:   3333\n"
+                     << "    - Phạm vi quyền hạn:        Mở bàn, chọn món cho khách, chuyển bàn, gửi bếp.\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/pos hoặc trên điện thoại\n\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "2. CẢNH BÁO AN NINH & YÊU CẦU ĐỔI MẬT KHẨU LẦN ĐẦU (BẮT BUỘC)\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "⚠️  QUAN TRỌNG:\n"
+                     << "    - Vì lý do an toàn tuyệt đối cho doanh thu và bảo mật số liệu quán,\n"
+                     << "      Chủ quán và Nhân viên BẮT BUỘC PHẢI ĐỔI MẬT KHẨU VÀ MÃ PIN NGAY TRONG LẦN ĐĂNG NHẬP ĐẦU TIÊN!\n"
+                     << "    - Không chia sẻ mật khẩu quản trị cho nhân viên thời vụ.\n\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "3. DỮ LIỆU MẪU ĐÃ CÀI ĐẶT SẴN TRONG HỆ THỐNG\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "    1. Cà phê sữa đá Sài Gòn      - Mã: CF001 - Đơn giá: 29.000 VNĐ  (Nhóm: Cà Phê)\n"
+                     << "    2. Bò bít tết sốt tiêu đen    - Mã: BT001 - Đơn giá: 89.000 VNĐ  (Nhóm: Món Chính)\n"
+                     << "    3. Trà đào cam sả thanh nhiệt - Mã: TR001 - Đơn giá: 35.000 VNĐ  (Nhóm: Trà Trái Cây)\n\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "4. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG TRÊN MÁY TRẠM\n"
+                     << "--------------------------------------------------------------------------------\n"
+                     << "Bước 1: Giải nén toàn bộ file ZIP vào thư mục làm việc (ví dụ: C:\\CyberNexus_POS).\n"
+                     << "Bước 2: Chạy file 'Mo_Tuong_Lua_LAN.bat' với quyền Administrator để mở port nội bộ.\n"
+                     << "Bước 3: Nhấp đúp vào file 'RUN_SLAVE.bat' để khởi động hệ thống.\n"
+                     << "Bước 4: Mở trình duyệt web truy cập http://localhost:8501/pos để bắt đầu bán hàng!\n\n"
+                     << "Hotline Hỗ Trợ Kỹ Thuật 24/7: 1900 6868 - contact@cybernexus.vn\n"
+                     << "================================================================================\n";
+
+                fs::path handoverDir = baseDir / "packages" / realTcode / "handover";
+                try { fs::create_directories(handoverDir); } catch (...) {}
+                std::ofstream credRelFile((releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt").string());
+                if (credRelFile) credRelFile << cred.str();
+                std::ofstream credHndFile((handoverDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt").string());
+                if (credHndFile) credHndFile << cred.str();
+
+                int64_t credSize = fs::exists(releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt") ? fs::file_size(releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt") : 4096;
+                auto existingCred = db.queryRow(
+                    "SELECT id FROM saas_tenant_documents WHERE tenant_code = :tc AND file_name = 'THONG_TIN_DANG_NHAP_BAN_DAU.txt' LIMIT 1",
+                    {{":tc", realTcode}}
+                );
+                if (existingCred.is_null()) {
+                    db.execute(R"(
+                        INSERT INTO saas_tenant_documents 
+                        (tenant_id, tenant_code, category, file_name, file_path, file_size, file_ext, title, notes, status, uploaded_by)
+                        VALUES (:tid, :tc, 'handover', 'THONG_TIN_DANG_NHAP_BAN_DAU.txt', :fp, :fs, 'txt', :ti, :no, 'valid', 'SuperAdmin')
+                    )", {
+                        {":tid", realTid}, {":tc", realTcode},
+                        {":fp", "packages/" + realTcode + "/handover/THONG_TIN_DANG_NHAP_BAN_DAU.txt"},
+                        {":fs", credSize},
+                        {":ti", "Thông Tin Tài Khoản & Mật Khẩu Khởi Tạo (Bắt Buộc Đổi)"},
+                        {":no", "Cấp 4 tài khoản (Admin, Bếp, Thu Ngân, Phục Vụ) kèm mã PIN và 3 món ăn mẫu."}
+                    });
+                }
+
                 // 3. Đóng gói đầy đủ các thành phần thành file ZIP chuẩn Windows & Linux
                 std::string zipFileName = "CyberNexus_POS_Release_" + realTcode + ".zip";
                 fs::path zipPath = releaseDir / zipFileName;
@@ -1114,12 +1201,45 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     if (fs::exists(stagingDir)) fs::remove_all(stagingDir);
                     fs::create_directories(stagingDir);
 
-                    // Copy config và certificate
+                    // Copy config, certificate, credentials
                     fs::copy_file(releaseDir / "config.json", stagingDir / "config.json", fs::copy_options::overwrite_existing);
                     fs::copy_file(releaseDir / "license_certificate.txt", stagingDir / "license_certificate.txt", fs::copy_options::overwrite_existing);
+                    if (fs::exists(releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt")) {
+                        fs::copy_file(releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt", stagingDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt", fs::copy_options::overwrite_existing);
+                    }
 
                     fs::path projectRoot = baseDir.parent_path();
                     fs::path slaveDir = projectRoot / "slave";
+
+                    // Khởi tạo Database sạch riêng cho quán (4 users + 3 món ăn mẫu + clean orders)
+                    fs::path stageDbDir = stagingDir / "database";
+                    fs::create_directories(stageDbDir);
+                    fs::path stageDbPath = stageDbDir / "store_local.db";
+                    fs::path tmplDbPath = slaveDir / "database" / "store_local.db";
+                    if (fs::exists(tmplDbPath)) {
+                        fs::copy_file(tmplDbPath, stageDbPath, fs::copy_options::overwrite_existing);
+                        sqlite3* sdb = nullptr;
+                        if (sqlite3_open(stageDbPath.string().c_str(), &sdb) == SQLITE_OK) {
+                            sqlite3_exec(sdb, "DELETE FROM orders; DELETE FROM order_items; DELETE FROM attendances; DELETE FROM kitchen_service_logs; DELETE FROM material_transactions; DELETE FROM app_notifications; DELETE FROM media_jukebox_queue;", nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "DELETE FROM users;", nullptr, nullptr, nullptr);
+                            std::string sqlUsers = "INSERT INTO users (id, username, password, fullname, role, pin_code, status, created_at) VALUES "
+                                "(1, 'admin', 'Admin@2026', 'Quản Trị Viên (" + storeName + ")', 'admin', '9999', 'active', datetime('now')),"
+                                "(2, 'bep01', 'Bep@2026', 'Bếp Trưởng / Pha Chế', 'kitchen', '1111', 'active', datetime('now')),"
+                                "(3, 'thungan01', 'ThuNgan@2026', 'Thu Ngân Điểm Bán', 'cashier', '2222', 'active', datetime('now')),"
+                                "(4, 'phucvu01', 'PhucVu@2026', 'Nhân Viên Phục Vụ 01', 'waiter', '3333', 'active', datetime('now'));";
+                            sqlite3_exec(sdb, sqlUsers.c_str(), nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "DELETE FROM products;", nullptr, nullptr, nullptr);
+                            std::string sqlProducts = "INSERT INTO products (id, category_id, code, name, unit, cost_price, sale_price, status, description, created_at) VALUES "
+                                "(1, 4, 'CF001', 'Cà phê sữa đá Sài Gòn', 'ly', 8000, 29000, 'active', 'Cà phê hạt Robusta Buôn Ma Thuột pha phin đậm đà, sữa đặc thơm ngọt', datetime('now')),"
+                                "(2, 3, 'BT001', 'Bò bít tết sốt tiêu đen', 'phần', 45000, 89000, 'active', 'Thịt thăn bò mềm mọng nước, sốt tiêu đen hảo hạng kèm khoai tây chiên và bánh mì', datetime('now')),"
+                                "(3, 14, 'TR001', 'Trà đào cam sả thanh nhiệt', 'ly', 12000, 35000, 'active', 'Trà đào thanh mát quyện cùng hương vị cam tươi và tinh dầu sả tự nhiên', datetime('now'));";
+                            sqlite3_exec(sdb, sqlProducts.c_str(), nullptr, nullptr, nullptr);
+                            std::string sqlSettings = "UPDATE store_settings SET value = '" + storeName + "' WHERE key = 'store_name';"
+                                "UPDATE store_settings SET value = '" + realTcode + "' WHERE key = 'tenant_code';";
+                            sqlite3_exec(sdb, sqlSettings.c_str(), nullptr, nullptr, nullptr);
+                            sqlite3_close(sdb);
+                        }
+                    }
 
                     // Copy binary thực thi và script khởi động
                     if (fs::exists(slaveDir / "cybernexus_slave.exe")) {
@@ -1210,8 +1330,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     )", {{":fs", zipSize}, {":id", exId}});
                 }
 
-                recordAuditLog(db, 0, "Kỹ Thuật", "technical", "GENERATE_RELEASE_ZIP", realTcode,
-                    "Đóng gói 1-Click phát hành bộ cài đặt " + zipFileName + " cho quán " + storeName,
+                recordAuditLog(db, 0, "Kỹ Thuật", "technical", "PACKAGE_BUILD", realTcode,
+                    "Đóng gói 1-Click phát hành bộ cài đặt " + zipFileName + " kèm 3 món ăn mẫu, 4 tài khoản và phiếu bàn giao mật khẩu cho quán " + storeName,
                     "{}", req.remote_addr);
 
                 sendJson(res, {
