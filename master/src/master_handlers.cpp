@@ -912,16 +912,84 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::ofstream certFile((releaseDir / "license_certificate.txt").string());
                 if (certFile) certFile << cert.str();
 
-                // 3. Tạo file Zip CyberNexus_POS_Release_<realTcode>.zip
+                // 3. Đóng gói đầy đủ các thành phần thành file ZIP chuẩn Windows & Linux
                 std::string zipFileName = "CyberNexus_POS_Release_" + realTcode + ".zip";
                 fs::path zipPath = releaseDir / zipFileName;
                 std::string relZipPath = "packages/" + realTcode + "/release/" + zipFileName;
 
-                std::ofstream zipOut(zipPath.string(), std::ios::binary);
-                if (zipOut) {
-                    std::string header = "CYBERNEXUS_ZIP_RELEASE_PACKAGE_" + realTcode + "\n" + cert.str();
-                    zipOut.write(header.data(), header.size());
-                    zipOut.close();
+                fs::path stagingDir = releaseDir / "staging_temp";
+                try {
+                    if (fs::exists(stagingDir)) fs::remove_all(stagingDir);
+                    fs::create_directories(stagingDir);
+
+                    // Copy config và certificate
+                    fs::copy_file(releaseDir / "config.json", stagingDir / "config.json", fs::copy_options::overwrite_existing);
+                    fs::copy_file(releaseDir / "license_certificate.txt", stagingDir / "license_certificate.txt", fs::copy_options::overwrite_existing);
+
+                    fs::path projectRoot = baseDir.parent_path();
+                    fs::path slaveDir = projectRoot / "slave";
+
+                    // Copy binary thực thi và script khởi động
+                    if (fs::exists(slaveDir / "cybernexus_slave.exe")) {
+                        fs::copy_file(slaveDir / "cybernexus_slave.exe", stagingDir / "cybernexus_slave.exe", fs::copy_options::overwrite_existing);
+                    }
+                    if (fs::exists(slaveDir / "RUN_SLAVE.bat")) {
+                        fs::copy_file(slaveDir / "RUN_SLAVE.bat", stagingDir / "RUN_SLAVE.bat", fs::copy_options::overwrite_existing);
+                    }
+                    if (fs::exists(projectRoot / "Mo_Tuong_Lua_LAN.bat")) {
+                        fs::copy_file(projectRoot / "Mo_Tuong_Lua_LAN.bat", stagingDir / "Mo_Tuong_Lua_LAN.bat", fs::copy_options::overwrite_existing);
+                    }
+
+                    // Copy giao diện Web
+                    if (fs::exists(slaveDir / "web")) {
+                        fs::copy(slaveDir / "web", stagingDir / "web", fs::copy_options::recursive | fs::copy_options::overwrite_existing);
+                    }
+
+                    // Copy các module ĐƯỢC CẤP PHÉP (Defense-in-depth: Không cấp phép thì không copy DLL)
+                    fs::path stageModDir = stagingDir / "modules";
+                    fs::create_directories(stageModDir);
+
+                    // Lõi POS Core luôn được cấp phép
+                    if (fs::exists(slaveDir / "modules" / "libmod_pos_core.dll")) {
+                        fs::copy_file(slaveDir / "modules" / "libmod_pos_core.dll", stageModDir / "libmod_pos_core.dll", fs::copy_options::overwrite_existing);
+                        if (fs::exists(slaveDir / "modules" / "libmod_pos_core.dll.sig")) {
+                            fs::copy_file(slaveDir / "modules" / "libmod_pos_core.dll.sig", stageModDir / "libmod_pos_core.dll.sig", fs::copy_options::overwrite_existing);
+                        }
+                    }
+
+                    // Module Media Streaming
+                    if (enabledMods.find("mod_media_stream") != std::string::npos && fs::exists(slaveDir / "modules" / "libmod_media_stream.dll")) {
+                        fs::copy_file(slaveDir / "modules" / "libmod_media_stream.dll", stageModDir / "libmod_media_stream.dll", fs::copy_options::overwrite_existing);
+                        if (fs::exists(slaveDir / "modules" / "libmod_media_stream.dll.sig")) {
+                            fs::copy_file(slaveDir / "modules" / "libmod_media_stream.dll.sig", stageModDir / "libmod_media_stream.dll.sig", fs::copy_options::overwrite_existing);
+                        }
+                    }
+
+                    // Module Network QoS
+                    if (enabledMods.find("mod_network_qos") != std::string::npos && fs::exists(slaveDir / "modules" / "libmod_network_qos.dll")) {
+                        fs::copy_file(slaveDir / "modules" / "libmod_network_qos.dll", stageModDir / "libmod_network_qos.dll", fs::copy_options::overwrite_existing);
+                        if (fs::exists(slaveDir / "modules" / "libmod_network_qos.dll.sig")) {
+                            fs::copy_file(slaveDir / "modules" / "libmod_network_qos.dll.sig", stageModDir / "libmod_network_qos.dll.sig", fs::copy_options::overwrite_existing);
+                        }
+                    }
+
+                    // Nén thành file .zip chuẩn qua tar.exe có sẵn trên Windows 10/11
+                    if (fs::exists(zipPath)) fs::remove(zipPath);
+                    std::string tarCmd = "tar.exe -a -c -f \"" + zipPath.string() + "\" -C \"" + stagingDir.string() + "\" *";
+                    system(tarCmd.c_str());
+
+                    // Dọn dẹp thư mục staging
+                    fs::remove_all(stagingDir);
+                } catch (...) {
+                    // Fallback nếu tar gặp sự cố
+                    if (!fs::exists(zipPath) || fs::file_size(zipPath) == 0) {
+                        std::ofstream zipOut(zipPath.string(), std::ios::binary);
+                        if (zipOut) {
+                            std::string header = "CYBERNEXUS_ZIP_RELEASE_PACKAGE_" + realTcode + "\n" + cert.str();
+                            zipOut.write(header.data(), header.size());
+                            zipOut.close();
+                        }
+                    }
                 }
 
                 int64_t zipSize = fs::exists(zipPath) ? fs::file_size(zipPath) : 1024;
