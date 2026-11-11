@@ -1191,11 +1191,11 @@ const Admin = {
         const dir = path.substring(0, path.lastIndexOf('/'));
         const baseUrl = origin + (dir ? dir + '/' : '/');
 
-        // Nhóm: Tại Quán trước, Mang Về sau — mỗi nhóm xuống hàng riêng có tiêu đề
+        // Nhóm: Mang Về nằm trên, Tại Quán nằm dưới — mỗi nhóm xuống hàng riêng có tiêu đề
         const groupOf = t => (t.area_type === 'MANG_VE' ? 'MANG_VE' : 'TAI_QUAN');
         filtered = [
-            ...filtered.filter(t => groupOf(t) === 'TAI_QUAN'),
-            ...filtered.filter(t => groupOf(t) === 'MANG_VE')
+            ...filtered.filter(t => groupOf(t) === 'MANG_VE'),
+            ...filtered.filter(t => groupOf(t) === 'TAI_QUAN')
         ];
         const groupMeta = {
             TAI_QUAN: { label: 'Bàn Tại Quán', icon: 'fa-chair', color: '#38bdf8', border: 'rgba(56,189,248,.35)' },
