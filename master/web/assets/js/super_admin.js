@@ -52,6 +52,10 @@ const SuperAdmin = {
             this.loadPlans();
         } else if (tabId === 'billing') {
             this.loadBilling();
+        } else if (tabId === 'staff') {
+            this.loadStaffUsers();
+        } else if (tabId === 'audit') {
+            this.loadAuditLogs();
         } else if (tabId === 'settings') {
             this.loadSaasSettings();
         }
@@ -314,6 +318,9 @@ const SuperAdmin = {
                             </button>
                             <button type="button" onclick="SuperAdmin.openLicense(${t.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30 font-bold flex items-center gap-1" title="Quản lý License & Khóa Máy">
                                 <i class="fas fa-key text-amber-400"></i> <span>License</span>
+                            </button>
+                            <button type="button" onclick="SuperAdmin.resetHardwareLock(${t.id}, '${t.tenant_code}')" class="btn-glass text-[11px] py-1 px-2 bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 border border-sky-500/30 font-bold flex items-center gap-1" title="Mở khóa máy trạm (khi quán thay máy mới)">
+                                <i class="fas fa-microchip text-sky-400"></i> <span>Reset Máy</span>
                             </button>
                             <button type="button" onclick="SuperAdmin.openQuickExtend(${t.id}, '${t.store_name}', '${t.plan_name}', '${t.expire_date}')" class="btn-glass text-[11px] py-1 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1" title="Gia hạn gói">
                                 <i class="fas fa-calendar-plus"></i> <span>Gia Hạn</span>
@@ -1533,6 +1540,369 @@ const SuperAdmin = {
             console.error('deleteTenantDocument error:', err);
             alert('Lỗi kết nối máy chủ');
         }
+    },
+
+    // ========================================================
+    // RBAC: PHÂN QUYỀN BỘ PHẬN & NHÂN SỰ
+    // ========================================================
+    currentRoleView: 'super_admin',
+    staffUsersList: [],
+    rawAuditLogsList: [],
+
+    switchRoleView(role) {
+        this.currentRoleView = role;
+        const selector = document.getElementById('saas-role-selector');
+        if (selector) selector.value = role;
+
+        const roleNames = {
+            'super_admin': 'Ban Giám Đốc (SuperAdmin - Toàn Quyền)',
+            'technical': 'Phòng Kỹ Thuật & Triển Khai (Tech Lead)',
+            'finance': 'Phòng Kế Toán - Tài Chính (Finance)',
+            'sales': 'Phòng Kinh Doanh & CSKH (Sales)',
+            'auditor': 'Ban Kiểm Toán & Tuân Thủ (Audit Read-only)'
+        };
+        console.log(`[RBAC] Chuyển đổi góc nhìn phân quyền sang: ${roleNames[role] || role}`);
+        this.applyRoleViewEnforcement(role);
+    },
+
+    applyRoleViewEnforcement(role) {
+        const billingNav = document.getElementById('nav-tab-billing');
+        const plansNav = document.getElementById('nav-tab-plans');
+        const settingsNav = document.getElementById('nav-tab-settings');
+
+        if (billingNav) billingNav.style.display = '';
+        if (plansNav) plansNav.style.display = '';
+        if (settingsNav) settingsNav.style.display = '';
+
+        if (role === 'technical') {
+            if (billingNav) billingNav.style.display = 'none';
+        } else if (role === 'finance') {
+            if (settingsNav) settingsNav.style.display = 'none';
+        } else if (role === 'auditor') {
+            document.querySelectorAll('button[type="submit"]:not(#btn-login-submit)').forEach(b => {
+                b.disabled = true;
+            });
+        } else {
+            document.querySelectorAll('button[type="submit"]').forEach(b => {
+                b.disabled = false;
+            });
+        }
+    },
+
+    async resetHardwareLock(tenantId, tenantCode) {
+        if (!confirm(`Bạn có chắc chắn muốn MỞ KHÓA MÁY TRẠM cho cửa hàng [${tenantCode}]?\n\nHành động này sẽ giải phóng Hardware GUID cũ, cho phép chủ quán hoặc kỹ thuật viên kích hoạt máy POS mới.`)) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=reset_hardware_lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_id: tenantId, tenant_code: tenantCode })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? 'Đã mở khóa phần cứng thành công!' : 'Lỗi mở khóa'));
+            if (data.success) {
+                this.loadTenants();
+            }
+        } catch (e) {
+            console.error('resetHardwareLock error:', e);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    // --- 7. QUẢN LÝ NHÂN SỰ BỘ PHẬN (STAFF RBAC) ---
+    async loadStaffUsers() {
+        const tbody = document.getElementById('staff-table-tbody');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu nhân viên...</td></tr>`;
+        }
+
+        try {
+            const res = await fetch('api/super_admin.php?action=get_staff_users');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                this.staffUsersList = data.data;
+                this.renderStaffTable(this.staffUsersList);
+            }
+        } catch (e) {
+            console.error('loadStaffUsers error:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-rose-400">Lỗi khi tải danh sách nhân viên</td></tr>`;
+        }
+    },
+
+    renderStaffTable(list) {
+        const tbody = document.getElementById('staff-table-tbody');
+        const countEl = document.getElementById('staff-total-count');
+        if (!tbody) return;
+
+        if (countEl) countEl.innerText = list.length;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400">Chưa có nhân viên bộ phận nào</td></tr>`;
+            return;
+        }
+
+        const roleBadges = {
+            'super_admin': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">👑 Ban Giám Đốc</span>',
+            'technical': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">🛠️ Kỹ Thuật (Tech Lead)</span>',
+            'finance': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">💼 Kế Toán (Finance)</span>',
+            'sales': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">📈 Kinh Doanh (Sales)</span>',
+            'auditor': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">🛡️ Kiểm Toán (Auditor)</span>'
+        };
+
+        tbody.innerHTML = list.map(u => {
+            const isSuper = (u.role === 'super_admin' || u.id === 1);
+            return `
+                <tr class="hover:bg-white/5 transition-all">
+                    <td class="py-3 px-4 font-bold text-white flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600/30 to-purple-600/30 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">
+                            ${(u.fullname || u.username || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div>${u.fullname || u.username}</div>
+                            <div class="text-[10px] text-slate-400">${u.department || 'Bộ Phận'}</div>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 font-mono font-bold text-indigo-300">${u.username}</td>
+                    <td class="py-3 px-4">${roleBadges[u.role] || u.role}</td>
+                    <td class="py-3 px-4 text-[11px] text-slate-400">
+                        <div><i class="fas fa-phone text-xs mr-1 text-slate-500"></i>${u.phone || 'Chưa cập nhật'}</div>
+                        <div><i class="fas fa-envelope text-xs mr-1 text-slate-500"></i>${u.email || '-'}</div>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-[11px] text-slate-400">${u.last_login_at || 'Chưa đăng nhập'}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Hoạt Động</span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="inline-flex items-center gap-1.5">
+                            <button type="button" onclick="SuperAdmin.editStaffMember(${u.id})" class="btn-glass text-[11px] py-1 px-2.5 text-slate-300 hover:text-white" title="Sửa thông tin & phân quyền">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            ${!isSuper ? `
+                            <button type="button" onclick="SuperAdmin.deleteStaffMember(${u.id}, '${u.username}')" class="btn-glass text-[11px] py-1 px-2.5 text-rose-400 hover:text-rose-200" title="Xóa nhân viên">
+                                <i class="fas fa-trash"></i>
+                            </button>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    openStaffModal() {
+        document.getElementById('staff-input-id').value = '0';
+        document.getElementById('staff-input-username').value = '';
+        document.getElementById('staff-input-username').disabled = false;
+        document.getElementById('staff-input-password').value = '';
+        document.getElementById('staff-input-fullname').value = '';
+        document.getElementById('staff-input-role').value = 'technical';
+        document.getElementById('staff-input-dept').value = 'Phòng Kỹ Thuật & Triển Khai';
+        document.getElementById('staff-input-phone').value = '';
+        document.getElementById('staff-input-email').value = '';
+        document.getElementById('staff-modal-title').innerText = 'Thêm Nhân Viên Bộ Phận Mới';
+        this.openModal('modal-staff-member');
+    },
+
+    editStaffMember(id) {
+        const u = this.staffUsersList.find(x => x.id === id);
+        if (!u) return;
+
+        document.getElementById('staff-input-id').value = u.id;
+        document.getElementById('staff-input-username').value = u.username;
+        document.getElementById('staff-input-username').disabled = (u.id === 1);
+        document.getElementById('staff-input-password').value = '';
+        document.getElementById('staff-input-fullname').value = u.fullname || '';
+        document.getElementById('staff-input-role').value = u.role || 'technical';
+        document.getElementById('staff-input-dept').value = u.department || '';
+        document.getElementById('staff-input-phone').value = u.phone || '';
+        document.getElementById('staff-input-email').value = u.email || '';
+        document.getElementById('staff-modal-title').innerText = 'Chỉnh Sửa Phân Quyền: ' + u.username;
+        this.openModal('modal-staff-member');
+    },
+
+    onStaffRoleChange(role) {
+        const deptInput = document.getElementById('staff-input-dept');
+        const depts = {
+            'super_admin': 'Ban Giám Đốc',
+            'technical': 'Phòng Kỹ Thuật & Triển Khai',
+            'finance': 'Phòng Kế Toán - Tài Chính',
+            'sales': 'Phòng Kinh Doanh & CSKH',
+            'auditor': 'Ban Kiểm Toán & Tuân Thủ'
+        };
+        if (deptInput && depts[role]) {
+            deptInput.value = depts[role];
+        }
+    },
+
+    async saveStaffMember(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const id = document.getElementById('staff-input-id').value;
+        const username = document.getElementById('staff-input-username').value.trim();
+        const password = document.getElementById('staff-input-password').value;
+        const fullname = document.getElementById('staff-input-fullname').value.trim();
+        const role = document.getElementById('staff-input-role').value;
+        const department = document.getElementById('staff-input-dept').value.trim();
+        const phone = document.getElementById('staff-input-phone').value.trim();
+        const email = document.getElementById('staff-input-email').value.trim();
+
+        const perms = [];
+        document.querySelectorAll('#staff-permissions-checkboxes input:checked').forEach(cb => {
+            perms.push(cb.value);
+        });
+
+        try {
+            const res = await fetch('api/super_admin.php?action=save_staff_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: parseInt(id) || 0,
+                    username, password, fullname, role, department, phone, email,
+                    permissions: JSON.stringify(perms)
+                })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? 'Đã lưu tài khoản nhân viên!' : 'Lỗi'));
+            if (data.success) {
+                this.closeModal('modal-staff-member');
+                this.loadStaffUsers();
+            }
+        } catch (err) {
+            console.error('saveStaffMember error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    async deleteStaffMember(id, username) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản nhân viên [${username}]?`)) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=delete_staff_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? 'Đã xóa tài khoản!' : 'Lỗi'));
+            if (data.success) {
+                this.loadStaffUsers();
+            }
+        } catch (err) {
+            console.error('deleteStaffMember error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    // --- 8. NHẬT KÝ KIỂM TOÁN (AUDIT TRAIL) ---
+    async loadAuditLogs() {
+        const tbody = document.getElementById('audit-table-tbody');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu kiểm toán...</td></tr>`;
+        }
+
+        const role = document.getElementById('audit-filter-role') ? document.getElementById('audit-filter-role').value : 'all';
+        const actionType = document.getElementById('audit-filter-action') ? document.getElementById('audit-filter-action').value : 'all';
+        const tenantCode = document.getElementById('audit-filter-tenant') ? document.getElementById('audit-filter-tenant').value.trim() : '';
+
+        try {
+            let url = `api/super_admin.php?action=get_audit_logs&role=${encodeURIComponent(role)}&action_type=${encodeURIComponent(actionType)}`;
+            if (tenantCode) url += `&tenant_code=${encodeURIComponent(tenantCode)}`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                this.rawAuditLogsList = data.data;
+                this.renderAuditTable(this.rawAuditLogsList);
+            }
+        } catch (err) {
+            console.error('loadAuditLogs error:', err);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-rose-400">Lỗi khi tải nhật ký kiểm toán</td></tr>`;
+        }
+    },
+
+    filterAuditLogsLocal() {
+        const kw = document.getElementById('audit-filter-tenant').value.trim().toUpperCase();
+        if (!kw) {
+            this.renderAuditTable(this.rawAuditLogsList);
+            return;
+        }
+        const filtered = this.rawAuditLogsList.filter(l => 
+            (l.target_tenant && l.target_tenant.toUpperCase().includes(kw)) ||
+            (l.description && l.description.toUpperCase().includes(kw)) ||
+            (l.username && l.username.toUpperCase().includes(kw))
+        );
+        this.renderAuditTable(filtered);
+    },
+
+    renderAuditTable(list) {
+        const tbody = document.getElementById('audit-table-tbody');
+        if (!tbody) return;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Không có nhật ký kiểm toán nào phù hợp với bộ lọc</td></tr>`;
+            return;
+        }
+
+        const roleBadges = {
+            'super_admin': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Admin</span>',
+            'technical': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">Kỹ Thuật</span>',
+            'finance': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Kế Toán</span>',
+            'accounting': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Kế Toán</span>',
+            'sales': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Sales</span>',
+            'auditor': '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Kiểm Toán</span>'
+        };
+
+        const actionIcons = {
+            'AUTH_LOGIN': '<i class="fas fa-right-to-bracket text-emerald-400 mr-1"></i>',
+            'AUTH_FAILED': '<i class="fas fa-triangle-exclamation text-rose-400 mr-1"></i>',
+            'TOGGLE_MODULE': '<i class="fas fa-sliders text-purple-400 mr-1"></i>',
+            'GENERATE_RELEASE_ZIP': '<i class="fas fa-box-archive text-amber-400 mr-1"></i>',
+            'UPLOAD_DOCUMENT': '<i class="fas fa-file-arrow-up text-sky-400 mr-1"></i>',
+            'DELETE_DOCUMENT': '<i class="fas fa-trash text-rose-400 mr-1"></i>',
+            'RESET_HARDWARE_LOCK': '<i class="fas fa-microchip text-indigo-400 mr-1"></i>',
+            'SAVE_TENANT': '<i class="fas fa-store text-emerald-400 mr-1"></i>'
+        };
+
+        tbody.innerHTML = list.map(l => {
+            const badge = roleBadges[l.role] || `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30">${l.role}</span>`;
+            const icon = actionIcons[l.action] || '<i class="fas fa-circle-dot text-slate-400 mr-1"></i>';
+            return `
+                <tr class="hover:bg-white/5 transition-all">
+                    <td class="py-2.5 px-4 text-[11px] text-slate-400">${l.created_at || '-'}</td>
+                    <td class="py-2.5 px-4 font-bold text-white">${l.username || 'system'}</td>
+                    <td class="py-2.5 px-4">${badge}</td>
+                    <td class="py-2.5 px-4 font-bold text-amber-300">${icon}${l.action}</td>
+                    <td class="py-2.5 px-4 font-bold text-sky-300 font-mono">${l.target_tenant || 'SYSTEM'}</td>
+                    <td class="py-2.5 px-4 text-slate-200">${l.description || '-'}</td>
+                    <td class="py-2.5 px-4 text-[11px] text-slate-400 font-mono">${l.ip_address || '127.0.0.1'}</td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    exportAuditCsv() {
+        if (!this.rawAuditLogsList || this.rawAuditLogsList.length === 0) {
+            alert('Không có dữ liệu kiểm toán để xuất!');
+            return;
+        }
+
+        const headers = ["ID", "Thoi_Gian", "Nguoi_Thuc_Hien", "Vai_Tro", "Ma_Tac_Vu", "Ma_Quan", "Dien_Giai", "IP_May_Tram"];
+        const rows = this.rawAuditLogsList.map(l => [
+            l.id,
+            `"${l.created_at}"`,
+            `"${l.username}"`,
+            `"${l.role}"`,
+            `"${l.action}"`,
+            `"${l.target_tenant}"`,
+            `"${(l.description || '').replace(/"/g, '""')}"`,
+            `"${l.ip_address}"`
+        ]);
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `CyberNexus_Audit_Logs_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     },
 
     openModal(modalId) {

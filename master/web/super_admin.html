@@ -283,21 +283,31 @@
             </div>
         </div>
 
-        <!-- Center: Quick Store Jump Links -->
-        
-        <div class="hidden md:flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-white/10 text-xs">
-            <a href="index.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình POS bán hàng">
-                <i class="fas fa-cash-register text-sky-400"></i> <span>POS Bán Hàng</span>
-            </a>
-            <a href="admin.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở trang Quản trị Back-office quán">
-                <i class="fas fa-store text-emerald-400"></i> <span>Quản Trị Quán</span>
-            </a>
-            <a href="kitchen.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở màn hình Bếp KDS">
-                <i class="fas fa-utensils text-amber-400"></i> <span>Bếp KDS</span>
-            </a>
-            <a href="customer.html" target="_blank" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all" title="Mở giao diện khách tự gọi món">
-                <i class="fas fa-mobile-screen-button text-purple-400"></i> <span>QR Order</span>
-            </a>
+        <!-- Center: SaaS Central Operations & Node Health Indicator -->
+        <div class="hidden md:flex items-center gap-3 text-xs">
+            <!-- Node Telemetry Badge -->
+            <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-emerald-500/30 text-emerald-300 shadow-sm shadow-emerald-500/10">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <i class="fas fa-network-wired text-emerald-400 text-xs"></i>
+                <span class="font-bold font-mono">6 Nodes Bản Quyền Active</span>
+            </div>
+
+            <!-- Department Role View Filter / Switcher -->
+            <div class="flex items-center gap-1.5 bg-slate-900/60 p-1 rounded-xl border border-white/10">
+                <span class="text-[10px] text-slate-400 font-semibold px-2 flex items-center gap-1">
+                    <i class="fas fa-users-viewfinder text-purple-400"></i> <span class="hidden lg:inline">Phân Quyền Trực:</span>
+                </span>
+                <select id="saas-role-selector" onchange="SuperAdmin.switchRoleView(this.value)" class="bg-slate-950/90 text-xs text-purple-300 font-bold px-2.5 py-1 rounded-lg border border-purple-500/30 outline-none cursor-pointer hover:border-purple-400 transition-all">
+                    <option value="super_admin">👑 Ban Giám Đốc (SuperAdmin)</option>
+                    <option value="technical">🛠️ Kỹ Thuật & Triển Khai (Tech Lead)</option>
+                    <option value="finance">💼 Kế Toán & Thu Phí (Finance)</option>
+                    <option value="sales">📈 Kinh Doanh & CSKH (Sales)</option>
+                    <option value="auditor">🛡️ Ban Kiểm Toán (Audit Trail)</option>
+                </select>
+            </div>
         </div>
         
 
@@ -345,6 +355,16 @@
                 <button type="button" onclick="SuperAdmin.switchTab('billing')" id="nav-tab-billing" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
                     <i class="fas fa-receipt text-emerald-400 w-4 text-center"></i>
                     <span>Thu Phí & Hóa Đơn</span>
+                </button>
+
+                <button type="button" onclick="SuperAdmin.switchTab('staff')" id="nav-tab-staff" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <i class="fas fa-users-gear text-indigo-400 w-4 text-center"></i>
+                    <span>Phân Quyền Bộ Phận</span>
+                </button>
+
+                <button type="button" onclick="SuperAdmin.switchTab('audit')" id="nav-tab-audit" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <i class="fas fa-clock-rotate-left text-amber-400 w-4 text-center"></i>
+                    <span>Nhật Ký Audit Trail</span>
                 </button>
 
                 <button type="button" onclick="SuperAdmin.switchTab('settings')" id="nav-tab-settings" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
@@ -794,6 +814,186 @@
                             </form>
                         </div>
                     </section>
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 6: PHÂN QUYỀN BỘ PHẬN (RBAC MATRIX) -->
+            <!-- ============================================== -->
+            <section id="tab-content-staff" class="saas-tab-section hidden space-y-6">
+                <!-- Page Title -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-users-gear text-indigo-400"></i> Phân Quyền & Quản Lý Nhân Sự Bộ Phận (RBAC)
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Phân định rõ thẩm quyền: Ban Giám Đốc, Kỹ Thuật (Node-lock/Release), Kế Toán (Hợp đồng/Hóa đơn), Kinh Doanh và Kiểm Toán</p>
+                    </div>
+                    <button type="button" onclick="SuperAdmin.openStaffModal()" class="btn-glass text-xs py-2 px-4 bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-200 border border-indigo-500/40 flex items-center gap-2 font-bold shadow-lg shadow-indigo-600/20">
+                        <i class="fas fa-user-plus"></i> <span>Thêm Nhân Viên Bộ Phận</span>
+                    </button>
+                </div>
+
+                <!-- 4 Department Role Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Kỹ thuật -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/20 bg-slate-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-sm font-bold"><i class="fas fa-screwdriver-wrench"></i></span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30">TECHNICAL</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Kỹ Thuật & Triển Khai</h4>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">Quản lý khóa phần cứng (Node-Lock), kiểm tra Telemetry độ trễ mạng, nghiệm thu 10 hạng mục SOP-09, đóng gói 1-Click Release ZIP.</p>
+                        <div class="text-[10px] text-sky-300/80 font-semibold pt-1 border-t border-white/5">Quyền: Cấp phép module, Khóa máy, Bản cài</div>
+                    </div>
+
+                    <!-- Kế toán -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-emerald-500/20 bg-slate-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm font-bold"><i class="fas fa-file-invoice-dollar"></i></span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30">FINANCE</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Kế Toán - Tài Chính</h4>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">Quản lý hợp đồng thương mại, phát hành hóa đơn VAT điện tử, đối soát dòng tiền chuyển khoản VietQR, gia hạn chu kỳ thuê bao.</p>
+                        <div class="text-[10px] text-emerald-300/80 font-semibold pt-1 border-t border-white/5">Quyền: Hóa đơn VAT, Hợp đồng, Thu phí, Gia hạn</div>
+                    </div>
+
+                    <!-- Kinh doanh -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-amber-500/20 bg-slate-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm font-bold"><i class="fas fa-handshake"></i></span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30">SALES</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Kinh Doanh & CSKH</h4>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">Tiếp nhận mở mới Tenant quán, cập nhật thông tin chủ quán, số điện thoại, địa chỉ, theo dõi lịch gia hạn để chăm sóc khách hàng.</p>
+                        <div class="text-[10px] text-amber-300/80 font-semibold pt-1 border-t border-white/5">Quyền: Tạo Tenant mới, Quản lý quán, Soạn hợp đồng</div>
+                    </div>
+
+                    <!-- Kiểm toán -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-purple-500/20 bg-slate-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm font-bold"><i class="fas fa-clipboard-check"></i></span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 font-bold border border-purple-500/30">AUDITOR</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Kiểm Toán & Giám Sát</h4>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">Giám sát tính toàn vẹn hệ thống (Read-only), đối soát nhật ký Audit Trail thời gian thực, ngăn chặn thất thoát dữ liệu và mã nguồn.</p>
+                        <div class="text-[10px] text-purple-300/80 font-semibold pt-1 border-t border-white/5">Quyền: Read-only toàn hệ thống, Xem Audit Trail</div>
+                    </div>
+                </div>
+
+                <!-- Staff Table -->
+                <div class="liquid-glass rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+                    <div class="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/40">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-users text-indigo-400 text-sm"></i>
+                            <h3 class="text-xs font-bold text-white uppercase tracking-wider">Danh Sách Tài Khoản Nhân Sự Các Bộ Phận</h3>
+                        </div>
+                        <div class="text-xs text-slate-400">
+                            Tổng cộng: <b id="staff-total-count" class="text-indigo-300 font-mono">0</b> nhân viên
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-white/10 bg-slate-950/60 text-slate-400 text-[11px] uppercase tracking-wider">
+                                    <th class="py-3 px-4">Nhân Viên</th>
+                                    <th class="py-3 px-4">Tài Khoản</th>
+                                    <th class="py-3 px-4">Phòng Ban / Vai Trò</th>
+                                    <th class="py-3 px-4">Liên Hệ</th>
+                                    <th class="py-3 px-4">Lần Đăng Nhập Cuối</th>
+                                    <th class="py-3 px-4">Trạng Thái</th>
+                                    <th class="py-3 px-4 text-center">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-table-tbody" class="divide-y divide-white/5 text-slate-300">
+                                <tr><td colspan="7" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải danh sách nhân sự...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 7: NHẬT KÝ KIỂM TOÁN AUDIT TRAIL -->
+            <!-- ============================================== -->
+            <section id="tab-content-audit" class="saas-tab-section hidden space-y-6">
+                <!-- Page Title -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-clock-rotate-left text-amber-400"></i> Nhật Ký Kiểm Toán Tác Vụ Hệ Thống (Audit Trail)
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Hồ sơ số hóa ghi nhận toàn bộ hoạt động nhạy cảm: Cấp phép module, Đóng gói release, Sửa hạn bản quyền, Upload chứng từ kế toán</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="SuperAdmin.loadAuditLogs()" class="btn-glass text-xs py-2 px-3 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 flex items-center gap-1.5 font-bold">
+                            <i class="fas fa-rotate"></i> <span>Làm Mới</span>
+                        </button>
+                        <button type="button" onclick="SuperAdmin.exportAuditCsv()" class="btn-glass text-xs py-2 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 flex items-center gap-1.5 font-bold shadow-md shadow-amber-500/10">
+                            <i class="fas fa-file-csv"></i> <span>Xuất Báo Cáo CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters Toolbar -->
+                <div class="liquid-glass p-3.5 rounded-2xl border border-white/10 bg-slate-900/60 flex flex-wrap items-center gap-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400 font-semibold"><i class="fas fa-filter text-amber-400 mr-1"></i>Lọc Bộ Phận:</span>
+                        <select id="audit-filter-role" onchange="SuperAdmin.loadAuditLogs()" class="bg-slate-950 text-slate-200 border border-white/10 rounded-lg px-2.5 py-1 text-xs outline-none cursor-pointer">
+                            <option value="all">Tất Cả Bộ Phận</option>
+                            <option value="super_admin">Ban Giám Đốc (SuperAdmin)</option>
+                            <option value="technical">Kỹ Thuật & Triển Khai</option>
+                            <option value="finance">Kế Toán - Tài Chính</option>
+                            <option value="sales">Kinh Doanh & CSKH</option>
+                            <option value="auditor">Ban Kiểm Toán</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400 font-semibold">Loại Tác Vụ:</span>
+                        <select id="audit-filter-action" onchange="SuperAdmin.loadAuditLogs()" class="bg-slate-950 text-slate-200 border border-white/10 rounded-lg px-2.5 py-1 text-xs outline-none cursor-pointer">
+                            <option value="all">Tất Cả Tác Vụ</option>
+                            <option value="AUTH_LOGIN">Đăng Nhập (AUTH_LOGIN)</option>
+                            <option value="TOGGLE_MODULE">Cấp / Thu Hồi Module</option>
+                            <option value="GENERATE_RELEASE_ZIP">Đóng Gói Release ZIP</option>
+                            <option value="UPLOAD_DOCUMENT">Tải Lên Chứng Từ / Hợp Đồng</option>
+                            <option value="DELETE_DOCUMENT">Xóa Tài Liệu</option>
+                            <option value="RESET_HARDWARE_LOCK">Mở Khóa Phần Cứng</option>
+                            <option value="SAVE_TENANT">Tạo / Sửa Quán</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400 font-semibold">Mã Quán:</span>
+                        <input type="text" id="audit-filter-tenant" placeholder="VD: GP001" oninput="SuperAdmin.filterAuditLogsLocal()" class="bg-slate-950 text-slate-200 border border-white/10 rounded-lg px-2.5 py-1 text-xs w-28 outline-none font-mono uppercase" />
+                    </div>
+
+                    <div class="ml-auto text-[11px] text-slate-400 flex items-center gap-1.5">
+                        <i class="fas fa-shield-halved text-emerald-400"></i>
+                        <span>Audit Trail Hash Chain: <b class="text-emerald-300 font-mono">Tamper-Proof OK</b></span>
+                    </div>
+                </div>
+
+                <!-- Audit Logs Table -->
+                <div class="liquid-glass rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-white/10 bg-slate-950/60 text-slate-400 text-[11px] uppercase tracking-wider">
+                                    <th class="py-3 px-4 w-36">Thời Gian</th>
+                                    <th class="py-3 px-4 w-44">Người Thực Hiện</th>
+                                    <th class="py-3 px-4 w-32">Bộ Phận / Vai Trò</th>
+                                    <th class="py-3 px-4 w-36">Mã Tác Vụ</th>
+                                    <th class="py-3 px-4 w-24">Mã Quán</th>
+                                    <th class="py-3 px-4">Diễn Giải Hành Động</th>
+                                    <th class="py-3 px-4 w-28 font-mono">IP Máy Trạm</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table-tbody" class="divide-y divide-white/5 text-slate-300 font-mono">
+                                <tr><td colspan="7" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu nhật ký kiểm toán...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
         </main>
@@ -1283,6 +1483,107 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL: THÊM / CHỈNH SỬA PHÂN QUYỀN NHÂN VIÊN (RBAC) -->
+    <!-- ==================================================== -->
+    <div id="modal-staff-member" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[560px] max-w-full text-white shadow-2xl border border-indigo-500/30 space-y-4 my-auto max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-lg">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-white" id="staff-modal-title">Thêm Nhân Viên Bộ Phận Mới</h3>
+                        <p class="text-[11px] text-slate-400">Phân quyền vai trò và phạm vi nghiệp vụ hệ thống SaaS</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-staff-member')">&times;</button>
+            </div>
+
+            <form onsubmit="SuperAdmin.saveStaffMember(event)" class="space-y-4 overflow-y-auto custom-scrollbar pr-1">
+                <input type="hidden" id="staff-input-id" value="0" />
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Tên Đăng Nhập (*)</label>
+                        <input type="text" id="staff-input-username" required class="liquid-input w-full font-mono" placeholder="VD: kythuat_nam" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Mật Khẩu (Để trống nếu giữ nguyên)</label>
+                        <input type="password" id="staff-input-password" class="liquid-input w-full" placeholder="Mặc định: admin123" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Họ Và Tên (*)</label>
+                        <input type="text" id="staff-input-fullname" required class="liquid-input w-full" placeholder="VD: Nguyễn Hoàng Nam" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Vai Trò Hệ Thống (*)</label>
+                        <select id="staff-input-role" required onchange="SuperAdmin.onStaffRoleChange(this.value)" class="liquid-input w-full cursor-pointer">
+                            <option value="technical">🛠️ Kỹ Thuật (Technical / Release)</option>
+                            <option value="finance">💼 Kế Toán (Finance / Contracts)</option>
+                            <option value="sales">📈 Kinh Doanh & CSKH (Sales)</option>
+                            <option value="auditor">🛡️ Ban Kiểm Toán (Auditor)</option>
+                            <option value="super_admin">👑 Ban Giám Đốc (SuperAdmin)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Tên Phòng Ban</label>
+                        <input type="text" id="staff-input-dept" class="liquid-input w-full" placeholder="Phòng Kỹ Thuật & Triển Khai" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Số Điện Thoại</label>
+                        <input type="text" id="staff-input-phone" class="liquid-input w-full font-mono" placeholder="0932.xxx.xxx" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] text-slate-300 font-bold mb-1">Email Công Việc</label>
+                    <input type="email" id="staff-input-email" class="liquid-input w-full" placeholder="nhanvien@cybernexus.vn" />
+                </div>
+
+                <!-- Quyền hạn Matrix -->
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-white/10 space-y-2">
+                    <label class="block text-[11px] text-indigo-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fas fa-key text-xs"></i> Quyền Hạn Thực Thi (Permissions)
+                    </label>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]" id="staff-permissions-checkboxes">
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" value="tenants.view" checked class="rounded border-white/20 text-indigo-600 focus:ring-0"> <span>Xem danh sách Tenant</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" value="tenants.hardware_lock" class="rounded border-white/20 text-indigo-600 focus:ring-0"> <span>Quản lý Node-Lock</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" value="packages.release" class="rounded border-white/20 text-indigo-600 focus:ring-0"> <span>Đóng gói Release ZIP</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" value="billing.invoices" class="rounded border-white/20 text-indigo-600 focus:ring-0"> <span>Hóa đơn VAT & Thu phí</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" value="contracts.upload" class="rounded border-white/20 text-indigo-600 focus:ring-0"> <span>Upload Hợp đồng</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" value="audit.view" class="rounded border-white/20 text-indigo-600 focus:ring-0"> <span>Xem Audit Trail</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                    <button type="button" onclick="SuperAdmin.closeModal('modal-staff-member')" class="btn-glass px-4 py-2 text-xs text-slate-300 hover:text-white">Hủy</button>
+                    <button type="submit" class="btn-glass px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md shadow-indigo-600/30">
+                        <i class="fas fa-check"></i> <span>Lưu Tài Khoản</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
