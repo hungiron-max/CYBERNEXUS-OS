@@ -2439,6 +2439,35 @@
             CustomerOrdering.init();
             initHeroCustomerQr();
 
+            // Auto detect Table QR Order param (?table=TQ1&name=Bàn+01)
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const tableCode = params.get('table') || params.get('table_code') || params.get('t');
+                const tableName = params.get('name') || params.get('table_name') || tableCode;
+                if (tableCode) {
+                    if (window.CustomerOrdering) {
+                        window.CustomerOrdering.setOrderMode('table');
+                        const addrInput = document.getElementById('customer-order-address');
+                        if (addrInput) addrInput.value = `${tableName || tableCode} (${tableCode})`;
+                    }
+                    const header = document.querySelector('header');
+                    if (header) {
+                        const banner = document.createElement('div');
+                        banner.className = 'w-full py-1.5 px-4 bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 text-white text-xs font-bold flex items-center justify-between shadow-md z-40';
+                        banner.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]"><i class="fas fa-chair"></i></span>
+                                <span>Quý khách đang gọi món tại <strong class="underline font-mono">${tableCode} - ${tableName || 'Bàn'}</strong></span>
+                            </div>
+                            <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Phục vụ tại bàn</span>
+                        `;
+                        header.parentNode.insertBefore(banner, header.nextSibling);
+                    }
+                }
+            } catch(e) {
+                console.error('Table QR detect error:', e);
+            }
+
             // Check logged in user
             const savedUser = localStorage.getItem('pos_user');
             if (savedUser) {

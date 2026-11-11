@@ -298,6 +298,54 @@
             cursor: pointer;
             border: 2px solid #ffffff;
         }
+        /* Custom Smooth Scrollbar */
+        .media-custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .media-custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        .media-custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.45);
+            border-radius: 8px;
+        }
+        .media-custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(56, 189, 248, 0.85);
+        }
+        /* Standee Print Stylesheet */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #print-container-zone, #print-container-zone * {
+                visibility: visible !important;
+            }
+            #print-container-zone {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                padding: 10mm !important;
+                margin: 0 !important;
+                display: block !important;
+                z-index: 99999 !important;
+            }
+            .print-table-card {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                border: 2px dashed #0284c7 !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                box-shadow: none !important;
+                border-radius: 12px !important;
+                margin-bottom: 8mm !important;
+                padding: 6mm !important;
+            }
+        }
     </style>
     <script>
         // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
@@ -737,20 +785,78 @@
         </section>
 
         <!-- ========================================== -->
-        <!-- TAB 4: TABLES & AREAS (QUẢN LÝ BÀN) -->
+        <!-- ========================================== -->
+        <!-- TAB 4: TABLES & AREAS (QUẢN LÝ BÀN & QR GỌI MÓN) -->
         <!-- ========================================== -->
         <section id="tab-tables" class="admin-section hidden flex-1 flex flex-col liquid-glass rounded-2xl overflow-hidden border border-white/10 p-4">
-            <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
-                <div>
-                    <h3 class="font-bold text-base text-slate-100">Danh Sách Bàn & Khu Vực</h3>
-                    <p class="text-xs text-slate-400">Khu vực Mang Về (MV) và Bàn Tại Quán (TQ)</p>
+            <!-- Header Stats Strip -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div class="liquid-glass-card p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng Số Bàn</div>
+                        <div id="stat-table-total" class="text-xl font-black text-white font-mono mt-0.5">0</div>
+                    </div>
+                    <span class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-border-all"></i></span>
                 </div>
-                <button type="button" onclick="Admin.openAddTableModal()" class="btn-glass-primary text-xs py-2 px-3.5 font-bold flex items-center gap-1.5">
-                    <i class="fas fa-plus"></i> Thêm Bàn Mới
-                </button>
+                <div class="liquid-glass-card p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bàn Đang Trống</div>
+                        <div id="stat-table-free" class="text-xl font-black text-emerald-400 font-mono mt-0.5">0</div>
+                    </div>
+                    <span class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-check-circle"></i></span>
+                </div>
+                <div class="liquid-glass-card p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bàn Có Khách</div>
+                        <div id="stat-table-occupied" class="text-xl font-black text-rose-400 font-mono mt-0.5">0</div>
+                    </div>
+                    <span class="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-users"></i></span>
+                </div>
+                <div class="liquid-glass-card p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">QR Code Gọi Món</div>
+                        <div id="stat-table-qr-status" class="text-xl font-black text-purple-400 font-mono mt-0.5">100% Động</div>
+                    </div>
+                    <span class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-qrcode"></i></span>
+                </div>
             </div>
-            <div id="admin-tables-container" class="flex-1 space-y-5 overflow-y-auto">
-                <!-- Loaded dynamically -->
+
+            <!-- Area Filter Tabs & Control Actions Bar -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10">
+                <!-- Area Tabs -->
+                <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0" id="table-area-filters">
+                    <button type="button" onclick="Admin.filterTableArea('all')" class="table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center gap-1.5 shrink-0" data-area="all">
+                        <i class="fas fa-layer-group text-xs"></i> <span>Tất Cả (<span id="count-area-all">0</span>)</span>
+                    </button>
+                    <button type="button" onclick="Admin.filterTableArea('TAI_QUAN')" class="table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-area="TAI_QUAN">
+                        <i class="fas fa-utensils text-xs"></i> <span>Tại Quán (<span id="count-area-tai-quan">0</span>)</span>
+                    </button>
+                    <button type="button" onclick="Admin.filterTableArea('MANG_VE')" class="table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-area="MANG_VE">
+                        <i class="fas fa-person-biking text-xs"></i> <span>Mang Về (<span id="count-area-mang-ve">0</span>)</span>
+                    </button>
+                </div>
+
+                <!-- Search & Actions -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="relative">
+                        <input type="text" id="admin-table-search-input" oninput="Admin.filterTablesSearch(this.value)" placeholder="Tìm mã hoặc tên bàn..." class="liquid-input py-1.5 pl-8 pr-3 text-xs w-44 rounded-xl bg-slate-900 border border-white/10 focus:w-56 transition-all" />
+                        <i class="fas fa-search absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                    </div>
+                    <button type="button" onclick="Admin.printAllTableQr()" class="btn-glass text-xs py-1.5 px-3 font-bold text-purple-300 hover:text-white border-purple-500/40 hover:bg-purple-600/30 flex items-center gap-1.5 shadow-sm" title="In toàn bộ thẻ standee QR để bàn cho cả quán">
+                        <i class="fas fa-print"></i> <span>In Toàn Bộ Standee QR</span>
+                    </button>
+                    <button type="button" onclick="Admin.openBatchTablesModal()" class="btn-glass text-xs py-1.5 px-3 font-bold text-amber-300 hover:text-white border-amber-500/40 hover:bg-amber-600/30 flex items-center gap-1.5 shadow-sm" title="Tạo hàng loạt bàn tự động">
+                        <i class="fas fa-magic"></i> <span>Tạo Hàng Loạt</span>
+                    </button>
+                    <button type="button" onclick="Admin.openAddTableModal()" class="btn-glass-primary text-xs py-1.5 px-3.5 font-bold flex items-center gap-1.5 shadow-lg shadow-sky-500/20">
+                        <i class="fas fa-plus"></i> <span>Thêm Bàn</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Responsive Cards Grid View -->
+            <div id="admin-tables-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 overflow-y-auto pr-1 flex-1 media-custom-scroll">
+                <!-- Dynamically loaded table cards with live QR Codes -->
             </div>
         </section>
 
@@ -2308,16 +2414,32 @@
                         </div>
                     </div>
 
-                    <!-- Offline Tracks Catalog (Add to Queue) -->
-                    <div class="liquid-glass p-4 rounded-2xl border border-white/10">
-                        <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-2">
+                    <!-- Offline Tracks Catalog (Add to Queue & Manager) -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-white/10 mb-2.5 gap-2">
                             <div class="flex items-center gap-2">
-                                <i class="fas fa-database text-teal-400 text-xs"></i>
-                                <span class="text-xs font-black uppercase tracking-wider text-slate-200">Kho Nhạc Offline</span>
+                                <span class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-xs">
+                                    <i class="fas fa-database"></i>
+                                </span>
+                                <div>
+                                    <span class="text-xs font-black uppercase tracking-wider text-slate-200">Kho Nhạc Offline</span>
+                                    <span id="media-catalog-count-badge" class="ml-1 text-[10px] text-teal-400 font-bold">(8 bài)</span>
+                                </div>
                             </div>
-                            <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." class="liquid-input py-1 px-2.5 text-xs w-40 rounded-lg bg-slate-900 border border-white/10" />
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." class="liquid-input py-1 px-2.5 text-xs w-32 rounded-lg bg-slate-900 border border-white/10" />
+                                <button type="button" onclick="Admin.openUploadMediaModal()" class="btn-glass text-[11px] py-1 px-2 text-teal-300 hover:text-white border-teal-500/40 hover:bg-teal-500/20 font-bold flex items-center gap-1 shadow-sm" title="Tải file nhạc MP3/WAV/FLAC lên server">
+                                    <i class="fas fa-upload text-[10px]"></i> Tải Nhạc
+                                </button>
+                                <button type="button" onclick="Admin.openMediaManagerModal()" class="btn-glass text-[11px] py-1 px-2 text-sky-300 hover:text-white border-sky-500/40 hover:bg-sky-500/20 font-bold flex items-center gap-1 shadow-sm" title="Quản lý toàn bộ kho nhạc">
+                                    <i class="fas fa-sliders-h text-[10px]"></i> Quản Lý
+                                </button>
+                                <button type="button" onclick="Admin.rescanMediaTracks()" class="btn-glass text-[11px] py-1 px-2 text-purple-300 hover:text-white border-purple-500/40 hover:bg-purple-500/20 font-bold flex items-center gap-1 shadow-sm" title="Quét thư mục assets/media">
+                                    <i class="fas fa-sync-alt text-[10px]"></i> Quét
+                                </button>
+                            </div>
                         </div>
-                        <div id="media-catalog-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-xs">
+                        <div id="media-catalog-list" class="space-y-1.5 max-h-80 overflow-y-auto pr-1 text-xs media-custom-scroll">
                             <!-- Populated dynamically via Admin.renderMediaCatalog() -->
                         </div>
                     </div>
@@ -3606,19 +3728,236 @@
         </form>
     </div>
 
+    <!-- STANDEE MODAL: PREVIEW & PRINT BANNER ĐỂ BÀN -->
     <div id="admin-table-qr-modal" class="liquid-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-table-qr-title">
-        <div class="liquid-glass liquid-modal-content w-96 max-w-full border border-sky-400/30 p-5 text-center text-white shadow-2xl">
-            <div class="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
-                <h3 id="admin-table-qr-title" class="font-black text-sky-200">Mã QR đặt món</h3>
-                <button type="button" class="text-2xl text-slate-400 hover:text-white" aria-label="Đóng" onclick="document.getElementById('admin-table-qr-modal').classList.remove('open')">&times;</button>
+        <div class="liquid-glass liquid-modal-content w-[420px] max-w-full border border-sky-400/30 p-5 text-white shadow-2xl relative">
+            <div class="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center text-xs"><i class="fas fa-qrcode"></i></span>
+                    <h3 id="admin-table-qr-title" class="font-black text-sm text-sky-200">Mã QR Standee Để Bàn</h3>
+                </div>
+                <button type="button" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-lg" aria-label="Đóng" onclick="Admin.closeTableQrModal()">&times;</button>
             </div>
-            <div id="admin-table-qr-code" class="mx-auto flex min-h-60 w-60 items-center justify-center rounded-2xl bg-white p-3"></div>
-            <p id="admin-table-qr-url" class="mt-3 break-all text-[10px] text-slate-400"></p>
-            <div class="mt-4 flex justify-center gap-2">
-                <button type="button" onclick="Admin.downloadTableQr()" class="btn-glass-primary px-4 py-2 text-xs font-bold"><i class="fas fa-download mr-1"></i>Tải ảnh PNG</button>
-                <button type="button" onclick="document.getElementById('admin-table-qr-modal').classList.remove('open')" class="btn-glass px-4 py-2 text-xs">Đóng</button>
+
+            <!-- Standee Card Container (A6 Ratio for table stands) -->
+            <div id="standee-single-preview" class="p-4 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-sky-500/30 text-center shadow-xl relative overflow-hidden">
+                <div class="text-[11px] font-black uppercase tracking-widest text-sky-400 mb-0.5" id="standee-store-title">GÓC PHỐ COFFEE & TEA</div>
+                <div class="text-[10px] text-slate-400 font-semibold mb-2.5">HỆ THỐNG GỌI MÓN & JUKEBOX TẠI BÀN</div>
+
+                <!-- Table Code Highlight -->
+                <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-xl bg-gradient-to-r from-sky-500/20 to-purple-500/20 border border-sky-400/40 mb-3 shadow-inner">
+                    <span class="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-white font-mono" id="standee-display-code">TQ1</span>
+                    <span class="text-xs text-slate-300 font-bold" id="standee-display-name">Bàn Tại Quán 01</span>
+                </div>
+
+                <!-- QR Code Box -->
+                <div class="bg-white p-3 rounded-2xl inline-block shadow-2xl mx-auto my-1 border border-slate-200">
+                    <div id="admin-table-qr-code" class="w-48 h-48 flex items-center justify-center"></div>
+                </div>
+
+                <!-- Step Instructions -->
+                <div class="mt-3 text-[10px] text-slate-300 leading-snug">
+                    <div class="flex items-center justify-center gap-1.5 text-sky-300 font-bold mb-1">
+                        <i class="fas fa-camera text-xs"></i> <span>Mở Camera / Zalo / App Ngân Hàng Quét Mã</span>
+                    </div>
+                    <p class="text-slate-400 text-[9px]">Xem Menu điện tử • Chọn món • Thưởng thức nhạc Jukebox</p>
+                </div>
+
+                <!-- URL link -->
+                <p id="admin-table-qr-url" class="mt-2.5 break-all text-[9px] text-slate-400 font-mono px-2 py-1 rounded bg-slate-900/90 border border-white/5"></p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 grid grid-cols-3 gap-2">
+                <button type="button" onclick="Admin.printTableQrStandee()" class="btn-glass-primary py-2 px-2 text-xs font-bold flex items-center justify-center gap-1 shadow-md shadow-sky-500/20">
+                    <i class="fas fa-print"></i> <span>In Standee</span>
+                </button>
+                <button type="button" onclick="Admin.downloadTableQr()" class="btn-glass py-2 px-2 text-xs font-bold text-slate-200 hover:text-white flex items-center justify-center gap-1 border border-white/10">
+                    <i class="fas fa-download"></i> <span>Tải Ảnh PNG</span>
+                </button>
+                <button type="button" onclick="Admin.copyTableQrUrl()" class="btn-glass py-2 px-2 text-xs font-bold text-slate-200 hover:text-white flex items-center justify-center gap-1 border border-white/10">
+                    <i class="fas fa-link"></i> <span>Chép Link</span>
+                </button>
             </div>
         </div>
+    </div>
+
+    <!-- BATCH CREATE TABLES MODAL -->
+    <div id="admin-batch-tables-modal" class="liquid-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="batch-tables-title">
+        <form class="liquid-glass liquid-modal-content w-[420px] max-w-full border border-amber-400/30 p-5 text-white shadow-2xl" onsubmit="Admin.submitBatchTables(event)">
+            <div class="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xs"><i class="fas fa-magic"></i></span>
+                    <h3 id="batch-tables-title" class="font-black text-sm text-amber-200">Tạo Bàn Hàng Loạt</h3>
+                </div>
+                <button type="button" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-lg" onclick="document.getElementById('admin-batch-tables-modal').classList.remove('open')">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="mb-1 block font-bold text-slate-300">Tiền tố mã bàn <span class="text-rose-300">*</span></label>
+                    <input id="batch-prefix" type="text" class="liquid-input w-full font-mono font-bold uppercase" value="TQ" placeholder="Ví dụ: TQ, B, T1, VIP" required>
+                    <p class="text-[10px] text-slate-400 mt-1">Hệ thống sẽ sinh mã như TQ01, TQ02, TQ03...</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-1 block font-bold text-slate-300">Từ số</label>
+                        <input id="batch-from-num" type="number" min="1" max="999" class="liquid-input w-full font-mono font-bold" value="1" required>
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-bold text-slate-300">Đến số</label>
+                        <input id="batch-to-num" type="number" min="1" max="999" class="liquid-input w-full font-mono font-bold" value="10" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-1 block font-bold text-slate-300">Khu vực</label>
+                        <select id="batch-area-type" class="liquid-input w-full bg-slate-900">
+                            <option value="TAI_QUAN">Tại quán (TQ)</option>
+                            <option value="MANG_VE">Mang về (MV)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-bold text-slate-300">Số ghế mặc định</label>
+                        <input id="batch-guest-count" type="number" min="1" max="50" class="liquid-input w-full font-mono" value="4">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-5 flex justify-end gap-2 border-t border-white/10 pt-3">
+                <button type="button" class="btn-glass px-3.5 py-1.5 text-xs" onclick="document.getElementById('admin-batch-tables-modal').classList.remove('open')">Hủy</button>
+                <button type="submit" class="btn-glass-primary px-4 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20">
+                    <i class="fas fa-check mr-1"></i> Khởi Tạo Ngay
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- BATCH PRINT PREVIEW MODAL -->
+    <div id="admin-batch-print-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="liquid-glass w-full max-w-5xl rounded-3xl border border-purple-500/30 p-5 text-white shadow-2xl flex flex-col max-h-[92vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center text-sm"><i class="fas fa-print"></i></span>
+                    <div>
+                        <h3 class="font-black text-base text-white">In Tất Cả Thẻ Standee QR Để Bàn</h3>
+                        <p class="text-[11px] text-slate-400">Xem trước trang in toàn bộ standee để bàn cho quán</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.print()" class="btn-glass-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-sky-500/20">
+                        <i class="fas fa-print"></i> Bắt Đầu In Ngay
+                    </button>
+                    <button type="button" onclick="document.getElementById('admin-batch-print-modal').classList.add('hidden')" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xl transition-all">&times;</button>
+                </div>
+            </div>
+            <div id="batch-print-preview-grid" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-2 media-custom-scroll">
+                <!-- Dynamically populated standee cards ready for printing -->
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT CONTAINER ZONE (Directly used by window.print()) -->
+    <div id="print-container-zone" class="hidden">
+        <!-- Rendered purely for paper printing -->
+    </div>
+
+    <!-- OFFLINE MEDIA LIBRARY MANAGER MODAL -->
+    <div id="admin-media-manager-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+        <div class="liquid-glass w-full max-w-4xl rounded-3xl border border-teal-500/30 p-5 text-white shadow-2xl flex flex-col max-h-[92vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-sm"><i class="fas fa-compact-disc"></i></span>
+                    <div>
+                        <h3 class="font-black text-base text-white">Quản Lý Kho Nhạc Offline & Jukebox</h3>
+                        <p class="text-[11px] text-slate-400">Danh mục bài hát phát tại quán & khách yêu cầu qua mã QR</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="Admin.openUploadMediaModal()" class="btn-glass-primary px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-upload"></i> Tải Thêm Nhạc
+                    </button>
+                    <button type="button" onclick="Admin.rescanMediaTracks()" class="btn-glass px-3 py-1.5 text-xs font-bold text-purple-300 hover:text-white border-purple-500/40 flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-sync-alt"></i> Quét Thư Mục
+                    </button>
+                    <button type="button" onclick="document.getElementById('admin-media-manager-modal').classList.add('hidden')" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xl transition-all">&times;</button>
+                </div>
+            </div>
+            
+            <!-- Search & Filter Bar -->
+            <div class="flex items-center justify-between gap-3 mb-3 shrink-0">
+                <div class="relative flex-1 max-w-xs">
+                    <input type="text" id="modal-media-search" oninput="Admin.filterMediaManagerTable(this.value)" placeholder="Tìm kiếm tên bài hát, ca sĩ..." class="liquid-input py-1.5 pl-8 pr-3 text-xs w-full rounded-xl bg-slate-900 border border-white/10" />
+                    <i class="fas fa-search absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                </div>
+                <div class="text-xs text-slate-400">
+                    Tổng số: <span id="modal-media-total-count" class="font-bold text-teal-400">0</span> bài hát
+                </div>
+            </div>
+
+            <!-- Tracks Table -->
+            <div class="flex-1 overflow-y-auto media-custom-scroll rounded-xl border border-white/10">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="sticky top-0 bg-slate-900/95 backdrop-blur-md text-slate-400 uppercase tracking-wider text-[10px] border-b border-white/10 z-10">
+                        <tr>
+                            <th class="p-2.5">ID</th>
+                            <th class="p-2.5">Tên Bài Hát</th>
+                            <th class="p-2.5">Nghệ Sĩ</th>
+                            <th class="p-2.5">Thể Loại</th>
+                            <th class="p-2.5 text-center">Thời Lượng</th>
+                            <th class="p-2.5 text-right">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-media-table-body" class="divide-y divide-white/5">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPLOAD MEDIA TRACK MODAL -->
+    <div id="admin-media-upload-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <form class="liquid-glass w-full max-w-md rounded-3xl border border-teal-500/30 p-5 text-white shadow-2xl" onsubmit="Admin.submitUploadMedia(event)">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-xs"><i class="fas fa-upload"></i></span>
+                    <h3 class="font-black text-sm text-teal-200">Tải File Nhạc Lên Server</h3>
+                </div>
+                <button type="button" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-lg" onclick="document.getElementById('admin-media-upload-modal').classList.add('hidden')">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="mb-1 block font-bold text-slate-300">Chọn file âm thanh (MP3, WAV, FLAC, OGG) <span class="text-rose-300">*</span></label>
+                    <input id="media-upload-file-input" type="file" accept=".mp3,.wav,.flac,.ogg" class="liquid-input w-full p-2 bg-slate-900 border border-dashed border-teal-500/50 rounded-xl" required onchange="Admin.handleAudioFilePicked(this)">
+                </div>
+                <div>
+                    <label class="mb-1 block font-bold text-slate-300">Tên bài hát <span class="text-rose-300">*</span></label>
+                    <input id="media-upload-title" type="text" class="liquid-input w-full" placeholder="Ví dụ: Lofi Quán Cà Phê" required>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-1 block font-bold text-slate-300">Nghệ sĩ / Ca sĩ</label>
+                        <input id="media-upload-artist" type="text" class="liquid-input w-full" placeholder="Ví dụ: ChillHop Music" value="CyberNexus Artist">
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-bold text-slate-300">Thể loại</label>
+                        <select id="media-upload-genre" class="liquid-input w-full bg-slate-900">
+                            <option value="Acoustic">Acoustic</option>
+                            <option value="Lofi">Lofi Chill</option>
+                            <option value="Jazz">Jazz & Bossa</option>
+                            <option value="Pop">Acoustic Pop</option>
+                            <option value="Deep House">Deep House</option>
+                            <option value="Lossless">Lossless</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-2 border-t border-white/10 pt-3">
+                <button type="button" class="btn-glass px-3.5 py-1.5 text-xs" onclick="document.getElementById('admin-media-upload-modal').classList.add('hidden')">Hủy</button>
+                <button type="submit" id="media-upload-btn-submit" class="btn-glass-primary px-4 py-1.5 text-xs font-bold shadow-lg shadow-teal-500/20">
+                    <i class="fas fa-cloud-upload-alt mr-1"></i> Tải Lên Ngay
+                </button>
+            </div>
+        </form>
     </div>
 
     <!-- AD CAROUSEL / SLIDE LIVE PREVIEW MODAL (Mô Phỏng Trực Tiếp Màn Hình Khách Hàng) -->

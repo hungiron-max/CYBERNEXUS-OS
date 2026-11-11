@@ -1130,27 +1130,136 @@ const Admin = {
         }
     },
 
+    currentTableArea: 'all',
+    tableSearchKw: '',
+    activeTableForQr: null,
+
     renderTablesList() {
         const container = document.getElementById('admin-tables-container');
         if (!container) return;
 
+        const tables = this.tables || [];
+        const total = tables.length;
+        const occupied = tables.filter(t => t.status === 'occupied').length;
+        const free = total - occupied;
+        const taiQuanCount = tables.filter(t => t.area_type === 'TAI_QUAN').length;
+        const mangVeCount = tables.filter(t => t.area_type === 'MANG_VE').length;
+
+        // Update Stats Counters
+        const totalEl = document.getElementById('stat-table-total');
+        if (totalEl) totalEl.textContent = total;
+        const freeEl = document.getElementById('stat-table-free');
+        if (freeEl) freeEl.textContent = free;
+        const occEl = document.getElementById('stat-table-occupied');
+        if (occEl) occEl.textContent = occupied;
+
+        const allPill = document.getElementById('count-area-all');
+        if (allPill) allPill.textContent = total;
+        const tqPill = document.getElementById('count-area-tai-quan');
+        if (tqPill) tqPill.textContent = taiQuanCount;
+        const mvPill = document.getElementById('count-area-mang-ve');
+        if (mvPill) mvPill.textContent = mangVeCount;
+
+        // Filter list
+        let filtered = tables;
+        if (this.currentTableArea && this.currentTableArea !== 'all') {
+            filtered = filtered.filter(t => t.area_type === this.currentTableArea);
+        }
+        if (this.tableSearchKw) {
+            const kw = this.tableSearchKw.toLowerCase().trim();
+            filtered = filtered.filter(t => 
+                (t.code && t.code.toLowerCase().includes(kw)) ||
+                (t.name && t.name.toLowerCase().includes(kw))
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full py-12 text-center text-slate-500">
+                    <i class="fas fa-chair text-4xl mb-3 text-slate-600 block"></i>
+                    <p class="text-sm font-semibold">Không tìm thấy bàn nào phù hợp</p>
+                    <p class="text-xs text-slate-600 mt-1">Bấm "Thêm Bàn" hoặc "Tạo Hàng Loạt" để tạo mới</p>
+                </div>
+            `;
+            return;
+        }
+
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const baseUrl = origin + (dir ? dir + '/' : '/');
+
         let html = '';
-        this.tables.forEach(t => {
+        filtered.forEach(t => {
             const isOccupied = t.status === 'occupied';
+            const isTakeaway = t.area_type === 'MANG_VE';
+            const guestCount = t.guest_count || (isTakeaway ? 1 : 4);
+            const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+
             html += `
-                <div class="liquid-glass-card p-4 flex flex-col justify-between border border-white/10">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="font-extrabold text-base text-white font-mono">${t.code}</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full font-bold ${isOccupied ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'}">
-                            ${isOccupied ? 'Có khách' : 'Trống'}
-                        </span>
+                <div class="liquid-glass-card p-3.5 rounded-2xl border ${isOccupied ? 'border-rose-500/40 bg-rose-950/10' : 'border-white/10 hover:border-sky-500/40'} flex flex-col justify-between transition-all duration-200 group relative">
+                    <!-- Top Bar: Code + Area + Status Pill -->
+                    <div>
+                        <div class="flex items-center justify-between gap-1.5 mb-2.5">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 font-mono font-black text-xs border border-sky-500/30 truncate shadow-sm">
+                                    ${t.code}
+                                </span>
+                                <span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold ${isTakeaway ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25' : 'bg-slate-800 text-slate-300 border border-white/10'} truncate">
+                                    ${isTakeaway ? 'Mang Về' : 'Tại Quán'}
+                                </span>
+                            </div>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase shrink-0 ${isOccupied ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
+                                <span class="w-1.5 h-1.5 rounded-full ${isOccupied ? 'bg-rose-400 animate-ping' : 'bg-emerald-400'}"></span>
+                                ${isOccupied ? 'Có khách' : 'Trống'}
+                            </span>
+                        </div>
+
+                        <!-- Table Name & Seats -->
+                        <div class="flex items-baseline justify-between gap-1 mb-2">
+                            <h4 class="font-extrabold text-sm text-white truncate" title="${t.name}">${t.name}</h4>
+                            <span class="text-[10px] text-slate-400 font-medium shrink-0">
+                                <i class="fas fa-chair text-slate-500 text-[9px] mr-0.5"></i>${guestCount} chỗ
+                            </span>
+                        </div>
+
+                        <!-- QR Code Thumbnail Box (Interactive Standee Preview) -->
+                        <div class="bg-white rounded-xl p-2 my-2 mx-auto w-32 h-32 flex flex-col items-center justify-center shadow-lg relative cursor-pointer border border-slate-200 group/qr" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để xem và in thẻ standee QR">
+                            <div id="table-qr-${t.id}" class="w-28 h-28 flex items-center justify-center"></div>
+                            <div class="absolute inset-0 bg-slate-950/75 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center backdrop-blur-[2px]">
+                                <i class="fas fa-search-plus text-base text-sky-400"></i>
+                                <span>Phóng to & In</span>
+                            </div>
+                        </div>
+
+                        <!-- Live Order Info / Status Description -->
+                        <div class="text-[11px] text-center my-1.5">
+                            ${isOccupied ? `
+                                <div class="px-2 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-200 font-medium flex items-center justify-between">
+                                    <span class="truncate"><i class="fas fa-receipt mr-1 text-rose-400"></i>${t.order_code || 'Đang mở'}</span>
+                                    <span class="font-bold text-amber-300 ml-1 font-mono">${(Number(t.total_amount) || 0).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            ` : `
+                                <div class="text-[10px] text-slate-400 font-medium">
+                                    <span class="text-emerald-400">●</span> Sẵn sàng đón khách
+                                </div>
+                            `}
+                        </div>
                     </div>
-                    <div class="text-xs text-slate-400 mb-4">${t.name} (${t.area_type === 'MANG_VE' ? 'Mang Về' : 'Tại Quán'})</div>
-                    <div class="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                        <span class="text-slate-400">${isOccupied ? 'HĐ: ' + t.order_code : 'Chưa có đơn'}</span>
+
+                    <!-- Bottom Action Buttons Strip -->
+                    <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-1 mt-2 text-xs">
+                        <button type="button" onclick="Admin.openTableQrModal(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-sky-300 hover:text-white border-sky-500/30 hover:bg-sky-500/20 font-bold flex items-center gap-1 flex-1 justify-center shadow-sm" title="Mở mã QR standee">
+                            <i class="fas fa-qrcode"></i> <span>Standee QR</span>
+                        </button>
+                        <button type="button" onclick="Admin.copyDirectOrderUrl('${encodeURIComponent(orderUrl)}')" class="btn-glass text-[10px] py-1 px-1.5 text-slate-300 hover:text-white border-white/10" title="Sao chép link gọi món tại bàn">
+                            <i class="fas fa-link"></i>
+                        </button>
                         ${!isOccupied ? `
-                            <button type="button" class="text-rose-400 hover:text-rose-300" onclick="Admin.deleteTable(${t.id})">
-                                <i class="fas fa-trash"></i>
+                            <button type="button" class="btn-glass text-[10px] py-1 px-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 border-rose-500/20" onclick="Admin.deleteTable(${t.id})" title="Xóa bàn này">
+                                <i class="fas fa-trash-alt"></i>
                             </button>
                         ` : ''}
                     </div>
@@ -1159,33 +1268,375 @@ const Admin = {
         });
 
         container.innerHTML = html;
+
+        // Render QR Code inside each card
+        setTimeout(() => {
+            filtered.forEach(t => {
+                const qrContainer = document.getElementById(`table-qr-${t.id}`);
+                if (qrContainer && typeof QRCode !== 'undefined') {
+                    qrContainer.innerHTML = '';
+                    const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+                    try {
+                        new QRCode(qrContainer, {
+                            text: orderUrl,
+                            width: 108,
+                            height: 108,
+                            colorDark: "#020617",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.M
+                        });
+                    } catch (e) {
+                        console.error('Error drawing mini table QR:', e);
+                    }
+                }
+            });
+        }, 50);
     },
 
-    async addTable() {
-        const code = prompt('Nhập mã bàn (ví dụ: MV6, TQ9, B10...):');
-        if (!code) return;
-        const name = prompt('Nhập tên hiển thị bàn (ví dụ: Bàn 10, Mang về 06):', code);
-        const area = confirm('Bàn này thuộc khu vực MANG VỀ (OK) hay TẠI QUÁN (Cancel)?') ? 'MANG_VE' : 'TAI_QUAN';
+    filterTableArea(area) {
+        this.currentTableArea = area;
+        document.querySelectorAll('.table-area-pill').forEach(btn => {
+            const btnArea = btn.getAttribute('data-area');
+            if (btnArea === area) {
+                btn.className = 'table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center gap-1.5 shrink-0';
+            } else {
+                btn.className = 'table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0';
+            }
+        });
+        this.renderTablesList();
+    },
+
+    filterTablesSearch(kw) {
+        this.tableSearchKw = kw;
+        this.renderTablesList();
+    },
+
+    openAddTableModal() {
+        const modal = document.getElementById('admin-table-modal');
+        if (modal) modal.classList.add('open');
+        const codeInput = document.getElementById('admin-table-code');
+        if (codeInput) {
+            codeInput.value = '';
+            codeInput.focus();
+        }
+        const nameInput = document.getElementById('admin-table-name');
+        if (nameInput) nameInput.value = '';
+    },
+
+    closeAddTableModal() {
+        const modal = document.getElementById('admin-table-modal');
+        if (modal) modal.classList.remove('open');
+    },
+
+    async addTable(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const codeInput = document.getElementById('admin-table-code');
+        const nameInput = document.getElementById('admin-table-name');
+        const areaInput = document.getElementById('admin-table-area');
+        const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        const name = nameInput ? nameInput.value.trim() : '';
+        const area = areaInput ? areaInput.value : 'TAI_QUAN';
+
+        if (!code || !name) {
+            alert('Vui lòng điền đầy đủ Mã bàn và Tên bàn!');
+            return;
+        }
 
         try {
             const res = await fetch('api/tables.php?action=add_table', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: code.trim(), name: name.trim(), area_type: area })
+                body: JSON.stringify({ code: code, name: name, area_type: area })
             });
             const data = await res.json();
             if (data.success) {
+                this.closeAddTableModal();
                 await this.loadTables();
             } else {
                 alert(data.message || 'Lỗi thêm bàn');
             }
-        } catch (e) {
-            console.error('Error adding table:', e);
+        } catch (err) {
+            console.error('addTable error:', err);
+            alert('Lỗi khi thêm bàn');
         }
     },
 
+    openTableQrModal(tableId) {
+        const table = (this.tables || []).find(t => t.id === tableId);
+        if (!table) return;
+        this.activeTableForQr = table;
+
+        const modal = document.getElementById('admin-table-qr-modal');
+        if (!modal) return;
+
+        const codeEl = document.getElementById('standee-display-code');
+        if (codeEl) codeEl.textContent = table.code;
+        const nameEl = document.getElementById('standee-display-name');
+        if (nameEl) nameEl.textContent = table.name;
+        const titleEl = document.getElementById('admin-table-qr-title');
+        if (titleEl) titleEl.textContent = `Standee QR Bàn: ${table.name} (${table.code})`;
+
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const orderUrl = `${origin + (dir ? dir + '/' : '/')}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
+
+        const urlEl = document.getElementById('admin-table-qr-url');
+        if (urlEl) urlEl.textContent = orderUrl;
+
+        const qrContainer = document.getElementById('admin-table-qr-code');
+        if (qrContainer && typeof QRCode !== 'undefined') {
+            qrContainer.innerHTML = '';
+            try {
+                new QRCode(qrContainer, {
+                    text: orderUrl,
+                    width: 192,
+                    height: 192,
+                    colorDark: "#020617",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (e) {
+                console.error('Error drawing modal QR:', e);
+            }
+        }
+
+        modal.classList.add('open');
+    },
+
+    closeTableQrModal() {
+        const modal = document.getElementById('admin-table-qr-modal');
+        if (modal) modal.classList.remove('open');
+        this.activeTableForQr = null;
+    },
+
+    printTableQrStandee() {
+        if (!this.activeTableForQr) return;
+        const table = this.activeTableForQr;
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const orderUrl = `${origin + (dir ? dir + '/' : '/')}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
+
+        const printZone = document.getElementById('print-container-zone');
+        if (!printZone) return;
+
+        printZone.innerHTML = `
+            <div style="max-width: 400px; margin: 0 auto; padding: 25px; border: 3px dashed #0284c7; border-radius: 16px; text-align: center; font-family: sans-serif; background: #ffffff; color: #020617;">
+                <div style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #0284c7; margin-bottom: 4px;">GÓC PHỐ COFFEE & TEA</div>
+                <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 15px;">HỆ THỐNG GỌI MÓN & JUKEBOX THÔNG MINH TẠI BÀN</div>
+                
+                <div style="display: inline-block; padding: 8px 24px; border: 2px solid #0284c7; border-radius: 12px; background: #f0f9ff; margin-bottom: 15px;">
+                    <span style="font-size: 26px; font-weight: 900; color: #0369a1; font-family: monospace;">${table.code}</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #334155; margin-left: 8px;">(${table.name})</span>
+                </div>
+
+                <div id="print-single-qr-img" style="margin: 10px auto; width: 220px; height: 220px; display: flex; align-items: center; justify-content: center; background: #fff;"></div>
+
+                <div style="margin-top: 15px; font-size: 12px; font-weight: 700; color: #0f172a;">
+                    📷 Mở Camera / Zalo / App Ngân Hàng Quét Mã
+                </div>
+                <div style="margin-top: 4px; font-size: 11px; color: #64748b;">
+                    Xem thực đơn điện tử • Đặt món nhanh • Quán phục vụ tận bàn
+                </div>
+                <div style="margin-top: 15px; font-size: 9px; font-family: monospace; color: #94a3b8; word-break: break-all;">
+                    ${orderUrl}
+                </div>
+            </div>
+        `;
+
+        if (typeof QRCode !== 'undefined') {
+            const singleImgZone = document.getElementById('print-single-qr-img');
+            new QRCode(singleImgZone, {
+                text: orderUrl,
+                width: 210,
+                height: 210,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        setTimeout(() => {
+            window.print();
+        }, 200);
+    },
+
+    downloadTableQr() {
+        const qrContainer = document.getElementById('admin-table-qr-code');
+        if (!qrContainer) return;
+        const img = qrContainer.querySelector('img');
+        const canvas = qrContainer.querySelector('canvas');
+        let dataUrl = '';
+        if (img && img.src) {
+            dataUrl = img.src;
+        } else if (canvas) {
+            dataUrl = canvas.toDataURL('image/png');
+        }
+        if (!dataUrl) {
+            alert('Không tìm thấy ảnh mã QR để tải!');
+            return;
+        }
+        const a = document.createElement('a');
+        const code = this.activeTableForQr ? this.activeTableForQr.code : 'table';
+        a.href = dataUrl;
+        a.download = `QR_Standee_${code}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    },
+
+    copyTableQrUrl() {
+        const urlEl = document.getElementById('admin-table-qr-url');
+        if (!urlEl || !urlEl.textContent) return;
+        const url = urlEl.textContent;
+        this.copyDirectOrderUrl(url);
+    },
+
+    copyDirectOrderUrl(url) {
+        if (!url) return;
+        const decoded = decodeURIComponent(url);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(decoded).then(() => {
+                alert('Đã sao chép link gọi món tại bàn:\n' + decoded);
+            }).catch(() => {
+                prompt('Link gọi món tại bàn:', decoded);
+            });
+        } else {
+            prompt('Link gọi món tại bàn:', decoded);
+        }
+    },
+
+    openBatchTablesModal() {
+        const modal = document.getElementById('admin-batch-tables-modal');
+        if (modal) modal.classList.add('open');
+    },
+
+    async submitBatchTables(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const prefix = (document.getElementById('batch-prefix')?.value || 'TQ').trim().toUpperCase();
+        const fromNum = parseInt(document.getElementById('batch-from-num')?.value || '1', 10);
+        const toNum = parseInt(document.getElementById('batch-to-num')?.value || '10', 10);
+        const areaType = document.getElementById('batch-area-type')?.value || 'TAI_QUAN';
+        const guestCount = parseInt(document.getElementById('batch-guest-count')?.value || '4', 10);
+
+        if (toNum < fromNum) {
+            alert('Số kết thúc phải lớn hơn hoặc bằng số bắt đầu!');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/tables.php?action=batch_add_tables', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prefix: prefix,
+                    from_num: fromNum,
+                    to_num: toNum,
+                    area_type: areaType,
+                    guest_count: guestCount
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã tạo thành công hàng loạt bàn!');
+                document.getElementById('admin-batch-tables-modal')?.classList.remove('open');
+                await this.loadTables();
+            } else {
+                alert(data.message || 'Lỗi tạo hàng loạt bàn');
+            }
+        } catch (err) {
+            console.error('submitBatchTables error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    printAllTableQr() {
+        const tables = this.tables || [];
+        if (tables.length === 0) {
+            alert('Chưa có bàn nào để in!');
+            return;
+        }
+
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const baseUrl = origin + (dir ? dir + '/' : '/');
+
+        const printZone = document.getElementById('print-container-zone');
+        if (!printZone) return;
+
+        let html = `
+            <div style="font-family: sans-serif; background: #fff; color: #020617; padding: 15px;">
+                <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #0284c7; padding-bottom: 12px;">
+                    <h2 style="font-size: 20px; font-weight: 900; margin: 0; color: #0284c7; text-transform: uppercase;">GÓC PHỐ COFFEE & TEA</h2>
+                    <p style="font-size: 13px; color: #475569; margin: 4px 0 0 0;">BỘ THẺ STANDEE QR GỌI MÓN TẠI BÀN (${tables.length} BÀN)</p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        `;
+
+        tables.forEach((t, idx) => {
+            const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+            html += `
+                <div class="print-table-card" style="border: 2px dashed #0284c7; border-radius: 14px; padding: 16px; text-align: center; page-break-inside: avoid; background: #ffffff;">
+                    <div style="font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: #0284c7; text-transform: uppercase;">GÓC PHỐ COFFEE & TEA</div>
+                    <div style="font-size: 10px; color: #64748b; margin-top: 2px;">MÃ QR GỌI MÓN & JUKEBOX</div>
+                    
+                    <div style="display: inline-block; margin: 10px 0; padding: 4px 16px; border: 1.5px solid #0284c7; border-radius: 8px; background: #f0f9ff;">
+                        <span style="font-size: 20px; font-weight: 900; color: #0369a1; font-family: monospace;">${t.code}</span>
+                        <span style="font-size: 12px; font-weight: 700; color: #334155; margin-left: 6px;">(${t.name})</span>
+                    </div>
+
+                    <div id="print-batch-qr-${t.id}" style="margin: 8px auto; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center;"></div>
+
+                    <div style="font-size: 10px; font-weight: 700; color: #0f172a; margin-top: 6px;">
+                        📷 Mở Camera / Zalo quét mã
+                    </div>
+                    <div style="font-size: 9px; color: #64748b; margin-top: 2px;">
+                        Xem menu • Đặt món • Phục vụ tận bàn
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        printZone.innerHTML = html;
+
+        // Render QR codes
+        if (typeof QRCode !== 'undefined') {
+            tables.forEach(t => {
+                const zone = document.getElementById(`print-batch-qr-${t.id}`);
+                if (zone) {
+                    const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+                    new QRCode(zone, {
+                        text: orderUrl,
+                        width: 135,
+                        height: 135,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
+            });
+        }
+
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    },
+
     async deleteTable(tableId) {
-        if (!confirm('Bạn có chắc muốn xóa bàn này?')) return;
+        if (!confirm('Bạn có chắc muốn xóa bàn này khỏi hệ thống?')) return;
         try {
             const res = await fetch('api/tables.php?action=delete_table', {
                 method: 'POST',
@@ -1200,6 +1651,7 @@ const Admin = {
             }
         } catch (e) {
             console.error('Error deleting table:', e);
+            alert('Lỗi kết nối máy chủ');
         }
     },
 
@@ -4246,6 +4698,184 @@ const Admin = {
             'Đã BẬT chế độ Auto-Ducking: Âm lượng nhạc tự động hạ -10dB khi nhân viên POS thông báo món.' : 
             'Đã TẮT chế độ Auto-Ducking: Giữ nguyên mức âm lượng khi gọi món.';
         alert(msg);
+    },
+
+    // ==========================================
+    // OFFLINE MEDIA LIBRARY MANAGER METHODS
+    // ==========================================
+    openMediaManagerModal() {
+        const modal = document.getElementById('admin-media-manager-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        this.renderMediaManagerTable();
+    },
+
+    renderMediaManagerTable() {
+        const tbody = document.getElementById('modal-media-table-body');
+        const countEl = document.getElementById('modal-media-total-count');
+        if (!tbody) return;
+
+        const tracks = this.mediaCatalog || [];
+        if (countEl) countEl.textContent = tracks.length;
+
+        const kw = (document.getElementById('modal-media-search')?.value || '').toLowerCase().trim();
+        const filtered = kw ? tracks.filter(t => 
+            t.title.toLowerCase().includes(kw) || 
+            t.artist.toLowerCase().includes(kw) || 
+            (t.genre && t.genre.toLowerCase().includes(kw))
+        ) : tracks;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">Không tìm thấy bài hát nào</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(t => {
+            const durSeconds = Number(t.duration_sec || t.duration || 180);
+            const m = Math.floor(durSeconds / 60);
+            const s = Math.floor(durSeconds % 60);
+            const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="p-2.5 font-mono text-slate-500">#${t.id}</td>
+                    <td class="p-2.5 font-bold text-white flex items-center gap-2">
+                        <i class="fas fa-music text-teal-400 text-xs"></i>
+                        <span class="truncate max-w-[200px]">${t.title}</span>
+                    </td>
+                    <td class="p-2.5 text-slate-300 truncate max-w-[150px]">${t.artist || 'Chưa rõ'}</td>
+                    <td class="p-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                            ${t.genre || 'Lossless'}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center font-mono text-slate-400">${dur}</td>
+                    <td class="p-2.5 text-right space-x-1 whitespace-nowrap">
+                        <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-sky-300 hover:text-white" title="Phát bài này">
+                            <i class="fas fa-play text-[9px]"></i> Phát
+                        </button>
+                        <button type="button" onclick="Admin.deleteMediaTrack(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-rose-400 hover:text-rose-300 border-rose-500/20" title="Xóa bài hát">
+                            <i class="fas fa-trash-alt text-[9px]"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    filterMediaManagerTable(kw) {
+        this.renderMediaManagerTable();
+    },
+
+    openUploadMediaModal() {
+        const modal = document.getElementById('admin-media-upload-modal');
+        if (modal) modal.classList.remove('hidden');
+    },
+
+    handleAudioFilePicked(input) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        let name = file.name;
+        const dotIdx = name.lastIndexOf('.');
+        if (dotIdx > 0) name = name.substring(0, dotIdx);
+        
+        const titleInput = document.getElementById('media-upload-title');
+        if (titleInput && (!titleInput.value || titleInput.value.trim() === '')) {
+            titleInput.value = name;
+        }
+    },
+
+    async submitUploadMedia(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const fileInput = document.getElementById('media-upload-file-input');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Vui lòng chọn file nhạc MP3/WAV/FLAC!');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const title = document.getElementById('media-upload-title')?.value || file.name;
+        const artist = document.getElementById('media-upload-artist')?.value || 'Various Artists';
+        const genre = document.getElementById('media-upload-genre')?.value || 'Acoustic';
+
+        const formData = new FormData();
+        formData.append('audio_file', file);
+        formData.append('title', title);
+        formData.append('artist', artist);
+        formData.append('genre', genre);
+
+        const btn = document.getElementById('media-upload-btn-submit');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải...';
+        }
+
+        try {
+            const res = await fetch('/api/media/tracks/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã tải lên bài hát thành công!');
+                document.getElementById('admin-media-upload-modal')?.classList.add('hidden');
+                fileInput.value = '';
+                await this.loadMediaTracksCatalog();
+                this.renderMediaManagerTable();
+            } else {
+                alert(data.message || 'Lỗi tải lên bài hát');
+            }
+        } catch (err) {
+            console.error('submitUploadMedia error:', err);
+            alert('Lỗi kết nối khi tải lên bài hát');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-1"></i> Tải Lên Ngay';
+            }
+        }
+    },
+
+    async deleteMediaTrack(id) {
+        if (!confirm('Bạn có chắc muốn xóa bài hát này khỏi kho nhạc?')) return;
+        try {
+            const res = await fetch('/api/media/tracks/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã xóa bài hát');
+                await this.loadMediaTracksCatalog();
+                this.renderMediaManagerTable();
+            } else {
+                alert(data.message || 'Lỗi xóa bài hát');
+            }
+        } catch (err) {
+            console.error('deleteMediaTrack error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    async rescanMediaTracks() {
+        try {
+            const res = await fetch('/api/media/tracks/rescan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã quét xong thư mục nhạc!');
+                await this.loadMediaTracksCatalog();
+                this.renderMediaManagerTable();
+            } else {
+                alert(data.message || 'Lỗi quét thư mục nhạc');
+            }
+        } catch (err) {
+            console.error('rescanMediaTracks error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
     }
 };
 

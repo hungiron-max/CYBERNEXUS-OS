@@ -1015,7 +1015,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
     }
 
     // 4. Admin CRUD for tables
-    if (action == "add_table" || action == "update_table" || action == "delete_table") {
+    if (action == "add_table" || action == "update_table" || action == "delete_table" || action == "batch_add_tables") {
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
             sendJson(res, {{"success", false}, {"message", "Báº¡n khÃ´ng cÃ³ quyá»n thá»±c hiá»‡n thao tÃ¡c nÃ y (yÃªu cáº§u Admin)!"}}, 403);
@@ -1041,7 +1041,42 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
                 {":code", code}, {":name", name}, {":area_type", areaType}, {":sort_order", sortOrder}
             });
 
-            sendJson(res, {{"success", true}, {"message", "ThÃªm bÃ n thÃ nh cÃ´ng!"}, {"table_id", id}});
+            sendJson(res, {{"success", true}, {"message", "Thêm bàn thành công!"}, {"table_id", id}});
+            return;
+        }
+
+        if (action == "batch_add_tables") {
+            std::string prefix = BodyParser::getParam(req, body, "prefix", "B");
+            std::string areaType = BodyParser::getParam(req, body, "area_type", "TAI_QUAN");
+            int fromNum = 1, toNum = 10, guestCount = 4;
+            try { fromNum = std::stoi(BodyParser::getParam(req, body, "from_num", "1")); } catch (...) {}
+            try { toNum = std::stoi(BodyParser::getParam(req, body, "to_num", "10")); } catch (...) {}
+            try { guestCount = std::stoi(BodyParser::getParam(req, body, "guest_count", "4")); } catch (...) {}
+            if (fromNum < 1) fromNum = 1;
+            if (toNum < fromNum) toNum = fromNum;
+            if (toNum - fromNum > 100) toNum = fromNum + 100; // safety limit
+
+            db.beginTransaction();
+            int created = 0;
+            for (int i = fromNum; i <= toNum; ++i) {
+                std::string numStr = (i < 10 ? "0" : "") + std::to_string(i);
+                std::string code = prefix + numStr;
+                std::string name = (areaType == "MANG_VE" ? "Mang Về " : "Bàn ") + numStr;
+                auto check = db.queryRow("SELECT id FROM tables_areas WHERE code = :c", {{":c", code}});
+                if (check.is_null()) {
+                    db.execute(R"(
+                        INSERT INTO tables_areas (code, name, area_type, guest_count, sort_order, status)
+                        VALUES (:code, :name, :area_type, :guest_count, :sort_order, 'free')
+                    )", {
+                        {":code", code}, {":name", name}, {":area_type", areaType},
+                        {":guest_count", guestCount}, {":sort_order", i}
+                    });
+                    created++;
+                }
+            }
+            db.commit();
+
+            sendJson(res, {{"success", true}, {"message", "Đã tạo thành công " + std::to_string(created) + " bàn mới!"}, {"created_count", created}});
             return;
         }
 
@@ -2678,7 +2713,180 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
             {"slides", slides}
         });
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i quáº£ng cÃ¡o: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi quảng cáo: ") + e.what()}}, 500);
+    }
+}
+
+// ==========================================
+// MEDIA TRACKS & JUKEBOX LIBRARY HANDLER
+// ==========================================
+void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Response& res) {
+    try {
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string action = BodyParser::getAction(req, body);
+
+        // 1. Upload audio file (MP3, WAV, FLAC, OGG)
+        if (action == "upload" || req.has_file("audio_file") || req.has_file("file")) {
+            const auto& file = req.has_file("audio_file") ? req.get_file_value("audio_file") : req.get_file_value("file");
+            std::string filename = file.filename;
+            std::string ext = "";
+            size_t dotPos = filename.find_last_of('.');
+            if (dotPos != std::string::npos) {
+                ext = filename.substr(dotPos);
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            }
+            if (ext.empty()) ext = ".mp3";
+
+            namespace fs = std::filesystem;
+            fs::path mediaDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "assets" / "media";
+            try { fs::create_directories(mediaDir); } catch (...) {}
+
+            std::string cleanName = (dotPos != std::string::npos) ? filename.substr(0, dotPos) : filename;
+            std::string saveFile = filename;
+            fs::path targetPath = mediaDir / saveFile;
+
+            std::ofstream ofs(targetPath, std::ios::binary);
+            if (ofs) {
+                ofs.write(file.content.data(), file.content.size());
+                ofs.close();
+            }
+
+            std::string relPath = "assets/media/" + saveFile;
+            std::string title = req.has_param("title") ? req.get_param_value("title") : cleanName;
+            std::string artist = req.has_param("artist") ? req.get_param_value("artist") : "Various Artists";
+            std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "Lossless";
+            int64_t duration = 210;
+
+            int64_t newId = db.execute(R"(
+                INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path, bitrate, is_active, created_at)
+                VALUES (:ti, :ar, 'Cyber Lounge', :ge, :du, :fp, 320, 1, datetime('now'))
+            )", {
+                {":ti", title}, {":ar", artist}, {":ge", genre}, {":du", duration}, {":fp", relPath}
+            });
+
+            sendJson(res, {
+                {"success", true},
+                {"message", "Tải lên và nạp bài hát vào kho nhạc thành công!"},
+                {"track_id", newId},
+                {"file_path", relPath}
+            });
+            return;
+        }
+
+        // 2. Save / Edit track
+        if (action == "save" || action == "update" || action == "create") {
+            int64_t id = 0;
+            try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+
+            std::string title = BodyParser::getParam(req, body, "title", "");
+            std::string artist = BodyParser::getParam(req, body, "artist", "Various Artists");
+            std::string album = BodyParser::getParam(req, body, "album", "Cyber Lounge");
+            std::string genre = BodyParser::getParam(req, body, "genre", "Acoustic");
+            int64_t duration = 180;
+            try { duration = std::stoll(BodyParser::getParam(req, body, "duration_sec", "180")); } catch (...) {}
+            std::string filePath = BodyParser::getParam(req, body, "file_path", "");
+            int64_t isActive = 1;
+            try { isActive = std::stoll(BodyParser::getParam(req, body, "is_active", "1")); } catch (...) {}
+
+            if (title.empty()) {
+                sendError(res, "Tên bài hát không được để trống!", 400);
+                return;
+            }
+
+            if (id > 0) {
+                db.execute(R"(
+                    UPDATE media_tracks 
+                    SET title = :ti, artist = :ar, album = :al, genre = :ge, duration_sec = :du, file_path = :fp, is_active = :ac
+                    WHERE id = :id
+                )", {
+                    {":ti", title}, {":ar", artist}, {":al", album}, {":ge", genre},
+                    {":du", duration}, {":fp", filePath}, {":ac", isActive}, {":id", id}
+                });
+                sendJson(res, {{"success", true}, {"message", "Đã cập nhật bài hát thành công!"}});
+            } else {
+                int64_t newId = db.execute(R"(
+                    INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path, bitrate, is_active, created_at)
+                    VALUES (:ti, :ar, :al, :ge, :du, :fp, 320, :ac, datetime('now'))
+                )", {
+                    {":ti", title}, {":ar", artist}, {":al", album}, {":ge", genre},
+                    {":du", duration}, {":fp", filePath}, {":ac", isActive}
+                });
+                sendJson(res, {{"success", true}, {"message", "Đã thêm bài hát mới vào kho nhạc!", {"track_id", newId}}});
+            }
+            return;
+        }
+
+        // 3. Delete track
+        if (action == "delete") {
+            int64_t id = 0;
+            try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+            if (id > 0) {
+                db.execute("DELETE FROM media_tracks WHERE id = :id", {{":id", id}});
+                sendJson(res, {{"success", true}, {"message", "Đã xóa bài hát khỏi kho nhạc!"}});
+                return;
+            }
+            sendError(res, "Thiếu ID bài hát cần xóa!", 400);
+            return;
+        }
+
+        // 4. Rescan media folder
+        if (action == "rescan") {
+            namespace fs = std::filesystem;
+            fs::path mediaDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "assets" / "media";
+            int countAdded = 0;
+            if (fs::exists(mediaDir)) {
+                for (const auto& entry : fs::directory_iterator(mediaDir)) {
+                    if (entry.is_regular_file()) {
+                        std::string ext = entry.path().extension().string();
+                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                        if (ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".ogg") {
+                            std::string stem = entry.path().stem().string();
+                            std::string relPath = "assets/media/" + entry.path().filename().string();
+                            auto existing = db.queryRow("SELECT id FROM media_tracks WHERE file_path = :fp LIMIT 1", {{":fp", relPath}});
+                            if (existing.is_null()) {
+                                db.execute(R"(
+                                    INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path, bitrate, is_active, created_at)
+                                    VALUES (:ti, 'CyberNexus Artist', 'Local Media Store', 'Lossless', 210, :fp, 320, 1, datetime('now'))
+                                )", {{":ti", stem}, {":fp", relPath}});
+                                countAdded++;
+                            }
+                        }
+                    }
+                }
+            }
+            sendJson(res, {
+                {"success", true},
+                {"message", "Đã quét xong thư mục nhạc! Đã nạp thêm " + std::to_string(countAdded) + " bài hát."},
+                {"added_count", countAdded}
+            });
+            return;
+        }
+
+        // 5. Default: Query all tracks
+        std::string kw = req.has_param("kw") ? req.get_param_value("kw") : "";
+        std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "";
+
+        std::string sql = "SELECT * FROM media_tracks WHERE 1=1";
+        std::vector<std::pair<std::string, json>> params;
+        if (!kw.empty()) {
+            sql += " AND (title LIKE :kw OR artist LIKE :kw)";
+            params.push_back({":kw", "%" + kw + "%"});
+        }
+        if (!genre.empty() && genre != "all") {
+            sql += " AND genre = :ge";
+            params.push_back({":ge", genre});
+        }
+        sql += " ORDER BY id ASC";
+
+        auto rows = db.query(sql, params);
+        sendJson(res, {
+            {"success", true},
+            {"count", rows.size()},
+            {"tracks", rows}
+        });
+    } catch (const std::exception& e) {
+        sendError(res, std::string("Lỗi kho nhạc: ") + e.what(), 500);
     }
 }
 
@@ -2686,6 +2894,13 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
 // ROUTE REGISTRATION (Supports both clean & .php)
 // ==========================================
 void ApiHandlers::registerRoutes(httplib::Server& svr) {
+    // Media Tracks API
+    svr.Get("/api/media/tracks", handleMediaTracks);
+    svr.Post("/api/media/tracks", handleMediaTracks);
+    svr.Post("/api/media/tracks/save", handleMediaTracks);
+    svr.Post("/api/media/tracks/delete", handleMediaTracks);
+    svr.Post("/api/media/tracks/rescan", handleMediaTracks);
+    svr.Post("/api/media/tracks/upload", handleMediaTracks);
     // Auth
     svr.Get("/api/auth", handleAuth);
     svr.Post("/api/auth", handleAuth);

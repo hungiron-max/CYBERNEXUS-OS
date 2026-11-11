@@ -31,6 +31,7 @@ public:
     static void handleLicenseClient(const httplib::Request& req, httplib::Response& res);
 
     static void handleAdvertising(const httplib::Request& req, httplib::Response& res);
+    static void handleMediaTracks(const httplib::Request& req, httplib::Response& res);
 };
 
 } // namespace SaleApp::Backend
