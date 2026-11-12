@@ -388,14 +388,31 @@ const SuperAdmin = {
         const container = document.getElementById('modal-perm-matrix-container');
         if (!container) return;
 
-        container.innerHTML = modules.map(m => `
-            <div id="module-row-${m.code}" class="sa-module-row ${m.is_enabled ? 'is-enabled' : 'is-disabled'} flex items-center justify-between p-3.5 rounded-2xl">
+        container.innerHTML = modules.map(m => {
+            const isBlocked = Boolean(m.is_blocked || m.state === 'BLOCKED');
+            const isEnabled = Boolean(m.is_enabled) && !isBlocked;
+            const stateStr = isBlocked ? 'BLOCKED' : (isEnabled ? 'ON' : 'OFF');
+            const stateColor = isBlocked ? 'text-rose-400' : (isEnabled ? 'text-emerald-400' : 'text-slate-500');
+            const cardFeeHtml = m.code === 'mod_card_payment' ? `
+                <div class="mt-2 pt-2 border-t border-slate-700/60 flex flex-wrap items-center gap-2 text-[11px]">
+                    <span class="text-indigo-300 font-semibold"><i class="fas fa-percent mr-1"></i>Phí nền tảng Master / giao dịch:</span>
+                    <input id="input-card-fee-${tenantId}" type="number" step="0.1" min="0" max="20" value="${Number(m.card_fee_percent ?? 0)}" class="w-16 px-2 py-0.5 rounded bg-slate-900 border border-indigo-500/40 text-white font-mono text-xs text-right" />
+                    <span class="text-slate-400">%</span>
+                    <button type="button" onclick="SuperAdmin.saveMasterCardFee(${tenantId})" class="px-2.5 py-0.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-bold text-[10px] transition">
+                        <i class="fas fa-floppy-disk mr-1"></i>Lưu Phí
+                    </button>
+                    <span class="text-[10px] text-slate-400">(10 dòng máy POS/SmartPOS đời mới PCI PTS 5.x/6.x)</span>
+                </div>
+            ` : '';
+
+            return `
+            <div id="module-row-${m.code}" class="sa-module-row ${isEnabled ? 'is-enabled' : 'is-disabled'} ${isBlocked ? 'border-rose-500/40 bg-rose-950/15' : ''} flex items-center justify-between p-3.5 rounded-2xl">
                 <div class="flex items-center gap-3.5 pr-3">
                     <div class="w-10 h-10 rounded-xl bg-${m.badge_color}-500/20 border border-${m.badge_color}-500/30 flex items-center justify-center text-${m.badge_color}-400 text-base shrink-0">
                         <i class="fas ${m.icon}"></i>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-bold text-xs text-white">${m.name}</span>
                             <span class="px-2 py-0.2 rounded-full text-[9px] font-bold uppercase bg-${m.badge_color}-500/20 text-${m.badge_color}-300 border border-${m.badge_color}-500/30">
                                 ${m.badge}
@@ -403,45 +420,62 @@ const SuperAdmin = {
                             ${m.addon ? `<span class="text-[9px] font-mono font-bold text-amber-300">+${(m.price_month || 0).toLocaleString('vi-VN')} đ/tháng</span>` : ''}
                         </div>
                         <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${m.desc}</div>
+                        ${cardFeeHtml}
                     </div>
                 </div>
 
                 <div class="shrink-0 flex items-center gap-2">
-                    <span id="badge-toggle-label-${m.code}" class="text-[11px] font-mono font-bold ${m.is_enabled ? 'text-emerald-400' : 'text-slate-500'}">
-                        ${m.is_enabled ? 'ON' : 'OFF'}
+                    <span id="badge-toggle-label-${m.code}" class="text-[11px] font-mono font-bold ${stateColor}">
+                        ${stateStr}
                     </span>
-                    <label class="sa-module-switch" title="${m.required ? 'Module bắt buộc' : (m.is_enabled ? 'Tắt module' : 'Bật module')}">
-                        <input id="module-switch-${m.code}" type="checkbox" role="switch" aria-label="Bật hoặc tắt ${m.name}" onchange="SuperAdmin.toggleSingleModule(${tenantId}, '${m.code}', this.checked, this)" class="sa-module-switch__input" ${m.is_enabled ? 'checked' : ''} ${m.required ? 'disabled' : ''} />
+                    ${!m.required ? `
+                    <button id="btn-block-mod-${m.code}" type="button" onclick="SuperAdmin.toggleBlockModule(${tenantId}, '${m.code}')" title="${isBlocked ? 'Bỏ khóa (Unblock) module này' : 'Khóa cưỡng chế (BLOCK) module này từ Master'}" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition ${isBlocked ? 'bg-rose-600 text-white border-rose-400 shadow-sm shadow-rose-500/30' : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-rose-300 hover:border-rose-500/40'}">
+                        <i class="fas fa-ban mr-0.5"></i>${isBlocked ? 'ĐÃ BLOCK' : 'BLOCK'}
+                    </button>
+                    ` : ''}
+                    <label class="sa-module-switch" title="${m.required ? 'Module bắt buộc' : (isEnabled ? 'Tắt module' : 'Bật module')}">
+                        <input id="module-switch-${m.code}" type="checkbox" role="switch" aria-label="Bật hoặc tắt ${m.name}" onchange="SuperAdmin.toggleSingleModule(${tenantId}, '${m.code}', this.checked, this)" class="sa-module-switch__input" ${isEnabled ? 'checked' : ''} ${m.required ? 'disabled' : ''} />
                         <span class="sa-module-switch__track" aria-hidden="true"><span class="sa-module-switch__thumb"></span></span>
                     </label>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     },
 
-    setModuleToggleState(moduleCode, isEnabled) {
+    setModuleToggleState(moduleCode, isEnabled, isBlocked = false) {
         const label = document.getElementById(`badge-toggle-label-${moduleCode}`);
         if (label) {
-            label.textContent = isEnabled ? 'ON' : 'OFF';
-            label.className = `text-[11px] font-mono font-bold ${isEnabled ? 'text-emerald-400' : 'text-slate-500'}`;
+            label.textContent = isBlocked ? 'BLOCKED' : (isEnabled ? 'ON' : 'OFF');
+            label.className = `text-[11px] font-mono font-bold ${isBlocked ? 'text-rose-400' : (isEnabled ? 'text-emerald-400' : 'text-slate-500')}`;
         }
 
         const switchInput = document.getElementById(`module-switch-${moduleCode}`);
-        if (switchInput && switchInput.parentElement) {
-            switchInput.parentElement.title = isEnabled ? 'Tắt module' : 'Bật module';
+        if (switchInput) {
+            switchInput.checked = Boolean(isEnabled && !isBlocked);
+            if (switchInput.parentElement) {
+                switchInput.parentElement.title = isEnabled ? 'Tắt module' : 'Bật module';
+            }
+        }
+
+        const blockBtn = document.getElementById(`btn-block-mod-${moduleCode}`);
+        if (blockBtn) {
+            blockBtn.className = `px-2 py-1 rounded-lg text-[10px] font-bold border transition ${isBlocked ? 'bg-rose-600 text-white border-rose-400 shadow-sm shadow-rose-500/30' : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-rose-300 hover:border-rose-500/40'}`;
+            blockBtn.innerHTML = `<i class="fas fa-ban mr-0.5"></i>${isBlocked ? 'ĐÃ BLOCK' : 'BLOCK'}`;
         }
 
         const row = document.getElementById(`module-row-${moduleCode}`);
         if (row) {
-            row.classList.toggle('is-enabled', isEnabled);
-            row.classList.toggle('is-disabled', !isEnabled);
+            row.classList.toggle('is-enabled', Boolean(isEnabled && !isBlocked));
+            row.classList.toggle('is-disabled', !isEnabled || isBlocked);
+            row.classList.toggle('border-rose-500/40', isBlocked);
+            row.classList.toggle('bg-rose-950/15', isBlocked);
         }
     },
 
-    async toggleSingleModule(tenantId, moduleCode, isChecked, input) {
-        const switchInput = input || document.getElementById(`module-switch-${moduleCode}`);
-        if (switchInput) switchInput.disabled = true;
-        this.setModuleToggleState(moduleCode, isChecked);
+    async toggleBlockModule(tenantId, moduleCode) {
+        const label = document.getElementById(`badge-toggle-label-${moduleCode}`);
+        const currentlyBlocked = label && label.textContent.trim() === 'BLOCKED';
+        const nextState = currentlyBlocked ? 'OFF' : 'BLOCKED';
 
         try {
             const res = await fetch('api/super_admin.php?action=toggle_module', {
@@ -450,6 +484,54 @@ const SuperAdmin = {
                 body: JSON.stringify({
                     tenant_id: tenantId,
                     module_code: moduleCode,
+                    state: nextState,
+                    blocked: nextState === 'BLOCKED' ? 1 : 0,
+                    enabled: 0
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Không thể cập nhật trạng thái BLOCK module.');
+            }
+            this.setModuleToggleState(moduleCode, false, nextState === 'BLOCKED');
+        } catch (err) {
+            alert(err.message || 'Lỗi kết nối máy chủ khi khóa module.');
+        }
+    },
+
+    async saveMasterCardFee(tenantId) {
+        const input = document.getElementById(`input-card-fee-${tenantId}`);
+        const feeVal = parseFloat(input?.value || '0') || 0;
+        try {
+            const res = await fetch('api/super_admin.php?action=save_card_fee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenant_id: tenantId,
+                    card_fee_percent: feeVal
+                })
+            });
+            const data = await res.json();
+            alert(data.message || 'Đã lưu cấu hình phí giao dịch thẻ!');
+        } catch (err) {
+            alert('Lỗi kết nối khi lưu phí giao dịch thẻ.');
+        }
+    },
+
+    async toggleSingleModule(tenantId, moduleCode, isChecked, input) {
+        const switchInput = input || document.getElementById(`module-switch-${moduleCode}`);
+        if (switchInput) switchInput.disabled = true;
+        this.setModuleToggleState(moduleCode, isChecked, false);
+
+        try {
+            const res = await fetch('api/super_admin.php?action=toggle_module', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenant_id: tenantId,
+                    module_code: moduleCode,
+                    state: isChecked ? 'ON' : 'OFF',
+                    blocked: 0,
                     enabled: isChecked ? 1 : 0
                 })
             });

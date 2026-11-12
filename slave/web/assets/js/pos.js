@@ -1631,11 +1631,18 @@ const POS = {
                     </div>
                 </div>
 
+                <!-- Method Content: SmartPOS / Credit Card ECR (mod_card_payment) -->
+                <div id="payment-card-section" class="hidden mb-4 p-4 rounded-xl bg-slate-900/90 border border-indigo-500/30">
+                    <div class="text-center py-4 text-xs text-slate-400">
+                        <i class="fas fa-spinner fa-spin text-indigo-400 mr-1.5"></i>Đang kiểm tra kết nối Cổng Cà Thẻ SmartPOS (ECR)...
+                    </div>
+                </div>
+
                 <!-- Footer buttons -->
                 <div class="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
                     <button type="button" class="btn-glass text-sm py-2.5" onclick="document.getElementById('payment-modal').classList.remove('open')">Hủy bỏ</button>
-                    <button type="button" class="btn-glass-success text-sm py-2.5 font-bold flex items-center justify-center gap-2" onclick="POS.confirmCheckout(${total})">
-                        <i class="fas fa-check-circle"></i> Xác Nhận & In HĐ
+                    <button type="button" id="btn-confirm-checkout" class="btn-glass-success text-sm py-2.5 font-bold flex items-center justify-center gap-2" onclick="POS.confirmCheckout(${total})">
+                        <i class="fas fa-check-circle"></i> <span id="btn-confirm-checkout-text">Xác Nhận & In HĐ</span>
                     </button>
                 </div>
             </div>
@@ -1643,6 +1650,128 @@ const POS = {
 
         modal.classList.add('open');
         this.selectedPaymentMethod = 'cash';
+        this.loadCardModuleStatus(total);
+    },
+
+    cardModuleStatus: null,
+    selectedCardScheme: 'VISA',
+    selectedCardEntryMode: 'NFC Contactless',
+
+    async loadCardModuleStatus(total) {
+        try {
+            const res = await fetch('/api/card/status');
+            const data = await res.json();
+            this.cardModuleStatus = data;
+
+            const btnCard = document.getElementById('paymethod-card');
+            if (btnCard) {
+                if (data.module_state === 'BLOCKED') {
+                    btnCard.innerHTML = `<i class="fas fa-ban text-rose-400"></i> Thẻ POS <span class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">BLOCK</span>`;
+                } else if (data.module_state === 'OFF') {
+                    btnCard.innerHTML = `<i class="fas fa-lock text-amber-400"></i> Thẻ POS <span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300">OFF</span>`;
+                } else {
+                    btnCard.innerHTML = `<i class="fas fa-credit-card text-indigo-400"></i> Thẻ POS <span class="text-[9px] px-1 rounded bg-indigo-500/20 text-indigo-300">ECR</span>`;
+                }
+            }
+            this.renderCardPaymentSection(total);
+        } catch (e) {
+            this.cardModuleStatus = { module_state: 'OFF', message: 'Không thể kết nối module cà thẻ.' };
+            this.renderCardPaymentSection(total);
+        }
+    },
+
+    renderCardPaymentSection(total) {
+        const secCard = document.getElementById('payment-card-section');
+        if (!secCard) return;
+
+        const st = this.cardModuleStatus || { module_state: 'OFF' };
+        if (st.module_state === 'BLOCKED' || st.module_state === 'OFF') {
+            const isBlocked = st.module_state === 'BLOCKED';
+            secCard.innerHTML = `
+                <div class="p-3.5 rounded-xl ${isBlocked ? 'bg-rose-950/60 border border-rose-500/50 text-rose-200' : 'bg-amber-950/50 border border-amber-500/40 text-amber-200'} text-xs space-y-2">
+                    <div class="flex items-center gap-2 font-bold text-sm ${isBlocked ? 'text-rose-400' : 'text-amber-400'}">
+                        <i class="fas ${isBlocked ? 'fa-ban' : 'fa-lock'}"></i>
+                        <span>${isBlocked ? 'MODULE CÀ THẺ BỊ KHÓA (BLOCKED BỞI MASTER)' : 'MODULE CÀ THẺ TÍN DỤNG ĐANG TẮT (OFF)'}</span>
+                    </div>
+                    <p class="leading-relaxed text-[11px]">${st.message || 'Module thanh toán thẻ tín dụng hiện không khả dụng trên giấy phép cửa hàng.'}</p>
+                    <div class="text-[10px] text-slate-400 pt-1 border-t border-white/10">
+                        <i class="fas fa-shield-halved mr-1"></i>Kiểm soát bởi <b>CyberNexus Master SaaS</b> • Vui lòng chọn Tiền mặt hoặc Chuyển khoản QR.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const cfg = st.config || {};
+        const surchargePct = parseFloat(cfg.customer_surcharge_percent) || 0;
+        const surchargeAmt = Math.round(total * (surchargePct / 100.0));
+        const totalCharged = Math.round(total) + surchargeAmt;
+        const terminalName = (st.compatible_terminals || []).find(t => t.model_code === cfg.model_code)?.model_name || cfg.model_code || 'PAX A920 Pro';
+
+        secCard.innerHTML = `
+            <div class="space-y-3 text-xs">
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-indigo-950/60 border border-indigo-500/40">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                            <i class="fas fa-microchip"></i>
+                        </span>
+                        <div>
+                            <div class="font-bold text-white flex items-center gap-1.5">
+                                <span>${terminalName}</span>
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">AUTO ECR</span>
+                            </div>
+                            <div class="text-[10px] text-slate-300 font-mono">
+                                ${cfg.acquirer_bank || 'Vietcombank'} • ${cfg.connection_type || 'LAN_TCP'} ${cfg.terminal_ip || '10.0.126.250'}:${cfg.terminal_port || 10009} • TID: ${cfg.tid || '88001234'}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">SIMULATION</span>
+                </div>
+
+                <!-- Surcharge & Total Charged Summary -->
+                <div class="p-2.5 rounded-xl bg-slate-950/80 border border-white/10 space-y-1">
+                    <div class="flex justify-between text-[11px] text-slate-400">
+                        <span>Tiền hóa đơn gốc:</span>
+                        <span class="font-mono text-slate-200">${this.formatMoney(total)} đ</span>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-400">
+                        <span>Phụ phí cà thẻ (${surchargePct}%):</span>
+                        <span class="font-mono text-amber-300">+${this.formatMoney(surchargeAmt)} đ</span>
+                    </div>
+                    <div class="flex justify-between text-xs font-bold text-indigo-300 pt-1 border-t border-white/10">
+                        <span>Tổng tiền đẩy tự động sang máy POS:</span>
+                        <span class="font-mono text-sm text-emerald-400">${this.formatMoney(totalCharged)} đ</span>
+                    </div>
+                </div>
+
+                <!-- Card Scheme & Entry Mode Selector -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Tổ chức thẻ (Mô phỏng):</label>
+                        <select id="ecr-card-scheme" onchange="POS.selectedCardScheme=this.value" class="w-full bg-slate-950 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white font-semibold">
+                            <option value="VISA" ${this.selectedCardScheme === 'VISA' ? 'selected' : ''}>💳 VISA Credit/Debit</option>
+                            <option value="MASTERCARD" ${this.selectedCardScheme === 'MASTERCARD' ? 'selected' : ''}>💳 MasterCard</option>
+                            <option value="JCB" ${this.selectedCardScheme === 'JCB' ? 'selected' : ''}>💳 JCB Quốc Tế</option>
+                            <option value="NAPAS" ${this.selectedCardScheme === 'NAPAS' ? 'selected' : ''}>💳 NAPAS Nội Địa</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Phương thức đọc thẻ:</label>
+                        <select id="ecr-entry-mode" onchange="POS.selectedCardEntryMode=this.value" class="w-full bg-slate-950 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white font-semibold">
+                            <option value="NFC Contactless" ${this.selectedCardEntryMode === 'NFC Contactless' ? 'selected' : ''}>📡 Chạm NFC / Apple Pay</option>
+                            <option value="EMV Chip" ${this.selectedCardEntryMode === 'EMV Chip' ? 'selected' : ''}>🔌 Cắm Chip EMV</option>
+                            <option value="QR POS" ${this.selectedCardEntryMode === 'QR POS' ? 'selected' : ''}>📱 Quét QR trên POS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Live ECR Terminal Response Box -->
+                <div id="ecr-live-status-box" class="p-2.5 rounded-xl bg-slate-950/90 border border-indigo-500/30 text-[11px] text-slate-300 flex items-center gap-2">
+                    <i class="fas fa-satellite-dish text-indigo-400 text-sm animate-pulse"></i>
+                    <span>Sẵn sàng đẩy lệnh <b>SALE ${this.formatMoney(totalCharged)}đ</b> sang máy <b>${terminalName}</b> khi bấm xác nhận.</span>
+                </div>
+            </div>
+        `;
     },
 
     selectPaymentMethod(method, total) {
@@ -1652,21 +1781,43 @@ const POS = {
         const btnCard = document.getElementById('paymethod-card');
         const secCash = document.getElementById('payment-cash-section');
         const secBank = document.getElementById('payment-banking-section');
+        const secCard = document.getElementById('payment-card-section');
+        const btnConfirm = document.getElementById('btn-confirm-checkout');
+        const btnConfirmText = document.getElementById('btn-confirm-checkout-text');
 
-        [btnCash, btnBank, btnCard].forEach(btn => btn.className = 'btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5');
+        [btnCash, btnBank, btnCard].forEach(btn => {
+            if (btn) btn.className = 'btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5';
+        });
 
         if (method === 'cash') {
-            btnCash.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
-            secCash.classList.remove('hidden');
-            secBank.classList.add('hidden');
+            if (btnCash) btnCash.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
+            if (secCash) secCash.classList.remove('hidden');
+            if (secBank) secBank.classList.add('hidden');
+            if (secCard) secCard.classList.add('hidden');
+            if (btnConfirm) btnConfirm.disabled = false;
+            if (btnConfirmText) btnConfirmText.textContent = 'Xác Nhận & In HĐ';
         } else if (method === 'banking') {
-            btnBank.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
-            secCash.classList.add('hidden');
-            secBank.classList.remove('hidden');
+            if (btnBank) btnBank.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
+            if (secCash) secCash.classList.add('hidden');
+            if (secBank) secBank.classList.remove('hidden');
+            if (secCard) secCard.classList.add('hidden');
+            if (btnConfirm) btnConfirm.disabled = false;
+            if (btnConfirmText) btnConfirmText.textContent = 'Xác Nhận & In HĐ';
         } else {
-            btnCard.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
-            secCash.classList.remove('hidden');
-            secBank.classList.add('hidden');
+            if (btnCard) btnCard.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
+            if (secCash) secCash.classList.add('hidden');
+            if (secBank) secBank.classList.add('hidden');
+            if (secCard) secCard.classList.remove('hidden');
+            this.renderCardPaymentSection(total);
+
+            const st = this.cardModuleStatus || { module_state: 'OFF' };
+            if (st.module_state !== 'ON') {
+                if (btnConfirm) btnConfirm.disabled = true;
+                if (btnConfirmText) btnConfirmText.textContent = st.module_state === 'BLOCKED' ? 'Đã Khóa Bởi Master' : 'Module Đang Tắt';
+            } else {
+                if (btnConfirm) btnConfirm.disabled = false;
+                if (btnConfirmText) btnConfirmText.textContent = 'Đẩy Lệnh POS & In HĐ';
+            }
         }
     },
 
@@ -1689,6 +1840,83 @@ const POS = {
     },
 
     async confirmCheckout(total) {
+        const btnConfirm = document.getElementById('btn-confirm-checkout');
+
+        // Nếu chọn thanh toán bằng Thẻ POS (ECR), gọi tự động sang Cổng Cà Thẻ /api/card/charge trước
+        if (this.selectedPaymentMethod === 'card') {
+            const st = this.cardModuleStatus || { module_state: 'OFF' };
+            if (st.module_state !== 'ON') {
+                alert(st.message || 'Module Cổng Cà Thẻ Tín Dụng hiện đang TẮT hoặc BỊ KHÓA bởi Master!');
+                return;
+            }
+
+            const statusBox = document.getElementById('ecr-live-status-box');
+            const schemeEl = document.getElementById('ecr-card-scheme');
+            const entryEl = document.getElementById('ecr-entry-mode');
+            const cardScheme = schemeEl ? schemeEl.value : (this.selectedCardScheme || 'VISA');
+            const entryMode = entryEl ? entryEl.value : (this.selectedCardEntryMode || 'NFC Contactless');
+
+            if (btnConfirm) btnConfirm.disabled = true;
+            if (statusBox) {
+                statusBox.className = 'p-3 rounded-xl bg-indigo-950/90 border border-indigo-400/60 text-xs text-indigo-200 flex items-center gap-2.5';
+                statusBox.innerHTML = `
+                    <i class="fas fa-circle-notch fa-spin text-indigo-400 text-base"></i>
+                    <div>
+                        <div class="font-bold text-white">Đang đẩy lệnh SALE tự động sang máy POS...</div>
+                        <div class="text-[10px] text-indigo-300">Giao thức Semi-Integrated ECR • Chờ khách chạm/cắm thẻ (${cardScheme} - ${entryMode})</div>
+                    </div>
+                `;
+            }
+
+            try {
+                const chargeRes = await fetch('/api/card/charge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: this.activeOrderId || 0,
+                        order_code: this.currentTable ? `HD-${this.currentTable.code}` : 'HD-POS',
+                        table_code: this.currentTable ? this.currentTable.code : 'MV',
+                        amount: Math.round(total),
+                        card_scheme: cardScheme,
+                        entry_mode: entryMode,
+                        cashier_name: (window.CURRENT_USER && window.CURRENT_USER.fullname) ? window.CURRENT_USER.fullname : 'Thu ngân POS'
+                    })
+                });
+                const chargeData = await chargeRes.json();
+
+                if (!chargeRes.ok || !chargeData.success || chargeData.status !== 'APPROVED') {
+                    if (btnConfirm) btnConfirm.disabled = false;
+                    if (statusBox) {
+                        statusBox.className = 'p-3 rounded-xl bg-rose-950/90 border border-rose-500/60 text-xs text-rose-200 flex items-center gap-2.5';
+                        statusBox.innerHTML = `
+                            <i class="fas fa-triangle-exclamation text-rose-400 text-base"></i>
+                            <div>
+                                <div class="font-bold text-rose-300">GIAO DỊCH THẺ TỪ CHỐI (${chargeData.status || 'ERROR'})</div>
+                                <div class="text-[11px]">${chargeData.message || 'Ngân hàng từ chối giao dịch hoặc hết thời gian chờ.'}</div>
+                            </div>
+                        `;
+                    }
+                    return;
+                }
+
+                const tx = chargeData.transaction || {};
+                if (statusBox) {
+                    statusBox.className = 'p-3 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-xs text-emerald-200 flex items-center gap-2.5';
+                    statusBox.innerHTML = `
+                        <i class="fas fa-circle-check text-emerald-400 text-base"></i>
+                        <div>
+                            <div class="font-bold text-emerald-300">CHUẨN CHI THÀNH CÔNG (APPROVED: ${tx.approval_code || 'OK'})</div>
+                            <div class="text-[10px] font-mono text-slate-200">${tx.card_scheme} ${tx.masked_pan} • RRN: ${tx.rrn} • Tổng thu: ${this.formatMoney(tx.total_charged || total)}đ</div>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                if (btnConfirm) btnConfirm.disabled = false;
+                alert('Lỗi kết nối Cổng Cà Thẻ ECR: ' + err.message);
+                return;
+            }
+        }
+
         const cashInput = document.getElementById('cash-received-input');
         const cashReceived = cashInput ? (parseFloat(cashInput.value) || total) : total;
 

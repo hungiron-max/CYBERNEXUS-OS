@@ -2,14 +2,43 @@
 #include "license.hpp"
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
+#include "sqlite3.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <chrono>
+#include <algorithm>
 
 namespace SaleApp::Backend {
 
 namespace fs = std::filesystem;
+
+static void syncLocalSlaveLicenseCache(const std::string& enabledModsStr, const std::string& blockedModsStr, double cardFeePct) {
+    fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir(); // master dir
+    std::vector<fs::path> slaveDbs = {
+        baseDir.parent_path() / "slave" / "database" / "store_local.db",
+        baseDir / "packages" / "GP001" / "release" / "CyberNexus_POS_Release_GP001" / "database" / "store_local.db"
+    };
+    for (const auto& dbPath : slaveDbs) {
+        if (!fs::exists(dbPath)) continue;
+        sqlite3* sdb = nullptr;
+        if (sqlite3_open(dbPath.string().c_str(), &sdb) == SQLITE_OK && sdb) {
+            sqlite3_busy_timeout(sdb, 3000);
+            sqlite3_exec(sdb, "ALTER TABLE local_license_cache ADD COLUMN blocked_modules TEXT DEFAULT '[]';", nullptr, nullptr, nullptr);
+            sqlite3_exec(sdb, "ALTER TABLE local_license_cache ADD COLUMN card_fee_percent REAL DEFAULT 0.0;", nullptr, nullptr, nullptr);
+            sqlite3_stmt* stmt = nullptr;
+            const char* sql = "UPDATE local_license_cache SET enabled_modules = ?1, blocked_modules = ?2, card_fee_percent = ?3, last_sync_at = datetime('now'), last_sync_status = 'master_push_ok' WHERE id = 1;";
+            if (sqlite3_prepare_v2(sdb, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_text(stmt, 1, enabledModsStr.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(stmt, 2, blockedModsStr.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_double(stmt, 3, cardFeePct);
+                sqlite3_step(stmt);
+                sqlite3_finalize(stmt);
+            }
+            sqlite3_close(sdb);
+        }
+    }
+}
 
 void MasterHandlers::sendJson(httplib::Response& res, const json& data, int statusCode) {
     res.status = statusCode;
@@ -209,6 +238,38 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
                 auto enabledMods = LicenseService::instance().getEnabledModules(tid);
                 json matrix = LicenseService::instance().getModuleMatrix(enabledMods);
+
+                std::vector<std::string> blockedList;
+                try {
+                    std::string bmRaw = getString(tenant, "blocked_modules", "[]");
+                    json bmArr = json::parse(bmRaw, nullptr, false);
+                    if (bmArr.is_array()) {
+                        for (const auto& item : bmArr) {
+                            if (item.is_string()) blockedList.push_back(item.get<std::string>());
+                        }
+                    }
+                } catch (...) {}
+
+                double cardFeePct = 0.0;
+                if (tenant.contains("card_fee_percent") && !tenant["card_fee_percent"].is_null()) {
+                    try {
+                        if (tenant["card_fee_percent"].is_number()) cardFeePct = tenant["card_fee_percent"].get<double>();
+                        else if (tenant["card_fee_percent"].is_string()) cardFeePct = std::stod(tenant["card_fee_percent"].get<std::string>());
+                    } catch (...) {}
+                }
+
+                for (auto& m : matrix) {
+                    std::string mCode = m.value("code", "");
+                    bool isBlk = (std::find(blockedList.begin(), blockedList.end(), mCode) != blockedList.end());
+                    bool isEn = m.value("is_enabled", false) && !isBlk;
+                    m["is_enabled"] = isEn;
+                    m["is_blocked"] = isBlk;
+                    m["state"] = isBlk ? "BLOCKED" : (isEn ? "ON" : "OFF");
+                    if (mCode == "mod_card_payment") {
+                        m["card_fee_percent"] = cardFeePct;
+                    }
+                }
+
                 json invoices = db.query("SELECT * FROM saas_invoices WHERE tenant_id = :tid ORDER BY id DESC", {{":tid", tid}});
 
                 sendJson(res, {
@@ -620,20 +681,122 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
             if (action == "toggle_module") {
                 int64_t tid = getInt(body, "tenant_id");
+                if (tid <= 0) tid = 1;
                 std::string modCode = getString(body, "module_code");
+                std::string state = getString(body, "state", "");
+                bool blocked = false;
+                if (body.contains("blocked")) {
+                    if (body["blocked"].is_boolean()) blocked = body["blocked"].get<bool>();
+                    else if (body["blocked"].is_number()) blocked = (body["blocked"].get<int>() != 0);
+                    else if (body["blocked"].is_string()) blocked = (body["blocked"].get<std::string>() == "1" || body["blocked"].get<std::string>() == "true");
+                }
+                if (state == "BLOCKED") blocked = true;
+
                 bool enabled = false;
                 if (body.contains("enabled")) {
                     if (body["enabled"].is_boolean()) enabled = body["enabled"].get<bool>();
                     else if (body["enabled"].is_number()) enabled = (body["enabled"].get<int>() != 0);
                     else if (body["enabled"].is_string()) enabled = (body["enabled"].get<std::string>() == "1" || body["enabled"].get<std::string>() == "true");
                 }
+                if (state == "ON") { enabled = true; blocked = false; }
+                else if (state == "OFF") { enabled = false; blocked = false; }
+                else if (blocked) { enabled = false; }
+
+                // Lấy danh sách blocked_modules và card_fee_percent hiện tại
+                auto tRow = db.queryRow("SELECT blocked_modules, card_fee_percent FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                std::vector<std::string> blockedList;
+                double cardFeePct = 0.0;
+                if (!tRow.is_null()) {
+                    try {
+                        json bmArr = json::parse(getString(tRow, "blocked_modules", "[]"), nullptr, false);
+                        if (bmArr.is_array()) {
+                            for (const auto& item : bmArr) {
+                                if (item.is_string()) blockedList.push_back(item.get<std::string>());
+                            }
+                        }
+                    } catch (...) {}
+                    try {
+                        if (tRow.contains("card_fee_percent") && !tRow["card_fee_percent"].is_null()) {
+                            if (tRow["card_fee_percent"].is_number()) cardFeePct = tRow["card_fee_percent"].get<double>();
+                            else if (tRow["card_fee_percent"].is_string()) cardFeePct = std::stod(tRow["card_fee_percent"].get<std::string>());
+                        }
+                    } catch (...) {}
+                }
+
+                if (body.contains("card_fee_percent") && !body["card_fee_percent"].is_null()) {
+                    try {
+                        if (body["card_fee_percent"].is_number()) cardFeePct = body["card_fee_percent"].get<double>();
+                        else if (body["card_fee_percent"].is_string()) cardFeePct = std::stod(body["card_fee_percent"].get<std::string>());
+                        if (cardFeePct < 0.0) cardFeePct = 0.0;
+                        if (cardFeePct > 20.0) cardFeePct = 20.0;
+                    } catch (...) {}
+                }
+
                 json result = LicenseService::instance().toggleModule(tid, modCode, enabled);
                 if (result.value("success", false)) {
+                    if (blocked) {
+                        if (std::find(blockedList.begin(), blockedList.end(), modCode) == blockedList.end()) {
+                            blockedList.push_back(modCode);
+                        }
+                    } else {
+                        blockedList.erase(std::remove(blockedList.begin(), blockedList.end(), modCode), blockedList.end());
+                    }
+                    json bmJson = blockedList;
+                    std::string bmStr = bmJson.dump();
+                    db.execute("UPDATE saas_tenants SET blocked_modules = :bm, card_fee_percent = :cfp, updated_at = datetime('now') WHERE id = :id",
+                               {{":bm", bmStr}, {":cfp", cardFeePct}, {":id", tid}});
+
+                    std::string emStr = result.contains("enabled_modules") ? result["enabled_modules"].dump() : "[]";
+                    if (tid == 1) {
+                        syncLocalSlaveLicenseCache(emStr, bmStr, cardFeePct);
+                    }
+
+                    std::string finalState = blocked ? "BLOCKED" : (enabled ? "ON" : "OFF");
+                    result["blocked"] = blocked;
+                    result["state"] = finalState;
+                    result["blocked_modules"] = blockedList;
+                    result["card_fee_percent"] = cardFeePct;
+                    result["message"] = blocked
+                        ? ("Đã KHÓA CƯỠNG CHẾ (BLOCK) module " + modCode + " từ Master!")
+                        : (enabled ? ("Đã BẬT (ON) module " + modCode + " thành công!") : ("Đã TẮT (OFF) module " + modCode + " thành công!"));
+
                     recordAuditLog(db, 0, "SuperAdmin", "super_admin", "TOGGLE_MODULE", std::to_string(tid),
-                        std::string(enabled ? "Cấp phép module: " : "Thu hồi module: ") + modCode + " cho cửa hàng ID " + std::to_string(tid),
+                        std::string(blocked ? "BLOCK khóa module: " : (enabled ? "Cấp phép (ON) module: " : "Thu hồi (OFF) module: ")) + modCode + " cho cửa hàng ID " + std::to_string(tid),
                         result.dump(), req.remote_addr);
                 }
                 sendJson(res, result, result.value("success", false) ? 200 : 400);
+                return;
+            }
+
+            if (action == "save_card_fee") {
+                int64_t tid = getInt(body, "tenant_id", 1);
+                double cardFeePct = 0.0;
+                if (body.contains("card_fee_percent") && !body["card_fee_percent"].is_null()) {
+                    try {
+                        if (body["card_fee_percent"].is_number()) cardFeePct = body["card_fee_percent"].get<double>();
+                        else if (body["card_fee_percent"].is_string()) cardFeePct = std::stod(body["card_fee_percent"].get<std::string>());
+                    } catch (...) {}
+                }
+                if (cardFeePct < 0.0) cardFeePct = 0.0;
+                if (cardFeePct > 20.0) cardFeePct = 20.0;
+
+                db.execute("UPDATE saas_tenants SET card_fee_percent = :cfp, updated_at = datetime('now') WHERE id = :id",
+                           {{":cfp", cardFeePct}, {":id", tid}});
+
+                auto tRow = db.queryRow("SELECT enabled_modules, blocked_modules FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                if (!tRow.is_null() && tid == 1) {
+                    syncLocalSlaveLicenseCache(getString(tRow, "enabled_modules", "[]"), getString(tRow, "blocked_modules", "[]"), cardFeePct);
+                }
+
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "SAVE_CARD_FEE", std::to_string(tid),
+                    "Cập nhật phí nền tảng Master trên mỗi giao dịch cà thẻ: " + std::to_string(cardFeePct) + "% cho cửa hàng ID " + std::to_string(tid),
+                    body.dump(), req.remote_addr);
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã lưu cấu hình phí giao dịch thẻ Master (" + std::to_string(cardFeePct) + "%) và đồng bộ xuống máy trạm!"},
+                    {"card_fee_percent", cardFeePct}
+                });
                 return;
             }
 
@@ -1312,6 +1475,14 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         }
                     }
 
+                    // Module Card Payment (ECR / SmartPOS)
+                    if (enabledMods.find("mod_card_payment") != std::string::npos && fs::exists(slaveDir / "modules" / "libmod_card_payment.dll")) {
+                        fs::copy_file(slaveDir / "modules" / "libmod_card_payment.dll", stageModDir / "libmod_card_payment.dll", fs::copy_options::overwrite_existing);
+                        if (fs::exists(slaveDir / "modules" / "libmod_card_payment.dll.sig")) {
+                            fs::copy_file(slaveDir / "modules" / "libmod_card_payment.dll.sig", stageModDir / "libmod_card_payment.dll.sig", fs::copy_options::overwrite_existing);
+                        }
+                    }
+
                     // Nén thành file .zip chuẩn qua tar.exe có sẵn trên Windows 10/11
                     if (fs::exists(zipPath)) fs::remove(zipPath);
                     std::string tarCmd = "tar.exe -a -c -f \"" + zipPath.string() + "\" -C \"" + stagingDir.string() + "\" *";
@@ -1727,6 +1898,19 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
                 {{":ip", clientIp}, {":id", tid}});
 
             auto enabledMods = LicenseService::instance().getEnabledModules(tid);
+            json blockedMods = json::array();
+            try {
+                json bmArr = json::parse(getString(tenant, "blocked_modules", "[]"), nullptr, false);
+                if (bmArr.is_array()) blockedMods = bmArr;
+            } catch (...) {}
+            double cardFeePct = 0.0;
+            try {
+                if (tenant.contains("card_fee_percent") && !tenant["card_fee_percent"].is_null()) {
+                    if (tenant["card_fee_percent"].is_number()) cardFeePct = tenant["card_fee_percent"].get<double>();
+                    else if (tenant["card_fee_percent"].is_string()) cardFeePct = std::stod(tenant["card_fee_percent"].get<std::string>());
+                }
+            } catch (...) {}
+
             sendJson(res, {
                 {"success", true},
                 {"state", subStatus},
@@ -1734,6 +1918,8 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
                 {"plan_name", getString(tenant, "plan_name", "")},
                 {"expire_date", getString(tenant, "expire_date", "")},
                 {"enabled_modules", enabledMods},
+                {"blocked_modules", blockedMods},
+                {"card_fee_percent", cardFeePct},
                 {"server_time", std::time(nullptr)}
             });
             return;

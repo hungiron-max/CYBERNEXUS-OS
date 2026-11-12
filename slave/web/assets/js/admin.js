@@ -613,6 +613,7 @@ const Admin = {
         if (tab === 'finance') this.loadFinance();
         if (tab === 'settings') {
             if (typeof loadStoreSettings === 'function') loadStoreSettings();
+            this.loadCardTerminalAdmin();
         }
         if (tab === 'media') {
             this.loadMediaTab();
@@ -6039,6 +6040,301 @@ const Admin = {
             }
         } catch (e) {
             alert('Lỗi: ' + e.message);
+        }
+    },
+
+    // =========================================================
+    // CỔNG CÀ THẺ TÍN DỤNG & SMARTPOS (ECR ADAPTER)
+    // =========================================================
+    cardCompatibleModels: [],
+
+    async loadCardTerminalAdmin() {
+        try {
+            const res = await fetch('/api/card/status');
+            const data = await res.json();
+            this.cardCompatibleModels = data.compatible_terminals || [];
+
+            // Update License Badge & Banner
+            const licBadge = document.getElementById('ecr-admin-license-badge');
+            const lockBanner = document.getElementById('ecr-admin-lock-banner');
+            const lockText = document.getElementById('ecr-admin-lock-text');
+
+            if (licBadge) {
+                if (data.module_state === 'BLOCKED') {
+                    licBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+                    licBadge.textContent = 'MODULE: BLOCKED (MASTER)';
+                } else if (data.module_state === 'OFF') {
+                    licBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40';
+                    licBadge.textContent = 'MODULE: OFF';
+                } else {
+                    licBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                    licBadge.textContent = 'MODULE: ON';
+                }
+            }
+
+            if (lockBanner && lockText) {
+                if (data.module_state === 'BLOCKED') {
+                    lockBanner.classList.remove('hidden');
+                    lockBanner.className = 'p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-xs text-rose-200 flex items-center gap-2.5';
+                    lockText.innerHTML = `<b>LƯU Ý:</b> ${data.message || 'Module Cà thẻ tín dụng đang bị KHÓA CƯỠNG CHẾ bởi Quản trị viên CyberNexus Master.'}`;
+                } else if (data.module_state === 'OFF') {
+                    lockBanner.classList.remove('hidden');
+                    lockBanner.className = 'p-3 rounded-xl bg-amber-950/70 border border-amber-500/50 text-xs text-amber-200 flex items-center gap-2.5';
+                    lockText.innerHTML = `<b>LƯU Ý:</b> ${data.message || 'Module Cà thẻ tín dụng đang ở trạng thái TẮT trên gói bản quyền.'}`;
+                } else {
+                    lockBanner.classList.add('hidden');
+                }
+            }
+
+            // Fill Config Inputs
+            const cfg = data.config || {};
+            const elModel = document.getElementById('ecr-cfg-model-code');
+            const elBank = document.getElementById('ecr-cfg-acquirer-bank');
+            const elConn = document.getElementById('ecr-cfg-conn-type');
+            const elIp = document.getElementById('ecr-cfg-ip');
+            const elPort = document.getElementById('ecr-cfg-port');
+            const elTid = document.getElementById('ecr-cfg-tid');
+            const elMid = document.getElementById('ecr-cfg-mid');
+            const elSecret = document.getElementById('ecr-cfg-secret');
+            const elSurcharge = document.getElementById('ecr-cfg-surcharge');
+            const elSim = document.getElementById('ecr-cfg-sim-behavior');
+            const elMasterFee = document.getElementById('ecr-cfg-master-fee-display');
+
+            if (elModel && cfg.model_code) elModel.value = cfg.model_code;
+            if (elBank && cfg.acquirer_bank) elBank.value = cfg.acquirer_bank;
+            if (elConn && cfg.connection_type) elConn.value = cfg.connection_type;
+            if (elIp && cfg.terminal_ip) elIp.value = cfg.terminal_ip;
+            if (elPort && cfg.terminal_port) elPort.value = cfg.terminal_port;
+            if (elTid && cfg.tid) elTid.value = cfg.tid;
+            if (elMid && cfg.mid) elMid.value = cfg.mid;
+            if (elSecret && cfg.secret_key) elSecret.value = cfg.secret_key;
+            if (elSurcharge) elSurcharge.value = cfg.customer_surcharge_percent ?? 0;
+            if (elSim && cfg.simulation_behavior) elSim.value = cfg.simulation_behavior;
+
+            if (elMasterFee) {
+                elMasterFee.innerHTML = `<span>${Number(data.master_fee_percent ?? 0)}%</span><span class="text-[9px] text-slate-500">Do Master quy định</span>`;
+            }
+
+            this.onSelectEcrModel(elModel ? elModel.value : 'PAX_A920_PRO');
+            this.loadCardTransactions();
+        } catch (e) {
+            console.error('loadCardTerminalAdmin error:', e);
+        }
+    },
+
+    onSelectEcrModel(modelCode) {
+        const specsEl = document.getElementById('ecr-cfg-model-specs');
+        if (!specsEl) return;
+        const found = (this.cardCompatibleModels || []).find(m => m.model_code === modelCode);
+        if (found) {
+            specsEl.textContent = `Chuẩn bảo mật: ${found.security_standard} • Giao thức: ${found.protocol} • Hỗ trợ: ${found.supported_interfaces}`;
+        }
+    },
+
+    async saveCardTerminalConfig() {
+        const payload = {
+            model_code: document.getElementById('ecr-cfg-model-code')?.value || 'PAX_A920_PRO',
+            acquirer_bank: document.getElementById('ecr-cfg-acquirer-bank')?.value || 'Vietcombank',
+            connection_type: document.getElementById('ecr-cfg-conn-type')?.value || 'LAN_TCP',
+            terminal_ip: document.getElementById('ecr-cfg-ip')?.value.trim() || '10.0.126.250',
+            terminal_port: parseInt(document.getElementById('ecr-cfg-port')?.value || '10009', 10),
+            tid: document.getElementById('ecr-cfg-tid')?.value.trim() || '88001234',
+            mid: document.getElementById('ecr-cfg-mid')?.value.trim() || '000001088001234',
+            secret_key: document.getElementById('ecr-cfg-secret')?.value.trim() || 'NEXUS-ECR-2026-KEY',
+            customer_surcharge_percent: parseFloat(document.getElementById('ecr-cfg-surcharge')?.value || '0') || 0,
+            simulation_behavior: document.getElementById('ecr-cfg-sim-behavior')?.value || 'AUTO_APPROVE'
+        };
+
+        try {
+            const res = await fetch('/api/card/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã lưu cấu hình liên kết máy SmartPOS ECR thành công!');
+                this.loadCardTerminalAdmin();
+            } else {
+                alert(data.message || 'Lỗi lưu cấu hình máy POS');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối máy chủ: ' + e.message);
+        }
+    },
+
+    async testCardTerminalConnection() {
+        const resultEl = document.getElementById('ecr-handshake-result');
+        if (resultEl) {
+            resultEl.classList.remove('hidden');
+            resultEl.className = 'p-2.5 rounded-xl bg-slate-950/90 border border-sky-500/30 text-xs font-mono text-sky-300';
+            resultEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i>Đang gửi gói tin ECHO TEST / HANDSHAKE sang SmartPOS...';
+        }
+
+        try {
+            const res = await fetch('/api/card/test-connection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (resultEl) {
+                if (data.success && data.status === 'CONNECTED') {
+                    resultEl.className = 'p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-xs font-mono text-emerald-300';
+                    resultEl.innerHTML = `<i class="fas fa-circle-check mr-1.5"></i><b>${data.message}</b> • Máy: ${data.terminal_name} • Firmware: ${data.firmware || 'v3.2'} • Độ trễ: ${data.latency_ms || 12}ms`;
+                } else {
+                    resultEl.className = 'p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-xs font-mono text-rose-300';
+                    resultEl.innerHTML = `<i class="fas fa-triangle-exclamation mr-1.5"></i>${data.message || 'Không thể bắt tay với SmartPOS'}`;
+                }
+            }
+        } catch (e) {
+            if (resultEl) {
+                resultEl.className = 'p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-xs font-mono text-rose-300';
+                resultEl.innerHTML = `<i class="fas fa-triangle-exclamation mr-1.5"></i>Lỗi kết nối: ${e.message}`;
+            }
+        }
+    },
+
+    async loadCardTransactions() {
+        try {
+            const res = await fetch('/api/card/transactions?status=ALL&limit=30');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const tbody = document.getElementById('ecr-transactions-tbody');
+            const badge = document.getElementById('ecr-batch-summary-badge');
+            const txs = data.transactions || [];
+
+            let sumApproved = 0;
+            let countApproved = 0;
+            txs.forEach(t => {
+                if (t.status === 'APPROVED' && t.settle_status !== 'SETTLED') {
+                    sumApproved += (t.total_charged || 0);
+                    countApproved++;
+                }
+            });
+
+            if (badge) {
+                badge.textContent = `Lô hiện tại: ${countApproved} GD • ${this.formatMoney(sumApproved)} đ`;
+            }
+
+            if (!tbody) return;
+            if (txs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-slate-500">Chưa có giao dịch cà thẻ nào.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = txs.map(t => {
+                const isApproved = t.status === 'APPROVED';
+                const isVoided = t.status === 'VOIDED';
+                const isSettled = t.settle_status === 'SETTLED';
+
+                const statusBadge = isApproved
+                    ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">APPROVED</span>`
+                    : (isVoided
+                        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">VOIDED</span>`
+                        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${t.status}</span>`);
+
+                const settleBadge = isSettled
+                    ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">ĐÃ KẾT TOÁN</span>`
+                    : `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-800 text-slate-400">CHỜ KẾT TOÁN</span>`;
+
+                const canVoid = isApproved && !isSettled;
+
+                return `
+                    <tr class="hover:bg-white/5 transition border-b border-white/5">
+                        <td class="font-mono text-slate-300">
+                            <div>${t.trace_no}</div>
+                            <div class="text-[10px] text-slate-500">RRN: ${t.rrn || '-'}</div>
+                        </td>
+                        <td>
+                            <div class="font-bold text-white">${t.order_code || 'HD'}</div>
+                            <div class="text-[10px] text-slate-400">Bàn: ${t.table_code || 'MV'}</div>
+                        </td>
+                        <td>
+                            <div class="font-bold text-indigo-300">${t.card_scheme}</div>
+                            <div class="font-mono text-[10px] text-slate-400">${t.masked_pan}</div>
+                        </td>
+                        <td>
+                            <div class="text-slate-300">${t.terminal_model}</div>
+                            <div class="text-[10px] text-slate-500">${t.acquirer_bank}</div>
+                        </td>
+                        <td class="col-right font-mono font-bold text-emerald-400">
+                            ${this.formatMoney(t.total_charged)} đ
+                        </td>
+                        <td class="col-center font-mono text-xs text-amber-300">
+                            ${t.approval_code || '-'}
+                        </td>
+                        <td class="col-center">
+                            <div class="flex flex-col items-center gap-0.5">
+                                ${statusBadge}
+                                ${settleBadge}
+                            </div>
+                        </td>
+                        <td class="col-right">
+                            ${canVoid ? `
+                                <button type="button" onclick="Admin.voidCardTransaction(${t.id}, '${t.trace_no}', ${t.total_charged})" class="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 text-[10px] font-bold transition">
+                                    <i class="fas fa-ban mr-0.5"></i> HỦY (VOID)
+                                </button>
+                            ` : `<span class="text-slate-600 text-[10px]">--</span>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (e) {
+            console.error('loadCardTransactions error:', e);
+        }
+    },
+
+    async voidCardTransaction(transId, traceNo, amount) {
+        const reason = prompt(`Xác nhận HỦY (VOID) giao dịch thẻ Trace #${traceNo} (${this.formatMoney(amount)} đ)?\nNhập lý do hủy (Audit Trail):`, 'Khách yêu cầu hủy / Thu ngân thanh toán nhầm');
+        if (!reason) return;
+
+        try {
+            const res = await fetch('/api/card/void', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transaction_id: transId,
+                    reason: reason,
+                    cashier_name: (window.CURRENT_USER && window.CURRENT_USER.fullname) ? window.CURRENT_USER.fullname : 'Admin'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã hủy giao dịch thẻ thành công!');
+                this.loadCardTransactions();
+            } else {
+                alert(data.message || 'Không thể hủy giao dịch');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối hủy giao dịch: ' + e.message);
+        }
+    },
+
+    async settleCardBatch() {
+        if (!confirm('Xác nhận KẾT TOÁN LÔ (BATCH SETTLEMENT) cho toàn bộ giao dịch thẻ SmartPOS hiện tại?\n\nToàn bộ tiền sẽ được ngân hàng chốt phiên và đối soát vào tài khoản quán.')) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/card/settle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cashier_name: (window.CURRENT_USER && window.CURRENT_USER.fullname) ? window.CURRENT_USER.fullname : 'Admin'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const s = data.summary || {};
+                alert(`${data.message}\n\n• Số giao dịch: ${s.settled_count || 0}\n• Tổng tiền: ${this.formatMoney(s.total_amount)} đ\n• Số lô mới: ${data.batch_number}`);
+                this.loadCardTransactions();
+            } else {
+                alert(data.message || 'Lỗi kết toán lô');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối kết toán lô: ' + e.message);
         }
     }
 };

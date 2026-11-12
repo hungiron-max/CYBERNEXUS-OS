@@ -111,12 +111,10 @@ bool PluginManager::loadPlugin(const std::string& dllFilePath, const CoreContext
         isLicensed = ctx.checkLicenseStatus(meta.code);
     }
 
-    // 5. Kích hoạt vòng đời onLoad
-    if (isLicensed) {
-        if (!pluginInstance->onLoad(ctx)) {
-            std::cerr << "[PluginManager] onLoad thất bại cho module: " << meta.code << std::endl;
-            return false;
-        }
+    // 5. Kích hoạt vòng đời onLoad (khởi tạo DB schema & context cho mọi DLL hợp lệ; kiểm soát ON/OFF/BLOCK thực thi động tại runtime)
+    if (!pluginInstance->onLoad(ctx)) {
+        std::cerr << "[PluginManager] onLoad thất bại cho module: " << meta.code << std::endl;
+        return false;
     }
 
     LoadedPluginRecord record;
@@ -206,7 +204,7 @@ bool PluginManager::setModuleState(const std::string& moduleCode, bool enabled) 
 void PluginManager::registerAllActiveRoutes(httplib::Server& svr) {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (auto& [code, record] : m_plugins) {
-        if (record.isEnabled && record.instance) {
+        if (record.instance) {
             record.instance->registerHttpRoutes(svr);
         }
     }

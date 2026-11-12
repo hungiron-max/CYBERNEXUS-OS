@@ -47,15 +47,31 @@ void LicenseService::ensureTableExists() {
         )");
 
         // Insert initial license record if empty
-        auto row = db.queryRow("SELECT id FROM local_license_cache WHERE id = 1");
+        auto row = db.queryRow("SELECT id, enabled_modules, blocked_modules FROM local_license_cache WHERE id = 1");
         if (row.is_null()) {
             std::string mid = getMachineId();
             db.execute(R"(
                 INSERT INTO local_license_cache 
-                (id, license_key, store_name, owner_name, plan_name, subscription_status, expire_date, days_left, machine_id, bound_machine_id, last_sync_at, last_sync_status)
-                VALUES (1, 'GP-ENTERPRISE-2026-NEXUS', 'Góc Phố Coffee & Tea', 'Chủ Quán', 'Gói Chuỗi Đỉnh Cao (Enterprise)', 'active', '2028-12-31', 730, :mid, :mid, datetime('now'), 'ok')
+                (id, license_key, store_name, owner_name, plan_name, subscription_status, expire_date, days_left, machine_id, bound_machine_id, enabled_modules, last_sync_at, last_sync_status)
+                VALUES (1, 'GP-ENTERPRISE-2026-NEXUS', 'Góc Phố Coffee & Tea', 'Chủ Quán', 'Gói Chuỗi Đỉnh Cao (Enterprise)', 'active', '2028-12-31', 730, :mid, :mid, '["pos_core","vietqr_payment","qr_customer_order","qr_table_order","advertising_promotions","kitchen_kds","inventory_recipes","advanced_reports","staff_shifts","mod_media_stream","mod_network_qos","mod_card_payment"]', datetime('now'), 'ok')
             )", {{":mid", mid}});
         }
+        try { db.execute("ALTER TABLE local_license_cache ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
+        try { db.execute("ALTER TABLE local_license_cache ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
+        try {
+            auto r2 = db.queryRow("SELECT enabled_modules, blocked_modules FROM local_license_cache WHERE id = 1");
+            if (!r2.is_null()) {
+                std::string em = r2.value("enabled_modules", "[]");
+                std::string bm = r2.value("blocked_modules", "[]");
+                if (em.find("mod_card_payment") == std::string::npos && bm.find("mod_card_payment") == std::string::npos) {
+                    json arr = json::parse(em, nullptr, false);
+                    if (arr.is_array()) {
+                        arr.push_back("mod_card_payment");
+                        db.execute("UPDATE local_license_cache SET enabled_modules = :em WHERE id = 1", {{":em", arr.dump()}});
+                    }
+                }
+            }
+        } catch (...) {}
     } catch (const std::exception& e) {
         std::cerr << "[Slave License Warning] ensureTableExists: " << e.what() << std::endl;
     }
@@ -132,6 +148,21 @@ void LicenseService::initCatalog() {
             "cloud_sync_backup", "Sao Lưu & Đồng Bộ Đa Chi Nhánh",
             "Tự động sao lưu dữ liệu SQLite/MySQL, hỗ trợ đồng bộ dữ liệu đám mây đa chi nhánh và khôi phục khi cần.",
             "fa-cloud-arrow-up", "Đám Mây", "sky", "Hệ Thống", false, false, 0.0, {}
+        },
+        {
+            "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox",
+            "Stream nhạc Lossless Offline 100%, 10-Band DSP Equalizer Studio, QR Jukebox khách chọn bài và cơ chế Auto Audio Ducking.",
+            "fa-compact-disc", "Add-on", "fuchsia", "Giải Trí", false, true, 149000.0, {}
+        },
+        {
+            "mod_network_qos", "Quản Trị Băng Thông & Tường Lửa Router (SNM)",
+            "Điều khiển Router Ubiquiti / MikroTik: Cấp băng thông VIP cho khách có hóa đơn, chặn web đen, lọc DNS và bảo vệ mạng quán.",
+            "fa-network-wired", "Add-on", "amber", "Hạ Tầng", false, true, 199000.0, {}
+        },
+        {
+            "mod_card_payment", "Cổng Cà Thẻ Tín Dụng & SmartPOS (ECR)",
+            "Liên kết tự động máy POS/SmartPOS ngân hàng đời mới (PAX, Sunmi, Verifone, Ingenico, VNPAY), đẩy số tiền tự động, thu phụ phí thẻ & đối soát lô.",
+            "fa-credit-card", "Add-on", "indigo", "Thanh Toán", false, true, 149000.0, {}
         }
     };
 
@@ -325,12 +356,17 @@ json LicenseService::verifyLicenseOnline(const std::string& licenseKey, const st
                 if (resp.contains("enabled_modules") && resp["enabled_modules"].is_array()) {
                     enabledModsStr = resp["enabled_modules"].dump();
                 }
+                std::string blockedModsStr = "[]";
+                if (resp.contains("blocked_modules") && resp["blocked_modules"].is_array()) {
+                    blockedModsStr = resp["blocked_modules"].dump();
+                }
+                double cardFeePct = resp.value("card_fee_percent", 0.0);
 
                 db.execute(R"(
                     UPDATE local_license_cache 
                     SET license_key = :k, store_name = :sn, plan_name = :pn, subscription_status = :st,
-                        expire_date = :exp, enabled_modules = :em, last_sync_at = datetime('now'),
-                        last_sync_status = 'online_ok', bound_machine_id = :mid
+                        expire_date = :exp, enabled_modules = :em, blocked_modules = :bm, card_fee_percent = :cfp,
+                        last_sync_at = datetime('now'), last_sync_status = 'online_ok', bound_machine_id = :mid
                     WHERE id = 1
                 )", {
                     {":k", licenseKey},
@@ -339,6 +375,8 @@ json LicenseService::verifyLicenseOnline(const std::string& licenseKey, const st
                     {":st", subStatus},
                     {":exp", expireDate},
                     {":em", enabledModsStr},
+                    {":bm", blockedModsStr},
+                    {":cfp", cardFeePct},
                     {":mid", machineId}
                 });
 

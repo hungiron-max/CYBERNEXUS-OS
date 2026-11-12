@@ -81,9 +81,27 @@ int main(int argc, char* argv[]) {
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             )
         )");
-        // Đảm bảo bảng saas_tenants có cột reseller_id & price_charged
+        // Đảm bảo bảng saas_tenants có cột reseller_id, price_charged, blocked_modules, card_fee_percent
         try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN reseller_id INTEGER DEFAULT 0"); } catch (...) {}
         try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN price_charged REAL DEFAULT 0.0"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
+
+        // Đảm bảo cửa hàng mặc định GP001 (id=1) có kích hoạt sẵn mod_card_payment nếu chưa có trong enabled_modules / blocked_modules
+        try {
+            auto tRow = Database::instance().queryRow("SELECT id, enabled_modules, blocked_modules FROM saas_tenants WHERE id = 1 LIMIT 1");
+            if (!tRow.is_null()) {
+                std::string emStr = tRow.value("enabled_modules", "[]");
+                std::string bmStr = tRow.value("blocked_modules", "[]");
+                if (emStr.find("mod_card_payment") == std::string::npos && bmStr.find("mod_card_payment") == std::string::npos) {
+                    json emArr = json::parse(emStr, nullptr, false);
+                    if (emArr.is_array()) {
+                        emArr.push_back("mod_card_payment");
+                        Database::instance().execute("UPDATE saas_tenants SET enabled_modules = :em WHERE id = 1", {{":em", emArr.dump()}});
+                    }
+                }
+            }
+        } catch (...) {}
     } catch (const std::exception& e) {
         std::cerr << "[DB Master Init Resellers Warning] " << e.what() << std::endl;
     }

@@ -395,3 +395,79 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
 - **Yêu cầu:** Chỉ riêng trang Customer: bấm Đăng xuất thì quay về menu khách ở trạng thái chưa đăng nhập; các trang khác (POS, Admin, Bếp, Phục vụ, Đơn online) vẫn chuyển về trang đăng nhập.
 - **Thay đổi duy nhất ([`customer.html`](../slave/web/customer.html), hàm `handleLogout`):** sau khi xóa phiên/token/cookie (bổ sung xóa `pos_remember`), chuyển hướng tới `/` thay vì `login.html?logout=1`. Không sửa bất kỳ trang nào khác.
 - **Kiểm thử Playwright:** Đăng nhập Thu ngân → mở `customer.html` (thấy Jukebox) → Đăng xuất → URL `http://10.0.126.159:8501/`, menu khách không còn Jukebox, cookie sạch, API nhạc trả 401. Truy cập `index.html` khi chưa đăng nhập vẫn chuyển về `login.html?redirect=index.html`. Đã đồng bộ master/release.
+
+---
+
+## 14. PHÁT TRIỂN MODULE CÀ THẺ TÍN DỤNG & SMARTPOS (MOD_CARD_PAYMENT) — CHẾ ĐỘ MÔ PHỎNG & WHITELIST 10 DÒNG MÁY ĐỜI MỚI (12/11/2026)
+
+### 14.1. Bối cảnh & Yêu cầu Nghiệp vụ
+- **Mục tiêu:** Xây dựng module tính tiền cà thẻ tín dụng / SmartPOS độc lập dưới dạng Dynamic C++ Plugin Module (`libmod_card_payment.dll`).
+- **Chính sách Add-on có tính phí:**
+  - Đăng ký add-on với giá **149.000 đ/tháng** trong danh mục bản quyền SaaS Master & Slave.
+  - Hỗ trợ cơ chế **Bật (ON) / Tắt (OFF) / Khóa cưỡng chế (BLOCK)** trực tiếp từ máy chủ CyberNexus Master cho từng cửa hàng thuê bao.
+  - Cho phép Master thiết lập `% Phí dịch vụ Master / giao dịch` (mặc định 0%, có thể điều chỉnh từ 0% đến 20%).
+- **Cơ chế Vận hành Tự Động (Semi-Integrated ECR) — Chế độ Mô Phỏng (Simulation Ready):**
+  - Quán đặt máy SmartPOS từ ngân hàng (Vietcombank, VietinBank, BIDV, Techcombank, VPBank, MBBank, Sacombank, VNPAY...).
+  - Hệ thống tạo sẵn **ECR Adapter** chờ nhập thông tin liên kết (IP LAN, Port, TID, MID, Secret Key HMAC).
+  - Thu ngân tại quầy bấm thanh toán Thẻ POS $\rightarrow$ POS tự động gửi lệnh `POST /api/card/charge` sang máy POS $\rightarrow$ Chờ khách chạm thẻ NFC hoặc cắm chip EMV $\rightarrow$ Ngân hàng duyệt cấp mã chuẩn chi (Approval Code) $\rightarrow$ Hóa đơn POS tự động tất toán sang trạng thái hoàn tất (`payment_method: 'card'`).
+- **Ràng buộc phần cứng bắt buộc:**
+  - **Bắt buộc dùng máy SmartPOS/ECR đời mới** đạt chuẩn bảo mật quốc tế **PCI PTS 5.x / 6.x** (tích hợp SRED, chip EMV Level 1/2, NFC Contactless Apple Pay / Google Pay).
+  - Nghiêm cấm và từ chối kích hoạt đối với các dòng máy POS đời cũ (chỉ đọc dải từ magstripe, không có mã hóa đầu đọc).
+  - **Danh mục Whitelist 10 dòng máy đời mới tương thích:**
+    1. `PAX_A920_PRO`: PAX A920 Pro SmartPOS (PayDroid Android 10, PCI PTS 5.x, LAN/WiFi/4G/NFC).
+    2. `PAX_A910S`: PAX A910S SmartPOS (PayDroid Android 11, PCI PTS 6.x, LAN/WiFi/NFC).
+    3. `PAX_A35`: PAX A35 Countertop PINPad (Ethernet LAN TCP/IP, PCI PTS 6.x, Chạm NFC/Chip).
+    4. `SUNMI_P2_PRO`: Sunmi P2 Pro SmartPOS (SUNMI OS, PCI PTS 5.x, LAN/WiFi/NFC).
+    5. `SUNMI_P3`: Sunmi P3 Flagship SmartPOS (SUNMI OS 4.0 Android 11, PCI PTS 6.x, LAN/WiFi).
+    6. `VERIFONE_V200C`: Verifone V200c / V240m Engage (Verifone Engage OS, PCI PTS 5.x, LAN).
+    7. `VERIFONE_X990`: Verifone X990 SmartPOS (Android OS, PCI PTS 5.x, LAN/WiFi/NFC).
+    8. `INGENICO_AXIUM_DX8000`: Ingenico AXIUM DX8000 (Android 10 AXIUM OS, PCI PTS 6.x).
+    9. `INGENICO_MOVE_5000`: Ingenico Move/5000 / Desk/5000 (Telium TETRA OS, PCI PTS 5.x, Dock LAN).
+    10. `VNPAY_SMARTPOS`: VNPAY SmartPOS Pro All-in-One (Android SmartPOS, PCI PTS 6.x, ECR REST v2).
+
+### 14.2. Cấu trúc Triển khai Kỹ thuật
+- **1. Module Dynamic C++ Backend ([`modules/mod_card_payment/mod_card_payment.cpp`](../modules/mod_card_payment/mod_card_payment.cpp)):**
+  - Bảng cơ sở dữ liệu SQLite:
+    - `card_terminal_catalog`: Chứa thông số kỹ thuật, chuẩn bảo mật PCI PTS và giao thức của 10 dòng máy đời mới.
+    - `card_terminal_config`: Lưu cấu hình kết nối của quán (Model máy, IP tĩnh LAN, Port, TID, MID, Secret Key, % phụ phí thu khách, kịch bản mô phỏng).
+    - `card_transactions`: Lưu lịch sử giao dịch thẻ (Mã Trace, RRN, Approval Code, Masked PAN `**** **** **** 1234`, loại thẻ VISA/MasterCard/JCB/Napas, phương thức đọc Chip/NFC, phí Master, trạng thái `APPROVED` / `VOIDED` / `DECLINED`, số lô Batch).
+  - API Routes:
+    - `GET /api/card/status`: Trả về trạng thái module (ON / OFF / BLOCKED), cấu hình và danh mục 10 dòng máy.
+    - `POST /api/card/config`: Lưu thông số kết nối (xác thực nghiêm ngặt Model Code theo Whitelist).
+    - `POST /api/card/test-connection`: Kiểm tra bắt tay ECR Handshake / Echo Test mô phỏng.
+    - `POST /api/card/charge`: Đẩy số tiền tự động sang máy POS, giả lập quẹt/chạm thẻ, tính phụ phí và sinh Approval Code/RRN.
+    - `POST /api/card/void`: Hủy giao dịch thẻ (Void) trước khi kết toán lô, ghi nhận Audit Trail.
+    - `POST /api/card/settle`: Kết toán lô giao dịch cuối ngày (Batch Settlement).
+    - `GET /api/card/transactions`: Đối soát danh sách giao dịch thẻ theo bộ lọc trạng thái và lô.
+- **2. Đồng bộ Bản quyền SaaS Master & Slave:**
+  - Cập nhật [`master/src/master_license.cpp`](../master/src/master_license.cpp) & [`slave/src/slave_license.cpp`](../slave/src/slave_license.cpp) bổ sung `mod_card_payment` (Add-on 149.000 đ/tháng).
+  - [`master/src/master_handlers.cpp`](../master/src/master_handlers.cpp): Hỗ trợ SuperAdmin bật ON, tắt OFF hoặc khóa BLOCKED trực tiếp cho từng cửa hàng kèm cấu hình `% Phí giao dịch Master`. Khi thay đổi trên Master, tự động đồng bộ tức thì sang Slave qua `local_license_cache` và gói phát hành.
+  - [`master/web/assets/js/super_admin.js`](../master/web/assets/js/super_admin.js): Bổ sung nút **`[BLOCK / ĐÃ BLOCK]`** màu đỏ cảnh báo và ô nhập `% Phí GD Master` trong Ma trận phân quyền module.
+- **3. Giao diện Thu Ngân POS ([`slave/web/assets/js/pos.js`](../slave/web/assets/js/pos.js)):**
+  - Nâng cấp modal Thanh toán Hóa đơn (`#payment-modal`):
+    - Khi chọn `[Thẻ POS]`: Tự động kiểm tra trạng thái module từ `/api/card/status`.
+    - Nếu Master **OFF** hoặc **BLOCKED**: Hiển thị hộp cảnh báo màu đỏ/cam khóa module và vô hiệu hóa nút thanh toán thẻ.
+    - Nếu Master **ON**: Hiển thị bảng điều khiển SmartPOS tự động: Thông tin máy kết nối (Model, Ngân hàng, IP LAN:Port, TID), chọn tổ chức thẻ (VISA / MasterCard / JCB / Napas), chọn phương thức đọc (📡 Chạm NFC / 🔌 Cắm Chip EMV / 📱 QR POS), tính toán tự động phụ phí cà thẻ.
+    - Bấm **`[Đẩy Lệnh POS & In HĐ]`**: Tự động gọi `/api/card/charge`, nhận mã chuẩn chi ngân hàng, hiển thị thông báo phê duyệt thời gian thực và tự động hoàn tất đơn hàng POS.
+- **4. Giao diện Quản trị Cửa Hàng ([`slave/web/admin.html`](../slave/web/admin.html) & [`slave/web/assets/js/admin.js`](../slave/web/assets/js/admin.js)):**
+  - Thêm thẻ **`Cổng Cà Thẻ Tín Dụng & SmartPOS Ngân Hàng (Semi-Integrated ECR)`** trong Cài đặt Quán:
+    - Danh sách chọn 10 dòng máy đời mới tương thích (tự động cập nhật chuẩn bảo mật PCI PTS, giao thức ECR).
+    - Nhập thông số kỹ thuật do ngân hàng cấp: IP tĩnh máy POS, Port, TID, MID, Secret Key HMAC, % phụ phí khách và kịch bản mô phỏng.
+    - Nút `[Test Handshake ECR]`: Gửi gói tin bắt tay kiểm tra độ trễ (latency ms) và firmware.
+    - Bảng **`Đối Soát Giao Dịch Thẻ & Kết Toán Lô (Batch Settlement)`**: Bảng thống kê doanh thu thẻ trong ca, chi tiết từng giao dịch, nút `[HỦY (VOID)]` ghi nhận Audit Trail và nút `[Kết Toán Lô (Settle Batch)]`.
+
+### 14.3. Kết quả Kiểm thử & Nghiệm thu Thực tế
+- [x] **Biên dịch mã nguồn C++:** `libmod_card_payment.dll`, `cybernexus_master.exe`, `cybernexus_slave.exe` biên dịch hoàn tất qua CMake & Ninja, nạp động thành công vào bộ nhớ tiến trình Slave.
+- [x] **Kiểm thử Whitelist 10 dòng máy đời mới:** Gửi model không hợp lệ (`OLD_MODEL_1998`) bị từ chối với mã lỗi `400: Đời máy không nằm trong danh sách thiết bị đời mới tương thích`.
+- [x] **Kiểm thử Bắt tay ECR Handshake:** Gửi yêu cầu test connection trả về độ trễ `12ms`, trạng thái `READY_FOR_SALE` chuẩn `PCI PTS 5.x SRED`.
+- [x] **Kiểm thử Giao dịch Cà thẻ Tự động (Sale Charge):** Đẩy đơn hàng 55.000đ và 89.000đ mô phỏng chạm thẻ NFC VISA và cắm chip EMV MasterCard thành công với Response Code `00 APPROVED`, cấp mã chuẩn chi `669477` và `497041`, sinh mã che PAN `**** **** **** 6079`.
+- [x] **Kiểm thử Hủy giao dịch (Void Transaction):** Hủy thành công giao dịch Trace #647773, tự động ghi nhật ký kiểm toán vào bảng `audit_logs`.
+- [x] **Kiểm thử Kết toán Lô (Batch Settlement):** Chốt thành công phiên giao dịch lô 101 với ngân hàng, tự động chuyển số lô sang 102.
+- [x] **Kiểm thử Khóa cưỡng chế (BLOCK) từ Master:**
+  - SuperAdmin gọi lệnh BLOCK `mod_card_payment` cho cửa hàng $\rightarrow$ Slave nhận diện trạng thái `BLOCKED`.
+  - Mọi yêu cầu quẹt thẻ bị chặn lập tức với lỗi `403: Module Cổng Cà Thẻ Tín Dụng đang bị KHÓA CƯỠNG CHẾ (BLOCKED) bởi Master!`.
+  - Mở khóa lại (ON) từ Master $\rightarrow$ Slave khôi phục quyền thanh toán thẻ tức thì không cần khởi động lại dịch vụ.
+- [x] **Ảnh chụp nghiệm thu Playwright:**
+  - [`pos_card_checkout_verified.png`](../brain/da00d27d-e886-4980-9efd-938c2be0665e/pos_card_checkout_verified.png): Modal thanh toán thẻ POS tự động tại quầy thu ngân.
+  - [`admin_card_adapter_verified.png`](../brain/da00d27d-e886-4980-9efd-938c2be0665e/admin_card_adapter_verified.png): Bảng cấu hình ECR Adapter 10 dòng máy đời mới và bảng đối soát lô giao dịch.
+  - [`master_card_permission_matrix_verified.png`](../brain/da00d27d-e886-4980-9efd-938c2be0665e/master_card_permission_matrix_verified.png): Ma trận phân quyền module Master SaaS với các tùy chọn ON / OFF / BLOCK và phí Master.

@@ -107,6 +107,11 @@ void LicenseService::initCatalog() {
             "mod_network_qos", "Quản Trị Băng Thông & Tường Lửa Router (SNM)",
             "Điều khiển Router Ubiquiti / MikroTik: Cấp băng thông VIP cho khách có hóa đơn, chặn web đen, lọc DNS và bảo vệ mạng quán.",
             "fa-network-wired", "Add-on", "amber", "Hạ Tầng", false, true, 199000.0, {}
+        },
+        {
+            "mod_card_payment", "Cổng Cà Thẻ Tín Dụng & SmartPOS (ECR)",
+            "Liên kết tự động máy POS/SmartPOS ngân hàng đời mới (PAX, Sunmi, Verifone, Ingenico, VNPAY), đẩy số tiền tự động, thu phụ phí thẻ & đối soát lô.",
+            "fa-credit-card", "Add-on", "indigo", "Thanh Toán", false, true, 149000.0, {}
         }
     };
 
