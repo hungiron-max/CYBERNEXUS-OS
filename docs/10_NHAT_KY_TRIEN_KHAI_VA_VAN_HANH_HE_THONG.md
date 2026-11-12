@@ -208,3 +208,18 @@ flowchart TD
 - [x] **Bước 5 (12/11/2026 10:30):** Kiểm thử tự động E2E:
   - Kiểm thử toàn diện API: Tạo đại lý `DL-001` (Gold 40%), nạp ví ký quỹ 20,000,000đ, cấp license 1 năm cho quán "The Coffee Garden - Quận 7" (MSRP 3.990.000đ, chiết khấu 40% $\rightarrow$ trừ ví 2.394.000đ, số dư ví còn lại 17.606.000đ), kích hoạt thành công license `CBNX-RXZF-0JTT-TGLG-75AE` qua `/api/license/verify` với đủ 10 modules.
   - Chụp ảnh màn hình nghiệm thu giao diện Playwright: Bảng đại lý, Modal cấp bản quyền, Modal biến động số dư ví.
+
+---
+
+## 7. KHẮC PHỤC LỖI TÍNH TOÁN SỐ TIỀN THANH TOÁN VIETQR TRÊN TRANG KHÁCH HÀNG (CUSTOMER.HTML) (12/11/2026)
+
+- **Hiện tượng lỗi:** Khi khách hàng bấm nút nhanh `[VietQR]` trên thanh giỏ món (`customer.html`), modal QR hiển thị mặc định `Số tiền: 0đ` và không cập nhật theo tổng giá trị các món đang chọn (VD: 45.000 đ) do thẻ `<img>` của `quick-vietqr-modal` bị gán tĩnh URL `amount=0` và hàm `showQuickVietQr()` chưa tính toán giỏ món.
+- **Biện pháp xử lý & Nâng cấp:**
+  - Bổ sung hàm `CustomerOrdering.getCartTotal()` trong [`slave/web/customer.html`](../slave/web/customer.html) để tính chính xác tổng tiền giỏ món đang chọn theo thời gian thực (kèm hỗ trợ fallback sang đơn hàng đã gửi `currentOrder.total_amount`).
+  - Nâng cấp hàm `showQuickVietQr()`:
+    - Kiểm tra giỏ hàng: nếu giỏ trống ($0$ đ), thông báo nhắc khách chọn món trước khi quét mã.
+    - Lấy thông tin mã bàn / mã đơn từ URL hoặc phiên hiện tại (VD: `TT BAN MV1`).
+    - Gọi API `/api/orders?action=vietqr&amount=...` để lấy cấu hình ngân hàng chuẩn từ hệ thống quán, tự động sinh chuỗi mã VietQR động theo chuẩn Napas247 với đúng số tiền và nội dung chuyển khoản.
+    - Bổ sung khung hiển thị số tiền thanh toán rõ ràng (`#quick-vietqr-amount-display`) và thông tin tài khoản, nội dung CK trực tiếp trong modal.
+  - Đồng bộ file sửa sang [`master/web/customer.html`](../master/web/customer.html) và gói phát hành [`CyberNexus_POS_Release_GP001/web/customer.html`](../master/packages/GP001/release/CyberNexus_POS_Release_GP001/web/customer.html).
+  - Chạy kiểm thử tự động Playwright xác nhận mã VietQR sinh ra khớp hoàn toàn với số tiền giỏ món và nội dung bàn (`customer_vietqr_verified.png`).

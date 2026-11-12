@@ -1672,7 +1672,7 @@
 
     <!-- Quick VietQR Modal -->
     <div id="quick-vietqr-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
-        <div class="liquid-glass rounded-3xl p-6 w-96 max-w-[92vw] text-center border border-sky-500/30 space-y-4 shadow-2xl">
+        <div class="liquid-glass rounded-3xl p-6 w-96 max-w-[92vw] text-center border border-sky-500/30 space-y-3.5 shadow-2xl">
             <div class="flex justify-between items-center pb-2 border-b border-white/10">
                 <h3 class="font-bold text-sm text-sky-400 flex items-center gap-2">
                     <i class="fas fa-qrcode"></i> Thanh Toán VietQR Quán
@@ -1683,13 +1683,20 @@
             <p class="text-xs text-slate-300">Quét mã bằng ứng dụng Ngân hàng (MB, VCB, OCB, BIDV, Techcombank, MoMo,...):</p>
             
             <div class="bg-white p-3 rounded-2xl inline-block shadow-xl border border-slate-200">
-                <img src="https://img.vietqr.io/image/OCB-0918608073-compact2.png?amount=0&addInfo=THANH%20TOAN&accountName=NGUYEN%20CHI%20HUNG" alt="VietQR" class="w-52 h-52 mx-auto object-contain" />
+                <img id="quick-vietqr-img" src="https://img.vietqr.io/image/OCB-0918608073-compact2.png?amount=0&addInfo=THANH%20TOAN&accountName=NGUYEN%20CHI%20HUNG" alt="VietQR" class="w-52 h-52 mx-auto object-contain" />
+            </div>
+
+            <!-- Khung hiển thị số tiền thanh toán rõ ràng -->
+            <div class="p-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex items-center justify-between px-3.5">
+                <span class="text-xs text-slate-400 font-semibold">Số tiền thanh toán:</span>
+                <span id="quick-vietqr-amount-display" class="font-mono font-black text-emerald-400 text-base">0 đ</span>
             </div>
 
             <div class="text-xs text-left p-3 rounded-xl bg-slate-900/80 border border-white/10 space-y-1 font-mono">
-                <div>Ngân hàng: <b class="text-slate-200">OCB Bank</b></div>
-                <div>Số tài khoản: <b class="text-sky-400">0918608073</b></div>
-                <div>Chủ tài khoản: <b class="text-emerald-400">NGUYEN CHI HUNG</b></div>
+                <div>Ngân hàng: <b id="quick-vietqr-bank-name" class="text-slate-200">OCB Bank</b></div>
+                <div>Số tài khoản: <b id="quick-vietqr-acc-no" class="text-sky-400">0918608073</b></div>
+                <div>Chủ tài khoản: <b id="quick-vietqr-acc-name" class="text-emerald-400">NGUYEN CHI HUNG</b></div>
+                <div>Nội dung CK: <b id="quick-vietqr-note-text" class="text-amber-300">THANH TOAN</b></div>
             </div>
 
             <button type="button" class="btn-glass w-full py-2 text-xs font-bold text-slate-300" onclick="closeQuickVietQr()">
@@ -2205,6 +2212,19 @@
                 if (bottomTotal) bottomTotal.textContent = `${this.formatMoney(total)} đ`;
             },
 
+            getCartTotal() {
+                let total = 0;
+                const pids = Object.keys(this.cart || {});
+                pids.forEach(id => {
+                    const p = this.getProductInfo(id);
+                    const qty = Number(this.cart[id]) || 0;
+                    if (p && qty > 0) {
+                        total += (Number(p.price) || 0) * qty;
+                    }
+                });
+                return total;
+            },
+
             bounceCartButton() {
                 const btn = document.getElementById('btn-cart-capsule');
                 if (btn) {
@@ -2334,7 +2354,7 @@
                 }
             },
 
-            showPaymentScreen(order) {
+            async showPaymentScreen(order) {
                 const activeEl = document.getElementById('customer-cart-active');
                 const payment = document.getElementById('customer-order-payment');
                 if (activeEl) activeEl.classList.add('hidden');
@@ -2343,15 +2363,37 @@
                 document.getElementById('customer-payment-order-code').textContent = order.order_code;
                 document.getElementById('customer-payment-total').textContent = `${this.formatMoney(order.total_amount)} đ`;
 
-                const note = `THANH TOAN ${order.order_code}`;
+                let note = `THANH TOAN ${order.order_code}`;
                 document.getElementById('customer-payment-note').textContent = note;
 
                 const amount = Math.round(Number(order.total_amount));
-                const bankId = 'OCB';
-                const accountNo = '0918608073';
-                const accountName = 'NGUYEN CHI HUNG';
+                let bankId = 'OCB';
+                let accountNo = '0918608073';
+                let accountName = 'NGUYEN CHI HUNG';
+                let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(accountName)}`;
 
-                const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(accountName)}`;
+                try {
+                    const res = await fetch(`api/orders?action=vietqr&amount=${amount}&order_code=${encodeURIComponent(order.order_code)}`);
+                    const data = await res.json();
+                    if (data.success) {
+                        if (data.vietqr_url) qrUrl = data.vietqr_url;
+                        if (data.bank_id) bankId = data.bank_id;
+                        if (data.account_no) accountNo = data.account_no;
+                        if (data.account_name) accountName = data.account_name;
+                        if (data.note) {
+                            note = data.note;
+                            document.getElementById('customer-payment-note').textContent = note;
+                        }
+                    }
+                } catch(e) {}
+
+                const bEl = document.getElementById('customer-payment-bank');
+                const aEl = document.getElementById('customer-payment-account');
+                const nEl = document.getElementById('customer-payment-account-name');
+                if (bEl) bEl.textContent = bankId;
+                if (aEl) aEl.textContent = accountNo;
+                if (nEl) nEl.textContent = accountName;
+
                 const qrImg = document.getElementById('customer-payment-qr');
                 if (qrImg) qrImg.src = qrUrl;
             },
@@ -2426,8 +2468,72 @@
         };
 
         // Modal Controls
-        function showQuickVietQr() {
+        async function showQuickVietQr() {
+            let total = 0;
+            if (typeof CustomerOrdering !== 'undefined') {
+                if (typeof CustomerOrdering.getCartTotal === 'function') {
+                    total = CustomerOrdering.getCartTotal();
+                } else if (CustomerOrdering.cart) {
+                    for (const [id, qty] of Object.entries(CustomerOrdering.cart)) {
+                        const p = CustomerOrdering.getProductInfo(id);
+                        if (p && Number(qty) > 0) {
+                            total += (Number(p.price) || 0) * Number(qty);
+                        }
+                    }
+                }
+                if (total <= 0 && CustomerOrdering.currentOrder?.total_amount) {
+                    total = Math.round(Number(CustomerOrdering.currentOrder.total_amount) || 0);
+                }
+            }
+
+            if (total <= 0) {
+                alert('Giỏ món hiện đang trống (0 đ). Vui lòng chọn món trước khi quét mã thanh toán VietQR!');
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableCode = urlParams.get('table') || urlParams.get('table_code') || urlParams.get('t') || '';
+            const orderCode = (typeof CustomerOrdering !== 'undefined' && CustomerOrdering.currentOrder?.order_code) 
+                ? CustomerOrdering.currentOrder.order_code 
+                : (tableCode ? `BAN ${tableCode}` : 'ONLINE');
+            let note = `TT ${orderCode}`;
+
             const modal = document.getElementById('quick-vietqr-modal');
+            const qrImg = document.getElementById('quick-vietqr-img');
+            const amtDisplay = document.getElementById('quick-vietqr-amount-display');
+            const bankNameEl = document.getElementById('quick-vietqr-bank-name');
+            const accNoEl = document.getElementById('quick-vietqr-acc-no');
+            const accNameEl = document.getElementById('quick-vietqr-acc-name');
+            const noteEl = document.getElementById('quick-vietqr-note-text');
+
+            if (amtDisplay) amtDisplay.textContent = new Intl.NumberFormat('vi-VN').format(total) + ' đ';
+            if (noteEl) noteEl.textContent = note;
+
+            let bankId = 'OCB';
+            let accountNo = '0918608073';
+            let accountName = 'NGUYEN CHI HUNG';
+            let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(accountName)}`;
+
+            try {
+                const res = await fetch(`api/orders?action=vietqr&amount=${total}&order_code=${encodeURIComponent(orderCode)}`);
+                const data = await res.json();
+                if (data.success) {
+                    if (data.vietqr_url) qrUrl = data.vietqr_url;
+                    if (data.bank_id) bankId = data.bank_id;
+                    if (data.account_no) accountNo = data.account_no;
+                    if (data.account_name) accountName = data.account_name;
+                    if (data.note) note = data.note;
+                }
+            } catch (err) {
+                console.log('Using default VietQR config:', err);
+            }
+
+            if (qrImg) qrImg.src = qrUrl;
+            if (bankNameEl) bankNameEl.textContent = bankId + ' Bank';
+            if (accNoEl) accNoEl.textContent = accountNo;
+            if (accNameEl) accNameEl.textContent = accountName;
+            if (noteEl) noteEl.textContent = note;
+
             if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
         }
 
