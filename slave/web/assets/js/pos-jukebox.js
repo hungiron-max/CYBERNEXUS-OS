@@ -784,11 +784,27 @@
                 const res = await fetch('/api/media/eq/presets');
                 const data = await res.json();
                 if (data.success && Array.isArray(data.presets)) {
-                    this.eqPresets = data.presets;
+                    this.eqPresets = data.presets.map(p => ({
+                        ...p,
+                        name: p.preset_name || p.name || ('Preset #' + p.id)
+                    }));
                     const select = document.getElementById('pos-eq-preset-select');
                     if (select) {
                         select.innerHTML = '<option value="">Preset Âm Thanh...</option>' +
-                            data.presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                            this.eqPresets.map(p => `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.name}</option>`).join('');
+                    }
+
+                    // Khởi tạo các giá trị slider theo preset đang kích hoạt hoặc preset đầu tiên
+                    const activePreset = this.eqPresets.find(p => p.is_active) || (data.active ? {
+                        ...data.active,
+                        name: data.active.preset_name || data.active.name
+                    } : null) || this.eqPresets[0];
+
+                    if (activePreset) {
+                        this.applyPresetValues(activePreset, false);
+                        if (select && activePreset.id) {
+                            select.value = activePreset.id;
+                        }
                     }
                 }
             } catch (err) {
@@ -796,7 +812,42 @@
             }
         },
 
-        
+        applyPresetValues(p, notify = true) {
+            if (!p) return;
+            const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+            bands.forEach((b, idx) => {
+                const raw = p[b];
+                const val = (typeof raw === 'number') ? raw : (parseFloat(raw) || 0.0);
+                this.eqBands[b] = val;
+                const slider = document.getElementById(`pos-eq-slider-${b}`);
+                const valEl = document.getElementById(`pos-eq-val-${b}`);
+                if (slider) slider.value = val;
+                this.updateEqValBadge(valEl, val);
+                if (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters[idx]) {
+                    window.JukeboxEngine.eqFilters[idx].gain.value = val;
+                }
+            });
+
+            // Đồng bộ Preamp Gain nếu có
+            if (p.preamp_gain !== undefined) {
+                const rawPre = p.preamp_gain;
+                const preamp = (typeof rawPre === 'number') ? rawPre : (parseFloat(rawPre) || 0.0);
+                this.eqPreamp = preamp;
+                const preampSlider = document.getElementById('pos-eq-preamp-slider');
+                const preampValEl = document.getElementById('pos-eq-preamp-val');
+                if (preampSlider) preampSlider.value = preamp;
+                if (preampValEl) preampValEl.textContent = `${preamp > 0 ? '+' : ''}${preamp.toFixed(1)} dB`;
+                if (window.JukeboxEngine && window.JukeboxEngine.preampNode) {
+                    window.JukeboxEngine.preampNode.gain.value = Math.pow(10, preamp / 20);
+                }
+            }
+
+            if (notify) {
+                const displayName = p.name || p.preset_name || ('Preset #' + p.id);
+                this.showToast(`🎚️ Đã chọn Preset: <b>${displayName}</b>`, 'info');
+            }
+        },
+
         updateEqValBadge(el, num) {
             if (!el) return;
             const n = parseFloat(num);
@@ -816,20 +867,7 @@
             if (!presetId) return;
             const p = this.eqPresets.find(x => String(x.id) === String(presetId));
             if (!p) return;
-
-            const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
-            bands.forEach((b, idx) => {
-                const val = Number(p[b] || 0.0);
-                this.eqBands[b] = val;
-                const slider = document.getElementById(`pos-eq-slider-${b}`);
-                const valEl = document.getElementById(`pos-eq-val-${b}`);
-                if (slider) slider.value = val;
-                this.updateEqValBadge(valEl, val);
-                if (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters[idx]) {
-                    window.JukeboxEngine.eqFilters[idx].gain.value = val;
-                }
-            });
-            this.showToast(`🎚️ Đã chọn Preset: <b>${p.name}</b>`, 'info');
+            this.applyPresetValues(p, true);
         },
 
         onEqSliderInput(bandKey, val, idx) {
@@ -866,6 +904,23 @@
                     window.JukeboxEngine.eqFilters[idx].gain.value = 0.0;
                 }
             });
+            this.eqPreamp = 0.0;
+            const preampSlider = document.getElementById('pos-eq-preamp-slider');
+            const preampValEl = document.getElementById('pos-eq-preamp-val');
+            if (preampSlider) preampSlider.value = 0;
+            if (preampValEl) preampValEl.textContent = '0.0 dB';
+            if (window.JukeboxEngine && window.JukeboxEngine.preampNode) {
+                window.JukeboxEngine.preampNode.gain.value = 1.0;
+            }
+            const select = document.getElementById('pos-eq-preset-select');
+            if (select) {
+                const flatPreset = this.eqPresets.find(p => (p.preset_name || p.name || '').toLowerCase().includes('flat'));
+                if (flatPreset) {
+                    select.value = flatPreset.id;
+                } else {
+                    select.value = '';
+                }
+            }
             this.showToast('🎛️ Đã đặt cấu hình EQ về Flat 0dB', 'info');
         },
 

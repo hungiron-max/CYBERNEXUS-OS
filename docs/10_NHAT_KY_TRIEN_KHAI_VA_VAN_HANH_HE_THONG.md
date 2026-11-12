@@ -269,3 +269,46 @@ flowchart TD
   1. `TEST 1 (Mobile iPhone 390x844)`: Modal giỏ món mở trên di động có tọa độ `left: 8px, right: 382px`, các nút tác vụ `left: 21px, right: 369px`, không còn bị cắt xén lề trái.
   2. `TEST 2 (Admin Settings)`: Card mạng LAN tự động nhận dạng chính xác `10.0.126.159` (Realtek Gaming 2.5GbE), Static IP lưu và nạp tự động, Base URL `http://10.0.126.159:8501/`.
   3. `TEST 3 (POS LAN QR)`: Modal QR trên POS sinh đúng link mạng LAN `http://10.0.126.159:8501/customer.html`, sẵn sàng cho mọi điện thoại di động quét mã gọi món.
+
+---
+
+## 9. Khắc Phục Lỗi Hiển Thị Tên Preset Equalizer (DSP Studio Console trong Jukebox POS)
+
+### 9.1. Hiện Tượng & Nguyên Nhân
+- **Hiện tượng lỗi:**
+  - Trong modal Jukebox trên màn hình POS thu ngân ([`index.html`](../slave/web/index.html)), tại hộp chọn Preset Âm Thanh của bàn trộn `10-BAND DSP STUDIO CONSOLE` (`#pos-eq-preset-select`), danh sách các preset bị hiển thị toàn bộ thành chuỗi `undefined` (ảnh phản hồi của người dùng).
+- **Nguyên nhân kỹ thuật gốc rễ:**
+  - C++ Native Backend endpoint `/api/media/eq/presets` trả về danh sách đối tượng preset với trường tên là `preset_name` (ví dụ: `"Morning Acoustic (Êm Dịu)"`, `"Lunch Lounge (Cân Bằng)"`, `"Cyber Night Club (EDM/Gaming)"`, `"Vocal Focus (Rõ Lời Ca Sĩ)"`, `"Rock & Bass Boost"`, `"Bypass Flat (Mặc Định 0dB)"`).
+  - Trong file điều khiển giao diện [`slave/web/assets/js/pos-jukebox.js`](../slave/web/assets/js/pos-jukebox.js), hàm `loadEqPresets()` đọc thuộc tính `p.name` thay vì `p.preset_name`, dẫn đến thuộc tính này trả về `undefined` và sinh ra các thẻ `<option value="...">undefined</option>`. Tương tự, hàm thông báo Toast khi người dùng chọn preset cũng dùng `p.name`.
+
+### 9.2. Giải Pháp Triển Khai
+- **Chuẩn hóa nạp danh sách Preset Equalizer ([`pos-jukebox.js`](../slave/web/assets/js/pos-jukebox.js)):**
+  - Cập nhật hàm `loadEqPresets()` ánh xạ dữ liệu thông minh với cơ chế fallback:
+    ```javascript
+    this.eqPresets = data.presets.map(p => ({
+        ...p,
+        name: p.preset_name || p.name || ('Preset #' + p.id)
+    }));
+    ```
+  - Sinh thẻ `<option>` với tên hiển thị chuẩn xác và tự động đánh dấu `selected` đối với preset đang được kích hoạt (`p.is_active`).
+- **Tái cấu trúc hàm nạp thông số `applyPresetValues(p, notify)`:**
+  - Đồng bộ tự động cả 10 thanh gạt tần số âm thanh từ 31Hz đến 16kHz (`band_31hz` đến `band_16khz`).
+  - Bổ sung cập nhật thanh trượt độ lợi đầu vào Preamp (`#pos-eq-preamp-slider`) và nhãn dB (`#pos-eq-preamp-val`) tương ứng với trường `preamp_gain` của từng preset.
+  - Kết nối và truyền trực tiếp thông số tới các bộ lọc DSP thời gian thực của WebAudio (`window.JukeboxEngine.eqFilters` và `preampNode`).
+  - Tự động nạp cấu hình của preset đang active ngay khi người dùng mở modal Jukebox trên POS.
+- **Nâng cấp nút đưa về Flat 0dB (`applyFlatEq`):**
+  - Đưa toàn bộ 10 band tần số về `0.0 dB`, Preamp về `0.0 dB`, cập nhật huy hiệu và tự động chuyển dropdown về preset Bypass Flat.
+
+### 9.3. Đồng Bộ Gói Phát Hành & Kiểm Thử Tự Động
+- Đồng bộ file `pos-jukebox.js` sang thư mục master [`master/web/assets/js/pos-jukebox.js`](../master/web/assets/js/pos-jukebox.js) và gói phát hành chuẩn [`master/packages/GP001/release/CyberNexus_POS_Release_GP001/web/assets/js/pos-jukebox.js`](../master/packages/GP001/release/CyberNexus_POS_Release_GP001/web/assets/js/pos-jukebox.js).
+- **Kiểm thử tự động bằng Playwright:**
+  - Chạy kiểm thử tự động đăng nhập POS thu ngân bằng mã PIN, mở modal Jukebox Studio Console.
+  - Kết quả kiểm tra dropdown `#pos-eq-preset-select`: 100% các preset hiển thị chính xác tên tiếng Việt chuyên nghiệp:
+    1. `Morning Acoustic (Êm Dịu)`
+    2. `Lunch Lounge (Cân Bằng)`
+    3. `Cyber Night Club (EDM/Gaming)`
+    4. `Vocal Focus (Rõ Lời Ca Sĩ)`
+    5. `Rock & Bass Boost`
+    6. `Bypass Flat (Mặc Định 0dB)`
+  - Khi chọn từng preset, đồ thị đường cong đáp tuyến tần số (Frequency Response Curve) và 10 fader slider nhảy mượt mà về đúng các giá trị dB tương ứng.
+
