@@ -127,6 +127,21 @@ int main(int argc, char* argv[]) {
     httplib::Server svr;
     g_server = &svr;
 
+    // BẢO MẬT KHO NHẠC: Mọi API Media/Jukebox và file nhạc tĩnh chỉ dành cho người dùng ĐÃ ĐĂNG NHẬP.
+    // Khách vãng lai (chưa đăng nhập) không được truy cập kho nhạc / hàng đợi / EQ.
+    svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
+        const std::string& p = req.path;
+        bool isMediaPath = (p.rfind("/api/media", 0) == 0) || (p.rfind("/assets/media", 0) == 0);
+        if (!isMediaPath) return httplib::Server::HandlerResponse::Unhandled;
+        if (req.method == "OPTIONS") return httplib::Server::HandlerResponse::Unhandled;
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (userOpt.has_value()) return httplib::Server::HandlerResponse::Unhandled;
+        res.status = 401;
+        res.set_header("Cache-Control", "no-store");
+        res.set_content("{\"success\":false,\"authenticated\":false,\"message\":\"Vui lòng đăng nhập để truy cập kho nhạc Jukebox.\"}", "application/json; charset=utf-8");
+        return httplib::Server::HandlerResponse::Handled;
+    });
+
     // Static files mount
     fs::path webDir = config.getWebDir();
     fs::path assetsDir = webDir / "assets";

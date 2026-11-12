@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -2640,6 +2640,14 @@
             timer: null,
 
             async init() {
+                // Khách vãng lai (chưa đăng nhập): ẩn hoàn toàn Jukebox, không gọi API kho nhạc
+                if (!window.currentUser || !window.currentUser.id) {
+                    ['customer-jukebox-bar', 'customer-jukebox-modal'].forEach(function(id) {
+                        var el = document.getElementById(id);
+                        if (el) el.remove();
+                    });
+                    return;
+                }
                 await this.loadStatus();
                 if (this.timer) clearInterval(this.timer);
                 this.timer = setInterval(() => this.loadStatus(), 10000);

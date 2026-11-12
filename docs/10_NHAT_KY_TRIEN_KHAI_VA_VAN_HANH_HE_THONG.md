@@ -378,3 +378,12 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
 - **Frontend ([`customer.html`](../slave/web/customer.html)):** Với khách vãng lai, script đầu trang dùng `history.replaceState` đổi `/customer.html` thành `/` (giữ nguyên `?table=...&name=...` của QR từng bàn); link/QR hero và nút Sao chép link sinh dạng `http://IP:Port/`. Link cũ `/customer.html` vẫn hoạt động.
 - **Lưu ý vận hành:** Nhân viên truy cập `IP:Port` trên máy chưa đăng nhập sẽ thấy menu khách; nhân viên vào `IP:Port/login.html` (hoặc nút đăng nhập trên menu) để đăng nhập.
 - **Kiểm thử Playwright:** `/` , `/customer.html`, `/customer.html?table=B01` đều hiển thị URL `http://10.0.126.159:8501/` (kèm `?table=` nếu có) và reload vẫn đúng menu khách. Đã build lại `cybernexus_slave.exe` và đồng bộ master/release.
+
+---
+
+## 12. Khóa Kho Nhạc Jukebox Đối Với Khách Chưa Đăng Nhập
+
+- **Yêu cầu:** Khách vãng lai (quét QR/không đăng nhập) không được thấy Jukebox và không được truy cập kho nhạc.
+- **Backend C++ ([`slave/src/main_slave.cpp`](../slave/src/main_slave.cpp)):** Thêm `set_pre_routing_handler` chặn mọi đường dẫn `/api/media*` (tracks, jukebox status/request/vote, EQ, ducking...) và file nhạc tĩnh `/assets/media*` — chưa đăng nhập trả **HTTP 401**; đã đăng nhập (Admin/Thu ngân/Phục vụ/Bếp/Khách có tài khoản) hoạt động bình thường.
+- **Frontend ([`customer.html`](../slave/web/customer.html)):** Nếu chưa đăng nhập, `CustomerJukebox.init()` gỡ thanh *Đang phát / Chọn Bài* và modal Jukebox khỏi trang, không gọi API kho nhạc.
+- **Kiểm thử Playwright:** Khách: thanh Jukebox không còn; `/api/media/tracks`, `/jukebox/status`, `/eq/presets`, file MP3 và POST yêu cầu bài đều 401. Thu ngân: các API trả 200, Jukebox POS vẫn nạp đủ 15 preset. Đã build lại `cybernexus_slave.exe` và đồng bộ master/release.
