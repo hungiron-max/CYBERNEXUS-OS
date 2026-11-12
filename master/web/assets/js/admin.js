@@ -4667,6 +4667,11 @@ const Admin = {
         if (idx >= 0 && filters && filters[idx]) {
             filters[idx].gain.value = num;
         }
+        const select = document.getElementById('eq-preset-select');
+        if (select) {
+            const customOpt = Array.from(select.options).find(o => o.text.includes('Tùy Chỉnh') || o.text.includes('Custom'));
+            if (customOpt) select.value = customOpt.value;
+        }
         this.renderEqCurve();
     },
 
@@ -4677,6 +4682,11 @@ const Admin = {
         if (label) label.textContent = (num > 0 ? '+' : '') + num.toFixed(1) + ' dB';
         if (this.mediaPlayer.preampNode) {
             this.mediaPlayer.preampNode.gain.value = Math.pow(10, num / 20);
+        }
+        const select = document.getElementById('eq-preset-select');
+        if (select) {
+            const customOpt = Array.from(select.options).find(o => o.text.includes('Tùy Chỉnh') || o.text.includes('Custom'));
+            if (customOpt) select.value = customOpt.value;
         }
     },
 
@@ -4703,7 +4713,7 @@ const Admin = {
 
     resetEqFlat() {
         const flatPreset = {
-            preset_name: 'Bypass Flat',
+            preset_name: '🎵 Flat (Gốc)',
             preamp_gain: 0.0,
             band_31hz: 0.0,
             band_62hz: 0.0,
@@ -4719,8 +4729,11 @@ const Admin = {
         this.setEqFromPreset(flatPreset);
         const select = document.getElementById('eq-preset-select');
         if (select) {
-            const bypassOpt = Array.from(select.options).find(o => o.text.includes('Bypass Flat'));
-            if (bypassOpt) select.value = bypassOpt.value;
+            const flatOpt = Array.from(select.options).find(o => o.text.includes('Flat'));
+            if (flatOpt) {
+                select.value = flatOpt.value;
+                this.onEqPresetSelect(flatOpt.value);
+            }
         }
     },
 

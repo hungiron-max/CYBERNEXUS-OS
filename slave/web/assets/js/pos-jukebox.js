@@ -206,18 +206,27 @@
                                 <!-- Top Bar: Title, Presets & Flat 0dB -->
                                 <div class="flex flex-wrap items-center justify-between pb-2 border-b border-white/10 gap-2">
                                     <div class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-                                        <span class="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
-                                            <i class="fas fa-wave-square text-sky-400"></i>
-                                            10-Band DSP Studio Console
-                                        </span>
+                                        <div class="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300 text-[11px] shadow-[0_0_8px_rgba(56,189,248,0.3)]">
+                                            <i class="fas fa-sliders-h"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5 leading-tight">
+                                                TIMBRE MASTERING EQUALIZER
+                                            </div>
+                                            <div class="text-[8px] font-mono font-bold text-slate-400 uppercase tracking-wider leading-none mt-0.5">
+                                                PRO 10-BAND 64-BIT DSP AUDIO ENGINE
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="flex items-center gap-1.5">
-                                        <select id="pos-eq-preset-select" onchange="POSJukebox.onSelectPreset(this.value)" class="bg-slate-900 border border-sky-500/30 text-sky-300 text-[10px] rounded-lg px-2 py-1 font-bold focus:outline-none">
-                                            <option value="">Preset Âm Thanh...</option>
+                                        <span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> EQ ON
+                                        </span>
+                                        <select id="pos-eq-preset-select" onchange="POSJukebox.onSelectPreset(this.value)" class="bg-slate-900 border border-sky-500/30 text-sky-300 text-[10px] rounded-lg px-2 py-1 font-bold focus:outline-none cursor-pointer">
+                                            <option value="">🎵 Flat (Gốc)...</option>
                                         </select>
-                                        <button type="button" onclick="POSJukebox.applyFlatEq()" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold text-slate-300 border border-white/10 transition flex items-center gap-1">
-                                            <i class="fas fa-compress text-sky-400 text-[9px]"></i>Flat 0dB
+                                        <button type="button" onclick="POSJukebox.applyFlatEq()" class="px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold text-slate-300 border border-white/10 transition flex items-center gap-1" title="Đặt lại Flat 0dB">
+                                            <i class="fas fa-rotate-left text-sky-400 text-[9px]"></i> Flat
                                         </button>
                                     </div>
                                 </div>
@@ -280,16 +289,16 @@
                                 <!-- 10 Vertical Faders Hardware Rack (Side-by-Side 10 Columns) -->
                                 <div class="eq-faders-grid flex-1 items-stretch pb-2" style="display: grid !important; grid-template-columns: repeat(10, minmax(0, 1fr)) !important; gap: 4px !important;">
                                     ${[
-                                        { key: 'band_31hz', label: '31Hz', role: 'Sub' },
-                                        { key: 'band_62hz', label: '62Hz', role: 'Bass' },
-                                        { key: 'band_125hz', label: '125Hz', role: 'Punch' },
-                                        { key: 'band_250hz', label: '250Hz', role: 'Warm' },
-                                        { key: 'band_500hz', label: '500Hz', role: 'Body' },
-                                        { key: 'band_1khz', label: '1kHz', role: 'Vocal' },
-                                        { key: 'band_2khz', label: '2kHz', role: 'Edge' },
-                                        { key: 'band_4khz', label: '4kHz', role: 'Bite' },
-                                        { key: 'band_8khz', label: '8kHz', role: 'Air' },
-                                        { key: 'band_16khz', label: '16kHz', role: 'Shine' }
+                                        { key: 'band_31hz', label: '31Hz', role: 'SUB' },
+                                        { key: 'band_62hz', label: '62Hz', role: 'BASS' },
+                                        { key: 'band_125hz', label: '125Hz', role: 'PUNCH' },
+                                        { key: 'band_250hz', label: '250Hz', role: 'WARM' },
+                                        { key: 'band_500hz', label: '500Hz', role: 'MID' },
+                                        { key: 'band_1khz', label: '1kHz', role: 'MID-H' },
+                                        { key: 'band_2khz', label: '2kHz', role: 'EDGE' },
+                                        { key: 'band_4khz', label: '4kHz', role: 'BITE' },
+                                        { key: 'band_8khz', label: '8kHz', role: 'AIR' },
+                                        { key: 'band_16khz', label: '16kHz', role: 'SHINE' }
                                     ].map((b, idx) => `
                                         <div class="eq-channel-strip" style="height: 195px; padding: 6px 2px;">
                                             <span id="pos-eq-val-${b.key}" class="eq-val-badge eq-val-flat">0.0</span>
@@ -790,8 +799,7 @@
                     }));
                     const select = document.getElementById('pos-eq-preset-select');
                     if (select) {
-                        select.innerHTML = '<option value="">Preset Âm Thanh...</option>' +
-                            this.eqPresets.map(p => `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.name}</option>`).join('');
+                        select.innerHTML = this.eqPresets.map(p => `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.name}</option>`).join('');
                     }
 
                     // Khởi tạo các giá trị slider theo preset đang kích hoạt hoặc preset đầu tiên
@@ -879,6 +887,12 @@
             if (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters[idx]) {
                 window.JukeboxEngine.eqFilters[idx].gain.value = num;
             }
+
+            const select = document.getElementById('pos-eq-preset-select');
+            if (select) {
+                const customOpt = Array.from(select.options).find(o => o.text.includes('Tùy Chỉnh') || o.text.includes('Custom'));
+                if (customOpt) select.value = customOpt.value;
+            }
         },
 
         onEqPreampInput(val) {
@@ -889,6 +903,12 @@
 
             if (window.JukeboxEngine && window.JukeboxEngine.preampNode) {
                 window.JukeboxEngine.preampNode.gain.value = Math.pow(10, num / 20);
+            }
+
+            const select = document.getElementById('pos-eq-preset-select');
+            if (select) {
+                const customOpt = Array.from(select.options).find(o => o.text.includes('Tùy Chỉnh') || o.text.includes('Custom'));
+                if (customOpt) select.value = customOpt.value;
             }
         },
 

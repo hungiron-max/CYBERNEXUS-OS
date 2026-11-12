@@ -312,3 +312,59 @@ flowchart TD
     6. `Bypass Flat (Mặc Định 0dB)`
   - Khi chọn từng preset, đồ thị đường cong đáp tuyến tần số (Frequency Response Curve) và 10 fader slider nhảy mượt mà về đúng các giá trị dB tương ứng.
 
+---
+
+## 10. Nâng Cấp Bộ 15 Preset Âm Thanh Studio Chuẩn & Giao Diện Timbre Mastering Equalizer (POS & Admin)
+
+### 10.1. Yêu Cầu & Định Hướng Triển Khai
+- Đồng bộ hóa toàn bộ danh sách các band/preset âm thanh lưu sẵn cho cả **Màn hình Thu Ngân POS** ([`index.html`](../slave/web/index.html) qua [`pos-jukebox.js`](../slave/web/assets/js/pos-jukebox.js)) và **Màn hình Quản Trị Admin** ([`admin.html`](../slave/web/admin.html) Tab Media qua [`admin.js`](../slave/web/assets/js/admin.js)).
+- Tái thiết kế giao diện bàn trộn âm thanh phòng thu chuyên nghiệp theo chuẩn **TIMBRE MASTERING EQUALIZER (PRO 10-BAND 64-BIT DSP AUDIO ENGINE)** với huy hiệu trạng thái `● EQ ON`, nút `Flat` đặt lại nhanh và nhãn vai trò tần số in hoa trực quan.
+
+### 10.2. Danh Sách 15 Preset Âm Thanh Tiêu Chuẩn Phòng Thu
+Hệ thống đã được nạp và tính toán cấu hình âm học chi tiết (dB gain cho 10 band tần số từ 31Hz đến 16kHz kèm Preamp Gain) cho trọn bộ 15 preset:
+1. **🎵 Flat (Gốc):** Dải tần phẳng 0.0dB nguyên bản không can thiệp, trung thực với bản thu gốc.
+2. **💥 Bass Boost:** Nâng mạnh dải Sub & Bass (+6.5dB ở 31Hz, +6.0dB ở 62Hz) với Preamp -1.0dB chống méo tiếng clipping.
+3. **🔈 Bass Reducer:** Cắt giảm dải trầm (-6.0dB) giúp chống ù rền âm học khi quán dùng loa công suất nhỏ hoặc phòng hẹp.
+4. **🎤 Vocal Clarity:** Tôn nổi bật giọng hát và độ rõ lời ca sĩ (+4.5dB ở 1kHz, +3.5dB ở 2kHz, +2.5dB ở 4kHz), lọc bớt tạp âm trầm.
+5. **🎙️ Podcast / Voice:** Tối ưu đàm thoại và phát thanh, cắt dải siêu trầm chống rung mic và tăng dải trung ấm (+4.0dB).
+6. **🎶 Pop:** Cân bằng V-curve nhẹ nhàng, tôn giọng ca sĩ và tiếng kick/snare giai điệu bắt tai.
+7. **🎸 Rock / Metal:** Dải bass chắc gọn, mid sắc sảo, dải cao sáng giòn (+4.5dB ở 8kHz).
+8. **🎤 Hip-Hop / R&B:** Tối ưu dải sub-bass 808 cực sâu (+6.0dB / +6.5dB) cùng treble sắc nét.
+9. **🎧 EDM / Dance:** Không gian âm thanh sôi động câu lạc bộ bar/club, bùng nổ năng lượng dải trầm và dải cao lung linh.
+10. **🎷 Jazz & Acoustic:** Không gian phòng trà mộc mạc, ấm áp, cân bằng tự nhiên dải trung và dải trầm.
+11. **🎻 Classical:** Tái hiện dải động rộng của dàn nhạc giao hưởng, trung thực và chi tiết nhạc cụ bộ dây.
+12. **🔊 Loudness:** Bù âm cân bằng sinh học tai người (Fletcher-Munson) giúp nghe đầy đủ chi tiết khi mở âm lượng vừa và nhỏ.
+13. **🎬 Cinema 3D:** Hiệu ứng rạp chiếu phim vòm không gian với dải trầm rung động và treble không gian mở rộng.
+14. **✨ Treble Sparkle:** Sáng lung linh ở các dải tần cao (Air 8kHz +6.5dB, Shine 16kHz +7.0dB), làm rõ chi tiết hi-hat, cymbal và guitar acoustic.
+15. **🎛️ Tùy Chỉnh (Custom):** Tự động kích hoạt khi người dùng gạt tay bất kỳ fader nào để lưu lại sở thích âm thanh riêng của quán.
+
+### 10.3. Nâng Cấp Giao Diện Bàn Trộn Âm Thanh Cả 2 Phân Hệ (POS & Admin)
+- **Header chuẩn Studio:**
+  - Tiêu đề: **TIMBRE MASTERING EQUALIZER**
+  - Phụ đề: **PRO 10-BAND 64-BIT DSP AUDIO ENGINE**
+  - Huy hiệu xanh: `● EQ ON`
+  - Nút đặt lại nhanh: `[🔄 Flat]`
+- **Chuẩn hóa nhãn vai trò dải tần (Band Roles):**
+  - `31Hz`: **SUB** (Sub-Bass)
+  - `62Hz`: **BASS** (Bass)
+  - `125Hz`: **PUNCH** (Low-Mid)
+  - `250Hz`: **WARM** (Warmth)
+  - `500Hz`: **MID** (Body)
+  - `1kHz`: **MID-H** (Vocal Presence)
+  - `2kHz`: **EDGE** (Clarity)
+  - `4kHz`: **BITE** (Attack / Presence)
+  - `8kHz`: **AIR** (Brilliance)
+  - `16kHz`: **SHINE** (Ultra-High Sparkle)
+- **Cơ chế tương tác thông minh:**
+  - Bất kỳ thao tác kéo cần gạt tần số hoặc Preamp Gain nào đều tự động đồng bộ menu dropdown về preset `🎛️ Tùy Chỉnh (Custom)`.
+  - Nút `[🔄 Flat]` lập tức trả toàn bộ 10 band về 0.0dB và đồng bộ lại dropdown về `🎵 Flat (Gốc)`.
+
+### 10.4. Đồng Bộ Cơ Sở Dữ Liệu & Kiểm Thử Tự Động
+- Cập nhật cơ sở dữ liệu SQLite `media_eq_presets` trong cả [`slave/database/store_local.db`](../slave/database/store_local.db) và gói phát hành chuẩn [`master/packages/GP001/release/CyberNexus_POS_Release_GP001/database/store_local.db`](../master/packages/GP001/release/CyberNexus_POS_Release_GP001/database/store_local.db).
+- Cập nhật logic tự động nâng cấp seed presets trong mã nguồn C++ module [`modules/mod_media_stream/mod_media_stream.cpp`](../modules/mod_media_stream/mod_media_stream.cpp).
+- Đồng bộ toàn bộ các file giao diện sang [`master/web/`](../master/web/) và gói phát hành release.
+- **Kiểm thử tự động Playwright:**
+  - Đăng nhập kiểm tra màn hình Thu Ngân POS: Menu Jukebox hiển thị đúng chuẩn 15 preset, các vai trò band SUB/BASS/PUNCH/WARM/MID/MID-H/EDGE/BITE/AIR/SHINE hiển thị chuẩn 100%.
+  - Đăng nhập kiểm tra màn hình Quản Trị Admin Tab Media: Menu DSP Console hiển thị đủ 15 preset, chuyển đổi mượt mà giữa các cấu hình âm thanh.
+
+

@@ -143,16 +143,27 @@ private:
             )");
         }
 
-        // Seed EQ presets if empty
-        json eqCount = queryOne("SELECT COUNT(*) as c FROM media_eq_presets");
+        // Seed / Upgrade EQ presets with 15 Pro Studio Mastering Presets
+        json eqCount = queryOne("SELECT COUNT(*) as c FROM media_eq_presets WHERE preset_name LIKE '%Cinema 3D%'");
         if (eqCount.is_object() && eqCount.value("c", 0) == 0) {
+            execSql("DELETE FROM media_eq_presets;");
             execSql(R"(
-                INSERT OR IGNORE INTO media_eq_presets (preset_name, preamp_gain, band_31hz, band_62hz, band_125hz, band_250hz, band_500hz, band_1khz, band_2khz, band_4khz, band_8khz, band_16khz, is_active) VALUES
-                ('Morning Acoustic (Êm Dịu)', 0.0, -2.5, -1.0, 0.0, 1.0, 2.0, 2.5, 2.0, 1.5, 2.0, 3.0, 1),
-                ('Lunch Lounge (Cân Bằng)', 1.0, 0.0, 0.5, 1.0, 1.0, 0.5, 0.0, -0.5, 0.5, 1.0, 1.5, 0),
-                ('Cyber Night Club (EDM/Gaming)', 2.0, 5.0, 4.5, 3.0, 0.5, -1.0, 0.0, 1.5, 3.0, 4.0, 5.0, 0),
-                ('Vocal Focus (Rõ Lời Ca Sĩ)', 0.5, -3.0, -2.0, 0.0, 1.5, 3.5, 4.0, 3.0, 2.0, 1.0, 1.5, 0),
-                ('Bypass Flat (Mặc Định 0dB)', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
+                INSERT INTO media_eq_presets (preset_name, preamp_gain, band_31hz, band_62hz, band_125hz, band_250hz, band_500hz, band_1khz, band_2khz, band_4khz, band_8khz, band_16khz, is_active) VALUES
+                ('🎵 Flat (Gốc)', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1),
+                ('💥 Bass Boost', -1.0, 6.5, 6.0, 4.5, 2.5, 0.5, 0.0, 0.0, 0.5, 1.0, 1.5, 0),
+                ('🔈 Bass Reducer', 0.5, -6.0, -5.0, -3.5, -2.0, 0.0, 0.5, 1.0, 1.0, 1.0, 0.5, 0),
+                ('🎤 Vocal Clarity', 0.0, -2.0, -1.0, 0.0, 1.5, 3.0, 4.5, 3.5, 2.5, 1.5, 1.0, 0),
+                ('🎙️ Podcast / Voice', 0.5, -5.0, -3.0, 0.5, 2.0, 3.5, 4.0, 3.0, 1.5, 0.0, -1.0, 0),
+                ('🎶 Pop', 0.0, 2.0, 3.0, 2.0, 0.5, -0.5, 1.5, 2.5, 3.0, 2.5, 2.0, 0),
+                ('🎸 Rock / Metal', 0.0, 4.5, 4.0, 2.5, 0.0, -2.0, 0.5, 2.5, 4.0, 4.5, 4.0, 0),
+                ('🎤 Hip-Hop / R&B', -0.5, 6.0, 6.5, 4.0, 1.5, 0.0, 1.0, 1.5, 2.0, 3.5, 4.0, 0),
+                ('🎧 EDM / Dance', -0.5, 5.5, 6.0, 4.5, 1.0, -1.5, 0.5, 2.5, 4.5, 5.5, 6.0, 0),
+                ('🎷 Jazz & Acoustic', 0.5, 1.5, 2.0, 1.5, 1.0, 1.5, 2.0, 1.5, 1.0, 1.5, 2.0, 0),
+                ('🎻 Classical', 0.0, 2.0, 2.0, 1.5, 1.0, 0.0, 0.0, 0.5, 1.5, 2.0, 2.5, 0),
+                ('🔊 Loudness', -1.0, 5.0, 4.5, 2.5, 0.0, -1.5, -1.0, 0.5, 2.0, 4.0, 5.0, 0),
+                ('🎬 Cinema 3D', 0.0, 5.5, 4.0, 2.0, 0.0, 1.0, 1.5, 2.5, 4.0, 5.0, 5.5, 0),
+                ('✨ Treble Sparkle', 0.0, -1.0, -0.5, 0.0, 0.0, 0.5, 1.5, 3.0, 5.0, 6.5, 7.0, 0),
+                ('🎛️ Tùy Chỉnh (Custom)', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
             )");
         }
 
