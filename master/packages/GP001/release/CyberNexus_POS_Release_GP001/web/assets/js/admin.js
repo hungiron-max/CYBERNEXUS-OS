@@ -5662,7 +5662,10 @@ const Admin = {
 
     async previewYoutubeAudio() {
         const url = (document.getElementById('yt-import-url')?.value || '').trim();
+        const errBox = document.getElementById('yt-preview-error');
+        if (errBox) { errBox.classList.add('hidden'); errBox.textContent = ''; }
         if (!url) {
+            if (errBox) { errBox.textContent = 'Vui lòng dán link YouTube!'; errBox.classList.remove('hidden'); }
             this.showToast('Vui lòng dán link YouTube!', 'warning');
             return;
         }
@@ -5679,7 +5682,9 @@ const Admin = {
             });
             const data = await res.json();
             if (!data.success) {
-                this.showToast(data.message || 'Không lấy được thông tin YouTube', 'error');
+                const msg = data.message || 'Không lấy được thông tin YouTube';
+                if (errBox) { errBox.textContent = msg; errBox.classList.remove('hidden'); }
+                this.showToast(msg, 'error');
                 return;
             }
             this.ytPreviewMeta = data;
@@ -5694,6 +5699,7 @@ const Admin = {
             document.getElementById('yt-preview-box')?.classList.remove('hidden');
             this.showToast('Đã nhận diện thông tin audio từ YouTube!', 'success');
         } catch (err) {
+            if (errBox) { errBox.textContent = 'Lỗi kết nối tới server khi lấy thông tin YouTube'; errBox.classList.remove('hidden'); }
             this.showToast('Lỗi kết nối tới server khi preview YouTube', 'error');
         } finally {
             if (btn) {
