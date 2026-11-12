@@ -2573,7 +2573,9 @@
             sessionStorage.clear();
             document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-            window.location.replace('login.html?logout=1');
+            document.cookie = "pos_remember=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            // Đăng xuất từ trang Khách hàng -> quay về trang Khách hàng (chưa đăng nhập), chỉ hiển thị IP:Port
+            window.location.replace('/');
         }
 
         function initHeroCustomerQr() {

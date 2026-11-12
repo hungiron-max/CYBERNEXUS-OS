@@ -387,3 +387,11 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
 - **Backend C++ ([`slave/src/main_slave.cpp`](../slave/src/main_slave.cpp)):** Thêm `set_pre_routing_handler` chặn mọi đường dẫn `/api/media*` (tracks, jukebox status/request/vote, EQ, ducking...) và file nhạc tĩnh `/assets/media*` — chưa đăng nhập trả **HTTP 401**; đã đăng nhập (Admin/Thu ngân/Phục vụ/Bếp/Khách có tài khoản) hoạt động bình thường.
 - **Frontend ([`customer.html`](../slave/web/customer.html)):** Nếu chưa đăng nhập, `CustomerJukebox.init()` gỡ thanh *Đang phát / Chọn Bài* và modal Jukebox khỏi trang, không gọi API kho nhạc.
 - **Kiểm thử Playwright:** Khách: thanh Jukebox không còn; `/api/media/tracks`, `/jukebox/status`, `/eq/presets`, file MP3 và POST yêu cầu bài đều 401. Thu ngân: các API trả 200, Jukebox POS vẫn nạp đủ 15 preset. Đã build lại `cybernexus_slave.exe` và đồng bộ master/release.
+
+---
+
+## 13. Đăng Xuất Trang Khách Hàng Quay Về Menu Khách (Chưa Đăng Nhập)
+
+- **Yêu cầu:** Chỉ riêng trang Customer: bấm Đăng xuất thì quay về menu khách ở trạng thái chưa đăng nhập; các trang khác (POS, Admin, Bếp, Phục vụ, Đơn online) vẫn chuyển về trang đăng nhập.
+- **Thay đổi duy nhất ([`customer.html`](../slave/web/customer.html), hàm `handleLogout`):** sau khi xóa phiên/token/cookie (bổ sung xóa `pos_remember`), chuyển hướng tới `/` thay vì `login.html?logout=1`. Không sửa bất kỳ trang nào khác.
+- **Kiểm thử Playwright:** Đăng nhập Thu ngân → mở `customer.html` (thấy Jukebox) → Đăng xuất → URL `http://10.0.126.159:8501/`, menu khách không còn Jukebox, cookie sạch, API nhạc trả 401. Truy cập `index.html` khi chưa đăng nhập vẫn chuyển về `login.html?redirect=index.html`. Đã đồng bộ master/release.
