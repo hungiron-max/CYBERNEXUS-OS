@@ -5041,6 +5041,7 @@ const Admin = {
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
                         ${offlineBtnHtml}
+                        <button type="button" onclick="Admin.editYoutubeTrack(${t.id})" class="px-2 py-1 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Sửa thông tin bài hát YouTube"><i class="fas fa-edit"></i> Sửa</button>
                         <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý">
                             <i class="fas fa-plus"></i> Phát
                         </button>
@@ -5560,6 +5561,85 @@ const Admin = {
     },
 
     ytPreviewMeta: null,
+
+    editYoutubeTrack(trackId) {
+        const track = (this.mediaCatalog || []).find(t => Number(t.id) === Number(trackId));
+        if (!track) return;
+
+        let modal = document.getElementById('edit-track-info-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'edit-track-info-modal';
+            modal.className = 'fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md';
+            modal.innerHTML = `
+                <div class="liquid-glass w-full max-w-md rounded-2xl border border-amber-500/30 p-5 shadow-2xl space-y-3">
+                    <div class="flex items-center justify-between pb-2 border-b border-white/10">
+                        <h3 class="font-black text-sm text-white flex items-center gap-2">
+                            <i class="fas fa-edit text-amber-400"></i> Sửa Tên Bài Hát &amp; Tên File MP3
+                        </h3>
+                        <button type="button" onclick="document.getElementById('edit-track-info-modal').classList.add('hidden');document.getElementById('edit-track-info-modal').classList.remove('flex');" class="text-slate-400 hover:text-white text-lg">&times;</button>
+                    </div>
+                    <div class="space-y-2.5 text-xs">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-300 mb-1">Tên bài hát (sẽ dùng để đặt tên file .mp3)</label>
+                            <input type="text" id="edit-track-title-input" class="liquid-input w-full py-2 px-3 rounded-xl bg-slate-900 border border-white/15 text-xs text-white" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-300 mb-1">Nghệ sĩ / Ca sĩ</label>
+                            <input type="text" id="edit-track-artist-input" class="liquid-input w-full py-2 px-3 rounded-xl bg-slate-900 border border-white/15 text-xs text-white" />
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
+                        <button type="button" onclick="document.getElementById('edit-track-info-modal').classList.add('hidden');document.getElementById('edit-track-info-modal').classList.remove('flex');" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold">Hủy</button>
+                        <button type="button" id="edit-track-save-btn" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black">Lưu Thay Đổi</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        const titleInput = document.getElementById('edit-track-title-input');
+        const artistInput = document.getElementById('edit-track-artist-input');
+        const saveBtn = document.getElementById('edit-track-save-btn');
+        titleInput.value = track.title || '';
+        artistInput.value = track.artist || '';
+
+        saveBtn.onclick = async () => {
+            const newTitle = titleInput.value.trim();
+            const newArtist = artistInput.value.trim();
+            if (!newTitle) {
+                this.showToast('Tên bài hát không được để trống!', 'warning');
+                return;
+            }
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Đang lưu...';
+            try {
+                const res = await fetch('/api/media/youtube/edit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ track_id: trackId, title: newTitle, artist: newArtist })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    this.showToast(data.message || 'Không thể cập nhật bài hát', 'error');
+                    return;
+                }
+                this.showToast(data.message || 'Đã cập nhật tên bài hát!', 'success');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                await this.loadMediaTracksCatalog();
+            } catch (_) {
+                this.showToast('Lỗi kết nối khi cập nhật bài hát', 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Lưu Thay Đổi';
+            }
+        };
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        titleInput.focus();
+    },
 
     openYoutubeImportModal() {
         const modal = document.getElementById('youtube-import-modal');

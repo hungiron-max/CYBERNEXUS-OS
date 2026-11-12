@@ -501,6 +501,83 @@ static bool upgradeTrackToLocal(sqlite3* db, int trackId, const std::string& rel
     return ok;
 }
 
+static fs::path pathFromUtf8(const std::string& utf8) {
+#ifdef _WIN32
+    if (utf8.empty()) return fs::path();
+    int n = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), nullptr, 0);
+    std::wstring w(n, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), w.data(), n);
+    return fs::path(w);
+#else
+    return fs::path(utf8);
+#endif
+}
+
+static std::string sanitizeFileNameUtf8(const std::string& rawTitle, const std::string& fallback) {
+    std::string out;
+    out.reserve(rawTitle.size());
+    bool lastSpace = false;
+    for (unsigned char c : rawTitle) {
+        if (c < 0x20 || c == '\\' || c == '/' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+            if (!lastSpace && !out.empty()) {
+                out.push_back(' ');
+                lastSpace = true;
+            }
+            continue;
+        }
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+            if (!lastSpace && !out.empty()) {
+                out.push_back(' ');
+                lastSpace = true;
+            }
+            continue;
+        }
+        out.push_back(static_cast<char>(c));
+        lastSpace = false;
+    }
+    while (!out.empty() && (out.back() == ' ' || out.back() == '.')) {
+        out.pop_back();
+    }
+    // Truncate safely on UTF-8 boundary (~110 bytes)
+    if (out.size() > 110) {
+        size_t cut = 110;
+        while (cut > 0 && (static_cast<unsigned char>(out[cut]) & 0xC0) == 0x80) {
+            --cut;
+        }
+        out.resize(cut);
+        while (!out.empty() && (out.back() == ' ' || out.back() == '.')) {
+            out.pop_back();
+        }
+    }
+    return out.empty() ? fallback : out;
+}
+
+static std::string buildUniqueMp3Name(const fs::path& mediaDir, const std::string& title, const std::string& videoId) {
+    std::string base = sanitizeFileNameUtf8(title, "yt_" + videoId);
+    std::string candidate = base + ".mp3";
+    std::error_code ec;
+    if (!fs::exists(mediaDir / pathFromUtf8(candidate), ec)) {
+        return candidate;
+    }
+    std::string withId = base + " (" + videoId + ").mp3";
+    return withId;
+}
+
+static std::string queryTrackTitleById(sqlite3* db, int trackId) {
+    std::lock_guard<std::mutex> lk(s_dbMtx);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT COALESCE(title,'') FROM media_tracks WHERE id = ? LIMIT 1;";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return "";
+    sqlite3_bind_int(stmt, 1, trackId);
+    std::string t;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char* txt = sqlite3_column_text(stmt, 0);
+        if (txt) t = reinterpret_cast<const char*>(txt);
+    }
+    sqlite3_finalize(stmt);
+    return t;
+}
+
 static std::string startOfflineDownloadJob(
     sqlite3* db,
     int existingTrackId,
@@ -555,11 +632,9 @@ static std::string startOfflineDownloadJob(
         fs::create_directories(mediaDir, ec);
         fs::create_directories(webMediaDir, ec);
 
-        std::string baseName = "yt_" + videoId;
-        fs::path outTpl = mediaDir / (baseName + ".%(ext)s");
-        fs::path finalMp3 = mediaDir / (baseName + ".mp3");
-        fs::path webMp3 = webMediaDir / (baseName + ".mp3");
-        std::string relPath = "assets/media/" + baseName + ".mp3";
+        std::string tmpBase = "yt_" + videoId + "_tmp";
+        fs::path outTpl = mediaDir / (tmpBase + ".%(ext)s");
+        fs::path tmpMp3 = mediaDir / (tmpBase + ".mp3");
 
         std::string cmd = "\"" + ytdlp.string() + "\" --no-playlist -x --audio-format mp3 --audio-quality 192K "
                           "--ffmpeg-location \"" + toolsDir.string() + "\" "
@@ -568,12 +643,30 @@ static std::string startOfflineDownloadJob(
 
         std::string output;
         int rc = runProcessHidden(cmd, output, 180000);
-        if (rc != 0 || !fs::exists(finalMp3) || fs::file_size(finalMp3, ec) < 4096) {
+        if (rc != 0 || !fs::exists(tmpMp3) || fs::file_size(tmpMp3, ec) < 4096) {
             updateJob("failed", 0, "Tải/Convert MP3 thất bại (mã " + std::to_string(rc) + ")");
             return;
         }
 
-        updateJob("converting", 85, "Đang đồng bộ kho nhạc offline...");
+        updateJob("converting", 85, "Đang lưu file MP3 theo tên bài hát...");
+        // Use latest title from DB if track already exists (in case user edited it), else fallback to provided title
+        std::string effectiveTitle = title;
+        if (existingTrackId > 0) {
+            std::string dbTitle = queryTrackTitleById(db, existingTrackId);
+            if (!dbTitle.empty()) effectiveTitle = dbTitle;
+        }
+        std::string finalFileName = buildUniqueMp3Name(mediaDir, effectiveTitle, videoId);
+        fs::path finalMp3 = mediaDir / pathFromUtf8(finalFileName);
+        fs::path webMp3 = webMediaDir / pathFromUtf8(finalFileName);
+        std::string relPath = "assets/media/" + finalFileName;
+
+        fs::rename(tmpMp3, finalMp3, ec);
+        if (ec) {
+            // Fallback to copy + remove if cross-device or lock
+            ec.clear();
+            fs::copy_file(tmpMp3, finalMp3, fs::copy_options::overwrite_existing, ec);
+            fs::remove(tmpMp3, ec);
+        }
         fs::copy_file(finalMp3, webMp3, fs::copy_options::overwrite_existing, ec);
 
         int finalTrackId = existingTrackId;
@@ -582,7 +675,7 @@ static std::string startOfflineDownloadJob(
         } else {
             finalTrackId = insertTrack(
                 db,
-                title,
+                effectiveTitle.empty() ? ("YouTube " + videoId) : effectiveTitle,
                 artist,
                 genre,
                 durationSec,
@@ -971,9 +1064,10 @@ void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db) {
 
         // If hybrid download finished and upgraded track to local file, serve local file directly
         if (srcType == "local" && !filePath.empty() && filePath.rfind("/api/", 0) != 0) {
-            fs::path localPath = getExeDir() / filePath;
+            fs::path relP = pathFromUtf8(filePath);
+            fs::path localPath = getExeDir() / relP;
             if (!fs::exists(localPath)) {
-                localPath = getExeDir() / "web" / filePath;
+                localPath = getExeDir() / "web" / relP;
             }
             if (serveLocalAudioFile(localPath, req, res)) {
                 return;
@@ -1070,5 +1164,81 @@ void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db) {
         res.status = 501;
         res.set_content("{\"success\":false,\"message\":\"Not supported on this OS\"}", "application/json; charset=utf-8");
 #endif
+    });
+
+    // 7. Edit track title/artist and rename offline MP3 file to match new title
+    svr.Post("/api/media/youtube/edit", [db](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            int trackId = body.value("track_id", 0);
+            std::string newTitle = sanitizeText(body.value("title", ""));
+            std::string newArtist = sanitizeText(body.value("artist", ""));
+            if (trackId <= 0 || newTitle.empty()) {
+                res.status = 400;
+                res.set_content("{\"success\":false,\"message\":\"Thiếu track_id hoặc tên bài hát\"}", "application/json; charset=utf-8");
+                return;
+            }
+
+            std::string srcType, oldFilePath, ytId, srcUrl;
+            if (!queryTrackById(db, trackId, srcType, oldFilePath, ytId, srcUrl)) {
+                res.status = 404;
+                res.set_content("{\"success\":false,\"message\":\"Không tìm thấy bài hát\"}", "application/json; charset=utf-8");
+                return;
+            }
+
+            std::string finalFilePath = oldFilePath;
+            if (srcType == "local" && oldFilePath.rfind("assets/media/", 0) == 0 && oldFilePath.size() > 4 &&
+                oldFilePath.substr(oldFilePath.size() - 4) == ".mp3") {
+                fs::path mediaDir = getMediaDir();
+                fs::path webMediaDir = getWebMediaDir();
+                fs::path oldFull = getExeDir() / pathFromUtf8(oldFilePath);
+                fs::path oldWebFull = getExeDir() / "web" / pathFromUtf8(oldFilePath);
+
+                std::string suffix = ytId.empty() ? std::to_string(trackId) : ytId;
+                std::string newFileName = buildUniqueMp3Name(mediaDir, newTitle, suffix);
+                std::string newRelPath = "assets/media/" + newFileName;
+
+                if (newRelPath != oldFilePath && fs::exists(oldFull)) {
+                    std::error_code ec;
+                    fs::path newFull = mediaDir / pathFromUtf8(newFileName);
+                    fs::path newWebFull = webMediaDir / pathFromUtf8(newFileName);
+                    fs::rename(oldFull, newFull, ec);
+                    if (!ec) {
+                        if (fs::exists(oldWebFull)) {
+                            fs::rename(oldWebFull, newWebFull, ec);
+                        } else {
+                            fs::copy_file(newFull, newWebFull, fs::copy_options::overwrite_existing, ec);
+                        }
+                        finalFilePath = newRelPath;
+                    }
+                }
+            }
+
+            {
+                std::lock_guard<std::mutex> lk(s_dbMtx);
+                sqlite3_stmt* stmt = nullptr;
+                const char* sql = "UPDATE media_tracks SET title = ?, artist = COALESCE(NULLIF(?, ''), artist), file_path = ? WHERE id = ?;";
+                if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+                    sqlite3_bind_text(stmt, 1, newTitle.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 2, newArtist.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 3, finalFilePath.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_int(stmt, 4, trackId);
+                    sqlite3_step(stmt);
+                }
+                sqlite3_finalize(stmt);
+            }
+
+            res.set_content(json({
+                {"success", true},
+                {"track_id", trackId},
+                {"title", newTitle},
+                {"artist", newArtist},
+                {"file_path", finalFilePath},
+                {"message", "Đã cập nhật tên bài hát & đồng bộ tên file MP3!"}
+            }).dump(), "application/json; charset=utf-8");
+        } catch (...) {
+            res.status = 400;
+            res.set_content("{\"success\":false,\"message\":\"Dữ liệu không hợp lệ\"}", "application/json; charset=utf-8");
+        }
     });
 }
