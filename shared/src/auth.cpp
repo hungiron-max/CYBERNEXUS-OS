@@ -113,6 +113,11 @@ void AuthService::destroySession(const std::string& token) {
     m_sessions.erase(token);
 }
 
+void AuthService::clearAllSessions() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_sessions.clear();
+}
+
 size_t AuthService::activeSessionCount() {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_sessions.size();
@@ -192,11 +197,25 @@ std::optional<SessionUser> AuthService::authenticate(const httplib::Request& req
 
 bool AuthService::hasRole(const SessionUser& user, const std::string& requiredRole) {
     if (user.is_super_admin || user.role == "admin") return true;
+    if (requiredRole == "all_authenticated") return true;
+    // Phân quyền nghiêm ngặt theo từng vị trí vận hành:
+    // - cashier (Thu ngân): được vào index (POS), order (Phục vụ), kitchen (Bếp), online_orders (Đơn Online)
+    // - kitchen (Bếp): CHỈ được vào kitchen
+    // - waiter (Phục vụ): CHỈ được vào order
+    if (requiredRole == "cashier") {
+        return user.role == "cashier";
+    }
+    if (requiredRole == "kitchen") {
+        return user.role == "kitchen" || user.role == "cashier";
+    }
+    if (requiredRole == "waiter") {
+        return user.role == "waiter" || user.role == "cashier";
+    }
     if (requiredRole == "staff") {
         return user.role == "cashier" || user.role == "waiter" || user.role == "kitchen";
     }
     if (requiredRole == "any" || requiredRole.empty()) {
-        return user.role != "customer"; // "any" là bất kỳ nhân viên nội bộ nào, KHÔNG cho khách hàng vào trang vận hành nội bộ
+        return user.role != "customer";
     }
     return user.role == requiredRole;
 }

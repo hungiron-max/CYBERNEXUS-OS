@@ -5799,10 +5799,107 @@ const Admin = {
         const month = monthInput ? monthInput.value : '';
 
         try {
-            const [repRes, expRes] = await Promise.all([
+            const [repRes, expRes, auditRes] = await Promise.all([
                 fetch(`api/finance.php?action=get_report&month=${month}`).then(r => r.json()).catch(() => ({})),
-                fetch(`api/finance.php?action=list_expenses&month=${month}`).then(r => r.json()).catch(() => ({}))
+                fetch(`api/finance.php?action=list_expenses&month=${month}`).then(r => r.json()).catch(() => ({})),
+                fetch(`api/finance.php?action=audit_and_shifts`).then(r => r.json()).catch(() => ({}))
             ]);
+
+            // Render Audit KPI Cards & Audit Logs Table & Shifts Table
+            const auditKpi = (auditRes && auditRes.audit_kpi) || { critical_count: 0, void_count: 0, void_amount: 0, discount_count: 0, discount_amount: 0, total_shift_discrepancy: 0 };
+            const auditKpiEl = document.getElementById('fin-audit-kpi-cards');
+            if (auditKpiEl) {
+                const diffVal = Number(auditKpi.total_shift_discrepancy) || 0;
+                auditKpiEl.innerHTML = `
+                    <div class="liquid-glass-card p-3 border-l-4 border-rose-500">
+                        <span class="text-[10px] font-bold text-rose-300 uppercase block">CẢNH BÁO RỦI RO CAO (CRITICAL)</span>
+                        <div class="text-xl font-black text-rose-400 font-mono mt-1">${auditKpi.critical_count} <span class="text-xs font-normal text-slate-400">sự kiện</span></div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Hủy đơn / Giảm giá lớn / Lệch ca</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-orange-400">
+                        <span class="text-[10px] font-bold text-orange-300 uppercase block">TỔNG HỦY ĐƠN (VOID)</span>
+                        <div class="text-xl font-black text-orange-400 font-mono mt-1">${this.formatMoney(auditKpi.void_amount)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.void_count} hóa đơn bị hủy</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
+                        <span class="text-[10px] font-bold text-amber-300 uppercase block">TỔNG GIẢM GIÁ THỦ CÔNG</span>
+                        <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(auditKpi.discount_amount)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.discount_count} lượt áp chiết khấu</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 ${diffVal < 0 ? 'border-rose-500' : 'border-emerald-400'}">
+                        <span class="text-[10px] font-bold text-slate-300 uppercase block">LỆCH KÉT GIAO CA LŨY KẾ</span>
+                        <div class="text-xl font-black ${diffVal < 0 ? 'text-rose-400' : 'text-emerald-400'} font-mono mt-1">${diffVal > 0 ? '+' : ''}${this.formatMoney(diffVal)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">${diffVal === 0 ? 'Khớp 100% két lý thuyết' : (diffVal < 0 ? 'Thiếu hụt tiền mặt' : 'Dư tiền mặt')}</span>
+                    </div>
+                `;
+            }
+
+            const auditTbody = document.getElementById('fin-audit-logs-tbody');
+            if (auditTbody) {
+                const logs = (auditRes && auditRes.audit_logs) || [];
+                if (logs.length === 0) {
+                    auditTbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-xs text-slate-500">Chưa ghi nhận thao tác nhạy cảm nào trong Nhật ký Kiểm toán.</td></tr>';
+                } else {
+                    auditTbody.innerHTML = logs.map(l => {
+                        const sevBadge = l.severity === 'CRITICAL'
+                            ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40">🚩 CRITICAL</span>'
+                            : (l.severity === 'WARN'
+                                ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ WARN</span>'
+                                : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">ℹ️ INFO</span>');
+                        return `
+                            <tr class="hover:bg-white/[0.03] transition-colors">
+                                <td><span class="font-mono text-[11px] text-slate-400 whitespace-nowrap">${l.created_at || '-'}</span></td>
+                                <td>${sevBadge}</td>
+                                <td><span class="text-xs font-bold text-white">${l.action_label || l.action_code}</span></td>
+                                <td><span class="font-mono text-xs text-sky-300">${l.table_code || '-'} ${l.order_code ? '(' + l.order_code + ')' : ''}</span></td>
+                                <td class="col-right"><span class="font-mono font-bold text-xs ${Number(l.amount_impact) > 0 ? 'text-rose-400' : 'text-slate-400'}">${Number(l.amount_impact) > 0 ? this.formatMoney(l.amount_impact) + ' đ' : '-'}</span></td>
+                                <td>
+                                    <div class="text-xs text-amber-200 font-semibold">${l.reason || '-'}</div>
+                                    ${l.details ? `<div class="text-[10px] text-slate-400">${l.details}</div>` : ''}
+                                </td>
+                                <td><span class="text-xs text-slate-300 font-medium">${l.user_name || '-'} <span class="text-[10px] text-slate-500">[${l.user_role || ''}]</span></span></td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            const shiftsTbody = document.getElementById('fin-shifts-tbody');
+            if (shiftsTbody) {
+                const shifts = (auditRes && auditRes.shifts) || [];
+                if (shifts.length === 0) {
+                    shiftsTbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-xs text-slate-500">Chưa có lịch sử ca làm việc nào. Thu ngân có thể bấm "Giao Ca / Quỹ" trên màn hình POS để mở ca.</td></tr>';
+                } else {
+                    shiftsTbody.innerHTML = shifts.map(s => {
+                        const diff = Number(s.discrepancy) || 0;
+                        const isOpen = s.status === 'open';
+                        const diffClass = diff < 0 ? 'text-rose-400 font-black' : (diff > 0 ? 'text-amber-300 font-bold' : 'text-emerald-400 font-bold');
+                        return `
+                            <tr class="hover:bg-white/[0.03] transition-colors">
+                                <td><span class="font-mono font-bold text-xs text-amber-300">${s.shift_code}</span></td>
+                                <td><span class="text-xs text-white font-semibold">${s.user_name || 'Thu ngân'}</span></td>
+                                <td>
+                                    <div class="font-mono text-[10px] text-slate-300">Mở: ${s.opened_at || '-'}</div>
+                                    <div class="font-mono text-[10px] text-slate-400">Kết: ${s.closed_at || 'Đang trực ca'}</div>
+                                </td>
+                                <td class="col-right font-mono text-xs text-slate-300">${this.formatMoney(s.opening_cash)} đ</td>
+                                <td class="col-right font-mono text-xs text-emerald-400">+${this.formatMoney(s.cash_sales)} đ</td>
+                                <td class="col-right font-mono text-[11px]">
+                                    <span class="text-emerald-300">+${this.formatMoney(s.cash_in)}</span> / <span class="text-rose-400">-${this.formatMoney(s.cash_out)}</span>
+                                </td>
+                                <td class="col-right font-mono text-xs font-bold text-sky-300">${isOpen ? 'Đang tính' : this.formatMoney(s.expected_cash) + ' đ'}</td>
+                                <td class="col-right font-mono text-xs font-bold text-white">${isOpen ? '-' : this.formatMoney(s.actual_cash) + ' đ'}</td>
+                                <td class="col-right font-mono text-xs ${diffClass}">${isOpen ? '-' : (diff > 0 ? '+' : '') + this.formatMoney(diff) + ' đ'}</td>
+                                <td>
+                                    ${isOpen
+                                        ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">ĐANG MỞ</span>'
+                                        : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/10">ĐÃ CHỐT</span>'}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
 
             const summary = (repRes && repRes.summary) || { revenue: 0, expenses: 0, net_profit: 0 };
             const kpiContainer = document.getElementById('fin-kpi-cards');

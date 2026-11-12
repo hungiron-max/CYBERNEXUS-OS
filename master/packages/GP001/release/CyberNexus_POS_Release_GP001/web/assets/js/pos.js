@@ -1082,11 +1082,66 @@ const POS = {
         }
     },
 
-    // Cancel / Clear Order
-    async cancelOrder() {
+    // Cancel / Clear Order (Kiểm toán bắt buộc nhập lý do hủy đơn)
+    cancelOrder() {
         if (this.cart.length === 0) return;
 
-        if (!confirm('Bạn có chắc chắn muốn hủy toàn bộ hóa đơn của bàn này?')) {
+        let modal = document.getElementById('audit-cancel-order-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'audit-cancel-order-modal';
+            modal.className = 'liquid-modal-overlay';
+            document.body.appendChild(modal);
+        }
+
+        const tblCode = this.currentTable ? this.currentTable.code : 'MV';
+        modal.innerHTML = `
+            <div class="liquid-glass liquid-modal-content p-6 w-[430px] max-w-full text-white shadow-2xl border border-rose-500/40">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+                            <i class="fas fa-shield-halved"></i>
+                        </span>
+                        <div>
+                            <h3 class="font-bold text-sm text-rose-400 uppercase">Xác Nhận Hủy Hóa Đơn (${tblCode})</h3>
+                            <p class="text-[11px] text-slate-400">Thao tác này được ghi nhận vào Nhật ký Kiểm toán (Audit)</p>
+                        </div>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('audit-cancel-order-modal').classList.remove('open')">&times;</button>
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Chọn nhanh lý do hủy:</label>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Khách đổi ý không dùng nữa'">Khách đổi ý</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Thu ngân / Phục vụ nhập nhầm bàn'">Nhập nhầm bàn</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Bếp báo hết nguyên liệu đột xuất'">Hết nguyên liệu</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Khách chờ lâu rời quán'">Khách chờ lâu</button>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Chi tiết lý do hủy đơn <span class="text-rose-400">*</span>:</label>
+                    <input type="text" id="cancel-order-reason-input" placeholder="Nhập lý do hủy hóa đơn..." class="liquid-input w-full text-xs py-2 px-3" />
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('audit-cancel-order-modal').classList.remove('open')">Đóng</button>
+                    <button type="button" class="btn-glass text-xs py-2 px-4 bg-rose-600/80 hover:bg-rose-600 text-white border-rose-500 font-bold" onclick="POS.confirmCancelOrderWithReason()">
+                        <i class="fas fa-trash-can mr-1"></i> Xác nhận Hủy & Ghi Audit
+                    </button>
+                </div>
+            </div>
+        `;
+        modal.classList.add('open');
+    },
+
+    async confirmCancelOrderWithReason() {
+        const reasonInput = document.getElementById('cancel-order-reason-input');
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+        if (!reason) {
+            alert('Bắt buộc nhập lý do hủy hóa đơn để ghi nhận Kiểm toán nội bộ!');
+            if (reasonInput) reasonInput.focus();
             return;
         }
 
@@ -1097,7 +1152,8 @@ const POS = {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         order_id: this.activeOrderId,
-                        table_id: this.currentTable ? this.currentTable.id : null
+                        table_id: this.currentTable ? this.currentTable.id : null,
+                        reason: reason
                     })
                 });
                 const data = await res.json();
@@ -1107,8 +1163,12 @@ const POS = {
                 }
             }
 
+            const modal = document.getElementById('audit-cancel-order-modal');
+            if (modal) modal.classList.remove('open');
+
             this.cart = [];
             this.activeOrderId = null;
+            this.discount = { type: 'amount', value: 0, reason: '' };
             this.renderCart();
             await this.loadTables();
         } catch (e) {
@@ -1127,19 +1187,22 @@ const POS = {
         }
 
         modal.innerHTML = `
-            <div class="liquid-glass liquid-modal-content p-6 w-80 text-white shadow-2xl border border-sky-500/30">
+            <div class="liquid-glass liquid-modal-content p-6 w-96 max-w-full text-white shadow-2xl border border-sky-500/30">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
-                    <h3 class="font-bold text-base text-sky-400">Giảm Giá Hóa Đơn</h3>
+                    <div>
+                        <h3 class="font-bold text-base text-sky-400">Giảm Giá Hóa Đơn</h3>
+                        <p class="text-[11px] text-slate-400">Ghi nhận tự động vào Nhật ký Kiểm toán</p>
+                    </div>
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('discount-modal').classList.remove('open')">&times;</button>
                 </div>
-                <div class="mb-4">
+                <div class="mb-3">
                     <label class="block text-xs font-semibold text-slate-300 mb-1.5">Loại giảm giá:</label>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" id="discount-type-amount" class="btn-glass ${this.discount.type === 'amount' ? 'btn-glass-primary' : ''} text-xs py-2" onclick="POS.setDiscountType('amount')">Số tiền (VNĐ)</button>
                         <button type="button" id="discount-type-percent" class="btn-glass ${this.discount.type === 'percent' ? 'btn-glass-primary' : ''} text-xs py-2" onclick="POS.setDiscountType('percent')">Phần trăm (%)</button>
                     </div>
                 </div>
-                <div class="mb-5">
+                <div class="mb-3">
                     <label class="block text-xs font-semibold text-slate-300 mb-1.5">Giá trị giảm:</label>
                     <div class="relative">
                         <input type="number" id="discount-val-input" value="${this.discount.value}" class="liquid-input w-full font-mono text-lg font-bold pr-10" />
@@ -1147,6 +1210,15 @@ const POS = {
                             <i class="fas fa-keyboard"></i>
                         </button>
                     </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Lý do giảm giá / Chương trình KM <span class="text-amber-400">*</span>:</label>
+                    <div class="flex flex-wrap gap-1 mb-1.5">
+                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Khách VIP / Thân thiết'">Khách VIP</button>
+                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Voucher / Khuyến mãi quán'">Voucher KM</button>
+                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Ưu đãi đền bù phục vụ trễ'">Đền bù món trễ</button>
+                    </div>
+                    <input type="text" id="discount-reason-input" value="${this.discount.reason || ''}" placeholder="Nhập lý do giảm giá..." class="liquid-input w-full text-xs py-2 px-3" />
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('discount-modal').classList.remove('open')">Hủy</button>
@@ -1173,9 +1245,18 @@ const POS = {
 
     applyDiscount() {
         const valInput = document.getElementById('discount-val-input');
-        if (valInput) {
-            this.discount.value = parseFloat(valInput.value) || 0;
+        const reasonInput = document.getElementById('discount-reason-input');
+        const newVal = valInput ? (parseFloat(valInput.value) || 0) : 0;
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+
+        if (newVal > 0 && !reason) {
+            alert('Vui lòng chọn hoặc nhập Lý do giảm giá để ghi nhận Kiểm toán!');
+            if (reasonInput) reasonInput.focus();
+            return;
         }
+
+        this.discount.value = newVal;
+        this.discount.reason = reason;
         document.getElementById('discount-modal').classList.remove('open');
         this.renderCart();
         this.saveOrderDebounced();
@@ -1415,6 +1496,21 @@ const POS = {
             const res = await fetch(`api/orders.php?order_id=${this.activeOrderId}`);
             const data = await res.json();
             if (data.success && data.order) {
+                fetch('api/orders.php?action=log_audit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action_code: 'REPRINT_RECEIPT',
+                        action_label: 'In lại hóa đơn đã thanh toán (' + (data.order.table_code || 'MV') + ')',
+                        severity: 'WARN',
+                        order_id: data.order.id,
+                        order_code: data.order.order_code,
+                        table_code: data.order.table_code,
+                        amount_impact: data.order.total_amount || 0,
+                        reason: 'Thu ngân bấm In lại hóa đơn',
+                        details: 'Mã đơn: ' + data.order.order_code
+                    })
+                }).catch(() => {});
                 this.showReceiptModal(data.order, data.items, data.store, 'IN LẠI HÓA ĐƠN', 'Xem trước & In hóa đơn nhiệt 80mm');
             }
         } catch(e) {
@@ -1603,6 +1699,7 @@ const POS = {
             cash_received: cashReceived,
             discount_type: this.discount.type,
             discount_value: this.discount.value,
+            discount_reason: this.discount.reason || '',
             vat_percent: this.vatPercent
         };
 
@@ -1623,7 +1720,7 @@ const POS = {
                 // Reset cart & reload tables
                 this.cart = [];
                 this.activeOrderId = null;
-                this.discount = { type: 'amount', value: 0 };
+                this.discount = { type: 'amount', value: 0, reason: '' };
                 this.renderCart();
                 await this.loadTables();
             } else {
@@ -1631,6 +1728,269 @@ const POS = {
             }
         } catch (e) {
             console.error('Error during checkout:', e);
+        }
+    },
+
+    // =========================================================
+    // QUẢN LÝ CA LÀM VIỆC & SỔ QUỸ TIỀN MẶT TẠI QUẦY (SHIFT ACCOUNTING)
+    // =========================================================
+    async openShiftModal() {
+        let modal = document.getElementById('pos-shift-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'pos-shift-modal';
+            modal.className = 'liquid-modal-overlay';
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="liquid-glass liquid-modal-content p-5 w-[680px] max-w-[95vw] text-white shadow-2xl border border-amber-500/40 max-h-[90vh] overflow-y-auto">
+                <div class="text-center py-8 text-slate-400 text-xs">
+                    <i class="fas fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
+                    <p>Đang tải dữ liệu Ca làm việc & Sổ quỹ...</p>
+                </div>
+            </div>
+        `;
+        modal.classList.add('open');
+
+        try {
+            const res = await fetch('api/finance.php?action=shift_status');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Lỗi tải trạng thái ca');
+
+            if (!data.has_open_shift || !data.shift) {
+                modal.innerHTML = `
+                    <div class="liquid-glass liquid-modal-content p-6 w-[460px] max-w-[95vw] text-white shadow-2xl border border-amber-500/40">
+                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
+                            <div class="flex items-center gap-2">
+                                <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                                    <i class="fas fa-cash-register"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-bold text-base text-amber-300">MỞ CA LÀM VIỆC MỚI</h3>
+                                    <p class="text-[11px] text-slate-400">Khai báo tiền mặt đầu ca (tiền lẻ trong két)</p>
+                                </div>
+                            </div>
+                            <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">&times;</button>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Tiền mặt đầu ca trong két (VNĐ):</label>
+                            <input type="number" id="shift-opening-cash-input" value="500000" class="liquid-input w-full font-mono text-lg font-bold text-amber-300 py-2 px-3" />
+                            <div class="flex gap-1.5 mt-1.5">
+                                <button type="button" class="px-2 py-1 rounded bg-slate-800 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('shift-opening-cash-input').value=500000">500.000đ</button>
+                                <button type="button" class="px-2 py-1 rounded bg-slate-800 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('shift-opening-cash-input').value=1000000">1.000.000đ</button>
+                                <button type="button" class="px-2 py-1 rounded bg-slate-800 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('shift-opening-cash-input').value=2000000">2.000.000đ</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Ghi chú nhận ca:</label>
+                            <input type="text" id="shift-opening-note-input" value="Nhận ca tiêu chuẩn" class="liquid-input w-full text-xs py-2 px-3" />
+                        </div>
+
+                        <div class="flex justify-end gap-2">
+                            <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">Đóng</button>
+                            <button type="button" class="btn-glass-success text-xs py-2 px-4 font-bold" onclick="POS.submitOpenShift()">
+                                <i class="fas fa-play mr-1"></i> Bắt Đầu Mở Ca
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const s = data.shift;
+            const txs = data.transactions || [];
+            const txRows = txs.map(t => `
+                <tr class="border-b border-white/5 text-xs">
+                    <td class="py-1.5 px-2 font-mono text-[11px] text-slate-400">${(t.created_at || '').slice(11, 16)}</td>
+                    <td class="py-1.5 px-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${t.trans_type === 'in' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+                            ${t.trans_type === 'in' ? '+ THU' : '- CHI'}
+                        </span>
+                    </td>
+                    <td class="py-1.5 px-2 text-slate-200">${t.reason} <span class="text-[10px] text-slate-400">(${t.category})</span></td>
+                    <td class="py-1.5 px-2 text-right font-mono font-bold ${t.trans_type === 'in' ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${t.trans_type === 'in' ? '+' : '-'}${this.formatMoney(t.amount)}đ
+                    </td>
+                </tr>
+            `).join('');
+
+            modal.innerHTML = `
+                <div class="liquid-glass liquid-modal-content p-5 w-[720px] max-w-[95vw] text-white shadow-2xl border border-amber-500/40 max-h-[92vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                                <i class="fas fa-cash-register"></i>
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-extrabold text-sm sm:text-base text-amber-300 uppercase">Quản Lý Ca & Sổ Quỹ (${s.shift_code})</h3>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">ĐANG MỞ CA</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400">Trực ca: <b>${s.user_name}</b> • Mở lúc: <span class="font-mono">${s.opened_at}</span></p>
+                            </div>
+                        </div>
+                        <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">&times;</button>
+                    </div>
+
+                    <!-- KPI Dòng Tiền Trong Ca -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-white/10">
+                            <span class="text-[10px] text-slate-400 uppercase block">Tiền mặt đầu ca</span>
+                            <span class="text-sm font-black font-mono text-slate-200">${this.formatMoney(s.opening_cash)}đ</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-emerald-500/30">
+                            <span class="text-[10px] text-emerald-300 uppercase block">+ Bán hàng Tiền mặt</span>
+                            <span class="text-sm font-black font-mono text-emerald-400">+${this.formatMoney(s.cash_sales)}đ</span>
+                            <span class="text-[10px] text-sky-300 block mt-0.5">CK/QR: ${this.formatMoney(s.banking_sales)}đ</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30">
+                            <span class="text-[10px] text-rose-300 uppercase block">Thu / Chi ngoài tại quầy</span>
+                            <span class="text-xs font-bold font-mono text-emerald-400">+${this.formatMoney(s.cash_in)}đ</span>
+                            <span class="text-xs font-bold font-mono text-rose-400 ml-1.5">-${this.formatMoney(s.cash_out)}đ</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/50">
+                            <span class="text-[10px] text-amber-300 uppercase font-bold block">= Tiền mặt lý thuyết</span>
+                            <span class="text-base font-black font-mono text-amber-400">${this.formatMoney(s.expected_cash)}đ</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <!-- Lập Phiếu Thu / Chi Nhanh tại quầy -->
+                        <div class="p-3.5 rounded-xl bg-slate-900/70 border border-white/10">
+                            <h4 class="font-bold text-xs text-sky-300 uppercase mb-2.5 flex items-center gap-1.5">
+                                <i class="fas fa-file-invoice-dollar"></i> Lập Phiếu Thu / Chi Nhanh Tại Quầy
+                            </h4>
+                            <div class="space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <select id="shift-tx-type" class="liquid-input text-xs py-1.5 px-2">
+                                        <option value="out">🔻 Phiếu Chi (Lấy tiền két)</option>
+                                        <option value="in">🔺 Phiếu Thu (Nộp thêm tiền lẻ)</option>
+                                    </select>
+                                    <select id="shift-tx-cat" class="liquid-input text-xs py-1.5 px-2">
+                                        <option value="Nguyên vật liệu">Mua đá / Nguyên liệu gấp</option>
+                                        <option value="Vận hành">Chi phí vận hành / Ship</option>
+                                        <option value="Tiền lẻ">Bổ sung tiền lẻ đầu ngày</option>
+                                        <option value="Khác">Khoản thu/chi khác</option>
+                                    </select>
+                                </div>
+                                <input type="number" id="shift-tx-amount" placeholder="Số tiền (VNĐ)..." class="liquid-input w-full text-xs font-mono font-bold py-1.5 px-2.5" />
+                                <input type="text" id="shift-tx-reason" placeholder="Lý do chi tiết (VD: Mua 2 bao đá bi, mua sữa tươi)..." class="liquid-input w-full text-xs py-1.5 px-2.5" />
+                                <button type="button" onclick="POS.submitCashTx()" class="w-full btn-glass-primary text-xs py-2 font-bold">
+                                    <i class="fas fa-plus-circle mr-1"></i> Lưu Phiếu & Đồng Bộ Kế Toán
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Kết Ca & Bàn Giao Tiền Mặt -->
+                        <div class="p-3.5 rounded-xl bg-slate-900/70 border border-amber-500/30">
+                            <h4 class="font-bold text-xs text-amber-300 uppercase mb-2.5 flex items-center gap-1.5">
+                                <i class="fas fa-lock"></i> Kết Ca & Kiểm Đếm Tiền Mặt Thực Tế
+                            </h4>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="block text-[11px] text-slate-300 mb-1">Tiền mặt thực đếm trong ngăn kéo (VNĐ):</label>
+                                    <input type="number" id="shift-actual-cash" value="${Math.round(s.expected_cash)}" class="liquid-input w-full text-sm font-mono font-black text-emerald-400 py-1.5 px-2.5" />
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-300 mb-1">Ghi chú bàn giao ca:</label>
+                                    <input type="text" id="shift-close-note" value="Đã kiểm đếm đủ bàn giao cuối ca" class="liquid-input w-full text-xs py-1.5 px-2.5" />
+                                </div>
+                                <button type="button" onclick="POS.submitCloseShift()" class="w-full btn-glass text-xs py-2 bg-rose-600/80 hover:bg-rose-600 text-white border-rose-500 font-bold">
+                                    <i class="fas fa-check-double mr-1"></i> Chốt Kết Ca & Gửi Báo Cáo Audit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách Phiếu Thu/Chi trong ca -->
+                    <div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
+                        <h5 class="text-xs font-bold text-slate-300 mb-2">Phiếu Thu / Chi phát sinh trong ca (${txs.length})</h5>
+                        <div class="max-h-36 overflow-y-auto">
+                            <table class="w-full text-left border-collapse">
+                                <tbody>
+                                    ${txRows || '<tr><td colspan="4" class="py-3 text-center text-xs text-slate-500">Chưa có phiếu thu/chi ngoài nào trong ca này</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            modal.innerHTML = `<div class="liquid-glass p-6 text-rose-400 text-xs">${e.message}</div>`;
+        }
+    },
+
+    async submitOpenShift() {
+        const openingCash = parseFloat(document.getElementById('shift-opening-cash-input')?.value) || 0;
+        const note = document.getElementById('shift-opening-note-input')?.value.trim() || 'Mở ca chuẩn';
+        try {
+            const res = await fetch('api/finance.php?action=open_shift', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ opening_cash: openingCash, note })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.message || 'Lỗi mở ca');
+                return;
+            }
+            await this.openShiftModal();
+        } catch (e) {
+            alert('Lỗi kết nối khi mở ca');
+        }
+    },
+
+    async submitCashTx() {
+        const transType = document.getElementById('shift-tx-type')?.value || 'out';
+        const category = document.getElementById('shift-tx-cat')?.value || 'Khác';
+        const amount = parseFloat(document.getElementById('shift-tx-amount')?.value) || 0;
+        const reason = document.getElementById('shift-tx-reason')?.value.trim() || '';
+
+        if (amount <= 0 || !reason) {
+            alert('Vui lòng nhập Số tiền (> 0) và Lý do Thu/Chi cụ thể!');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/finance.php?action=add_cash_tx', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trans_type: transType, category, amount, reason })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.message || 'Lỗi lưu phiếu');
+                return;
+            }
+            await this.openShiftModal();
+        } catch (e) {
+            alert('Lỗi kết nối khi lưu phiếu thu/chi');
+        }
+    },
+
+    async submitCloseShift() {
+        const actualCash = parseFloat(document.getElementById('shift-actual-cash')?.value) || 0;
+        const note = document.getElementById('shift-close-note')?.value.trim() || 'Bàn giao cuối ca';
+        if (!confirm('Xác nhận chốt kết ca và gửi biên bản đối soát két tiền lên Quản trị / Kế toán?')) return;
+
+        try {
+            const res = await fetch('api/finance.php?action=close_shift', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actual_cash: actualCash, note })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.message || 'Lỗi kết ca');
+                return;
+            }
+            alert(data.message);
+            await this.openShiftModal();
+        } catch (e) {
+            alert('Lỗi kết nối khi kết ca');
         }
     },
 
@@ -1643,6 +2003,23 @@ const POS = {
             alert('Đơn hàng đang tạo chưa có món ăn nào để in tạm tính!');
             return;
         }
+
+        // Ghi nhận Kiểm toán nội bộ hành vi In tạm tính
+        fetch('api/orders.php?action=log_audit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action_code: 'PRINT_TEMP_BILL',
+                action_label: 'In phiếu tạm tính bàn ' + (this.currentTable ? this.currentTable.code : 'MV'),
+                severity: 'INFO',
+                order_id: this.activeOrderId || 0,
+                order_code: (this.activeOrder && this.activeOrder.order_code) ? this.activeOrder.order_code : 'TEMP',
+                table_code: this.currentTable ? this.currentTable.code : 'MV',
+                amount_impact: 0,
+                reason: 'Thu ngân in phiếu tạm tính kiểm tra đơn',
+                details: 'Số món: ' + this.cart.length
+            })
+        }).catch(() => {});
 
         let subtotal = 0;
         const formattedItems = this.cart.map(item => {

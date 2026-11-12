@@ -83,7 +83,7 @@ static std::string getString(const json& j, const std::string& key, const std::s
     return def;
 }
 
-// Láº¥y thÃ´ng tin cáº¥u hÃ¬nh quÃ¡n tá»« báº£ng store_settings (há»— trá»£ in hÃ³a Ä‘Æ¡n & VietQR)
+// Lấy thông tin cấu hình quán từ bảng store_settings (hỗ trợ in hóa đơn & VietQR)
 static json getStoreInfo(Database& db) {
     auto getVal = [&](const std::string& key, const std::string& def) -> std::string {
         auto r = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = :k LIMIT 1", {{":k", key}});
@@ -92,19 +92,19 @@ static json getStoreInfo(Database& db) {
     };
 
     return {
-        {"name", getVal("store_name", "GÃ“C PHá» COFFEE & TEA")},
+        {"name", getVal("store_name", "GÓC PHỐ COFFEE & TEA")},
         {"hotline", getVal("store_hotline", "0932.885.131")},
-        {"address", getVal("store_address", "123 ÄÆ°á»ng Sá»‘ 5, P. Linh Trung, TP. Thá»§ Äá»©c, TP.HCM")},
+        {"address", getVal("store_address", "123 Đường Số 5, P. Linh Trung, TP. Thủ Đức, TP.HCM")},
         {"wifi", getVal("store_wifi", "GocPho_Guest / pass: 88888888")},
-        {"header_note", getVal("print_header_note", "HÃ¢n háº¡nh Ä‘Æ°á»£c phá»¥c vá»¥ QuÃ½ khÃ¡ch!")},
-        {"footer_note", getVal("print_footer_note", "Pass Wifi: 88888888 - Háº¹n gáº·p láº¡i quÃ½ khÃ¡ch!")},
+        {"header_note", getVal("print_header_note", "Hân hạnh được phục vụ Quý khách!")},
+        {"footer_note", getVal("print_footer_note", "Pass Wifi: 88888888 - Hẹn gặp lại quý khách!")},
         {"bank_id", getVal("bank_id", "OCB")},
         {"bank_account_no", getVal("bank_account_no", "0918608073")},
         {"bank_account_name", getVal("bank_account_name", "NGUYEN CHI HUNG")}
     };
 }
 
-// Äá»“ng bá»™ tráº¡ng thÃ¡i 3 yáº¿u tá»‘ cá»§a hÃ³a Ä‘Æ¡n: Báº¿p xong + BÆ°ng ra + Thanh toÃ¡n -> HoÃ n thÃ nh & Dá»n bÃ n
+// Đồng bộ trạng thái 3 yếu tố của hóa đơn: Bếp xong + Bưng ra + Thanh toán -> Hoàn thành & Dọn bàn
 static void syncOrderStatus(Database& db, int64_t orderId) {
     if (orderId <= 0) return;
     auto order = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
@@ -143,7 +143,7 @@ static void syncOrderStatus(Database& db, int64_t orderId) {
 }
 
 // ==========================================
-// 1. AUTH HANDLER (GIAI ÄOáº N 1 HOÃ€N CHá»ˆNH)
+// 1. AUTH HANDLER (GIAI ĐOẠN 1 HOÀN CHỈNH)
 // ==========================================
 struct PendingQrLogin {
     std::string token;
@@ -160,13 +160,13 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
     auto& auth = AuthService::instance();
     auto& db = Database::instance();
 
-    // 1.1 Action: check (hoáº·c máº·c Ä‘á»‹nh GET khÃ´ng truyá»n action)
+    // 1.1 Action: check (hoặc mặc định GET không truyền action)
     if (action.empty() || action == "check") {
         auto userOpt = auth.authenticate(req);
 
-        // Äá»c cáº¥u hÃ¬nh thÃ´ng tin quÃ¡n
+        // Đọc cấu hình thông tin quán
         auto storeRow = db.queryRow("SELECT * FROM store_settings WHERE id = 1 LIMIT 1");
-        std::string storeName = storeRow.is_null() ? "GÃ³c Phá»‘ Coffee & Tea" : storeRow.value("store_name", "GÃ³c Phá»‘ Coffee & Tea");
+        std::string storeName = storeRow.is_null() ? "Góc Phố Coffee & Tea" : storeRow.value("store_name", "Góc Phố Coffee & Tea");
         std::string hotline = storeRow.is_null() ? "0903100001" : storeRow.value("hotline", "");
         std::string address = storeRow.is_null() ? "" : storeRow.value("address", "");
 
@@ -206,14 +206,14 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         return;
     }
 
-    // 1.2 Action: login (báº±ng username hoáº·c user_code + máº­t kháº©u Bcrypt)
+    // 1.2 Action: login (bằng username hoặc user_code + mật khẩu Bcrypt)
     if (action == "login") {
         std::string username = BodyParser::getParam(req, body, "username");
         if (username.empty()) username = BodyParser::getParam(req, body, "user_code");
         std::string password = BodyParser::getParam(req, body, "password");
 
         if (username.empty() || password.empty()) {
-            sendJson(res, {{"success", false}, {"message", "Vui lÃ²ng nháº­p tÃªn Ä‘Äƒng nháº­p vÃ  máº­t kháº©u!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Vui lòng nhập tên đăng nhập và mật khẩu!"}}, 400);
             return;
         }
 
@@ -229,13 +229,13 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         return;
     }
 
-    // 1.3 Action: pin_login (hoáº·c login_pin cho thu ngÃ¢n / nhÃ¢n viÃªn phá»¥c vá»¥)
+    // 1.3 Action: pin_login (hoặc login_pin cho thu ngân / nhân viên phục vụ)
     if (action == "pin_login" || action == "login_pin") {
         std::string pin = BodyParser::getParam(req, body, "pin_code");
         if (pin.empty()) pin = BodyParser::getParam(req, body, "pin");
 
         if (pin.empty()) {
-            sendJson(res, {{"success", false}, {"message", "Vui lÃ²ng nháº­p mÃ£ PIN 4 sá»‘!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Vui lòng nhập mã PIN 4 số!"}}, 400);
             return;
         }
 
@@ -251,11 +251,11 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         return;
     }
 
-    // 1.4 Action: heartbeat (duy trÃ¬ tráº¡ng thÃ¡i online & tÃ­nh giá» lÃ m viá»‡c)
+    // 1.4 Action: heartbeat (duy trì trạng thái online & tính giờ làm việc)
     if (action == "heartbeat") {
         auto userOpt = auth.authenticate(req);
         if (!userOpt.has_value()) {
-            sendJson(res, {{"success", false}, {"authenticated", false}, {"message", "ChÆ°a Ä‘Äƒng nháº­p hoáº·c phiÃªn Ä‘Ã£ háº¿t háº¡n!"}}, 401);
+            sendJson(res, {{"success", false}, {"authenticated", false}, {"message", "Chưa đăng nhập hoặc phiên đã hết hạn!"}}, 401);
             return;
         }
 
@@ -276,7 +276,7 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         return;
     }
 
-    // 1.5 Action: logout (há»§y phiÃªn & xÃ³a cookie)
+    // 1.5 Action: logout (hủy phiên & xóa cookie)
     if (action == "logout") {
         std::string token = auth.extractToken(req);
         auth.destroySession(token);
@@ -285,11 +285,11 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         res.set_header("Set-Cookie", AuthService::formatClearCookie("PHPSESSID"));
         res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_remember"));
 
-        sendJson(res, {{"success", true}, {"message", "ÄÃ£ Ä‘Äƒng xuáº¥t thÃ nh cÃ´ng!"}});
+        sendJson(res, {{"success", true}, {"message", "Đã đăng xuất thành công!"}});
         return;
     }
 
-    // 1.6 Action: create_owner_qr (Khá»Ÿi táº¡o mÃ£ QR Ä‘Äƒng nháº­p cho Chá»§ QuÃ¡n)
+    // 1.6 Action: create_owner_qr (Khởi tạo mã QR đăng nhập cho Chủ Quán)
     if (action == "create_owner_qr") {
         auto now = std::chrono::system_clock::now();
         int64_t ts = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -298,7 +298,7 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 
         {
             std::lock_guard<std::mutex> lock(s_qrLoginMutex);
-            // Dá»n dáº¹p token quÃ¡ háº¡n (> 3 phÃºt)
+            // Dọn dẹp token quá hạn (> 3 phút)
             for (auto it = s_pendingQrLogins.begin(); it != s_pendingQrLogins.end(); ) {
                 auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.createdAt).count();
                 if (diff > 180) it = s_pendingQrLogins.erase(it);
@@ -311,23 +311,23 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
             {"success", true},
             {"qr_token", qrToken},
             {"expires_in", 120},
-            {"message", "ÄÃ£ táº¡o mÃ£ QR Ä‘Äƒng nháº­p Chá»§ QuÃ¡n"}
+            {"message", "Đã tạo mã QR đăng nhập Chủ Quán"}
         });
         return;
     }
 
-    // 1.7 Action: check_owner_qr (Kiá»ƒm tra xem Chá»§ QuÃ¡n Ä‘Ã£ duyá»‡t trÃªn App/Äiá»‡n thoáº¡i chÆ°a)
+    // 1.7 Action: check_owner_qr (Kiểm tra xem Chủ Quán đã duyệt trên App/Điện thoại chưa)
     if (action == "check_owner_qr") {
         std::string qrToken = BodyParser::getParam(req, body, "qr_token");
         if (qrToken.empty()) {
-            sendError(res, "Thiáº¿u tham sá»‘ qr_token", 400);
+            sendError(res, "Thiếu tham số qr_token", 400);
             return;
         }
 
         std::lock_guard<std::mutex> lock(s_qrLoginMutex);
         auto it = s_pendingQrLogins.find(qrToken);
         if (it == s_pendingQrLogins.end()) {
-            sendJson(res, {{"success", false}, {"expired", true}, {"message", "MÃ£ QR khÃ´ng tá»“n táº¡i hoáº·c Ä‘Ã£ háº¿t háº¡n"}}, 404);
+            sendJson(res, {{"success", false}, {"expired", true}, {"message", "Mã QR không tồn tại hoặc đã hết hạn"}}, 404);
             return;
         }
 
@@ -335,12 +335,12 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.createdAt).count();
         if (diff > 120) {
             s_pendingQrLogins.erase(it);
-            sendJson(res, {{"success", false}, {"expired", true}, {"message", "MÃ£ QR Ä‘Ã£ háº¿t háº¡n, vui lÃ²ng láº¥y mÃ£ má»›i"}}, 410);
+            sendJson(res, {{"success", false}, {"expired", true}, {"message", "Mã QR đã hết hạn, vui lòng lấy mã mới"}}, 410);
             return;
         }
 
         if (it->second.approved) {
-            // ÄÃ£ Ä‘Æ°á»£c duyá»‡t thÃ nh cÃ´ng bá»Ÿi Chá»§ QuÃ¡n
+            // Đã được duyệt thành công bởi Chủ Quán
             SessionUser u = it->second.user;
             s_pendingQrLogins.erase(it);
 
@@ -359,7 +359,7 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
                     {"role", u.role},
                     {"is_super_admin", u.is_super_admin}
                 }},
-                {"message", "XÃ¡c thá»±c Chá»§ QuÃ¡n thÃ nh cÃ´ng!"}
+                {"message", "Xác thực Chủ Quán thành công!"}
             });
             return;
         }
@@ -368,17 +368,17 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
             {"success", true},
             {"approved", false},
             {"remaining_seconds", 120 - diff},
-            {"message", "Äang chá» Chá»§ QuÃ¡n phÃª duyá»‡t tá»« App"}
+            {"message", "Đang chờ Chủ Quán phê duyệt từ App"}
         });
         return;
     }
 
-    // 1.8 Action: approve_owner_qr (Chá»§ QuÃ¡n báº¥m phÃª duyá»‡t trÃªn App / Äiá»‡n thoáº¡i hoáº·c nháº­p PIN báº£o máº­t)
+    // 1.8 Action: approve_owner_qr (Chủ Quán bấm phê duyệt trên App / Điện thoại hoặc nhập PIN bảo mật)
     if (action == "approve_owner_qr") {
         std::string qrToken = BodyParser::getParam(req, body, "qr_token");
         std::string pin = BodyParser::getParam(req, body, "pin");
 
-        // XÃ¡c thá»±c Chá»§ QuÃ¡n: hoáº·c qua Session hiá»‡n táº¡i (Ä‘Ã£ login trÃªn App/Mobile), hoáº·c qua PIN 9999
+        // Xác thực Chủ Quán: hoặc qua Session hiện tại (đã login trên App/Mobile), hoặc qua PIN 9999
         bool isAuthorized = false;
         SessionUser approvedUser;
 
@@ -391,14 +391,14 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
             if (!ownerRow.is_null()) {
                 approvedUser.id = ownerRow.value("id", 1);
                 approvedUser.username = ownerRow.value("username", "admin");
-                approvedUser.fullname = ownerRow.value("fullname", "Chá»§ QuÃ¡n");
+                approvedUser.fullname = ownerRow.value("fullname", "Chủ Quán");
                 approvedUser.role = "admin";
                 approvedUser.is_super_admin = true;
                 isAuthorized = true;
             } else {
                 approvedUser.id = 1;
                 approvedUser.username = "admin";
-                approvedUser.fullname = "Chá»§ QuÃ¡n";
+                approvedUser.fullname = "Chủ Quán";
                 approvedUser.role = "admin";
                 approvedUser.is_super_admin = true;
                 isAuthorized = true;
@@ -406,14 +406,14 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         }
 
         if (!isAuthorized) {
-            sendError(res, "Chá»‰ Chá»§ QuÃ¡n (MÃ£ PIN 9999 hoáº·c App Quáº£n Trá»‹) má»›i cÃ³ quyá»n duyá»‡t!", 403);
+            sendError(res, "Chỉ Chủ Quán (Mã PIN 9999 hoặc App Quản Trị) mới có quyền duyệt!", 403);
             return;
         }
 
         std::lock_guard<std::mutex> lock(s_qrLoginMutex);
         auto it = s_pendingQrLogins.find(qrToken);
         if (it == s_pendingQrLogins.end()) {
-            sendError(res, "MÃ£ QR Ä‘Ã£ háº¿t háº¡n hoáº·c khÃ´ng tá»“n táº¡i", 404);
+            sendError(res, "Mã QR đã hết hạn hoặc không tồn tại", 404);
             return;
         }
 
@@ -422,16 +422,16 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 
         sendJson(res, {
             {"success", true},
-            {"message", "ÄÃ£ phÃª duyá»‡t Ä‘Äƒng nháº­p Chá»§ QuÃ¡n thÃ nh cÃ´ng!"}
+            {"message", "Đã phê duyệt đăng nhập Chủ Quán thành công!"}
         });
         return;
     }
 
-    sendError(res, "HÃ nh Ä‘á»™ng (Action) khÃ´ng há»£p lá»‡: " + action, 400);
+    sendError(res, "Hành động (Action) không hợp lệ: " + action, 400);
 }
 
 // ==========================================
-// 2. CATEGORIES HANDLER (GIAI ÄOáº N 2 - BÆ¯á»šC 2.1)
+// 2. CATEGORIES HANDLER (GIAI ĐOẠN 2 - BƯỚC 2.1)
 // ==========================================
 void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Response& res) {
     auto& db = Database::instance();
@@ -456,7 +456,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
     // Check auth for write actions (Admin required)
     auto userOpt = AuthService::instance().authenticate(req);
     if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
-        sendJson(res, {{"success", false}, {"message", "Báº¡n khÃ´ng cÃ³ quyá»n thá»±c hiá»‡n thao tÃ¡c nÃ y (yÃªu cáº§u Admin)!"}}, 403);
+        sendJson(res, {{"success", false}, {"message", "Bạn không có quyền thực hiện thao tác này (yêu cầu Admin)!"}}, 403);
         return;
     }
 
@@ -471,7 +471,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
         } catch (...) {}
 
         if (name.empty()) {
-            sendJson(res, {{"success", false}, {"message", "TÃªn nhÃ³m hÃ ng khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Tên nhóm hàng không được để trống!"}}, 400);
             return;
         }
 
@@ -480,7 +480,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
             {{":name", name}, {":icon", icon}, {":sort_order", sortOrder}}
         );
 
-        sendJson(res, {{"success", true}, {"message", "ThÃªm nhÃ³m hÃ ng thÃ nh cÃ´ng!"}, {"id", id}});
+        sendJson(res, {{"success", true}, {"message", "Thêm nhóm hàng thành công!"}, {"id", id}});
         return;
     }
 
@@ -494,7 +494,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
         try { sortOrder = std::stoi(BodyParser::getParam(req, body, "sort_order", "0")); } catch (...) {}
 
         if (id <= 0 || name.empty()) {
-            sendJson(res, {{"success", false}, {"message", "Dá»¯ liá»‡u cáº­p nháº­t nhÃ³m hÃ ng khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Dữ liệu cập nhật nhóm hàng không hợp lệ!"}}, 400);
             return;
         }
 
@@ -503,7 +503,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
             {{":name", name}, {":icon", icon}, {":sort_order", sortOrder}, {":id", id}}
         );
 
-        sendJson(res, {{"success", true}, {"message", "Cáº­p nháº­t nhÃ³m hÃ ng thÃ nh cÃ´ng!"}});
+        sendJson(res, {{"success", true}, {"message", "Cập nhật nhóm hàng thành công!"}});
         return;
     }
 
@@ -512,7 +512,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
         int64_t id = 0;
         try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
         if (id <= 0) {
-            sendJson(res, {{"success", false}, {"message", "MÃ£ nhÃ³m hÃ ng khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Mã nhóm hàng không hợp lệ!"}}, 400);
             return;
         }
 
@@ -523,27 +523,27 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
         );
         int64_t activeCount = checkVal.is_number() ? checkVal.get<int64_t>() : 0;
         if (activeCount > 0) {
-            sendJson(res, {{"success", false}, {"message", "KhÃ´ng thá»ƒ xÃ³a nhÃ³m hÃ ng Ä‘ang cÃ³ mÃ³n Äƒn/sáº£n pháº©m!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Không thể xóa nhóm hàng đang có món ăn/sản phẩm!"}}, 400);
             return;
         }
 
         db.execute("DELETE FROM categories WHERE id = :id", {{":id", id}});
-        sendJson(res, {{"success", true}, {"message", "ÄÃ£ xÃ³a nhÃ³m hÃ ng!"}});
+        sendJson(res, {{"success", true}, {"message", "Đã xóa nhóm hàng!"}});
         return;
     }
 
-    sendJson(res, {{"success", false}, {"message", "YÃªu cáº§u khÃ´ng há»£p lá»‡!"}}, 400);
+    sendJson(res, {{"success", false}, {"message", "Yêu cầu không hợp lệ!"}}, 400);
 }
 
 // ==========================================
-// 3. PRODUCTS HANDLER (GIAI ÄOáº N 2 - BÆ¯á»šC 2.2 & 2.3)
+// 3. PRODUCTS HANDLER (GIAI ĐOẠN 2 - BƯỚC 2.2 & 2.3)
 // ==========================================
 void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response& res) {
     auto& db = Database::instance();
     json body = parseBody(req);
     std::string action = getAction(req, body);
 
-    // 1. GET: Fetch Products with filters (BÆ°á»›c 2.2)
+    // 1. GET: Fetch Products with filters (Bước 2.2)
     if (req.method == "GET" && action.empty()) {
         std::string sql = R"(
             SELECT p.*, c.name as category_name 
@@ -588,7 +588,7 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
 
         json products = db.query(sql, params);
 
-        // Security: Giáº¥u cost_price náº¿u ngÆ°á»i gá»i khÃ´ng pháº£i Admin
+        // Security: Giấu cost_price nếu người gọi không phải Admin
         auto userOpt = AuthService::instance().authenticate(req);
         bool isAdmin = userOpt.has_value() && (userOpt->role == "admin" || userOpt->is_super_admin);
         if (!isAdmin) {
@@ -603,23 +603,23 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         return;
     }
 
-    // Step 2.3: Toggle Status (active <-> locked) - Cho phÃ©p Admin, Báº¿p vÃ  Thu ngÃ¢n
+    // Step 2.3: Toggle Status (active <-> locked) - Cho phép Admin, Bếp và Thu ngân
     if (action == "toggle_status" || action == "toggle_lock") {
         auto userOpt = AuthService::instance().authenticate(req);
-        std::string uName = userOpt.has_value() ? userOpt->fullname : "NhÃ¢n viÃªn";
+        std::string uName = userOpt.has_value() ? userOpt->fullname : "Nhân viên";
         std::string uRole = userOpt.has_value() ? userOpt->role : "kitchen";
         int64_t uId = userOpt.has_value() ? userOpt->id : 1;
 
         int64_t id = 0;
         try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
         if (id <= 0) {
-            sendJson(res, {{"success", false}, {"message", "MÃ£ máº·t hÃ ng khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Mã mặt hàng không hợp lệ!"}}, 400);
             return;
         }
 
         auto prodRow = db.queryRow("SELECT * FROM products WHERE id = :id", {{":id", id}});
         if (prodRow.is_null()) {
-            sendJson(res, {{"success", false}, {"message", "Máº·t hÃ ng khÃ´ng tá»“n táº¡i!"}}, 404);
+            sendJson(res, {{"success", false}, {"message", "Mặt hàng không tồn tại!"}}, 404);
             return;
         }
 
@@ -638,37 +638,55 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         db.execute("UPDATE products SET status = :st WHERE id = :id", {{":st", newStatus}, {":id", id}});
 
         bool isLocked = (newStatus == "locked");
-        std::string notifTitle = isLocked ? ("Táº M KHÃ“A MÃ“N: " + prodName) : ("Má»ž BÃN Láº I: " + prodName);
+        std::string notifTitle = isLocked ? ("TẠM KHÓA MÓN: " + prodName) : ("MỞ BÁN LẠI: " + prodName);
         std::string notifMsg = isLocked 
-            ? ("MÃ³n '" + prodName + "' (" + prodCode + ") Ä‘Ã£ bá»‹ Táº M KHÃ“A trÃªn thá»±c Ä‘Æ¡n (BÃ¡o háº¿t hÃ ng bá»Ÿi " + uName + ").")
-            : ("MÃ³n '" + prodName + "' (" + prodCode + ") Ä‘Ã£ Ä‘Æ°á»£c Má»ž BÃN Láº I trÃªn thá»±c Ä‘Æ¡n bá»Ÿi " + uName + ".");
+            ? ("Món '" + prodName + "' (" + prodCode + ") đã bị TẠM KHÓA trên thực đơn (Báo hết hàng bởi " + uName + ").")
+            : ("Món '" + prodName + "' (" + prodCode + ") đã được MỞ BÁN LẠI trên thực đơn bởi " + uName + ".");
 
-        // ThÃ´ng bÃ¡o chuÃ´ng cho nhÃ¢n viÃªn quáº§y vÃ  phá»¥c vá»¥
+        // Thông báo chuông cho nhân viên quầy và phục vụ
         db.execute(R"(
             INSERT INTO app_notifications (type, order_id, table_code, title, message, is_read_waiter, is_read_cashier, created_at)
-            VALUES (:type, 0, 'THá»°C ÄÆ N', :title, :message, 0, 0, datetime('now'))
+            VALUES (:type, 0, 'THỰC ĐƠN', :title, :message, 0, 0, datetime('now'))
         )", {
             {":type", isLocked ? "product_locked" : "product_unlocked"},
             {":title", notifTitle},
             {":message", notifMsg}
         });
 
-        // Ghi nháº­t kÃ½ báº¿p (kitchen_service_logs)
+        // Ghi nhật ký bếp (kitchen_service_logs)
         db.execute(R"(
             INSERT INTO kitchen_service_logs (order_id, order_code, table_code, action, action_label, user_id, user_name, user_role, note, created_at)
-            VALUES (0, 'MENU', 'THá»°C ÄÆ N', :action, :label, :uid, :uname, :urole, :note, datetime('now'))
+            VALUES (0, 'MENU', 'THỰC ĐƠN', :action, :label, :uid, :uname, :urole, :note, datetime('now'))
         )", {
             {":action", isLocked ? "lock_product" : "unlock_product"},
-            {":label", isLocked ? "Táº¡m khÃ³a mÃ³n (Háº¿t hÃ ng)" : "Má»Ÿ bÃ¡n láº¡i mÃ³n"},
+            {":label", isLocked ? "Tạm khóa món (Hết hàng)" : "Mở bán lại món"},
             {":uid", uId},
             {":uname", uName},
             {":urole", uRole},
             {":note", notifMsg}
         });
 
+        // Ghi nhật ký Kiểm toán nội bộ (audit_logs)
+        try {
+            db.execute(R"(
+                INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                VALUES (:acode, :albl, 'INFO', 0, :pcode, 'THỰC ĐƠN', 0, :rsn, :uid, :uname, :urole, :dtl, :cat)
+            )", {
+                {":acode", isLocked ? "LOCK_PRODUCT_86" : "UNLOCK_PRODUCT_86"},
+                {":albl", isLocked ? ("Báo hết món (86): " + prodName) : ("Mở bán lại món: " + prodName)},
+                {":pcode", prodCode},
+                {":rsn", isLocked ? "Bếp/Quầy báo tạm hết nguyên liệu" : "Bếp/Quầy mở bán trở lại"},
+                {":uid", uId},
+                {":uname", uName},
+                {":urole", uRole},
+                {":dtl", notifMsg},
+                {":cat", getCurrentTimestamp()}
+            });
+        } catch (...) {}
+
         sendJson(res, {
             {"success", true},
-            {"message", isLocked ? ("ÄÃ£ táº¡m khÃ³a mÃ³n '" + prodName + "' (BÃ¡o háº¿t hÃ ng)!") : ("ÄÃ£ má»Ÿ bÃ¡n láº¡i mÃ³n '" + prodName + "'!")},
+            {"message", isLocked ? ("Đã tạm khóa món '" + prodName + "' (Báo hết hàng)!") : ("Đã mở bán lại món '" + prodName + "'!")},
             {"product_id", id},
             {"product_name", prodName},
             {"status", newStatus}
@@ -676,10 +694,10 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         return;
     }
 
-    // Check Admin cho CRUD mÃ³n Äƒn
+    // Check Admin cho CRUD món ăn
     auto userOpt = AuthService::instance().authenticate(req);
     if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
-        sendJson(res, {{"success", false}, {"message", "Báº¡n khÃ´ng cÃ³ quyá»n thá»±c hiá»‡n thao tÃ¡c nÃ y (yÃªu cáº§u Admin)!"}}, 403);
+        sendJson(res, {{"success", false}, {"message", "Bạn không có quyền thực hiện thao tác này (yêu cầu Admin)!"}}, 403);
         return;
     }
 
@@ -705,7 +723,7 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         std::string description = BodyParser::getParam(req, body, "description");
 
         if (name.empty()) {
-            sendJson(res, {{"success", false}, {"message", "TÃªn mÃ³n khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Tên món không được để trống!"}}, 400);
             return;
         }
 
@@ -726,7 +744,7 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             {":is_top", is_topping}, {":img", image}, {":desc", description}
         });
 
-        sendJson(res, {{"success", true}, {"message", "ThÃªm mÃ³n thÃ nh cÃ´ng!"}, {"id", id}});
+        sendJson(res, {{"success", true}, {"message", "Thêm món thành công!"}, {"id", id}});
         return;
     }
 
@@ -751,7 +769,7 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         std::string description = BodyParser::getParam(req, body, "description");
 
         if (id <= 0 || name.empty()) {
-            sendJson(res, {{"success", false}, {"message", "Dá»¯ liá»‡u cáº­p nháº­t mÃ³n khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Dữ liệu cập nhật món không hợp lệ!"}}, 400);
             return;
         }
 
@@ -766,7 +784,7 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             {":img", image}, {":desc", description}
         });
 
-        sendJson(res, {{"success", true}, {"message", "Cáº­p nháº­t mÃ³n thÃ nh cÃ´ng!"}});
+        sendJson(res, {{"success", true}, {"message", "Cập nhật món thành công!"}});
         return;
     }
 
@@ -775,26 +793,26 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         int64_t id = 0;
         try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
         if (id <= 0) {
-            sendJson(res, {{"success", false}, {"message", "MÃ£ máº·t hÃ ng khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Mã mặt hàng không hợp lệ!"}}, 400);
             return;
         }
         db.execute("UPDATE products SET status = 'deleted' WHERE id = :id", {{":id", id}});
-        sendJson(res, {{"success", true}, {"message", "ÄÃ£ xÃ³a mÃ³n Äƒn!"}});
+        sendJson(res, {{"success", true}, {"message", "Đã xóa món ăn!"}});
         return;
     }
 
-    sendJson(res, {{"success", false}, {"message", "YÃªu cáº§u khÃ´ng há»£p lá»‡!"}}, 400);
+    sendJson(res, {{"success", false}, {"message", "Yêu cầu không hợp lệ!"}}, 400);
 }
 
 // ==========================================
-// 4. TABLES & AREAS HANDLER (GIAI ÄOáº N 2 - BÆ¯á»šC 2.4)
+// 4. TABLES & AREAS HANDLER (GIAI ĐOẠN 2 - BƯỚC 2.4)
 // ==========================================
 void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& res) {
     auto& db = Database::instance();
     json body = parseBody(req);
     std::string action = getAction(req, body);
 
-    // 1. GET: Fetch all tables with real-time active order info (BÆ°á»›c 2.4)
+    // 1. GET: Fetch all tables with real-time active order info (Bước 2.4)
     if (req.method == "GET" && action.empty()) {
         // 1a. Auto-complete any order that meets all 3 factors (Cooking, Serving, Payment)
         db.execute(R"(
@@ -872,11 +890,11 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
         return;
     }
 
-    // 2. POST: Switch Table (Chuyá»ƒn bÃ n)
+    // 2. POST: Switch Table (Chuyển bàn)
     if (action == "switch_table") {
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt.has_value()) {
-            sendJson(res, {{"success", false}, {"message", "ChÆ°a Ä‘Äƒng nháº­p!"}}, 401);
+            sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập!"}}, 401);
             return;
         }
 
@@ -900,24 +918,24 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
         }
 
         if (fromTableId <= 0 || toTableId <= 0 || fromTableId == toTableId) {
-            sendJson(res, {{"success", false}, {"message", "BÃ n nguá»“n vÃ  bÃ n Ä‘Ã­ch khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Bàn nguồn và bàn đích không hợp lệ!"}}, 400);
             return;
         }
 
         auto fromTable = db.queryRow("SELECT * FROM tables_areas WHERE id = :id", {{":id", fromTableId}});
         if (fromTable.is_null() || fromTable.value("active_order_id", 0LL) <= 0) {
-            sendJson(res, {{"success", false}, {"message", "BÃ n nguá»“n khÃ´ng cÃ³ hÃ³a Ä‘Æ¡n Ä‘ang má»Ÿ!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Bàn nguồn không có hóa đơn đang mở!"}}, 400);
             return;
         }
 
         auto toTable = db.queryRow("SELECT * FROM tables_areas WHERE id = :id", {{":id", toTableId}});
         if (toTable.is_null()) {
-            sendJson(res, {{"success", false}, {"message", "BÃ n Ä‘Ã­ch khÃ´ng tá»“n táº¡i!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Bàn đích không tồn tại!"}}, 400);
             return;
         }
 
         if (toTable.value("status", "free") == "occupied" && toTable.value("active_order_id", 0LL) > 0) {
-            sendJson(res, {{"success", false}, {"message", "BÃ n Ä‘Ã­ch Ä‘ang cÃ³ khÃ¡ch! HÃ£y dÃ¹ng chá»©c nÄƒng Gá»™p bÃ n."}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Bàn đích đang có khách! Hãy dùng chức năng Gộp bàn."}}, 400);
             return;
         }
 
@@ -938,15 +956,15 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
         });
         db.commit();
 
-        sendJson(res, {{"success", true}, {"message", "ÄÃ£ chuyá»ƒn tá»« " + fromCode + " sang " + toCode + " thÃ nh cÃ´ng!"}});
+        sendJson(res, {{"success", true}, {"message", "Đã chuyển từ " + fromCode + " sang " + toCode + " thành công!"}});
         return;
     }
 
-    // 3. POST: Merge Table (Gá»™p bÃ n)
+    // 3. POST: Merge Table (Gộp bàn)
     if (action == "merge_table") {
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt.has_value()) {
-            sendJson(res, {{"success", false}, {"message", "ChÆ°a Ä‘Äƒng nháº­p!"}}, 401);
+            sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập!"}}, 401);
             return;
         }
 
@@ -970,7 +988,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
         }
 
         if (fromTableId <= 0 || toTableId <= 0 || fromTableId == toTableId) {
-            sendJson(res, {{"success", false}, {"message", "BÃ n ghÃ©p vÃ  bÃ n nháº­n khÃ´ng há»£p lá»‡!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Bàn ghép và bàn nhận không hợp lệ!"}}, 400);
             return;
         }
 
@@ -979,7 +997,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
 
         if (fromTable.is_null() || fromTable.value("active_order_id", 0LL) <= 0 ||
             toTable.is_null() || toTable.value("active_order_id", 0LL) <= 0) {
-            sendJson(res, {{"success", false}, {"message", "Cáº£ 2 bÃ n Ä‘á»u pháº£i cÃ³ hÃ³a Ä‘Æ¡n Ä‘ang má»Ÿ Ä‘á»ƒ thá»±c hiá»‡n gá»™p!"}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Cả 2 bàn đều phải có hóa đơn đang mở để thực hiện gộp!"}}, 400);
             return;
         }
 
@@ -1003,14 +1021,14 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
         });
 
         db.execute("UPDATE orders SET status = 'cancelled', note = :note WHERE id = :id", {
-            {":note", "ÄÃ£ gá»™p vÃ o hÃ³a Ä‘Æ¡n bÃ n " + toCode},
+            {":note", "Đã gộp vào hóa đơn bàn " + toCode},
             {":id", fromOrderId}
         });
 
         db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE id = :id", {{":id", fromTableId}});
         db.commit();
 
-        sendJson(res, {{"success", true}, {"message", "ÄÃ£ gá»™p " + fromCode + " vÃ o " + toCode + " thÃ nh cÃ´ng!"}});
+        sendJson(res, {{"success", true}, {"message", "Đã gộp " + fromCode + " vào " + toCode + " thành công!"}});
         return;
     }
 
@@ -1018,7 +1036,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
     if (action == "add_table" || action == "update_table" || action == "delete_table" || action == "batch_add_tables") {
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
-            sendJson(res, {{"success", false}, {"message", "Báº¡n khÃ´ng cÃ³ quyá»n thá»±c hiá»‡n thao tÃ¡c nÃ y (yÃªu cáº§u Admin)!"}}, 403);
+            sendJson(res, {{"success", false}, {"message", "Bạn không có quyền thực hiện thao tác này (yêu cầu Admin)!"}}, 403);
             return;
         }
 
@@ -1030,7 +1048,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             try { sortOrder = std::stoi(BodyParser::getParam(req, body, "sort_order", "0")); } catch (...) {}
 
             if (code.empty() || name.empty()) {
-                sendJson(res, {{"success", false}, {"message", "MÃ£ bÃ n vÃ  tÃªn bÃ n khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng!"}}, 400);
+                sendJson(res, {{"success", false}, {"message", "Mã bàn và tên bàn không được để trống!"}}, 400);
                 return;
             }
 
@@ -1090,7 +1108,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             try { sortOrder = std::stoi(BodyParser::getParam(req, body, "sort_order", "0")); } catch (...) {}
 
             if (id <= 0 || code.empty() || name.empty()) {
-                sendJson(res, {{"success", false}, {"message", "Dá»¯ liá»‡u cáº­p nháº­t bÃ n khÃ´ng há»£p lá»‡!"}}, 400);
+                sendJson(res, {{"success", false}, {"message", "Dữ liệu cập nhật bàn không hợp lệ!"}}, 400);
                 return;
             }
 
@@ -1102,7 +1120,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
                 {":code", code}, {":name", name}, {":area_type", areaType}, {":sort_order", sortOrder}, {":id", id}
             });
 
-            sendJson(res, {{"success", true}, {"message", "Cáº­p nháº­t bÃ n thÃ nh cÃ´ng!"}});
+            sendJson(res, {{"success", true}, {"message", "Cập nhật bàn thành công!"}});
             return;
         }
 
@@ -1110,16 +1128,16 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             int64_t id = 0;
             try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
             db.execute("DELETE FROM tables_areas WHERE id = :id AND status = 'free'", {{":id", id}});
-            sendJson(res, {{"success", true}, {"message", "ÄÃ£ xÃ³a bÃ n thÃ nh cÃ´ng!"}});
+            sendJson(res, {{"success", true}, {"message", "Đã xóa bàn thành công!"}});
             return;
         }
     }
 
-    sendJson(res, {{"success", false}, {"message", "HÃ nh Ä‘á»™ng khÃ´ng há»£p lá»‡!"}}, 400);
+    sendJson(res, {{"success", false}, {"message", "Hành động không hợp lệ!"}}, 400);
 }
 
 // ==========================================
-// 5. ORDERS & CHECKOUT HANDLER (GIAI ÄOáº N 3 - BÆ¯á»šC 3.1 Äáº¾N 3.5)
+// 5. ORDERS & CHECKOUT HANDLER (GIAI ĐOẠN 3 - BƯỚC 3.1 ĐẾN 3.5)
 // ==========================================
 void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -1127,7 +1145,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         json body = parseBody(req);
         std::string action = getAction(req, body);
 
-        // VietQR (BÆ°á»›c 3.4) - Há»— trá»£ cáº£ GET vÃ  POST
+        // VietQR (Bước 3.4) - Hỗ trợ cả GET và POST
         if (action == "vietqr") {
             int64_t orderId = 0, tableId = 0;
             try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
@@ -1187,7 +1205,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         // A. GET REQUESTS
         // ------------------------------------------
         if (req.method == "GET") {
-            // Step 3.2: Kitchen Tickets (ÄÆ¡n cháº¿ biáº¿n mÃ n hÃ¬nh Báº¿p KDS)
+            // Step 3.2: Kitchen Tickets (Đơn chế biến màn hình Bếp KDS)
             if (action == "kitchen_tickets") {
                 std::string filterStatus = BodyParser::getParam(req, body, "status", "active");
                 std::string todayDate = getCurrentDate();
@@ -1274,19 +1292,67 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
-            // Customer Order Status (Trang khÃ¡ch tra cá»©u Ä‘Æ¡n hÃ ng)
+            // Customer Order Status (Trang khách tra cứu đơn hàng)
             if (action == "customer_status") {
                 std::string token = BodyParser::getParam(req, body, "token", BodyParser::getParam(req, body, "code", ""));
                 if (token.empty() && req.has_param("token")) token = req.get_param_value("token");
                 auto ord = db.queryRow("SELECT * FROM orders WHERE order_code = :c OR id = :c LIMIT 1", {{":c", token}});
                 if (ord.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng!"}}, 404);
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy đơn hàng!"}}, 404);
                     return;
                 }
                 sendJson(res, {
                     {"success", true},
                     {"order", ord}
                 });
+                return;
+            }
+
+            // Online & Takeaway Orders (Màn hình xử lý Đơn Online / Mang Về)
+            if (action == "online_orders") {
+                std::string filterStatus = BodyParser::getParam(req, body, "status", "active");
+                std::string todayDate = getCurrentDate();
+
+                std::string sql = R"(
+                    SELECT o.*, t.name as table_name, t.area_type
+                    FROM orders o
+                    LEFT JOIN tables_areas t ON o.table_id = t.id
+                    WHERE (t.area_type = 'takeaway' OR o.table_code LIKE 'MV%' OR o.table_id IS NULL OR o.table_code = 'ONLINE' OR o.order_code LIKE 'ONL%')
+                      AND o.status != 'cancelled'
+                )";
+
+                if (filterStatus == "active") {
+                    sql += " AND o.status = 'pending'";
+                } else {
+                    sql += " AND (DATE(o.created_at) = '" + todayDate + "' OR o.status = 'pending')";
+                }
+                sql += " ORDER BY CASE WHEN o.status = 'pending' THEN 0 ELSE 1 END, o.id DESC LIMIT 100";
+
+                json orders = db.query(sql);
+                for (auto& o : orders) {
+                    int64_t oid = getInt(o, "id", 0);
+                    json items = db.query("SELECT * FROM order_items WHERE order_id = :oid ORDER BY id ASC", {{":oid", oid}});
+                    std::string summary;
+                    for (size_t i = 0; i < items.size(); ++i) {
+                        if (i > 0) summary += ", ";
+                        summary += std::to_string(getInt(items[i], "quantity", 1)) + "x " + getString(items[i], "product_name", "Món");
+                    }
+                    o["items"] = items;
+                    o["items_summary"] = summary.empty() ? "Chưa có chi tiết món" : summary;
+
+                    std::string cname = getString(o, "customer_name", "");
+                    std::string cphone = getString(o, "customer_phone", "");
+                    if (cphone.empty()) {
+                        size_t lp = cname.find('(');
+                        size_t rp = cname.find(')', lp == std::string::npos ? 0 : lp);
+                        if (lp != std::string::npos && rp != std::string::npos && rp > lp + 1) {
+                            cphone = cname.substr(lp + 1, rp - lp - 1);
+                        }
+                    }
+                    o["customer_phone"] = cphone;
+                }
+
+                sendJson(res, {{"success", true}, {"data", orders}});
                 return;
             }
 
@@ -1298,7 +1364,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
-            // Step 3.5: Detail / Reprint Bill (In hÃ³a Ä‘Æ¡n K80/K58)
+            // Step 3.5: Detail / Reprint Bill (In hóa đơn K80/K58)
             if (action.empty() || action == "detail" || action == "reprint") {
                 int64_t orderId = 0, tableId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", BodyParser::getParam(req, body, "id", "0"))); } catch (...) {}
@@ -1317,7 +1383,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 auto order = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
                 if (order.is_null()) {
-                    sendError(res, "KhÃ´ng tÃ¬m tháº¥y hÃ³a Ä‘Æ¡n!", 404);
+                    sendError(res, "Không tìm thấy hóa đơn!", 404);
                     return;
                 }
 
@@ -1348,16 +1414,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         // B. POST REQUESTS
         // ------------------------------------------
         if (req.method == "POST") {
-            // Step 3.1: Save / Update Draft Order (Táº¡o Ä‘Æ¡n bÃ¡n / cáº­p nháº­t giá» hÃ ng / Ä‘áº·t hÃ ng online)
+            // Step 3.1: Save / Update Draft Order (Tạo đơn bán / cập nhật giỏ hàng / đặt hàng online)
             if (action == "save_order" || action == "save" || action == "customer_order") {
                 int64_t tableId = 0;
                 try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
-                std::string tableCode = BodyParser::getParam(req, body, "table_code", "MANG Vá»€");
-                std::string customerName = BodyParser::getParam(req, body, "customer_name", "KhÃ¡ch vÃ£ng lai");
+                std::string tableCode = BodyParser::getParam(req, body, "table_code", "MANG VỀ");
+                std::string customerName = BodyParser::getParam(req, body, "customer_name", "Khách vãng lai");
                 std::string customerPhone = BodyParser::getParam(req, body, "customer_phone");
                 if (!customerPhone.empty() && customerName.find(customerPhone) == std::string::npos) {
-                    if (customerName.empty() || customerName == "KhÃ¡ch vÃ£ng lai") {
-                        customerName = "KhÃ¡ch online (" + customerPhone + ")";
+                    if (customerName.empty() || customerName == "Khách vãng lai") {
+                        customerName = "Khách online (" + customerPhone + ")";
                     } else {
                         customerName += " (" + customerPhone + ")";
                     }
@@ -1380,7 +1446,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
 
                 if (items.empty()) {
-                    sendJson(res, {{"success", false}, {"message", "Giá» hÃ ng khÃ´ng cÃ³ sáº£n pháº©m nÃ o!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Giỏ hàng không có sản phẩm nào!"}}, 400);
                     return;
                 }
 
@@ -1393,14 +1459,14 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                             if (getString(item, "code", "").empty()) item["code"] = getString(pRow, "code", "");
                             if (getString(item, "name", "").empty()) item["name"] = getString(pRow, "name", "");
                             if (getDouble(item, "price", 0.0) <= 0) item["price"] = getDouble(pRow, "price", 0.0);
-                            if (getString(item, "unit", "").empty()) item["unit"] = getString(pRow, "unit", "pháº§n");
+                            if (getString(item, "unit", "").empty()) item["unit"] = getString(pRow, "unit", "phần");
                         }
                     }
                 }
 
                 auto userOpt = AuthService::instance().authenticate(req);
                 int64_t userId = userOpt.has_value() ? userOpt->id : 1;
-                std::string userName = userOpt.has_value() ? userOpt->fullname : "Thu ngÃ¢n";
+                std::string userName = userOpt.has_value() ? userOpt->fullname : "Thu ngân";
                 std::string userRole = userOpt.has_value() ? userOpt->role : "cashier";
 
                 bool isAppendMode = false;
@@ -1447,7 +1513,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     auto existingOrder = db.queryRow("SELECT * FROM orders WHERE id = :id AND status = 'pending'", {{":id", orderId}});
                     if (existingOrder.is_null()) {
                         db.rollback();
-                        sendJson(res, {{"success", false}, {"message", "HÃ³a Ä‘Æ¡n khÃ´ng tá»“n táº¡i hoáº·c Ä‘Ã£ thanh toÃ¡n trÆ°á»›c Ä‘Ã³!"}}, 400);
+                        sendJson(res, {{"success", false}, {"message", "Hóa đơn không tồn tại hoặc đã thanh toán trước đó!"}}, 400);
                         return;
                     }
 
@@ -1542,7 +1608,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     });
 
                     if (orderId <= 0) {
-                        sendError(res, "Lá»—i táº¡o hÃ³a Ä‘Æ¡n (khÃ´ng thá»ƒ lÆ°u vÃ o CSDL)!", 500);
+                        sendError(res, "Lỗi tạo hóa đơn (không thể lưu vào CSDL)!", 500);
                         return;
                     }
 
@@ -1581,8 +1647,8 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 // Kitchen Service Log
                 std::string logAction = isAppendMode ? "add_items" : "order_created";
-                std::string logLabel = isAppendMode ? "Gá»i thÃªm mÃ³n" : "Nháº­n order mÃ³n";
-                std::string logNote = "Order bÃ n " + tableCode + " (" + std::to_string(items.size()) + " mÃ³n, " + std::to_string(static_cast<int64_t>(totalAmount)) + "Ä‘)";
+                std::string logLabel = isAppendMode ? "Gọi thêm món" : "Nhận order món";
+                std::string logNote = "Order bàn " + tableCode + " (" + std::to_string(items.size()) + " món, " + std::to_string(static_cast<int64_t>(totalAmount)) + "đ)";
 
                 db.execute(R"(
                     INSERT INTO kitchen_service_logs (
@@ -1600,7 +1666,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 sendJson(res, {
                     {"success", true},
-                    {"message", "LÆ°u Ä‘Æ¡n hÃ ng thÃ nh cÃ´ng!"},
+                    {"message", "Lưu đơn hàng thành công!"},
                     {"order_id", orderId},
                     {"order_code", orderCode},
                     {"tracking_token", orderCode},
@@ -1610,7 +1676,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
-            // Step 3.3: Kitchen Marks Ready (Báº¿p bÃ¡o xong mÃ³n)
+            // Step 3.3: Kitchen Marks Ready (Bếp báo xong món)
             if (action == "kitchen_ready") {
                 int64_t orderId = 0, tableId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
@@ -1622,19 +1688,19 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
 
                 if (orderId <= 0) {
-                    sendJson(res, {{"success", false}, {"message", "KhÃ´ng tÃ¬m tháº¥y hÃ³a Ä‘Æ¡n cáº§n bÃ¡o hoÃ n thÃ nh!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy hóa đơn cần báo hoàn thành!"}}, 400);
                     return;
                 }
 
                 auto ord = db.queryRow("SELECT order_code, table_code, created_at FROM orders WHERE id = :id", {{":id", orderId}});
                 if (ord.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "HÃ³a Ä‘Æ¡n khÃ´ng tá»“n táº¡i!"}}, 404);
+                    sendJson(res, {{"success", false}, {"message", "Hóa đơn không tồn tại!"}}, 404);
                     return;
                 }
 
                 auto userOpt = AuthService::instance().authenticate(req);
                 int64_t kUserId = userOpt.has_value() ? userOpt->id : 5;
-                std::string kUserName = userOpt.has_value() ? userOpt->fullname : "Tá»• Pha Cháº¿ & Báº¿p";
+                std::string kUserName = userOpt.has_value() ? userOpt->fullname : "Tổ Pha Chế & Bếp";
                 std::string kRole = userOpt.has_value() ? userOpt->role : "kitchen";
 
                 std::string nowStr = getCurrentTimestamp();
@@ -1654,24 +1720,24 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 syncOrderStatus(db, orderId);
 
-                std::string tCode = getString(ord, "table_code", "BÃ n");
+                std::string tCode = getString(ord, "table_code", "Bàn");
                 std::string oCode = getString(ord, "order_code", "");
 
-                // Ghi nháº­t kÃ½ báº¿p
+                // Ghi nhật ký bếp
                 db.execute(R"(
                     INSERT INTO kitchen_service_logs (
                         order_id, order_code, table_code, action, action_label, user_id, user_name, user_role, duration_seconds, note, created_at
                     ) VALUES (
-                        :oid, :code, :tcode, 'kitchen_ready', 'Báº¿p bÃ¡o xong mÃ³n', :uid, :uname, :urole, 60, :note, :cat
+                        :oid, :code, :tcode, 'kitchen_ready', 'Bếp báo xong món', :uid, :uname, :urole, 60, :note, :cat
                     )
                 )", {
                     {":oid", orderId}, {":code", oCode}, {":tcode", tCode},
                     {":uid", kUserId}, {":uname", kUserName}, {":urole", kRole},
-                    {":note", "Báº¿p hoÃ n thÃ nh cháº¿ biáº¿n sau " + std::to_string(prepMinutes) + " phÃºt"},
+                    {":note", "Bếp hoàn thành chế biến sau " + std::to_string(prepMinutes) + " phút"},
                     {":cat", nowStr}
                 });
 
-                // Gá»­i chuÃ´ng thÃ´ng bÃ¡o phá»¥c vá»¥
+                // Gửi chuông thông báo phục vụ
                 db.execute(R"(
                     INSERT INTO app_notifications (
                         type, order_id, table_code, title, message, is_read_waiter, is_read_cashier, created_at
@@ -1680,21 +1746,21 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     )
                 )", {
                     {":oid", orderId}, {":tcode", tCode},
-                    {":title", "ðŸ”” Báº¿p bÃ¡o xong mÃ³n: " + tCode},
-                    {":msg", "MÃ³n Äƒn bÃ n " + tCode + " Ä‘Ã£ cháº¿ biáº¿n xong, vui lÃ²ng bÆ°ng ra!"},
+                    {":title", "🔔 Bếp báo xong món: " + tCode},
+                    {":msg", "Món ăn bàn " + tCode + " đã chế biến xong, vui lòng bưng ra!"},
                     {":cat", nowStr}
                 });
                 db.commit();
 
                 sendJson(res, {
                     {"success", true},
-                    {"message", "ÄÃ£ thÃ´ng bÃ¡o xong mÃ³n cho bÃ n " + tCode + " Ä‘áº¿n phá»¥c vá»¥!"},
+                    {"message", "Đã thông báo xong món cho bàn " + tCode + " đến phục vụ!"},
                     {"table_code", tCode}
                 });
                 return;
             }
 
-            // Step 3.3: Waiter Served (Phá»¥c vá»¥ Ä‘Ã£ mang ra bÃ n)
+            // Step 3.3: Waiter Served (Phục vụ đã mang ra bàn)
             if (action == "waiter_served" || action == "kitchen_archive") {
                 int64_t orderId = 0, tableId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
@@ -1706,19 +1772,19 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
 
                 if (orderId <= 0) {
-                    sendJson(res, {{"success", false}, {"message", "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy đơn hàng!"}}, 400);
                     return;
                 }
 
                 auto ord = db.queryRow("SELECT order_code, table_code, kitchen_ready_at, kitchen_status FROM orders WHERE id = :id", {{":id", orderId}});
                 if (ord.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "ÄÆ¡n hÃ ng khÃ´ng tá»“n táº¡i!"}}, 404);
+                    sendJson(res, {{"success", false}, {"message", "Đơn hàng không tồn tại!"}}, 404);
                     return;
                 }
 
                 auto userOpt = AuthService::instance().authenticate(req);
                 int64_t wUserId = userOpt.has_value() ? userOpt->id : 3;
-                std::string wUserName = userOpt.has_value() ? userOpt->fullname : "NhÃ¢n viÃªn phá»¥c vá»¥";
+                std::string wUserName = userOpt.has_value() ? userOpt->fullname : "Nhân viên phục vụ";
                 std::string wRole = userOpt.has_value() ? userOpt->role : "waiter";
 
                 std::string nowStr = getCurrentTimestamp();
@@ -1738,32 +1804,32 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 syncOrderStatus(db, orderId);
 
-                std::string tCode = getString(ord, "table_code", "BÃ n");
+                std::string tCode = getString(ord, "table_code", "Bàn");
                 std::string oCode = getString(ord, "order_code", "");
 
                 db.execute(R"(
                     INSERT INTO kitchen_service_logs (
                         order_id, order_code, table_code, action, action_label, user_id, user_name, user_role, duration_seconds, note, created_at
                     ) VALUES (
-                        :oid, :code, :tcode, 'waiter_served', 'Phá»¥c vá»¥ Ä‘Ã£ bÆ°ng ra bÃ n', :uid, :uname, :urole, 60, :note, :cat
+                        :oid, :code, :tcode, 'waiter_served', 'Phục vụ đã bưng ra bàn', :uid, :uname, :urole, 60, :note, :cat
                     )
                 )", {
                     {":oid", orderId}, {":code", oCode}, {":tcode", tCode},
                     {":uid", wUserId}, {":uname", wUserName}, {":urole", wRole},
-                    {":note", "ÄÃ£ bÆ°ng ra bÃ n sau " + std::to_string(deliverMinutes) + " phÃºt"},
+                    {":note", "Đã bưng ra bàn sau " + std::to_string(deliverMinutes) + " phút"},
                     {":cat", nowStr}
                 });
                 db.commit();
 
                 sendJson(res, {
                     {"success", true},
-                    {"message", "ÄÃ£ ghi nháº­n bÆ°ng mÃ³n ra bÃ n " + tCode + " thÃ nh cÃ´ng!"},
+                    {"message", "Đã ghi nhận bưng món ra bàn " + tCode + " thành công!"},
                     {"table_code", tCode}
                 });
                 return;
             }
 
-            // Step 3.4: Checkout & Payment (Thanh toÃ¡n hÃ³a Ä‘Æ¡n)
+            // Step 3.4: Checkout & Payment (Thanh toán hóa đơn)
             if (action == "checkout" || action == "pay_order") {
                 int64_t orderId = 0, tableId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
@@ -1775,13 +1841,13 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
 
                 if (orderId <= 0) {
-                    sendJson(res, {{"success", false}, {"message", "KhÃ´ng tÃ¬m tháº¥y hÃ³a Ä‘Æ¡n cáº§n thanh toÃ¡n!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy hóa đơn cần thanh toán!"}}, 400);
                     return;
                 }
 
                 auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id AND status = 'pending'", {{":id", orderId}});
                 if (ord.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "HÃ³a Ä‘Æ¡n khÃ´ng tá»“n táº¡i hoáº·c Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n trÆ°á»›c Ä‘Ã³!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Hóa đơn không tồn tại hoặc đã được thanh toán trước đó!"}}, 400);
                     return;
                 }
 
@@ -1832,7 +1898,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 auto userOpt = AuthService::instance().authenticate(req);
                 int64_t cUserId = userOpt.has_value() ? userOpt->id : 1;
-                std::string cUserName = userOpt.has_value() ? userOpt->fullname : "Thu ngÃ¢n";
+                std::string cUserName = userOpt.has_value() ? userOpt->fullname : "Thu ngân";
                 std::string cRole = userOpt.has_value() ? userOpt->role : "cashier";
 
                 std::string nowStr = getCurrentTimestamp();
@@ -1864,14 +1930,43 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     INSERT INTO kitchen_service_logs (
                         order_id, order_code, table_code, action, action_label, user_id, user_name, user_role, duration_seconds, note, created_at
                     ) VALUES (
-                        :oid, :code, :tcode, 'checkout', 'Thanh toÃ¡n hoÃ n táº¥t', :uid, :uname, :urole, 0, :note, :cat
+                        :oid, :code, :tcode, 'checkout', 'Thanh toán hoàn tất', :uid, :uname, :urole, 0, :note, :cat
                     )
                 )", {
                     {":oid", orderId}, {":code", getString(completedOrder, "order_code", "")}, {":tcode", getString(completedOrder, "table_code", "")},
                     {":uid", cUserId}, {":uname", cUserName}, {":urole", cRole},
-                    {":note", "ÄÃ£ thanh toÃ¡n " + std::to_string(static_cast<int64_t>(totalAmount)) + "Ä‘ (" + paymentMethod + ")"},
+                    {":note", "Đã thanh toán " + std::to_string(static_cast<int64_t>(totalAmount)) + "đ (" + paymentMethod + ")"},
                     {":cat", nowStr}
                 });
+
+                // Kiểm toán nội bộ: Nếu hóa đơn có áp dụng Giảm giá thủ công, tự động ghi vào audit_logs
+                if (discountAmount > 0) {
+                    std::string discReason = BodyParser::getParam(req, body, "discount_reason", getString(ord, "note", "Áp dụng chiết khấu tại quầy"));
+                    if (discReason.empty()) discReason = "Áp dụng chiết khấu tại quầy";
+                    bool isHighDisc = (discountAmount >= 50000.0) || (discountType == "percent" && discountValue >= 20.0);
+                    db.execute(R"(
+                        INSERT INTO audit_logs (
+                            action_code, action_label, severity, order_id, order_code, table_code,
+                            amount_impact, reason, user_id, user_name, user_role, details, created_at
+                        ) VALUES (
+                            'MANUAL_DISCOUNT', :albl, :sev, :oid, :ocode, :tcode,
+                            :amt, :rsn, :uid, :uname, :urole, :dtl, :cat
+                        )
+                    )", {
+                        {":albl", "Giảm giá hóa đơn bàn " + getString(completedOrder, "table_code", "")},
+                        {":sev", isHighDisc ? "CRITICAL" : "WARN"},
+                        {":oid", orderId},
+                        {":ocode", getString(completedOrder, "order_code", "")},
+                        {":tcode", getString(completedOrder, "table_code", "")},
+                        {":amt", discountAmount},
+                        {":rsn", discReason},
+                        {":uid", cUserId},
+                        {":uname", cUserName},
+                        {":urole", cRole},
+                        {":dtl", "Giảm " + std::to_string(static_cast<int64_t>(discountAmount)) + "đ trên tổng " + std::to_string(static_cast<int64_t>(subtotal)) + "đ"},
+                        {":cat", nowStr}
+                    });
+                }
                 db.commit();
 
                 // [Cross-Module Orchestration]: Phát sự kiện toàn cục ORDER_PAID cho các Module Plugin (Media Stream & Network QoS)
@@ -1901,7 +1996,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 sendJson(res, {
                     {"success", true},
-                    {"message", "Thanh toÃ¡n hÃ³a Ä‘Æ¡n thÃ nh cÃ´ng!"},
+                    {"message", "Thanh toán hóa đơn thành công!"},
                     {"order", completedOrder},
                     {"items", items},
                     {"store", store},
@@ -1910,38 +2005,174 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
-            // Cancel order
-            if (action == "cancel_order") {
+            // Confirm Online / Takeaway Order Delivered
+            if (action == "online_order_delivered") {
                 int64_t orderId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
-                auto order = db.queryRow("SELECT table_id FROM orders WHERE id = :id", {{":id", orderId}});
+                auto order = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
                 if (order.is_null()) {
-                    sendError(res, "HÃ³a Ä‘Æ¡n khÃ´ng tá»“n táº¡i!", 404);
+                    sendError(res, "Hóa đơn không tồn tại!", 404);
                     return;
                 }
 
+                std::string nowStr = getCurrentTimestamp();
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 1;
+                std::string uName = userOpt ? userOpt->fullname : "Nhân viên";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+
                 db.beginTransaction();
-                db.execute("UPDATE orders SET status = 'cancelled' WHERE id = :id", {{":id", orderId}});
+                db.execute("UPDATE orders SET kitchen_status = 'served', served_at = COALESCE(served_at, :sat) WHERE id = :id",
+                           {{":sat", nowStr}, {":id", orderId}});
+                syncOrderStatus(db, orderId);
+
+                db.execute(R"(
+                    INSERT INTO kitchen_service_logs (
+                        order_id, order_code, table_code, action, action_label, user_id, user_name, user_role, duration_seconds, note, created_at
+                    ) VALUES (
+                        :oid, :code, :tcode, 'online_delivered', 'Bàn giao đơn online/mang về', :uid, :uname, :urole, 0, 'Đã bàn giao thực tế cho khách', :cat
+                    )
+                )", {
+                    {":oid", orderId},
+                    {":code", getString(order, "order_code", "")},
+                    {":tcode", getString(order, "table_code", "MV")},
+                    {":uid", uId},
+                    {":uname", uName},
+                    {":urole", uRole},
+                    {":cat", nowStr}
+                });
+                db.commit();
+
+                sendJson(res, {{"success", true}, {"message", "Đã xác nhận bàn giao đơn cho khách!"}});
+                return;
+            }
+
+            // Cancel order (Bắt buộc ghi nhận Lý do vào Nhật ký Kiểm toán audit_logs)
+            if (action == "cancel_order") {
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                std::string reason = BodyParser::getParam(req, body, "reason", "");
+                if (reason.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập lý do hủy hóa đơn để ghi nhận Kiểm toán!"}}, 400);
+                    return;
+                }
+
+                auto order = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
+                if (order.is_null()) {
+                    sendError(res, "Hóa đơn không tồn tại!", 404);
+                    return;
+                }
+
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 1;
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+                std::string nowStr = getCurrentTimestamp();
+
+                std::string tCode = getString(order, "table_code", "Bàn");
+                std::string oCode = getString(order, "order_code", "");
+                double totAmt = getDouble(order, "total_amount", 0.0);
+                std::string kStatus = getString(order, "kitchen_status", "pending");
+                bool wasCooked = (kStatus == "ready" || kStatus == "served");
+
+                db.beginTransaction();
+                db.execute("UPDATE orders SET status = 'cancelled', note = COALESCE(note, '') || ' | [HỦY: ' || :rsn || ']' WHERE id = :id",
+                           {{":rsn", reason}, {":id", orderId}});
                 if (!order["table_id"].is_null()) {
                     int64_t tid = getInt(order, "table_id", 0);
                     db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE id = :id", {{":id", tid}});
                 }
+
+                db.execute(R"(
+                    INSERT INTO audit_logs (
+                        action_code, action_label, severity, order_id, order_code, table_code,
+                        amount_impact, reason, user_id, user_name, user_role, details, created_at
+                    ) VALUES (
+                        'VOID_ORDER', :albl, :sev, :oid, :ocode, :tcode,
+                        :amt, :rsn, :uid, :uname, :urole, :dtl, :cat
+                    )
+                )", {
+                    {":albl", wasCooked ? ("Hủy đơn ĐÃ CHẾ BIẾN bàn " + tCode) : ("Hủy hóa đơn bàn " + tCode)},
+                    {":sev", "CRITICAL"},
+                    {":oid", orderId},
+                    {":ocode", oCode},
+                    {":tcode", tCode},
+                    {":amt", totAmt},
+                    {":rsn", reason},
+                    {":uid", uId},
+                    {":uname", uName},
+                    {":urole", uRole},
+                    {":dtl", "Trạng thái bếp lúc hủy: " + kStatus + " | Giá trị đơn: " + std::to_string(static_cast<int64_t>(totAmt)) + "đ"},
+                    {":cat", nowStr}
+                });
+
+                db.execute(R"(
+                    INSERT INTO kitchen_service_logs (
+                        order_id, order_code, table_code, action, action_label, user_id, user_name, user_role, duration_seconds, note, created_at
+                    ) VALUES (
+                        :oid, :code, :tcode, 'void_order', 'Hủy hóa đơn (Audit)', :uid, :uname, :urole, 0, :note, :cat
+                    )
+                )", {
+                    {":oid", orderId}, {":code", oCode}, {":tcode", tCode},
+                    {":uid", uId}, {":uname", uName}, {":urole", uRole},
+                    {":note", "Lý do hủy: " + reason + " (" + std::to_string(static_cast<int64_t>(totAmt)) + "đ)"},
+                    {":cat", nowStr}
+                });
                 db.commit();
 
-                sendJson(res, {{"success", true}, {"message", "ÄÃ£ há»§y Ä‘Æ¡n hÃ ng!"}});
+                sendJson(res, {{"success", true}, {"message", "Đã hủy đơn hàng và ghi nhận vào Nhật ký Kiểm toán!"}});
+                return;
+            }
+
+            // Ghi log Kiểm toán trực tiếp từ POS (In tạm tính, In lại hóa đơn, Giảm giá...)
+            if (action == "log_audit") {
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 1;
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+
+                std::string actCode = BodyParser::getParam(req, body, "action_code", "POS_ACTION");
+                std::string actLabel = BodyParser::getParam(req, body, "action_label", "Thao tác nhạy cảm tại quầy");
+                std::string severity = BodyParser::getParam(req, body, "severity", "WARN");
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                std::string orderCode = BodyParser::getParam(req, body, "order_code", "");
+                std::string tableCode = BodyParser::getParam(req, body, "table_code", "");
+                double amtImpact = 0.0;
+                try { amtImpact = std::stod(BodyParser::getParam(req, body, "amount_impact", "0")); } catch (...) {}
+                std::string reason = BodyParser::getParam(req, body, "reason", "");
+                std::string details = BodyParser::getParam(req, body, "details", "");
+
+                db.execute(R"(
+                    INSERT INTO audit_logs (
+                        action_code, action_label, severity, order_id, order_code, table_code,
+                        amount_impact, reason, user_id, user_name, user_role, details, created_at
+                    ) VALUES (
+                        :acode, :albl, :sev, :oid, :ocode, :tcode,
+                        :amt, :rsn, :uid, :uname, :urole, :dtl, :cat
+                    )
+                )", {
+                    {":acode", actCode}, {":albl", actLabel}, {":sev", severity},
+                    {":oid", orderId}, {":ocode", orderCode}, {":tcode", tableCode},
+                    {":amt", amtImpact}, {":rsn", reason},
+                    {":uid", uId}, {":uname", uName}, {":urole", uRole},
+                    {":dtl", details}, {":cat", getCurrentTimestamp()}
+                });
+
+                sendJson(res, {{"success", true}});
                 return;
             }
         }
 
-        sendJson(res, {{"success", false}, {"message", "YÃªu cáº§u hÃ³a Ä‘Æ¡n khÃ´ng há»£p lá»‡!"}}, 400);
+        sendJson(res, {{"success", false}, {"message", "Yêu cầu hóa đơn không hợp lệ!"}}, 400);
     } catch (const std::exception& e) {
         std::cerr << "[Orders Exception] " << e.what() << std::endl;
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i xá»­ lÃ½ Ä‘Æ¡n hÃ ng: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi xử lý đơn hàng: ") + e.what()}}, 500);
     }
 }
 
 // ==========================================
-// 6. REPORTS & DASHBOARD HANDLER (BÆ°á»›c 4.3)
+// 6. REPORTS & DASHBOARD HANDLER (Bước 4.3)
 // ==========================================
 void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -2044,8 +2275,8 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                 {"data", {
                     {"labels", labels},
                     {"datasets", {
-                        {{"label", "Doanh thu (VNÄ)"}, {"data", revenues}},
-                        {{"label", "Sá»‘ Ä‘Æ¡n hÃ ng"}, {"data", counts}}
+                        {{"label", "Doanh thu (VNĐ)"}, {"data", revenues}},
+                        {{"label", "Số đơn hàng"}, {"data", counts}}
                     }}
                 }}
             });
@@ -2127,7 +2358,7 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                 ORDER BY total_revenue DESC
             )");
 
-            json recentLogs = json::array();
+            json recentLogs = db.query("SELECT * FROM kitchen_service_logs ORDER BY id DESC LIMIT 50");
 
             sendJson(res, {
                 {"success", true},
@@ -2147,12 +2378,12 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
 
         sendError(res, "Invalid report action: " + action, 400);
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i bÃ¡o cÃ¡o: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi báo cáo: ") + e.what()}}, 500);
     }
 }
 
 // ==========================================
-// 7. FINANCE & CASHBOOK HANDLER (BÆ°á»›c 4.4)
+// 7. FINANCE & CASHBOOK HANDLER (Bước 4.4)
 // ==========================================
 void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -2209,13 +2440,100 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 });
                 return;
             }
+
+            // Trạng thái Ca làm việc hiện tại của Thu ngân (Kế toán Ca & Sổ quỹ tại quầy)
+            if (action == "shift_status") {
+                auto shift = db.queryRow("SELECT * FROM pos_shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1");
+                if (shift.is_null()) {
+                    sendJson(res, {
+                        {"success", true},
+                        {"has_open_shift", false},
+                        {"shift", nullptr},
+                        {"transactions", json::array()}
+                    });
+                    return;
+                }
+
+                int64_t shiftId = getInt(shift, "id", 0);
+                std::string openedAt = getString(shift, "opened_at", "2000-01-01 00:00:00");
+                double openingCash = getDouble(shift, "opening_cash", 0.0);
+
+                double cashSales = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' AND paid_at >= :oa",
+                    {{":oa", openedAt}}
+                ).get<double>();
+                double bankingSales = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'banking' AND paid_at >= :oa",
+                    {{":oa", openedAt}}
+                ).get<double>();
+                double cardSales = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'card' AND paid_at >= :oa",
+                    {{":oa", openedAt}}
+                ).get<double>();
+
+                double cashIn = db.queryScalar(
+                    "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE shift_id = :sid AND trans_type = 'in'",
+                    {{":sid", shiftId}}
+                ).get<double>();
+                double cashOut = db.queryScalar(
+                    "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE shift_id = :sid AND trans_type = 'out'",
+                    {{":sid", shiftId}}
+                ).get<double>();
+
+                double expectedCash = openingCash + cashSales + cashIn - cashOut;
+                shift["cash_sales"] = cashSales;
+                shift["banking_sales"] = bankingSales;
+                shift["card_sales"] = cardSales;
+                shift["cash_in"] = cashIn;
+                shift["cash_out"] = cashOut;
+                shift["expected_cash"] = expectedCash;
+
+                json txs = db.query("SELECT * FROM cash_transactions WHERE shift_id = :sid ORDER BY id DESC LIMIT 30", {{":sid", shiftId}});
+                sendJson(res, {
+                    {"success", true},
+                    {"has_open_shift", true},
+                    {"shift", shift},
+                    {"transactions", txs}
+                });
+                return;
+            }
+
+            // Báo cáo Kiểm toán Nội bộ (Audit Trail) & Đối soát Giao Ca dành cho Admin / Kế toán
+            if (action == "audit_and_shifts") {
+                int64_t criticalCount = db.queryScalar("SELECT COUNT(*) FROM audit_logs WHERE severity = 'CRITICAL'").get<int64_t>();
+                int64_t voidCount = db.queryScalar("SELECT COUNT(*) FROM audit_logs WHERE action_code = 'VOID_ORDER'").get<int64_t>();
+                double voidAmount = db.queryScalar("SELECT COALESCE(SUM(amount_impact), 0) FROM audit_logs WHERE action_code = 'VOID_ORDER'").get<double>();
+                int64_t discCount = db.queryScalar("SELECT COUNT(*) FROM audit_logs WHERE action_code = 'MANUAL_DISCOUNT'").get<int64_t>();
+                double discAmount = db.queryScalar("SELECT COALESCE(SUM(amount_impact), 0) FROM audit_logs WHERE action_code = 'MANUAL_DISCOUNT'").get<double>();
+                double totalShiftDiff = db.queryScalar("SELECT COALESCE(SUM(discrepancy), 0) FROM pos_shifts WHERE status = 'closed'").get<double>();
+
+                json auditLogs = db.query("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 100");
+                json shifts = db.query("SELECT * FROM pos_shifts ORDER BY id DESC LIMIT 30");
+                json cashTxs = db.query("SELECT * FROM cash_transactions ORDER BY id DESC LIMIT 50");
+
+                sendJson(res, {
+                    {"success", true},
+                    {"audit_kpi", {
+                        {"critical_count", criticalCount},
+                        {"void_count", voidCount},
+                        {"void_amount", voidAmount},
+                        {"discount_count", discCount},
+                        {"discount_amount", discAmount},
+                        {"total_shift_discrepancy", totalShiftDiff}
+                    }},
+                    {"audit_logs", auditLogs},
+                    {"shifts", shifts},
+                    {"cash_transactions", cashTxs}
+                });
+                return;
+            }
         }
 
         if (req.method == "POST") {
             if (action == "save_expense") {
                 int64_t id = getInt(body, "id");
                 std::string date = getString(body, "expense_date");
-                std::string category = getString(body, "category", "KhÃ¡c");
+                std::string category = getString(body, "category", "Khác");
                 std::string desc = getString(body, "description");
                 std::string supplier = getString(body, "supplier");
                 double amount = getDouble(body, "amount", 0.0);
@@ -2223,7 +2541,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
                 if (date.empty()) date = getCurrentDate();
                 if (amount <= 0) {
-                    sendJson(res, {{"success", false}, {"message", "Sá»‘ tiá»n pháº£i lá»›n hÆ¡n 0!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Số tiền phải lớn hơn 0!"}}, 400);
                     return;
                 }
 
@@ -2245,14 +2563,14 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                         {":a", amount}, {":v", vat}
                     });
                 }
-                sendJson(res, {{"success", true}, {"message", "ÄÃ£ lÆ°u khoáº£n chi."}});
+                sendJson(res, {{"success", true}, {"message", "Đã lưu khoản chi."}});
                 return;
             }
 
             if (action == "delete_expense") {
                 int64_t id = getInt(body, "id");
                 db.execute("DELETE FROM finance_expenses WHERE id = :id", {{":id", id}});
-                sendJson(res, {{"success", true}, {"message", "ÄÃ£ xÃ³a khoáº£n chi."}});
+                sendJson(res, {{"success", true}, {"message", "Đã xóa khoản chi."}});
                 return;
             }
 
@@ -2268,19 +2586,238 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                         );
                     }
                 }
-                sendJson(res, {{"success", true}, {"message", "ÄÃ£ lÆ°u cáº¥u hÃ¬nh thuáº¿."}});
+                sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình thuế."}});
+                return;
+            }
+
+            // Mở Ca làm việc mới (Opening Cash)
+            if (action == "open_shift") {
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 2;
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+
+                auto existing = db.queryRow("SELECT id FROM pos_shifts WHERE status = 'open' LIMIT 1");
+                if (!existing.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Hiện đang có một ca làm việc đang mở! Vui lòng kết ca cũ trước khi mở ca mới."}}, 400);
+                    return;
+                }
+
+                double openingCash = getDouble(body, "opening_cash", 0.0);
+                std::string note = getString(body, "note", "Mở ca chuẩn");
+                std::string nowStr = getCurrentTimestamp();
+
+                int64_t cnt = db.queryScalar("SELECT COUNT(*) FROM pos_shifts").get<int64_t>() + 1;
+                char codeBuf[32];
+                std::snprintf(codeBuf, sizeof(codeBuf), "CA-%04lld", static_cast<long long>(cnt));
+                std::string shiftCode = codeBuf;
+
+                int64_t newId = db.execute(R"(
+                    INSERT INTO pos_shifts (shift_code, user_id, user_name, opened_at, opening_cash, note, status)
+                    VALUES (:sc, :uid, :uname, :oa, :oc, :nt, 'open')
+                )", {
+                    {":sc", shiftCode}, {":uid", uId}, {":uname", uName},
+                    {":oa", nowStr}, {":oc", openingCash}, {":nt", note}
+                });
+
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('OPEN_SHIFT', :albl, 'INFO', 0, :sc, 'QUẦY THU NGÂN', :oc, :nt, :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":albl", "Mở ca làm việc " + shiftCode},
+                    {":sc", shiftCode},
+                    {":oc", openingCash},
+                    {":nt", note},
+                    {":uid", uId}, {":uname", uName}, {":urole", uRole},
+                    {":dtl", "Tiền mặt đầu ca: " + std::to_string(static_cast<int64_t>(openingCash)) + "đ"},
+                    {":cat", nowStr}
+                });
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã mở ca làm việc " + shiftCode + " thành công!"},
+                    {"shift_id", newId},
+                    {"shift_code", shiftCode}
+                });
+                return;
+            }
+
+            // Lập Phiếu Thu / Phiếu Chi nhanh tại quầy trong ca
+            if (action == "add_cash_tx") {
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 2;
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+
+                auto shift = db.queryRow("SELECT id, shift_code FROM pos_shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1");
+                if (shift.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng Mở Ca làm việc trước khi lập Phiếu Thu / Chi tại quầy!"}}, 400);
+                    return;
+                }
+
+                int64_t shiftId = getInt(shift, "id", 0);
+                std::string shiftCode = getString(shift, "shift_code", "");
+                std::string transType = getString(body, "trans_type", "out");
+                if (transType != "in") transType = "out";
+                std::string category = getString(body, "category", transType == "out" ? "Chi mua nguyên liệu / đá tại quầy" : "Thu tiền lẻ bổ sung");
+                double amount = getDouble(body, "amount", 0.0);
+                std::string reason = getString(body, "reason", "");
+
+                if (amount <= 0 || reason.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập số tiền (> 0) và lý do Thu/Chi rõ ràng!"}}, 400);
+                    return;
+                }
+
+                std::string nowStr = getCurrentTimestamp();
+                db.beginTransaction();
+                db.execute(R"(
+                    INSERT INTO cash_transactions (shift_id, trans_type, category, amount, reason, user_id, user_name, created_at)
+                    VALUES (:sid, :tt, :cat, :amt, :rsn, :uid, :uname, :dt)
+                )", {
+                    {":sid", shiftId}, {":tt", transType}, {":cat", category},
+                    {":amt", amount}, {":rsn", reason}, {":uid", uId}, {":uname", uName}, {":dt", nowStr}
+                });
+
+                // Nếu là Phiếu Chi tại quầy (out), tự động đồng bộ sang bảng Sổ quỹ Kế toán (finance_expenses)
+                if (transType == "out") {
+                    db.execute(R"(
+                        INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, created_by, created_at)
+                        VALUES (:d, :c, :n, :s, :a, 0, :u, :dt)
+                    )", {
+                        {":d", getCurrentDate()},
+                        {":c", category},
+                        {":n", "[" + shiftCode + "] " + reason},
+                        {":s", uName},
+                        {":a", amount},
+                        {":u", uName},
+                        {":dt", nowStr}
+                    });
+                }
+
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES (:ac, :albl, :sev, 0, :sc, 'KÉT TIỀN QUẦY', :amt, :rsn, :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":ac", transType == "out" ? "CASH_OUT_DROP" : "CASH_IN_DROP"},
+                    {":albl", (transType == "out" ? "Phiếu Chi tiền mặt tại quầy (" : "Phiếu Thu tiền mặt vào két (") + shiftCode + ")"},
+                    {":sev", (transType == "out" && amount >= 200000.0) ? "WARN" : "INFO"},
+                    {":sc", shiftCode},
+                    {":amt", amount},
+                    {":rsn", reason},
+                    {":uid", uId}, {":uname", uName}, {":urole", uRole},
+                    {":dtl", category + " - Số tiền: " + std::to_string(static_cast<int64_t>(amount)) + "đ"},
+                    {":cat", nowStr}
+                });
+                db.commit();
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", transType == "out" ? "Đã lập Phiếu Chi tiền mặt và đồng bộ Sổ quỹ Kế toán!" : "Đã lập Phiếu Thu bổ sung tiền mặt vào két!"}
+                });
+                return;
+            }
+
+            // Kết Ca & Đối soát Tiền mặt thực đếm (Blind Cash Handover)
+            if (action == "close_shift") {
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 2;
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+
+                auto shift = db.queryRow("SELECT * FROM pos_shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1");
+                if (shift.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không có ca làm việc nào đang mở để kết ca!"}}, 400);
+                    return;
+                }
+
+                int64_t shiftId = getInt(shift, "id", 0);
+                std::string shiftCode = getString(shift, "shift_code", "");
+                std::string openedAt = getString(shift, "opened_at", "2000-01-01 00:00:00");
+                double openingCash = getDouble(shift, "opening_cash", 0.0);
+
+                double cashSales = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' AND paid_at >= :oa",
+                    {{":oa", openedAt}}
+                ).get<double>();
+                double bankingSales = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'banking' AND paid_at >= :oa",
+                    {{":oa", openedAt}}
+                ).get<double>();
+                double cardSales = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'card' AND paid_at >= :oa",
+                    {{":oa", openedAt}}
+                ).get<double>();
+
+                double cashIn = db.queryScalar(
+                    "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE shift_id = :sid AND trans_type = 'in'",
+                    {{":sid", shiftId}}
+                ).get<double>();
+                double cashOut = db.queryScalar(
+                    "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE shift_id = :sid AND trans_type = 'out'",
+                    {{":sid", shiftId}}
+                ).get<double>();
+
+                double expectedCash = openingCash + cashSales + cashIn - cashOut;
+                double actualCash = getDouble(body, "actual_cash", expectedCash);
+                std::string closeNote = getString(body, "note", "Bàn giao cuối ca");
+                double discrepancy = actualCash - expectedCash;
+                std::string nowStr = getCurrentTimestamp();
+
+                db.beginTransaction();
+                db.execute(R"(
+                    UPDATE pos_shifts SET
+                        closed_at = :ca, cash_sales = :cs, banking_sales = :bs, card_sales = :cds,
+                        cash_in = :ci, cash_out = :co, expected_cash = :ec, actual_cash = :ac,
+                        discrepancy = :diff, note = COALESCE(note, '') || ' | Kết ca: ' || :nt,
+                        status = 'closed'
+                    WHERE id = :id
+                )", {
+                    {":ca", nowStr}, {":cs", cashSales}, {":bs", bankingSales}, {":cds", cardSales},
+                    {":ci", cashIn}, {":co", cashOut}, {":ec", expectedCash}, {":ac", actualCash},
+                    {":diff", discrepancy}, {":nt", closeNote}, {":id", shiftId}
+                });
+
+                std::string sev = "INFO";
+                if (std::abs(discrepancy) >= 50000.0) sev = "CRITICAL";
+                else if (std::abs(discrepancy) >= 1000.0) sev = "WARN";
+
+                std::string diffLabel = (discrepancy == 0) ? "Khớp 100%" : (discrepancy < 0 ? ("Thiếu hụt " + std::to_string(static_cast<int64_t>(std::abs(discrepancy))) + "đ") : ("Dư " + std::to_string(static_cast<int64_t>(discrepancy)) + "đ"));
+
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES (:acode, :albl, :sev, 0, :sc, 'BÀN GIAO CA', :amt, :rsn, :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":acode", std::abs(discrepancy) >= 1000.0 ? "SHIFT_DISCREPANCY" : "CLOSE_SHIFT"},
+                    {":albl", "Kết ca " + shiftCode + " (" + diffLabel + ")"},
+                    {":sev", sev},
+                    {":sc", shiftCode},
+                    {":amt", std::abs(discrepancy)},
+                    {":rsn", closeNote},
+                    {":uid", uId}, {":uname", uName}, {":urole", uRole},
+                    {":dtl", "Lý thuyết: " + std::to_string(static_cast<int64_t>(expectedCash)) + "đ | Thực đếm: " + std::to_string(static_cast<int64_t>(actualCash)) + "đ"},
+                    {":cat", nowStr}
+                });
+                db.commit();
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã kết ca " + shiftCode + " thành công! Đối soát két: " + diffLabel},
+                    {"expected_cash", expectedCash},
+                    {"actual_cash", actualCash},
+                    {"discrepancy", discrepancy}
+                });
                 return;
             }
         }
 
         sendError(res, "Invalid finance request", 400);
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i sá»• quá»¹: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi sổ quỹ: ") + e.what()}}, 500);
     }
 }
 
 // ==========================================
-// 8. SETTINGS HANDLER (BÆ°á»›c 4.1)
+// 8. SETTINGS HANDLER (Bước 4.1)
 // ==========================================
 void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -2290,9 +2827,9 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
         if (req.method == "GET") {
             json rows = db.query("SELECT setting_key, setting_value FROM store_settings");
             json map = {
-                {"store_name", "GÃ“C PHá» COFFEE & TEA"},
+                {"store_name", "GÓC PHỐ COFFEE & TEA"},
                 {"store_hotline", "0932.885.131"},
-                {"store_address", "123 ÄÆ°á»ng Sá»‘ 5, P. Linh Trung, TP. Thá»§ Äá»©c, TP.HCM"},
+                {"store_address", "123 Đường Số 5, P. Linh Trung, TP. Thủ Đức, TP.HCM"},
                 {"store_wifi", "gocpho@2024"},
                 {"store_wifi_ssid", "GocPho_Coffee_5G"},
                 {"bank_id", "OCB"},
@@ -2318,7 +2855,7 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
 
         if (req.method == "POST") {
             if (body.empty()) {
-                sendJson(res, {{"success", false}, {"message", "KhÃ´ng cÃ³ dá»¯ liá»‡u gá»­i lÃªn!"}}, 400);
+                sendJson(res, {{"success", false}, {"message", "Không có dữ liệu gửi lên!"}}, 400);
                 return;
             }
 
@@ -2327,7 +2864,7 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
                 std::string v = it.value().is_string() ? it.value().get<std::string>() : it.value().dump();
 
                 if (k == "gemini_api_key") {
-                    if (v.empty() || v.find("â€¢â€¢â€¢") != std::string::npos || v.find("***") != std::string::npos) {
+                    if (v.empty() || v.find("•••") != std::string::npos || v.find("***") != std::string::npos) {
                         continue;
                     }
                     if (v == "__DELETE__") {
@@ -2342,18 +2879,18 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
                     {{":k", k}, {":v", v}}
                 );
             }
-            sendJson(res, {{"success", true}, {"message", "ÄÃ£ lÆ°u cÃ i Ä‘áº·t cá»­a hÃ ng!"}});
+            sendJson(res, {{"success", true}, {"message", "Đã lưu cài đặt cửa hàng!"}});
             return;
         }
 
         sendError(res, "Invalid settings request", 400);
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i cÃ i Ä‘áº·t: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi cài đặt: ") + e.what()}}, 500);
     }
 }
 
 // ==========================================
-// 9. USERS / STAFF HANDLER (BÆ°á»›c 4.2)
+// 9. USERS / STAFF HANDLER (Bước 4.2)
 // ==========================================
 void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -2381,14 +2918,14 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                 std::string userCode = getString(body, "user_code");
 
                 if (username.empty() || fullname.empty()) {
-                    sendJson(res, {{"success", false}, {"message", "Vui lÃ²ng nháº­p tÃªn tÃ i khoáº£n vÃ  há» tÃªn!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập tên tài khoản và họ tên!"}}, 400);
                     return;
                 }
 
                 // Check duplicate username
                 auto existingUser = db.queryRow("SELECT id FROM users WHERE LOWER(username) = LOWER(:u)", {{":u", username}});
                 if (!existingUser.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "TÃªn tÃ i khoáº£n nÃ y Ä‘Ã£ tá»“n táº¡i!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Tên tài khoản này đã tồn tại!"}}, 400);
                     return;
                 }
 
@@ -2418,7 +2955,7 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                 } else {
                     auto chk = db.queryRow("SELECT id FROM users WHERE UPPER(user_code) = UPPER(:c)", {{":c", userCode}});
                     if (!chk.is_null()) {
-                        sendJson(res, {{"success", false}, {"message", "MÃ£ ngÆ°á»i dÃ¹ng [" + userCode + "] Ä‘Ã£ tá»“n táº¡i!"}}, 400);
+                        sendJson(res, {{"success", false}, {"message", "Mã người dùng [" + userCode + "] đã tồn tại!"}}, 400);
                         return;
                     }
                 }
@@ -2447,7 +2984,7 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
 
                 sendJson(res, {
                     {"success", true},
-                    {"message", "ThÃªm ngÆ°á»i dÃ¹ng " + fullname + " (" + userCode + ") thÃ nh cÃ´ng!"},
+                    {"message", "Thêm người dùng " + fullname + " (" + userCode + ") thành công!"},
                     {"id", newId},
                     {"user_code", userCode}
                 });
@@ -2464,7 +3001,7 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                 std::string userCode = getString(body, "user_code");
 
                 if (id <= 0 || fullname.empty()) {
-                    sendJson(res, {{"success", false}, {"message", "ThÃ´ng tin cáº­p nháº­t khÃ´ng há»£p lá»‡!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Thông tin cập nhật không hợp lệ!"}}, 400);
                     return;
                 }
 
@@ -2472,7 +3009,7 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                     auto chk = db.queryRow("SELECT id FROM users WHERE UPPER(user_code) = UPPER(:c) AND id != :id",
                                           {{":c", userCode}, {":id", id}});
                     if (!chk.is_null()) {
-                        sendJson(res, {{"success", false}, {"message", "MÃ£ ngÆ°á»i dÃ¹ng [" + userCode + "] Ä‘Ã£ Ä‘Æ°á»£c tÃ i khoáº£n khÃ¡c sá»­ dá»¥ng!"}}, 400);
+                        sendJson(res, {{"success", false}, {"message", "Mã người dùng [" + userCode + "] đã được tài khoản khác sử dụng!"}}, 400);
                         return;
                     }
                 }
@@ -2496,7 +3033,7 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                     {":id", id}
                 });
 
-                sendJson(res, {{"success", true}, {"message", "Cáº­p nháº­t thÃ´ng tin ngÆ°á»i dÃ¹ng thÃ nh cÃ´ng!"}});
+                sendJson(res, {{"success", true}, {"message", "Cập nhật thông tin người dùng thành công!"}});
                 return;
             }
 
@@ -2506,13 +3043,13 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                 std::string newPin = getString(body, "new_pin");
 
                 if (id <= 0) {
-                    sendJson(res, {{"success", false}, {"message", "MÃ£ nhÃ¢n viÃªn khÃ´ng há»£p lá»‡!"}}, 400);
+                    sendJson(res, {{"success", false}, {"message", "Mã nhân viên không hợp lệ!"}}, 400);
                     return;
                 }
 
                 if (!newPass.empty()) {
                     if (newPass.length() < 6) {
-                        sendJson(res, {{"success", false}, {"message", "Máº­t kháº©u má»›i pháº£i cÃ³ Ã­t nháº¥t 6 kÃ½ tá»±!"}}, 400);
+                        sendJson(res, {{"success", false}, {"message", "Mật khẩu mới phải có ít nhất 6 ký tự!"}}, 400);
                         return;
                     }
                     std::string hashed = AuthService::hashPassword(newPass);
@@ -2523,21 +3060,21 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                     db.execute("UPDATE users SET pin_code = :p WHERE id = :id", {{":p", newPin}, {":id", id}});
                 }
 
-                sendJson(res, {{"success", true}, {"message", "Äáº·t láº¡i máº­t kháº©u/mÃ£ PIN thÃ nh cÃ´ng!"}});
+                sendJson(res, {{"success", true}, {"message", "Đặt lại mật khẩu/mã PIN thành công!"}});
                 return;
             }
 
             if (action == "delete") {
                 int64_t id = getInt(body, "id");
                 db.execute("UPDATE users SET status = 'deleted' WHERE id = :id", {{":id", id}});
-                sendJson(res, {{"success", true}, {"message", "ÄÃ£ xÃ³a ngÆ°á»i dÃ¹ng!"}});
+                sendJson(res, {{"success", true}, {"message", "Đã xóa người dùng!"}});
                 return;
             }
         }
 
         sendError(res, "Invalid users request", 400);
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i ngÆ°á»i dÃ¹ng: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi người dùng: ") + e.what()}}, 500);
     }
 }
 
@@ -2578,7 +3115,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
 
             auto mat = db.queryRow("SELECT name, unit, quantity FROM materials WHERE id = :id", {{":id", matId}});
             if (mat.is_null()) {
-                sendError(res, "NguyÃªn váº­t liá»‡u khÃ´ng tá»“n táº¡i!");
+                sendError(res, "Nguyên vật liệu không tồn tại!");
                 return;
             }
 
@@ -2600,7 +3137,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             db.execute("UPDATE materials SET quantity = :q WHERE id = :id", {{":q", newQty}, {":id", matId}});
             db.commit();
 
-            sendJson(res, {{"success", true}, {"message", "Ghi nháº­n phiáº¿u kho thÃ nh cÃ´ng!"}, {"new_quantity", newQty}});
+            sendJson(res, {{"success", true}, {"message", "Ghi nhận phiếu kho thành công!"}, {"new_quantity", newQty}});
             return;
         }
     }
@@ -2609,7 +3146,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
 }
 
 // ==========================================
-// 11. LICENSE & SAAS HANDLER (BÆ°á»›c 5.2, 5.4)
+// 11. LICENSE & SAAS HANDLER (Bước 5.2, 5.4)
 // ==========================================
 void ApiHandlers::handleLicense(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -2640,12 +3177,12 @@ void ApiHandlers::handleLicense(const httplib::Request& req, httplib::Response& 
 
         sendError(res, "Invalid license request", 400);
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i license: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi license: ") + e.what()}}, 500);
     }
 }
 
 // ==========================================
-// 12. LICENSE CLIENT API (BÆ°á»›c 5.4)
+// 12. LICENSE CLIENT API (Bước 5.4)
 // ==========================================
 void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Response& res) {
     try {
@@ -2665,7 +3202,7 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
                 {"synced", true},
                 {"state", "valid"},
                 {"rights_revision", 1},
-                {"message", "ÄÃ£ Ä‘á»“ng bá»™ giáº¥y phÃ©p báº£n quyá»n thÃ nh cÃ´ng!"},
+                {"message", "Đã đồng bộ giấy phép bản quyền thành công!"},
                 {"data", st.value("data", json::object())}
             });
             return;
@@ -2681,7 +3218,7 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
 
         sendError(res, "Invalid license client request", 400);
     } catch (const std::exception& e) {
-        sendJson(res, {{"success", false}, {"message", std::string("Lá»—i client license: ") + e.what()}}, 500);
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi client license: ") + e.what()}}, 500);
     }
 }
 
@@ -2733,7 +3270,7 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
                     return;
                 }
             }
-            sendJson(res, {{"success", false}, {"message", "KhÃ´ng thá»ƒ lÆ°u tá»‡p táº£i lÃªn."}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Không thể lưu tệp tải lên."}}, 400);
             return;
         }
 
@@ -2751,7 +3288,7 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
             );
             sendJson(res, {
                 {"success", true},
-                {"message", "ÄÃ£ lÆ°u vÃ  xuáº¥t báº£n trÃ¬nh chiáº¿u thÃ nh cÃ´ng!"},
+                {"message", "Đã lưu và xuất bản trình chiếu thành công!"},
                 {"slides", slides}
             });
             return;
@@ -3073,7 +3610,7 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     svr.Get("/api/operations.php", handleOperations);
     svr.Post("/api/operations.php", handleOperations);
 
-    // License & SaaS (Giai Ä‘oáº¡n 5)
+    // License & SaaS (Giai đoạn 5)
     svr.Get("/api/license", handleLicense);
     svr.Post("/api/license", handleLicense);
     svr.Get("/api/license.php", handleLicense);

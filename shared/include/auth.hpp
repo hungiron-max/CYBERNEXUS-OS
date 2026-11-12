@@ -42,9 +42,10 @@ public:
     std::optional<SessionUser> authenticate(const httplib::Request& req);
     std::string extractToken(const httplib::Request& req);
 
-    // Cookie helpers
-    static std::string formatCookie(const std::string& name, const std::string& value, int maxAgeSecs = 86400 * 30);
+    // Cookie helpers (Session cookie by default: maxAgeSecs = 0 -> expires when browser closes)
+    static std::string formatCookie(const std::string& name, const std::string& value, int maxAgeSecs = 0);
     static std::string formatClearCookie(const std::string& name);
+    void clearAllSessions();
 
     // Role check helper
     bool hasRole(const SessionUser& user, const std::string& requiredRole);

@@ -52,6 +52,77 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "[DB Slave] Mo CSDL POS thanh cong: " << dbPath << std::endl;
 
+    // Reset toàn bộ phiên đăng nhập & trạng thái online khi khởi động máy chủ mới
+    AuthService::instance().clearAllSessions();
+    try {
+        Database::instance().execute("UPDATE users SET is_online = 0");
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action_code TEXT NOT NULL,
+                action_label TEXT NOT NULL,
+                severity TEXT DEFAULT 'WARN',
+                order_id INTEGER DEFAULT 0,
+                order_code TEXT DEFAULT '',
+                table_code TEXT DEFAULT '',
+                amount_impact REAL DEFAULT 0,
+                reason TEXT DEFAULT '',
+                user_id INTEGER DEFAULT 0,
+                user_name TEXT DEFAULT '',
+                user_role TEXT DEFAULT '',
+                details TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS pos_shifts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shift_code TEXT NOT NULL,
+                user_id INTEGER DEFAULT 0,
+                user_name TEXT DEFAULT '',
+                opened_at TEXT NOT NULL,
+                closed_at TEXT DEFAULT NULL,
+                opening_cash REAL DEFAULT 0,
+                cash_sales REAL DEFAULT 0,
+                banking_sales REAL DEFAULT 0,
+                card_sales REAL DEFAULT 0,
+                cash_in REAL DEFAULT 0,
+                cash_out REAL DEFAULT 0,
+                expected_cash REAL DEFAULT 0,
+                actual_cash REAL DEFAULT 0,
+                discrepancy REAL DEFAULT 0,
+                note TEXT DEFAULT '',
+                status TEXT DEFAULT 'open'
+            )
+        )");
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS cash_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shift_id INTEGER DEFAULT 0,
+                trans_type TEXT NOT NULL,
+                category TEXT DEFAULT 'Chi phí tại quầy',
+                amount REAL DEFAULT 0,
+                reason TEXT DEFAULT '',
+                user_id INTEGER DEFAULT 0,
+                user_name TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS finance_expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_date TEXT NOT NULL,
+                category TEXT DEFAULT 'Khác',
+                description TEXT DEFAULT '',
+                supplier TEXT DEFAULT '',
+                amount REAL DEFAULT 0,
+                vat_amount REAL DEFAULT 0,
+                created_by TEXT DEFAULT 'admin',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+    } catch (...) {}
+
     // 4. Khởi tạo HTTP Server
     httplib::Server svr;
     g_server = &svr;
@@ -78,9 +149,12 @@ int main(int argc, char* argv[]) {
         std::cout << "[Slave Static] Mount /img -> " << (webDir / "img").string() << std::endl;
     }
 
-    // Helper HTML view renderer
+    // Helper HTML view renderer (Luôn chống cache tuyệt đối để không bao giờ nạp lại trang cũ từ Disk Cache)
     auto serveView = [webDir](const std::string& viewName) {
         return [webDir, viewName](const httplib::Request&, httplib::Response& res) {
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_header("Pragma", "no-cache");
+            res.set_header("Expires", "0");
             fs::path filePath = webDir / (viewName + ".html");
             if (fs::exists(filePath)) {
                 std::ifstream file(filePath, std::ios::binary);
@@ -97,17 +171,23 @@ int main(int argc, char* argv[]) {
         };
     };
 
-    auto serveProtectedView = [serveView](const std::string& viewName, const std::string& requiredRole = "") {
+    auto serveProtectedView = [serveView](const std::string& viewName, const std::string& requiredRole = "any") {
         return [serveView, viewName, requiredRole](const httplib::Request& req, httplib::Response& res) {
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_header("Pragma", "no-cache");
+            res.set_header("Expires", "0");
+
             auto userOpt = AuthService::instance().authenticate(req);
             if (!userOpt.has_value()) {
                 std::string target = "/login.html?redirect=" + viewName + ".html";
                 res.status = 302;
                 res.set_header("Location", target);
-                res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+                res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_token"));
+                res.set_header("Set-Cookie", AuthService::formatClearCookie("PHPSESSID"));
+                res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_remember"));
                 res.set_content(
                     "<!DOCTYPE html><html><head><meta charset='utf-8'><meta http-equiv='refresh' content='0;url=" + target + "'>"
-                    "<script>window.location.replace('" + target + "');</script></head>"
+                    "<script>try{localStorage.removeItem('pos_user');localStorage.removeItem('pos_token');sessionStorage.clear();}catch(e){}window.location.replace('" + target + "');</script></head>"
                     "<body style='background:#020617;color:#94a3b8;font-family:sans-serif;padding:30px;text-align:center;'>"
                     "<h3>🔒 Đang chuyển hướng đến trang đăng nhập POS...</h3>"
                     "</body></html>",
@@ -117,9 +197,14 @@ int main(int argc, char* argv[]) {
             }
 
             const auto& user = userOpt.value();
-            if (requiredRole == "admin" && user.role != "admin") {
-                res.status = 403;
-                res.set_content("<h1>403 Forbidden - Bạn không có quyền truy cập trang quản trị này</h1>", "text/html; charset=utf-8");
+            if (requiredRole != "all_authenticated" && !AuthService::instance().hasRole(user, requiredRole)) {
+                std::string roleHome = "/customer.html";
+                if (user.role == "admin" || user.is_super_admin) roleHome = "/admin.html";
+                else if (user.role == "cashier") roleHome = "/index.html";
+                else if (user.role == "waiter") roleHome = "/order.html";
+                else if (user.role == "kitchen") roleHome = "/kitchen.html";
+                res.status = 302;
+                res.set_header("Location", roleHome);
                 return;
             }
 
@@ -127,43 +212,78 @@ int main(int argc, char* argv[]) {
         };
     };
 
-    // Client Store Views
-    svr.Get("/", serveProtectedView("index", "any"));
-    svr.Get("/index.html", serveProtectedView("index", "any"));
-    svr.Get("/index.php", serveProtectedView("index", "any"));
+    // Client Store Views (100% Bắt buộc có phiên đăng nhập hợp lệ & Đúng phân quyền bộ phận)
+    svr.Get("/", [](const httplib::Request& req, httplib::Response& res) {
+        res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        res.set_header("Pragma", "no-cache");
+        res.set_header("Expires", "0");
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt.has_value()) {
+            res.status = 302;
+            res.set_header("Location", "/login.html");
+            res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_token"));
+            res.set_header("Set-Cookie", AuthService::formatClearCookie("PHPSESSID"));
+            res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_remember"));
+            return;
+        }
+        const auto& u = userOpt.value();
+        std::string target = "/index.html";
+        if (u.role == "admin" || u.is_super_admin) target = "/admin.html";
+        else if (u.role == "waiter") target = "/order.html";
+        else if (u.role == "kitchen") target = "/kitchen.html";
+        else if (u.role == "customer") target = "/customer.html";
+        res.status = 302;
+        res.set_header("Location", target);
+    });
+    // POS Thu Ngân: Chỉ Admin và Thu ngân (cashier)
+    svr.Get("/index", serveProtectedView("index", "cashier"));
+    svr.Get("/index.html", serveProtectedView("index", "cashier"));
+    svr.Get("/index.php", serveProtectedView("index", "cashier"));
 
+    // Quản Trị: Chỉ Admin
     svr.Get("/admin", serveProtectedView("admin", "admin"));
     svr.Get("/admin.html", serveProtectedView("admin", "admin"));
     svr.Get("/admin.php", serveProtectedView("admin", "admin"));
 
-    svr.Get("/kitchen", serveProtectedView("kitchen", "staff"));
-    svr.Get("/kitchen.html", serveProtectedView("kitchen", "staff"));
-    svr.Get("/kitchen.php", serveProtectedView("kitchen", "staff"));
+    // Bếp & Pha chế: Chỉ Admin, Thu ngân, Bếp (kitchen)
+    svr.Get("/kitchen", serveProtectedView("kitchen", "kitchen"));
+    svr.Get("/kitchen.html", serveProtectedView("kitchen", "kitchen"));
+    svr.Get("/kitchen.php", serveProtectedView("kitchen", "kitchen"));
 
-    svr.Get("/order", serveProtectedView("order", "staff"));
-    svr.Get("/order.html", serveProtectedView("order", "staff"));
-    svr.Get("/order.php", serveProtectedView("order", "staff"));
+    // Phục vụ: Chỉ Admin, Thu ngân, Phục vụ (waiter)
+    svr.Get("/order", serveProtectedView("order", "waiter"));
+    svr.Get("/order.html", serveProtectedView("order", "waiter"));
+    svr.Get("/order.php", serveProtectedView("order", "waiter"));
 
-    svr.Get("/customer", serveView("customer"));
-    svr.Get("/customer.html", serveView("customer"));
-    svr.Get("/customer.php", serveView("customer"));
+    // Khách hàng: Mọi tài khoản đã đăng nhập
+    svr.Get("/customer", serveProtectedView("customer", "all_authenticated"));
+    svr.Get("/customer.html", serveProtectedView("customer", "all_authenticated"));
+    svr.Get("/customer.php", serveProtectedView("customer", "all_authenticated"));
 
     svr.Get("/login", serveView("login"));
     svr.Get("/login.html", serveView("login"));
     svr.Get("/login.php", serveView("login"));
 
-    svr.Get("/online_orders.html", serveProtectedView("online_orders", "staff"));
-    svr.Get("/online_orders.php", serveProtectedView("online_orders", "staff"));
+    // Đơn Online: Chỉ Admin và Thu ngân (cashier)
+    svr.Get("/online_orders", serveProtectedView("online_orders", "cashier"));
+    svr.Get("/online_orders.html", serveProtectedView("online_orders", "cashier"));
+    svr.Get("/online_orders.php", serveProtectedView("online_orders", "cashier"));
 
     // Catch-all .php alias
     svr.Get(R"(/([\w-]+)\.php)", [serveProtectedView, serveView](const httplib::Request& req, httplib::Response& res) {
         std::string viewName = req.matches[1];
-        if (viewName == "customer" || viewName == "login") {
+        if (viewName == "login") {
             serveView(viewName)(req, res);
+        } else if (viewName == "customer") {
+            serveProtectedView(viewName, "all_authenticated")(req, res);
         } else if (viewName == "admin") {
             serveProtectedView(viewName, "admin")(req, res);
+        } else if (viewName == "kitchen") {
+            serveProtectedView(viewName, "kitchen")(req, res);
+        } else if (viewName == "order") {
+            serveProtectedView(viewName, "waiter")(req, res);
         } else {
-            serveProtectedView(viewName, "any")(req, res);
+            serveProtectedView(viewName, "cashier")(req, res);
         }
     });
 

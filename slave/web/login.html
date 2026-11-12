@@ -268,20 +268,6 @@
             </div>
         </header>
 
-        <!-- Customer Menu Fast Link -->
-        <a href="customer.html" class="customer-pill">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 30px; height: 30px; border-radius: 10px; background: rgba(16, 185, 129, 0.25); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 13px; border: 1px solid rgba(52, 211, 153, 0.4);">
-                    <i class="fas fa-utensils"></i>
-                </div>
-                <div style="text-align: left;">
-                    <div style="font-weight: 800; font-size: 12px; line-height: 1.2;">Khách Hàng Xem Menu & Đặt Món</div>
-                    <div style="font-size: 10px; color: #94a3b8;">Khách vãng lai, tại bàn, online (Không cần đăng nhập)</div>
-                </div>
-            </div>
-            <i class="fas fa-arrow-right" style="font-size: 11px;"></i>
-        </a>
-
         <!-- Main Glass Card -->
         <div class="login-card">
             <!-- Tabs Navigation -->
@@ -523,22 +509,14 @@
         function getRedirectTarget(user) {
             const role = (user && user.role) ? user.role.toLowerCase() : '';
 
-            // Khách Hàng (Customer) chỉ được vào trang thực đơn khách hàng, tuyệt đối không vào trang thu ngân/nội bộ
-            if (role === 'customer') {
-                return 'customer.html';
-            }
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const redirect = urlParams.get('redirect');
-            if (redirect && !redirect.includes('login') && !redirect.includes('logout')) {
-                // Kiểm tra vai trò hợp lệ tương ứng với trang redirect
-                if (role === 'admin' || user.is_super_admin) return redirect;
-                if (role === 'cashier' && (redirect.includes('index') || redirect.includes('order'))) return redirect;
-                if (role === 'waiter' && (redirect.includes('order') || redirect.includes('online_orders'))) return redirect;
-                if (role === 'kitchen' && redirect.includes('kitchen')) return redirect;
-            }
-
-            if (role === 'admin' || user.is_super_admin) return 'admin.html';
+            // Điều hướng chuẩn xác 100% theo đúng vai trò tài khoản đăng nhập:
+            // - Chủ quán (Admin - PIN 9999) -> Trang Quản Trị (admin.html)
+            // - Thu ngân (Cashier) -> Trang POS Bán Hàng (index.html)
+            // - Phục vụ (Waiter) -> Trang Order Phục Vụ (order.html)
+            // - Bếp / Pha chế (Kitchen) -> Trang Bếp KDS (kitchen.html)
+            // - Khách hàng (Customer) -> Trang Thực Đơn Khách Hàng (customer.html)
+            if (role === 'customer') return 'customer.html';
+            if (role === 'admin' || (user && user.is_super_admin)) return 'admin.html';
             if (role === 'cashier') return 'index.html';
             if (role === 'waiter') return 'order.html';
             if (role === 'kitchen') return 'kitchen.html';
@@ -560,7 +538,7 @@
                     localStorage.setItem('pos_user', JSON.stringify(data.user));
                     if (data.token) {
                         localStorage.setItem('pos_token', data.token);
-                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; max-age=2592000; SameSite=Lax";
+                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; SameSite=Lax";
                     }
                     const target = getRedirectTarget(data.user);
                     window.location.replace(target);
@@ -603,7 +581,7 @@
                     localStorage.setItem('pos_user', JSON.stringify(data.user));
                     if (data.token) {
                         localStorage.setItem('pos_token', data.token);
-                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; max-age=2592000; SameSite=Lax";
+                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; SameSite=Lax";
                     }
                     const target = getRedirectTarget(data.user);
                     window.location.replace(target);
@@ -621,14 +599,30 @@
             }
         }
 
-        // Tự động xóa phiên nếu có param ?logout=1
+        // Tự động xóa phiên nếu có param ?logout=1 hoặc nếu máy chủ đã khởi động lại (không còn phiên hợp lệ)
         (function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('logout') === '1') {
                 localStorage.removeItem('pos_user');
                 localStorage.removeItem('pos_token');
+                sessionStorage.clear();
                 document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
                 document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            } else {
+                // Kiểm tra với C++ Backend: nếu không có phiên hợp lệ thì dọn sạch localStorage & cookie cũ
+                const token = localStorage.getItem('pos_token') || '';
+                fetch('api/auth.php?action=check&_t=' + Date.now(), {
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+                    cache: 'no-store'
+                }).then(r => r.json()).then(res => {
+                    if (!res || res.authenticated !== true) {
+                        localStorage.removeItem('pos_user');
+                        localStorage.removeItem('pos_token');
+                        sessionStorage.clear();
+                        document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                        document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                    }
+                }).catch(() => {});
             }
         })();
 

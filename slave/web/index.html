@@ -34,9 +34,17 @@
                 window.location.replace('customer.html');
                 throw new Error('Chặn khách hàng vào trang Thu Ngân!');
             }
-            // 2. Chống bypass: Xác thực trực tiếp với C++ Auth Service qua synchronous XHR
+            if (u.role === 'waiter') {
+                window.location.replace('order.html');
+                throw new Error('Chuyển hướng Phục vụ về màn hình Order!');
+            }
+            if (u.role === 'kitchen') {
+                window.location.replace('kitchen.html');
+                throw new Error('Chuyển hướng Tổ Bếp về màn hình Bếp!');
+            }
+            // 2. Chống bypass: Xác thực trực tiếp với C++ Auth Service qua synchronous XHR (Chống cache 100%)
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.open('GET', 'api/auth.php?action=check&_t=' + Date.now(), false);
             xhr.withCredentials = true;
             if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
             try {
@@ -44,10 +52,18 @@
                 if (xhr.status === 200) {
                     var res = JSON.parse(xhr.responseText);
                     if (res && res.authenticated === true && res.user) {
-                        // Khách hàng không được vào màn hình Thu Ngân -> Chuyển ngay về trang menu
+                        // Chỉ Admin và Thu Ngân (cashier) mới được vào màn hình POS Thu Ngân
                         if (res.user.role === 'customer') {
                             window.location.replace('customer.html');
                             throw new Error('Chặn khách hàng vào trang Thu Ngân!');
+                        }
+                        if (res.user.role === 'waiter') {
+                            window.location.replace('order.html');
+                            throw new Error('Chuyển hướng Phục vụ về màn hình Order!');
+                        }
+                        if (res.user.role === 'kitchen') {
+                            window.location.replace('kitchen.html');
+                            throw new Error('Chuyển hướng Tổ Bếp về màn hình Bếp!');
                         }
 
                         localStorage.setItem('pos_user', JSON.stringify(res.user));
@@ -70,12 +86,16 @@
             } catch(e) {
                 console.error("Lỗi xác thực C++ Native:", e);
             }
-            // Token không hợp lệ hoặc C++ từ chối -> xóa storage và đẩy về login
+            // Token không hợp lệ hoặc C++ từ chối -> xóa sạch storage/cookie và đẩy về login
             localStorage.removeItem('pos_user');
             localStorage.removeItem('pos_token');
+            sessionStorage.clear();
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             window.location.replace('login.html?redirect=index.html');
             throw new Error('Chặn truy cập: Phiên đăng nhập không hợp lệ!');
         })();
+        window.addEventListener('pageshow', function(e) { if (e.persisted) window.location.reload(); });
 
         // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
         if ('serviceWorker' in navigator) {
@@ -149,6 +169,12 @@
             <button type="button" onclick="POS.openRevenueStatsModal()" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-sm" title="Thống kê doanh thu ca & trong ngày">
                 <i class="fas fa-chart-pie text-emerald-400 text-xs"></i>
                 <span class="hidden lg:inline">Thống Kê</span>
+            </button>
+
+            <!-- Quản Lý Ca & Sổ Quỹ Tiền Mặt Tại Quầy -->
+            <button type="button" onclick="POS.openShiftModal()" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-sm" title="Mở ca, Phiếu Thu/Chi nhanh & Kết ca đối soát tiền mặt">
+                <i class="fas fa-cash-register text-amber-400 text-xs"></i>
+                <span class="hidden lg:inline">Giao Ca / Quỹ</span>
             </button>
 
             
@@ -781,17 +807,25 @@
             if (!zone) return;
             const u = window.currentUser;
             if (u && u.username) {
-                const isAdmin = u.role === 'admin';
+                const isAdmin = u.role === 'admin' || u.is_super_admin === true;
                 const roleBadge = isAdmin ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' : 'bg-sky-500/20 text-sky-300 border-sky-400/40';
                 const roleIcon = isAdmin ? 'fa-crown text-amber-400' : 'fa-user-tag text-sky-400';
                 const roleName = isAdmin ? 'ADMIN' : (u.role || 'NHÂN VIÊN').toUpperCase();
 
-                zone.innerHTML = `
-                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs shrink-0 whitespace-nowrap shadow-sm">
+                const userBadgeHtml = isAdmin
+                    ? `<a href="admin.html" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">
+                        <i class="fas ${roleIcon} text-xs"></i>
+                        <span class="font-bold text-amber-200">${u.fullname || u.username}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${roleBadge} border">${roleName}</span>
+                    </a>`
+                    : `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs shrink-0 whitespace-nowrap shadow-sm">
                         <i class="fas ${roleIcon} text-xs"></i>
                         <span class="font-bold text-slate-200">${u.fullname || u.username}</span>
                         <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${roleBadge} border">${roleName}</span>
-                    </div>
+                    </div>`;
+
+                zone.innerHTML = `
+                    ${userBadgeHtml}
                     <button type="button" onclick="handleLogout()" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 shrink-0 flex items-center gap-1 font-bold shadow-sm whitespace-nowrap" title="Đăng xuất">
                         <i class="fas fa-sign-out-alt text-rose-300 text-xs"></i>
                         <span class="hidden md:inline">Thoát</span>
@@ -822,30 +856,37 @@
             window.location.replace('login.html?logout=1');
         }
 
-        // Tự động kiểm tra phiên đăng nhập khi tải trang
+        // Tự động kiểm tra phiên đăng nhập thực tế khi tải trang (Không bao giờ dùng lại localStorage cũ nếu Server từ chối)
         document.addEventListener('DOMContentLoaded', async function() {
-            // Kiểm tra localStorage trước
-            const savedUser = localStorage.getItem('pos_user');
-            if (savedUser) {
-                try {
-                    window.currentUser = JSON.parse(savedUser);
-                } catch(e) {}
-            }
-
-            // Gọi API kiểm tra phiên đăng nhập thực tế
             try {
-                const res = await fetch('api/auth.php?action=check');
+                const token = localStorage.getItem('pos_token') || '';
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch('api/auth.php?action=check&_t=' + Date.now(), { headers, cache: 'no-store' });
                 const json = await res.json();
-                if (json.authenticated && json.user) {
+                if (json && json.authenticated === true && json.user) {
+                    if (json.user.role === 'customer') {
+                        window.location.replace('customer.html');
+                        return;
+                    }
                     window.currentUser = json.user;
                     localStorage.setItem('pos_user', JSON.stringify(json.user));
-                } else if (!window.currentUser) {
+                } else {
                     window.currentUser = null;
                     localStorage.removeItem('pos_user');
+                    localStorage.removeItem('pos_token');
+                    sessionStorage.clear();
+                    document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                    document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
                     window.location.replace('login.html?redirect=index.html');
                     return;
                 }
-            } catch(e) {}
+            } catch(e) {
+                window.currentUser = null;
+                localStorage.removeItem('pos_user');
+                localStorage.removeItem('pos_token');
+                window.location.replace('login.html?redirect=index.html');
+                return;
+            }
 
             updateAuthHeaderUI();
         });

@@ -380,9 +380,9 @@
                 window.location.replace('login.html?redirect=admin.html');
                 throw new Error('Chặn truy cập: Chưa đăng nhập!');
             }
-            // Xác thực trực tiếp với C++ Auth Service
+            // Xác thực trực tiếp với C++ Auth Service (Chống cache 100%)
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.open('GET', 'api/auth.php?action=check&_t=' + Date.now(), false);
             xhr.withCredentials = true;
             if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
             try {
@@ -417,9 +417,13 @@
             }
             localStorage.removeItem('pos_user');
             localStorage.removeItem('pos_token');
+            sessionStorage.clear();
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             window.location.replace('login.html?redirect=admin.html');
             throw new Error('Chặn truy cập: Phiên không hợp lệ!');
         })();
+        window.addEventListener('pageshow', function(e) { if (e.persisted) window.location.reload(); });
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -595,7 +599,7 @@
             <!-- Group 4 Sub-items (Hệ Thống & Quán) -->
             <div id="subnav-sys" class="subnav-group hidden flex items-center gap-1.5">
                 <button type="button" onclick="Admin.switchTab('finance')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="finance">
-                    <i class="fas fa-file-invoice-dollar text-teal-400"></i> <span>Báo Cáo Tài Chính</span>
+                    <i class="fas fa-shield-halved text-teal-400"></i> <span>Kế Toán Ca &amp; Kiểm Toán (Audit)</span>
                 </button>
                 <button type="button" onclick="Admin.switchTab('media')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="media">
                     <i class="fas fa-compact-disc text-fuchsia-400"></i> <span>Âm Nhạc &amp; Jukebox</span>
@@ -1684,6 +1688,79 @@
             </div>
 
             <div class="grid grid-cols-2 lg:grid-cols-5 gap-3" id="fin-kpi-cards"></div>
+
+            <!-- PHÂN HỆ MỚI 1: KIỂM TOÁN NỘI BỘ CHỐNG THẤT THOÁT (AUDIT RED FLAGS) -->
+            <div class="liquid-glass rounded-xl border border-rose-500/30 p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+                            <i class="fas fa-shield-halved"></i>
+                        </span>
+                        <div>
+                            <h3 class="font-extrabold text-sm text-rose-300 uppercase">Kiểm Toán Nội Bộ &amp; Cảnh Báo Chống Thất Thoát (Real-Time Audit Trail)</h3>
+                            <p class="text-[11px] text-slate-400">Tự động giám sát Hủy đơn, Giảm giá thủ công, In lại bill, Khóa món và Lệch két giao ca (Không thể xóa sửa)</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="Admin.loadFinance()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">
+                        <i class="fas fa-sync-alt mr-1"></i> Làm mới Audit
+                    </button>
+                </div>
+
+                <!-- 4 Thẻ KPI Kiểm Toán -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="fin-audit-kpi-cards"></div>
+
+                <!-- Bảng Nhật Ký Kiểm Toán Bất Biến -->
+                <div class="overflow-x-auto max-h-72 rounded-xl border border-white/10 bg-slate-950/60">
+                    <table class="saas-table">
+                        <thead>
+                            <tr>
+                                <th style="width:135px;">Thời gian</th>
+                                <th style="width:105px;">Mức độ</th>
+                                <th style="width:220px;">Hành vi Kiểm toán</th>
+                                <th style="width:120px;">Bàn / Mã đơn</th>
+                                <th class="col-right" style="width:120px;">Tác động tiền</th>
+                                <th>Lý do giải trình &amp; Chi tiết</th>
+                                <th style="width:150px;">Nhân viên</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fin-audit-logs-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PHÂN HỆ MỚI 2: ĐỐI SOÁT BÀN GIAO CA & SỔ QUỸ TIỀN MẶT TẠI QUẦY -->
+            <div class="liquid-glass rounded-xl border border-amber-500/30 p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                            <i class="fas fa-cash-register"></i>
+                        </span>
+                        <div>
+                            <h3 class="font-extrabold text-sm text-amber-300 uppercase">Đối Soát Bàn Giao Ca &amp; Két Tiền Thu Ngân (Shift Reconciliation)</h3>
+                            <p class="text-[11px] text-slate-400">Đối chiếu Tiền mặt lý thuyết trên máy với Tiền mặt thực đếm cuối ca</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-64 rounded-xl border border-white/10 bg-slate-950/60">
+                    <table class="saas-table">
+                        <thead>
+                            <tr>
+                                <th style="width:95px;">Mã Ca</th>
+                                <th style="width:140px;">Nhân viên trực</th>
+                                <th style="width:155px;">Thời gian Mở / Kết</th>
+                                <th class="col-right" style="width:110px;">Đầu ca</th>
+                                <th class="col-right" style="width:120px;">Thu Tiền mặt</th>
+                                <th class="col-right" style="width:120px;">Thu/Chi quầy</th>
+                                <th class="col-right" style="width:125px;">Tiền lý thuyết</th>
+                                <th class="col-right" style="width:125px;">Tiền thực đếm</th>
+                                <th class="col-right" style="width:130px;">Chênh lệch</th>
+                                <th style="width:95px;">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fin-shifts-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div class="liquid-glass rounded-xl border border-white/10 p-4 lg:col-span-2">

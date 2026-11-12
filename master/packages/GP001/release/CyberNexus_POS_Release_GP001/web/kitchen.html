@@ -31,8 +31,12 @@
                 window.location.replace('customer.html');
                 throw new Error('Chặn khách hàng truy cập trang nội bộ!');
             }
+            if (u.role === 'waiter') {
+                window.location.replace('order.html');
+                throw new Error('Chuyển hướng Phục vụ về màn hình Order!');
+            }
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'api/auth.php?action=check', false);
+            xhr.open('GET', 'api/auth.php?action=check&_t=' + Date.now(), false);
             xhr.withCredentials = true;
             if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
             try {
@@ -43,6 +47,10 @@
                         if (res.user.role === 'customer') {
                             window.location.replace('customer.html');
                             throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+                        }
+                        if (res.user.role === 'waiter') {
+                            window.location.replace('order.html');
+                            throw new Error('Chuyển hướng Phục vụ về màn hình Order!');
                         }
                         localStorage.setItem('pos_user', JSON.stringify(res.user));
                         window.currentUser = res.user;
@@ -65,9 +73,13 @@
             }
             localStorage.removeItem('pos_user');
             localStorage.removeItem('pos_token');
+            sessionStorage.clear();
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             window.location.replace('login.html?redirect=kitchen.html');
             throw new Error('Chặn truy cập: Phiên không hợp lệ!');
         })();
+        window.addEventListener('pageshow', function(e) { if (e.persisted) window.location.reload(); });
 
         // Tự động dọn sạch Service Worker cũ & CacheStorage
         if ('serviceWorker' in navigator) {
@@ -126,22 +138,13 @@
                 <span id="count-locked-dishes" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono text-[10px] font-black">0</span>
             </button>
 
-            <!-- Navigation Links -->
-            <a href="order.html" class="btn-glass text-xs py-1.5 px-2 sm:px-3 bg-sky-500/20 text-sky-300 flex items-center gap-1 font-bold shrink-0" title="Order Phục Vụ">
-                <i class="fas fa-clipboard-list text-xs"></i>
-                <span class="hidden md:inline">Phục Vụ</span>
-            </a>
-            
-
-            <!-- Nút Mã QR Cho Khách Đặt Món -->
-            <button type="button" onclick="showLanQrModal()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border-purple-500/30 flex items-center justify-center font-bold shrink-0" title="Mã QR Khách Hàng Gọi Món (customer.html)">
-                <i class="fas fa-qrcode text-xs sm:text-sm"></i>
-            </button>
-
             <!-- Reload -->
             <button type="button" onclick="loadKitchenOrders()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-slate-800 text-slate-300 flex items-center justify-center shrink-0" title="Làm mới">
                 <i class="fas fa-sync-alt text-xs"></i>
             </button>
+
+            <!-- Admin Badge Zone (Chỉ hiển thị khi user đăng nhập là Admin) -->
+            <div id="kitchen-admin-badge-zone" class="flex items-center shrink-0"></div>
 
             <!-- Logout -->
             <button type="button" onclick="handleLogout()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/30 flex items-center justify-center gap-1 font-bold shrink-0" title="Đăng xuất">
@@ -940,8 +943,26 @@
             }
         }
 
+        function renderKitchenAdminBadge() {
+            const zone = document.getElementById('kitchen-admin-badge-zone');
+            if (!zone) return;
+            const u = window.currentUser;
+            if (u && (u.role === 'admin' || u.is_super_admin === true)) {
+                zone.innerHTML = `
+                    <a href="admin.html" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">
+                        <i class="fas fa-crown text-amber-400 text-xs"></i>
+                        <span class="hidden sm:inline font-bold text-amber-200">${u.fullname || u.username}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">ADMIN</span>
+                    </a>
+                `;
+            } else {
+                zone.innerHTML = '';
+            }
+        }
+
         // Initialize & auto reload every 3.5 seconds
         document.addEventListener('DOMContentLoaded', () => {
+            renderKitchenAdminBadge();
             updateSoundUI();
             loadKitchenOrders();
             loadAllDishesForModal();

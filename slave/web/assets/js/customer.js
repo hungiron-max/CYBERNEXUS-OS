@@ -58,6 +58,35 @@ const CustomerOrdering = {
             document.getElementById('customer-track-order-button')?.classList.remove('hidden');
             this.checkOrderStatus();
         }
+        this.syncMenuLocks();
+        window.setInterval(() => this.syncMenuLocks(), 10000);
+    },
+
+    async syncMenuLocks() {
+        if (!navigator.onLine) return;
+        try {
+            const res = await fetch('api/products.php', { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.data)) return;
+            data.data.forEach(p => {
+                const card = document.querySelector(`.product-item[data-product-id="${Number(p.id)}"]`);
+                if (!card) return;
+                const isLocked = (p.status === 'locked');
+                card.dataset.locked = isLocked ? '1' : '0';
+                card.classList.toggle('opacity-50', isLocked);
+                card.classList.toggle('grayscale', isLocked);
+                const btn = card.querySelector('button[onclick*="addCustomerCartItem"]');
+                if (btn) {
+                    if (isLocked) {
+                        btn.innerHTML = '<i class="fas fa-ban mr-1"></i>Tạm hết';
+                        btn.classList.add('bg-rose-500/20', 'text-rose-300');
+                    } else {
+                        btn.innerHTML = '<i class="fas fa-plus"></i><span>Chọn</span>';
+                        btn.classList.remove('bg-rose-500/20', 'text-rose-300');
+                    }
+                }
+            });
+        } catch (e) {}
     },
 
     updateConnection() {
@@ -86,6 +115,11 @@ const CustomerOrdering = {
     },
 
     addItem(productId) {
+        const card = document.querySelector(`.product-item[data-product-id="${Number(productId)}"]`);
+        if (card && card.dataset.locked === '1') {
+            alert('Món này hiện Bếp vừa báo tạm hết hàng, Quý khách vui lòng chọn món khác nhé!');
+            return;
+        }
         const product = this.productInfo(productId);
         if (!product) return;
         const current = Number(this.cart[product.id]) || 0;
