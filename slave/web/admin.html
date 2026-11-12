@@ -14,7 +14,7 @@
     <script src="assets/js/chart.min.js"></script>
     <!-- Liquid Glass Custom Styles -->
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=7">
-    <link rel="stylesheet" href="assets/css/theme.css?v=4">
+    <link rel="stylesheet" href="assets/css/theme.css?v=5">
     <script src="assets/js/theme.js?v=3"></script>
     <style>
         /* Slide & Carousel Styling - Cinematic Liquid Glass */
@@ -87,6 +87,75 @@
             border: 1px solid rgba(56, 189, 248, 0.2) !important;
             border-radius: 20px !important;
             box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+        html[data-theme="light"] .eq-studio-rack {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(241, 247, 253, 0.96) 100%) !important;
+            border: 1px solid rgba(14, 165, 233, 0.28) !important;
+            box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+        }
+        html[data-theme="light"] .eq-studio-rack .border-white\/10 {
+            border-color: rgba(148, 163, 184, 0.32) !important;
+        }
+        html[data-theme="light"] .eq-studio-rack .dsp-spectrum-screen {
+            background: linear-gradient(180deg, #f0f7ff 0%, #e0eeff 100%) !important;
+            border-color: rgba(14, 165, 233, 0.35) !important;
+            box-shadow: inset 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+        }
+        html[data-theme="light"] .eq-studio-rack .dsp-db-label.p12 { color: #047857 !important; }
+        html[data-theme="light"] .eq-studio-rack .dsp-db-label.p6 { color: #0f766e !important; }
+        html[data-theme="light"] .eq-studio-rack .dsp-db-label.zero { color: #0369a1 !important; }
+        html[data-theme="light"] .eq-studio-rack .dsp-db-label.m6 { color: #be123c !important; }
+        html[data-theme="light"] .eq-studio-rack .dsp-db-label.m12 { color: #9f1239 !important; }
+        html[data-theme="light"] .eq-channel-strip {
+            background: linear-gradient(180deg, #ffffff 0%, #eef4fb 100%) !important;
+            border: 1px solid rgba(148, 163, 184, 0.42) !important;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05) !important;
+        }
+        html[data-theme="light"] .eq-channel-strip:hover {
+            background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 100%) !important;
+            border-color: rgba(2, 132, 199, 0.55) !important;
+            box-shadow: 0 6px 14px rgba(2, 132, 199, 0.15) !important;
+        }
+        html[data-theme="light"] .eq-val-boost {
+            color: #047857 !important;
+            background: rgba(16, 185, 129, 0.14) !important;
+            border-color: rgba(16, 185, 129, 0.35) !important;
+            box-shadow: none !important;
+        }
+        html[data-theme="light"] .eq-val-flat {
+            color: #0369a1 !important;
+            background: rgba(14, 165, 233, 0.12) !important;
+            border-color: rgba(14, 165, 233, 0.3) !important;
+        }
+        html[data-theme="light"] .eq-val-cut {
+            color: #be123c !important;
+            background: rgba(244, 63, 94, 0.14) !important;
+            border-color: rgba(244, 63, 94, 0.35) !important;
+            box-shadow: none !important;
+        }
+        html[data-theme="light"] .eq-slot-groove {
+            background: #cbd5e1 !important;
+            border: 1px solid #94a3b8 !important;
+            box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.35) !important;
+        }
+        html[data-theme="light"] .eq-zero-line {
+            background: #0284c7 !important;
+            box-shadow: 0 0 4px rgba(2, 132, 199, 0.5) !important;
+        }
+        html[data-theme="light"] .eq-slider-input {
+            background: transparent !important;
+            border: none !important;
+        }
+        html[data-theme="light"] .eq-slider-input::-webkit-slider-thumb {
+            background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 45%, #64748b 50%, #334155 100%) !important;
+            border: 1px solid #475569 !important;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35) !important;
+        }
+        html[data-theme="light"] .eq-freq-badge {
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] .eq-band-role {
+            color: #64748b !important;
         }
         .eq-faders-grid {
             display: grid !important;

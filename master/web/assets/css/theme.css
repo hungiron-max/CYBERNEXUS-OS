@@ -57,7 +57,7 @@
   html[data-theme="light"] :is(.liquid-modal-overlay, .online-payment-modal) {
     background: rgba(30, 41, 59, .48) !important;
   }
-  html[data-theme="light"] :is(.liquid-input, input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  html[data-theme="light"] :is(.liquid-input, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
     background: rgba(255, 255, 255, .9) !important;
     border-color: #9aaec3 !important;
     color: #17243b !important;
