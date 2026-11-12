@@ -2227,6 +2227,190 @@
                         </div>
                     </div>
 
+                    <!-- ========================================================= -->
+                    <!-- CỔNG CÀ THẺ TÍN DỤNG & SMARTPOS NGÂN HÀNG (ECR ADAPTER)   -->
+                    <!-- ========================================================= -->
+                    <div id="admin-card-payment-panel" class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-900 border border-indigo-500/40 space-y-4 shadow-xl">
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center text-base shrink-0">
+                                    <i class="fas fa-credit-card"></i>
+                                </span>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="font-black text-xs sm:text-sm uppercase tracking-wider text-indigo-300">
+                                            Cổng Cà Thẻ Tín Dụng &amp; SmartPOS Ngân Hàng (Semi-Integrated ECR)
+                                        </h4>
+                                        <span id="ecr-admin-license-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                            MODULE: ON
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                            SIMULATION MODE
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">
+                                        Bắt buộc sử dụng thiết bị SmartPOS / ECR đời mới đạt chuẩn bảo mật <b>PCI PTS 5.x / 6.x</b> (EMV Chip, NFC Contactless Apple/Google Pay).
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="Admin.testCardTerminalConnection()" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer">
+                                    <i class="fas fa-satellite-dish"></i> <span>Test Handshake ECR</span>
+                                </button>
+                                <button type="button" onclick="Admin.saveCardTerminalConfig()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition cursor-pointer">
+                                    <i class="fas fa-floppy-disk"></i> <span>Lưu Liên Kết POS</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Banner cảnh báo nếu Master OFF hoặc BLOCK -->
+                        <div id="ecr-admin-lock-banner" class="hidden p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-xs text-rose-200 flex items-center gap-2.5">
+                            <i class="fas fa-ban text-rose-400 text-base"></i>
+                            <div id="ecr-admin-lock-text">Module đang bị khóa bởi Master.</div>
+                        </div>
+
+                        <!-- Row 1: Chọn đời máy POS bắt buộc (10 dòng máy đời mới) & Ngân hàng thanh toán -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                                    <i class="fas fa-microchip text-indigo-400 mr-1"></i>Đời máy SmartPOS / ECR Tương Thích (Bắt buộc đời mới PCI PTS 5.x/6.x):
+                                </label>
+                                <select id="ecr-cfg-model-code" onchange="Admin.onSelectEcrModel(this.value)" class="liquid-input w-full text-xs font-bold text-white bg-slate-900">
+                                    <option value="PAX_A920_PRO">PAX A920 Pro (SmartPOS Android 10 • PCI PTS 5.x • LAN/WiFi/NFC)</option>
+                                    <option value="PAX_A910S">PAX A910S SmartPOS (PayDroid • PCI PTS 6.x • LAN/WiFi/NFC)</option>
+                                    <option value="PAX_A35">PAX A35 Customer Facing PINPad (Ethernet LAN • PCI PTS 6.x)</option>
+                                    <option value="SUNMI_P2_PRO">Sunmi P2 Pro / P2 SE (SUNMI OS • PCI PTS 5.x • WiFi/NFC)</option>
+                                    <option value="SUNMI_P3">Sunmi P3 Flagship SmartPOS (Android 11 • PCI PTS 6.x • LAN/WiFi)</option>
+                                    <option value="VERIFONE_V200C">Verifone V200c / V240m Engage (Verifone Engage • PCI PTS 5.x)</option>
+                                    <option value="VERIFONE_X990">Verifone X990 SmartPOS (Android • PCI PTS 5.x • LAN/WiFi/NFC)</option>
+                                    <option value="INGENICO_AXIUM_DX8000">Ingenico AXIUM DX8000 (AXIUM Android • PCI PTS 6.x)</option>
+                                    <option value="INGENICO_MOVE_5000">Ingenico Move/5000 / Desk/5000 (Telium TETRA • PCI PTS 5.x)</option>
+                                    <option value="VNPAY_SMARTPOS">VNPAY SmartPOS (A910/P2 Custom • VNPAY-POS JSON API • PCI PTS 6.x)</option>
+                                </select>
+                                <div id="ecr-cfg-model-specs" class="text-[10px] text-indigo-300 mt-1 font-mono">
+                                    Chuẩn bảo mật: PCI PTS 5.x • Giao thức: PAX PosLink REST/TCP JSON • Hỗ trợ: NFC, EMV Chip, QR
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                                    <i class="fas fa-building-columns text-sky-400 mr-1"></i>Ngân hàng cấp máy (Acquirer):
+                                </label>
+                                <select id="ecr-cfg-acquirer-bank" class="liquid-input w-full text-xs font-bold text-sky-300 bg-slate-900">
+                                    <option value="Vietcombank">Vietcombank (VCB)</option>
+                                    <option value="VietinBank">VietinBank (ICB)</option>
+                                    <option value="BIDV">BIDV</option>
+                                    <option value="Techcombank">Techcombank (TCB)</option>
+                                    <option value="VPBank">VPBank</option>
+                                    <option value="MBBank">MBBank</option>
+                                    <option value="ACB">ACB</option>
+                                    <option value="Sacombank">Sacombank</option>
+                                    <option value="VNPAY">VNPAY SmartPOS</option>
+                                    <option value="Payoo">Payoo POS</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Giao thức kết nối, IP, Port, TID, MID, Secret Key -->
+                        <div class="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Chuẩn kết nối:</label>
+                                <select id="ecr-cfg-conn-type" class="liquid-input w-full text-xs font-mono bg-slate-900">
+                                    <option value="LAN_TCP">LAN TCP/IP</option>
+                                    <option value="WIFI_REST">Wi-Fi REST</option>
+                                    <option value="USB_CDC">USB-CDC COM</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[10px] text-slate-400 mb-1">IP Tĩnh Máy POS (Static LAN IP):</label>
+                                <input type="text" id="ecr-cfg-ip" value="10.0.126.250" class="liquid-input w-full text-xs font-mono font-bold text-emerald-300" placeholder="10.0.126.250" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Port ECR:</label>
+                                <input type="number" id="ecr-cfg-port" value="10009" class="liquid-input w-full text-xs font-mono font-bold text-sky-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">TID (8 ký tự):</label>
+                                <input type="text" id="ecr-cfg-tid" value="88001234" maxlength="16" class="liquid-input w-full text-xs font-mono font-bold text-amber-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">MID (15 ký tự):</label>
+                                <input type="text" id="ecr-cfg-mid" value="000001088001234" maxlength="24" class="liquid-input w-full text-xs font-mono text-slate-200" />
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Secret Key, Phụ phí khách, Chế độ mô phỏng & Phí Master -->
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">ECR Secret Key (HMAC):</label>
+                                <input type="password" id="ecr-cfg-secret" value="NEXUS-ECR-2026-KEY" class="liquid-input w-full text-xs font-mono" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Phụ phí cà thẻ thu khách (%):</label>
+                                <input type="number" step="0.1" min="0" max="10" id="ecr-cfg-surcharge" value="0" class="liquid-input w-full text-xs font-mono font-bold text-amber-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Kịch bản mô phỏng (Simulation):</label>
+                                <select id="ecr-cfg-sim-behavior" class="liquid-input w-full text-xs bg-slate-900 font-semibold text-emerald-300">
+                                    <option value="AUTO_APPROVE">✅ Tự động duyệt (00 APPROVED)</option>
+                                    <option value="SIMULATE_DECLINE_51">❌ Giả lập thẻ hết tiền (51 DECLINED)</option>
+                                    <option value="SIMULATE_TIMEOUT">⏱ Giả lập quá hạn chờ (TIMEOUT)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Phí nền tảng Master / GD:</label>
+                                <div id="ecr-cfg-master-fee-display" class="liquid-input w-full text-xs font-mono font-bold text-indigo-300 bg-slate-950/80 flex items-center justify-between">
+                                    <span>0.0%</span>
+                                    <span class="text-[9px] text-slate-500">Do Master quy định</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Handshake status message -->
+                        <div id="ecr-handshake-result" class="hidden p-2.5 rounded-xl bg-slate-950/90 border border-sky-500/30 text-xs font-mono text-sky-300"></div>
+
+                        <!-- Đối Soát Lô & Lịch Sử Giao Dịch Cà Thẻ -->
+                        <div class="pt-3 border-t border-white/10 space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                                        <i class="fas fa-receipt text-emerald-400"></i> Đối Soát Giao Dịch Thẻ &amp; Kết Toán Lô (Batch Settlement)
+                                    </span>
+                                    <span id="ecr-batch-summary-badge" class="px-2 py-0.5 rounded-lg text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                        0 GD • 0 đ
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="Admin.loadCardTransactions()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold">
+                                        <i class="fas fa-rotate mr-1"></i>Làm mới
+                                    </button>
+                                    <button type="button" onclick="Admin.settleCardBatch()" class="px-3 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1 cursor-pointer">
+                                        <i class="fas fa-file-shield"></i> <span>Kết Toán Lô (Settle Batch)</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto max-h-56 media-custom-scroll rounded-xl border border-white/10 bg-slate-950/70">
+                                <table class="saas-table text-[11px]">
+                                    <thead>
+                                        <tr>
+                                            <th>Mã GD / Trace</th>
+                                            <th>Đơn / Bàn</th>
+                                            <th>Thẻ / PAN</th>
+                                            <th>Máy POS / NH</th>
+                                            <th class="col-right">Tổng Thu</th>
+                                            <th class="col-center">Chuẩn Chi</th>
+                                            <th class="col-center">Trạng Thái</th>
+                                            <th class="col-right">Thao Tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ecr-transactions-tbody">
+                                        <tr><td colspan="8" class="text-center py-4 text-slate-500">Chưa có giao dịch cà thẻ nào trong lô hiện tại.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Tích hợp Trí Tuệ Nhân Tạo (Google Gemini AI) -->
                     <div class="p-4 rounded-xl bg-slate-900/80 border border-purple-500/30 space-y-3">
                         <div class="flex items-center justify-between gap-2">
@@ -2687,6 +2871,9 @@
                                 <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." class="liquid-input py-1 px-2.5 text-xs w-32 rounded-lg bg-slate-900 border border-white/10" />
                                 <button type="button" onclick="Admin.openUploadMediaModal()" class="btn-glass text-[11px] py-1 px-2 text-teal-300 hover:text-white border-teal-500/40 hover:bg-teal-500/20 font-bold flex items-center gap-1 shadow-sm" title="Tải file nhạc MP3/WAV/FLAC lên server">
                                     <i class="fas fa-upload text-[10px]"></i> Tải Nhạc
+                                </button>
+                                <button type="button" onclick="Admin.openYoutubeImportModal()" class="btn-glass text-[11px] py-1 px-2 text-rose-300 hover:text-white border-rose-500/40 hover:bg-rose-500/20 font-bold flex items-center gap-1 shadow-sm" title="Thêm nhạc từ link YouTube (chỉ lấy Audio)">
+                                    <i class="fab fa-youtube text-[11px]"></i> YouTube Audio
                                 </button>
                                 <button type="button" onclick="Admin.openMediaManagerModal()" class="btn-glass text-[11px] py-1 px-2 text-sky-300 hover:text-white border-sky-500/40 hover:bg-sky-500/20 font-bold flex items-center gap-1 shadow-sm" title="Quản lý toàn bộ kho nhạc">
                                     <i class="fas fa-sliders-h text-[10px]"></i> Quản Lý
@@ -4167,6 +4354,108 @@
                         <!-- Populated dynamically -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- YOUTUBE AUDIO IMPORT MODAL (HYBRID STREAM + OFFLINE MP3) -->
+    <div id="youtube-import-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+        <div class="liquid-glass w-full max-w-xl rounded-3xl border border-rose-500/30 p-5 text-white shadow-2xl flex flex-col max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-base shadow-sm"><i class="fab fa-youtube"></i></span>
+                    <div>
+                        <h3 class="font-black text-base text-white">Thêm Nhạc Từ YouTube (Chỉ Audio)</h3>
+                        <p class="text-[11px] text-slate-400">Hỗ trợ 10-Band EQ, Oscilloscope &amp; Auto-Ducking nhờ Hybrid Audio Proxy</p>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xl transition-all" onclick="Admin.closeYoutubeImportModal()">&times;</button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-300 mb-1">Link YouTube (Watch / Shorts / youtu.be)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="yt-import-url" placeholder="https://www.youtube.com/watch?v=..." class="liquid-input flex-1 py-2 px-3 rounded-xl bg-slate-900 border border-white/15 text-xs text-white" />
+                        <button type="button" id="yt-preview-btn" onclick="Admin.previewYoutubeAudio()" class="px-3.5 py-2 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 border border-sky-400/40 text-sky-200 font-bold transition flex items-center gap-1.5 shrink-0">
+                            <i class="fas fa-search"></i> Lấy Thông Tin
+                        </button>
+                    </div>
+                </div>
+
+                <div id="yt-preview-box" class="hidden p-3 rounded-2xl bg-slate-900/70 border border-white/10 space-y-2.5">
+                    <div class="flex items-center gap-3">
+                        <img id="yt-preview-thumb" src="" alt="Thumbnail" class="w-20 h-14 object-cover rounded-xl border border-white/10 shrink-0 bg-slate-800" />
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[10px] uppercase tracking-wider text-rose-400 font-bold" id="yt-preview-duration">00:00</div>
+                            <div class="text-xs font-bold text-white truncate" id="yt-preview-title-display">---</div>
+                            <div class="text-[11px] text-slate-400 truncate" id="yt-preview-artist-display">---</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        <div class="sm:col-span-2">
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Tên bài hát</label>
+                            <input type="text" id="yt-import-title" class="liquid-input w-full py-1.5 px-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Thể loại</label>
+                            <input type="text" id="yt-import-genre" value="YouTube" class="liquid-input w-full py-1.5 px-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Nghệ sĩ / Kênh</label>
+                            <input type="text" id="yt-import-artist" class="liquid-input w-full py-1.5 px-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-300 mb-1.5">Chế độ xử lý (Hybrid Recommended)</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <label class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 hover:bg-emerald-950/50 flex items-start gap-2">
+                            <input type="radio" name="yt-import-mode" value="hybrid" checked class="mt-0.5 accent-emerald-400" />
+                            <div>
+                                <div class="font-bold text-emerald-300 text-[11px]">Hybrid (Khuyên dùng)</div>
+                                <div class="text-[10px] text-slate-400">Phát ngay qua Proxy + tự tải MP3 nền</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-white/10 hover:border-sky-500/40 flex items-start gap-2">
+                            <input type="radio" name="yt-import-mode" value="stream" class="mt-0.5 accent-sky-400" />
+                            <div>
+                                <div class="font-bold text-sky-300 text-[11px]">Chỉ Stream</div>
+                                <div class="text-[10px] text-slate-400">Nhẹ ổ cứng, phát qua mạng</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-white/10 hover:border-teal-500/40 flex items-start gap-2">
+                            <input type="radio" name="yt-import-mode" value="offline" class="mt-0.5 accent-teal-400" />
+                            <div>
+                                <div class="font-bold text-teal-300 text-[11px]">Chỉ Tải MP3</div>
+                                <div class="text-[10px] text-slate-400">Tải xong thành MP3 mới thêm</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="yt-job-status-box" class="hidden p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-[11px] space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span id="yt-job-status-text" class="text-emerald-300 font-bold">Đang xử lý...</span>
+                        <span id="yt-job-progress-pct" class="font-mono text-slate-300">0%</span>
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div id="yt-job-progress-bar" class="h-full bg-gradient-to-r from-rose-500 to-emerald-400 transition-all duration-300" style="width: 10%"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 border-t border-white/10">
+                    <button type="button" onclick="Admin.updateYtdlpTool()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-slate-300 hover:text-white transition flex items-center gap-1.5" title="Cập nhật yt-dlp.exe mới nhất để tránh lỗi đổi thuật toán YouTube">
+                        <i class="fas fa-rotate"></i> Cập nhật yt-dlp
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="Admin.closeYoutubeImportModal()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold">Đóng</button>
+                        <button type="button" id="yt-submit-btn" onclick="Admin.submitYoutubeAudio()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold shadow-lg flex items-center gap-1.5">
+                            <i class="fas fa-plus-circle"></i> Thêm Vào Kho Nhạc
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

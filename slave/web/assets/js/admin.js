@@ -5016,19 +5016,35 @@ const Admin = {
             const m = Math.floor(durSeconds / 60);
             const s = Math.floor(durSeconds % 60);
             const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            const isYtStream = t.source_type === 'youtube';
+            const isYtOffline = !isYtStream && Boolean(t.yt_video_id);
+            const badgeHtml = isYtStream
+                ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold shrink-0">YT Stream</span>`
+                : (isYtOffline
+                    ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0">YT Offline</span>`
+                    : `<span class="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 border border-teal-500/25 text-[9px] font-bold shrink-0">Offline</span>`);
+            const offlineBtnHtml = isYtStream
+                ? `<button type="button" onclick="Admin.upgradeYoutubeTrackOffline(${t.id}, this)" class="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Tải về MP3 để phát Offline khi mất mạng"><i class="fas fa-download"></i> Lưu Offline</button>`
+                : '';
 
             return `
                 <div class="p-2 rounded-xl bg-slate-900/50 border border-white/5 hover:border-sky-500/30 transition flex items-center justify-between gap-2">
                     <div class="min-w-0 flex items-center gap-2">
-                        <i class="fas fa-music text-sky-400 text-xs shrink-0"></i>
+                        <i class="${isYtStream ? 'fab fa-youtube text-rose-400' : 'fas fa-music text-sky-400'} text-xs shrink-0"></i>
                         <div class="min-w-0">
-                            <div class="font-bold text-white truncate text-xs">${t.title}</div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-white truncate text-xs">${t.title}</span>
+                                ${badgeHtml}
+                            </div>
                             <div class="text-[10px] text-slate-400 truncate">${t.artist} • <span class="text-slate-500 font-mono">${dur}</span></div>
                         </div>
                     </div>
-                    <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý">
-                        <i class="fas fa-plus"></i> Phát
-                    </button>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${offlineBtnHtml}
+                        <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý">
+                            <i class="fas fa-plus"></i> Phát
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -5541,6 +5557,215 @@ const Admin = {
 
     filterMediaManagerTable(kw) {
         this.renderMediaManagerTable();
+    },
+
+    ytPreviewMeta: null,
+
+    openYoutubeImportModal() {
+        const modal = document.getElementById('youtube-import-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        this.ytPreviewMeta = null;
+        const urlEl = document.getElementById('yt-import-url');
+        if (urlEl) urlEl.value = '';
+        document.getElementById('yt-preview-box')?.classList.add('hidden');
+        document.getElementById('yt-job-status-box')?.classList.add('hidden');
+    },
+
+    closeYoutubeImportModal() {
+        const modal = document.getElementById('youtube-import-modal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    },
+
+    async previewYoutubeAudio() {
+        const url = (document.getElementById('yt-import-url')?.value || '').trim();
+        if (!url) {
+            this.showToast('Vui lòng dán link YouTube!', 'warning');
+            return;
+        }
+        const btn = document.getElementById('yt-preview-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lấy...';
+        }
+        try {
+            const res = await fetch('/api/media/youtube/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                this.showToast(data.message || 'Không lấy được thông tin YouTube', 'error');
+                return;
+            }
+            this.ytPreviewMeta = data;
+            const dur = Number(data.duration_sec || 180);
+            const durStr = `${Math.floor(dur / 60).toString().padStart(2, '0')}:${Math.floor(dur % 60).toString().padStart(2, '0')}`;
+            document.getElementById('yt-preview-thumb').src = data.thumbnail || '';
+            document.getElementById('yt-preview-duration').textContent = `AUDIO • ${durStr}`;
+            document.getElementById('yt-preview-title-display').textContent = data.title || '';
+            document.getElementById('yt-preview-artist-display').textContent = data.artist || '';
+            document.getElementById('yt-import-title').value = data.title || '';
+            document.getElementById('yt-import-artist').value = data.artist || '';
+            document.getElementById('yt-preview-box')?.classList.remove('hidden');
+            this.showToast('Đã nhận diện thông tin audio từ YouTube!', 'success');
+        } catch (err) {
+            this.showToast('Lỗi kết nối tới server khi preview YouTube', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Lấy Thông Tin';
+            }
+        }
+    },
+
+    async submitYoutubeAudio() {
+        const url = (document.getElementById('yt-import-url')?.value || '').trim();
+        if (!url) {
+            this.showToast('Vui lòng nhập link YouTube!', 'warning');
+            return;
+        }
+        const modeEl = document.querySelector('input[name="yt-import-mode"]:checked');
+        const mode = modeEl ? modeEl.value : 'hybrid';
+        const title = (document.getElementById('yt-import-title')?.value || '').trim();
+        const artist = (document.getElementById('yt-import-artist')?.value || '').trim();
+        const genre = (document.getElementById('yt-import-genre')?.value || 'YouTube').trim();
+
+        const btn = document.getElementById('yt-submit-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+        }
+        try {
+            const payload = {
+                url,
+                mode,
+                title: title || this.ytPreviewMeta?.title || '',
+                artist: artist || this.ytPreviewMeta?.artist || '',
+                genre,
+                duration_sec: this.ytPreviewMeta?.duration_sec || 0,
+                thumbnail: this.ytPreviewMeta?.thumbnail || ''
+            };
+            const res = await fetch('/api/media/youtube/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.success) {
+                this.showToast(data.message || 'Thêm bài hát thất bại', 'error');
+                return;
+            }
+            this.showToast(data.message || 'Đã thêm nhạc YouTube!', 'success');
+            await this.loadMediaTracksCatalog();
+
+            if (data.job_id) {
+                document.getElementById('yt-job-status-box')?.classList.remove('hidden');
+                this.pollYoutubeJobStatus(data.job_id);
+            } else {
+                this.closeYoutubeImportModal();
+            }
+        } catch (err) {
+            this.showToast('Lỗi gửi yêu cầu thêm YouTube Audio', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus-circle"></i> Thêm Vào Kho Nhạc';
+            }
+        }
+    },
+
+    async pollYoutubeJobStatus(jobId) {
+        const statusText = document.getElementById('yt-job-status-text');
+        const pctEl = document.getElementById('yt-job-progress-pct');
+        const barEl = document.getElementById('yt-job-progress-bar');
+
+        const tick = async () => {
+            try {
+                const res = await fetch(`/api/media/youtube/job-status?job_id=${encodeURIComponent(jobId)}`);
+                const data = await res.json();
+                if (!data.success || !data.job) return;
+                const j = data.job;
+                if (statusText) statusText.textContent = j.message || j.status;
+                if (pctEl) pctEl.textContent = `${j.progress || 0}%`;
+                if (barEl) barEl.style.width = `${j.progress || 0}%`;
+
+                if (j.status === 'completed') {
+                    this.showToast('Đã chuyển đổi sang MP3 Offline hoàn tất!', 'success');
+                    await this.loadMediaTracksCatalog();
+                    return;
+                }
+                if (j.status === 'failed') {
+                    this.showToast(j.message || 'Tải MP3 thất bại (vẫn phát Stream bình thường)', 'warning');
+                    return;
+                }
+                setTimeout(tick, 2000);
+            } catch (_) {
+                setTimeout(tick, 3000);
+            }
+        };
+        tick();
+    },
+
+    async upgradeYoutubeTrackOffline(trackId, btnEl) {
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+        }
+        try {
+            const res = await fetch('/api/media/youtube/download-offline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ track_id: trackId })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                this.showToast(data.message || 'Không thể tải Offline', 'error');
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.innerHTML = '<i class="fas fa-download"></i> Lưu Offline';
+                }
+                return;
+            }
+            this.showToast(data.message || 'Đang tải MP3 về máy...', 'info');
+            if (data.job_id) {
+                const check = async () => {
+                    const sr = await fetch(`/api/media/youtube/job-status?job_id=${encodeURIComponent(data.job_id)}`);
+                    const sd = await sr.json();
+                    if (sd.success && sd.job) {
+                        if (sd.job.status === 'completed') {
+                            this.showToast('Đã lưu Offline MP3 thành công!', 'success');
+                            await this.loadMediaTracksCatalog();
+                            return;
+                        }
+                        if (sd.job.status === 'failed') {
+                            this.showToast(sd.job.message || 'Tải Offline thất bại', 'error');
+                            await this.loadMediaTracksCatalog();
+                            return;
+                        }
+                        setTimeout(check, 2000);
+                    }
+                };
+                setTimeout(check, 2000);
+            }
+        } catch (err) {
+            this.showToast('Lỗi khi tải Offline MP3', 'error');
+        }
+    },
+
+    async updateYtdlpTool() {
+        this.showToast('Đang kiểm tra và cập nhật yt-dlp.exe...', 'info');
+        try {
+            const res = await fetch('/api/media/youtube/update-ytdlp', { method: 'POST' });
+            const data = await res.json();
+            this.showToast(data.message || 'Hoàn tất kiểm tra yt-dlp', data.success ? 'success' : 'warning');
+        } catch (_) {
+            this.showToast('Lỗi khi cập nhật yt-dlp', 'error');
+        }
     },
 
     openUploadMediaModal() {

@@ -2872,6 +2872,9 @@
                                 <button type="button" onclick="Admin.openUploadMediaModal()" class="btn-glass text-[11px] py-1 px-2 text-teal-300 hover:text-white border-teal-500/40 hover:bg-teal-500/20 font-bold flex items-center gap-1 shadow-sm" title="Tải file nhạc MP3/WAV/FLAC lên server">
                                     <i class="fas fa-upload text-[10px]"></i> Tải Nhạc
                                 </button>
+                                <button type="button" onclick="Admin.openYoutubeImportModal()" class="btn-glass text-[11px] py-1 px-2 text-rose-300 hover:text-white border-rose-500/40 hover:bg-rose-500/20 font-bold flex items-center gap-1 shadow-sm" title="Thêm nhạc từ link YouTube (chỉ lấy Audio)">
+                                    <i class="fab fa-youtube text-[11px]"></i> YouTube Audio
+                                </button>
                                 <button type="button" onclick="Admin.openMediaManagerModal()" class="btn-glass text-[11px] py-1 px-2 text-sky-300 hover:text-white border-sky-500/40 hover:bg-sky-500/20 font-bold flex items-center gap-1 shadow-sm" title="Quản lý toàn bộ kho nhạc">
                                     <i class="fas fa-sliders-h text-[10px]"></i> Quản Lý
                                 </button>
@@ -4351,6 +4354,108 @@
                         <!-- Populated dynamically -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- YOUTUBE AUDIO IMPORT MODAL (HYBRID STREAM + OFFLINE MP3) -->
+    <div id="youtube-import-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+        <div class="liquid-glass w-full max-w-xl rounded-3xl border border-rose-500/30 p-5 text-white shadow-2xl flex flex-col max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-base shadow-sm"><i class="fab fa-youtube"></i></span>
+                    <div>
+                        <h3 class="font-black text-base text-white">Thêm Nhạc Từ YouTube (Chỉ Audio)</h3>
+                        <p class="text-[11px] text-slate-400">Hỗ trợ 10-Band EQ, Oscilloscope &amp; Auto-Ducking nhờ Hybrid Audio Proxy</p>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xl transition-all" onclick="Admin.closeYoutubeImportModal()">&times;</button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-300 mb-1">Link YouTube (Watch / Shorts / youtu.be)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="yt-import-url" placeholder="https://www.youtube.com/watch?v=..." class="liquid-input flex-1 py-2 px-3 rounded-xl bg-slate-900 border border-white/15 text-xs text-white" />
+                        <button type="button" id="yt-preview-btn" onclick="Admin.previewYoutubeAudio()" class="px-3.5 py-2 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 border border-sky-400/40 text-sky-200 font-bold transition flex items-center gap-1.5 shrink-0">
+                            <i class="fas fa-search"></i> Lấy Thông Tin
+                        </button>
+                    </div>
+                </div>
+
+                <div id="yt-preview-box" class="hidden p-3 rounded-2xl bg-slate-900/70 border border-white/10 space-y-2.5">
+                    <div class="flex items-center gap-3">
+                        <img id="yt-preview-thumb" src="" alt="Thumbnail" class="w-20 h-14 object-cover rounded-xl border border-white/10 shrink-0 bg-slate-800" />
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[10px] uppercase tracking-wider text-rose-400 font-bold" id="yt-preview-duration">00:00</div>
+                            <div class="text-xs font-bold text-white truncate" id="yt-preview-title-display">---</div>
+                            <div class="text-[11px] text-slate-400 truncate" id="yt-preview-artist-display">---</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        <div class="sm:col-span-2">
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Tên bài hát</label>
+                            <input type="text" id="yt-import-title" class="liquid-input w-full py-1.5 px-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Thể loại</label>
+                            <input type="text" id="yt-import-genre" value="YouTube" class="liquid-input w-full py-1.5 px-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Nghệ sĩ / Kênh</label>
+                            <input type="text" id="yt-import-artist" class="liquid-input w-full py-1.5 px-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-300 mb-1.5">Chế độ xử lý (Hybrid Recommended)</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <label class="cursor-pointer p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 hover:bg-emerald-950/50 flex items-start gap-2">
+                            <input type="radio" name="yt-import-mode" value="hybrid" checked class="mt-0.5 accent-emerald-400" />
+                            <div>
+                                <div class="font-bold text-emerald-300 text-[11px]">Hybrid (Khuyên dùng)</div>
+                                <div class="text-[10px] text-slate-400">Phát ngay qua Proxy + tự tải MP3 nền</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-white/10 hover:border-sky-500/40 flex items-start gap-2">
+                            <input type="radio" name="yt-import-mode" value="stream" class="mt-0.5 accent-sky-400" />
+                            <div>
+                                <div class="font-bold text-sky-300 text-[11px]">Chỉ Stream</div>
+                                <div class="text-[10px] text-slate-400">Nhẹ ổ cứng, phát qua mạng</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-white/10 hover:border-teal-500/40 flex items-start gap-2">
+                            <input type="radio" name="yt-import-mode" value="offline" class="mt-0.5 accent-teal-400" />
+                            <div>
+                                <div class="font-bold text-teal-300 text-[11px]">Chỉ Tải MP3</div>
+                                <div class="text-[10px] text-slate-400">Tải xong thành MP3 mới thêm</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="yt-job-status-box" class="hidden p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-[11px] space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span id="yt-job-status-text" class="text-emerald-300 font-bold">Đang xử lý...</span>
+                        <span id="yt-job-progress-pct" class="font-mono text-slate-300">0%</span>
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div id="yt-job-progress-bar" class="h-full bg-gradient-to-r from-rose-500 to-emerald-400 transition-all duration-300" style="width: 10%"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 border-t border-white/10">
+                    <button type="button" onclick="Admin.updateYtdlpTool()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-slate-300 hover:text-white transition flex items-center gap-1.5" title="Cập nhật yt-dlp.exe mới nhất để tránh lỗi đổi thuật toán YouTube">
+                        <i class="fas fa-rotate"></i> Cập nhật yt-dlp
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="Admin.closeYoutubeImportModal()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold">Đóng</button>
+                        <button type="button" id="yt-submit-btn" onclick="Admin.submitYoutubeAudio()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold shadow-lg flex items-center gap-1.5">
+                            <i class="fas fa-plus-circle"></i> Thêm Vào Kho Nhạc
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

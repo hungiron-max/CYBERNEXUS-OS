@@ -8,11 +8,12 @@ include_directories(../../shared/include)
 
 add_library(mod_media_stream SHARED 
     mod_media_stream.cpp 
+    yt_audio_helper.cpp
     ../../shared/src/sqlite3.c
 )
 
 if(WIN32)
-    target_link_libraries(mod_media_stream PRIVATE ws2_32 crypt32)
+    target_link_libraries(mod_media_stream PRIVATE ws2_32 crypt32 winhttp)
 endif()
 
 add_custom_command(TARGET mod_media_stream POST_BUILD

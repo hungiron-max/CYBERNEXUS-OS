@@ -88,9 +88,15 @@ private:
                 cover_image TEXT DEFAULT '',
                 play_count INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
+                source_type TEXT DEFAULT 'local',
+                source_url TEXT DEFAULT '',
+                yt_video_id TEXT DEFAULT '',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         )");
+        execSql("ALTER TABLE media_tracks ADD COLUMN source_type TEXT DEFAULT 'local';");
+        execSql("ALTER TABLE media_tracks ADD COLUMN source_url TEXT DEFAULT '';");
+        execSql("ALTER TABLE media_tracks ADD COLUMN yt_video_id TEXT DEFAULT '';");
 
         execSql(R"(
             CREATE TABLE IF NOT EXISTS media_jukebox_queue (
@@ -556,6 +562,9 @@ public:
                 res.set_content("{\"success\":false,\"message\":\"Lỗi kích hoạt Auto-Ducking\"}", "application/json; charset=utf-8");
             }
         });
+
+        extern void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db);
+        registerYoutubeAudioRoutes(svr, m_db);
     }
 
     void onSystemEvent(const std::string& eventType, const json& eventPayload) override {

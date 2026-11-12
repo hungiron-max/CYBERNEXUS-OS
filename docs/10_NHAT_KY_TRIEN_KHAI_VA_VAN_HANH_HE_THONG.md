@@ -471,3 +471,34 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
   - [`pos_card_checkout_verified.png`](../brain/da00d27d-e886-4980-9efd-938c2be0665e/pos_card_checkout_verified.png): Modal thanh toán thẻ POS tự động tại quầy thu ngân.
   - [`admin_card_adapter_verified.png`](../brain/da00d27d-e886-4980-9efd-938c2be0665e/admin_card_adapter_verified.png): Bảng cấu hình ECR Adapter 10 dòng máy đời mới và bảng đối soát lô giao dịch.
   - [`master_card_permission_matrix_verified.png`](../brain/da00d27d-e886-4980-9efd-938c2be0665e/master_card_permission_matrix_verified.png): Ma trận phân quyền module Master SaaS với các tùy chọn ON / OFF / BLOCK và phí Master.
+
+---
+
+## 15. Kho Nhạc Hybrid YouTube Audio (Stream Proxy + Auto Offline MP3)
+
+### 15.1. Kiến trúc & Cơ chế hoạt động
+- **Định tuyến âm thanh qua Backend Proxy (`GET /api/media/stream-yt?id=<trackId>`):**
+  - Không nhúng YouTube IFrame; toàn bộ audio từ YouTube CDN được proxy qua WinHTTP (`winhttp.lib`) với hỗ trợ `Range` / `206 Partial Content` và cache URL stream trong RAM (TTL 3 giờ, tự động giải mã lại nếu CDN hết hạn 403/410).
+  - Cho phép `<audio>` trên `jukebox-engine.js` chạy qua Web Audio API (`createMediaElementSource`), giữ nguyên đầy đủ **10-Band DSP Equalizer**, **Live Oscilloscope**, và **Auto Audio Ducking**.
+- **3 chế độ nhập link YouTube (`POST /api/media/youtube/add`):**
+  1. `hybrid` (mặc định khuyên dùng): Lưu ngay vào `media_tracks` với `source_type = 'youtube'` để phát tức thì, đồng thời chạy luồng nền (`yt-dlp.exe` + `ffmpeg.exe`) trích xuất MP3 192K vào `slave/assets/media/yt_<videoId>.mp3` (và `slave/web/assets/media/`) rồi tự động nâng cấp bản ghi sang `source_type = 'local'`.
+  2. `stream`: Chỉ lưu luồng stream proxy, tiết kiệm dung lượng ổ cứng.
+  3. `offline`: Tải và convert MP3 xong mới thêm vào kho nhạc.
+- **Tiện ích bổ sung:**
+  - `POST /api/media/youtube/preview`: Lấy nhanh metadata (tiêu đề, nghệ sĩ, thời lượng, thumbnail) và làm nóng cache stream.
+  - `POST /api/media/youtube/download-offline` & `GET /api/media/youtube/job-status`: Nâng cấp bất kỳ bài `YT Stream` nào sang `YT Offline` MP3 và theo dõi tiến trình.
+  - `POST /api/media/youtube/update-ytdlp`: Cập nhật `yt-dlp.exe -U` trực tiếp từ giao diện Admin.
+- **Bảo mật:** Validate chặt YouTube Video ID theo regex `[A-Za-z0-9_-]{11}`, chạy tiến trình ẩn (`CREATE_NO_WINDOW`) không bật cửa sổ console.
+
+### 15.2. Kết quả Kiểm thử & Nghiệm thu
+- [x] **Biên dịch C++:** `libmod_media_stream.dll` (liên kết `winhttp`) biên dịch thành công qua `ninja -C build`, nạp vào `cybernexus_slave.exe`.
+- [x] **Kiểm thử API Hybrid (`jNQXAC9IVRw`):**
+  - `POST /api/media/youtube/preview` trả về metadata chính xác (`"Me at the zoo"`, 19s).
+  - `POST /api/media/youtube/add` (`mode: "hybrid"`) tạo Track `#25` và Job nền `yt_jNQXAC9IVRw_44463`.
+  - `GET /api/media/stream-yt?id=25` trả về `HTTP 206 Partial Content` (`4096 bytes`, `audio/mpeg`).
+  - Job nền hoàn tất 100%, tạo file `slave/assets/media/yt_jNQXAC9IVRw.mp3` (`457,388 bytes`) và tự nâng cấp Track `#25` thành `source_type = 'local'`.
+- [x] **Kiểm thử API Stream Proxy (`aqz-KE-bpKQ`):**
+  - `POST /api/media/youtube/add` (`mode: "stream"`) tạo Track `#26`.
+  - `GET /api/media/stream-yt?id=26` với header `Range: bytes=0-8191` proxy trực tiếp từ YouTube CDN qua WinHTTP, trả về `HTTP 206 Partial Content` (`8192 bytes`, `audio/mp4`).
+- [x] **Kiểm thử giao diện Playwright (`admin.html`):**
+  - Xác nhận nút `YouTube Audio`, modal `#youtube-import-modal`, badge `YT Offline` / `YT Stream` và nút `Lưu Offline` hiển thị đầy đủ (`admin_youtube_hybrid_verified.png`).
