@@ -128,6 +128,21 @@
                 gap: 4px !important;
             }
         }
+        @media (min-width: 1024px) {
+            .media-right-col {
+                height: 0;
+                min-height: 100%;
+            }
+            .media-catalog-card {
+                flex: 1 1 0%;
+                min-height: 0;
+            }
+        }
+        @media (max-width: 1023px) {
+            .media-catalog-card {
+                height: 320px;
+            }
+        }
         .eq-channel-strip {
             display: flex !important;
             flex-direction: column !important;
@@ -2842,9 +2857,9 @@
                 </div>
 
                 <!-- Right Column (lg:col-span-5): Now Playing & Jukebox Queue -->
-                <div class="lg:col-span-5 flex flex-col space-y-4">
+                <div class="lg:col-span-5 flex flex-col space-y-4 media-right-col">
                     <!-- Now Playing Card with Spinning Vinyl & Dancing Bars -->
-                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/30 relative overflow-hidden shadow-xl shadow-black/40">
+                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/30 relative overflow-hidden shadow-xl shadow-black/40 shrink-0">
                         <div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-sky-500/15 blur-2xl pointer-events-none"></div>
 
                         <div class="flex items-center justify-between pb-2.5 border-b border-white/10 mb-3">
@@ -2930,8 +2945,8 @@
                     </div>
 
                     <!-- Offline Tracks Catalog (Add to Queue & Manager) -->
-                    <div style="flex: 1 1 0%; min-height: 240px;" class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
-                        <div class="flex items-center justify-between pb-2.5 border-b border-white/10 mb-2.5 gap-1.5">
+                    <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col overflow-hidden media-catalog-card">
+                        <div class="flex items-center justify-between pb-2.5 border-b border-white/10 mb-2.5 gap-1.5 shrink-0">
                             <div class="flex items-center gap-1.5 shrink-0">
                                 <span class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-xs shrink-0">
                                     <i class="fas fa-database"></i>
