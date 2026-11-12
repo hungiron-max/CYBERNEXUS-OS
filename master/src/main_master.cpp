@@ -47,6 +47,47 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "[DB Master] Mo CSDL Master thanh cong: " << dbPath << std::endl;
 
+    // Khởi tạo các bảng Quản trị Đại lý Phân phối & Sổ quỹ Ví Đại lý
+    try {
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS saas_resellers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reseller_code TEXT UNIQUE NOT NULL,
+                company_name TEXT NOT NULL,
+                contact_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                email TEXT DEFAULT '',
+                tier TEXT DEFAULT 'silver',
+                discount_percent REAL DEFAULT 25.0,
+                wallet_balance REAL DEFAULT 0.0,
+                status TEXT DEFAULT 'active',
+                notes TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS saas_reseller_wallet_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reseller_id INTEGER NOT NULL,
+                reseller_code TEXT DEFAULT '',
+                trans_type TEXT NOT NULL,
+                amount REAL NOT NULL,
+                balance_before REAL DEFAULT 0.0,
+                balance_after REAL DEFAULT 0.0,
+                license_key TEXT DEFAULT '',
+                store_name TEXT DEFAULT '',
+                note TEXT DEFAULT '',
+                created_by TEXT DEFAULT 'superadmin',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+        // Đảm bảo bảng saas_tenants có cột reseller_id & price_charged
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN reseller_id INTEGER DEFAULT 0"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN price_charged REAL DEFAULT 0.0"); } catch (...) {}
+    } catch (const std::exception& e) {
+        std::cerr << "[DB Master Init Resellers Warning] " << e.what() << std::endl;
+    }
+
     // 4. Khoi tao HTTP Server
     httplib::Server svr;
     g_server = &svr;

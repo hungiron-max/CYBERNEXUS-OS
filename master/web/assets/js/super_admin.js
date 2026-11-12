@@ -7,6 +7,7 @@ const SuperAdmin = {
     currentTab: 'dashboard',
     plans: [],
     tenants: [],
+    resellers: [],
     currentTenantInModal: null,
     revenueChartInstance: null,
     pendingTenantLogo: null,
@@ -58,6 +59,8 @@ const SuperAdmin = {
             this.loadAuditLogs();
         } else if (tabId === 'settings') {
             this.loadSaasSettings();
+        } else if (tabId === 'resellers') {
+            this.loadResellers();
         }
     },
 
@@ -1904,6 +1907,490 @@ const SuperAdmin = {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    },
+
+    // ==========================================
+    // RESELLER / DISTRIBUTOR CHANNEL MANAGEMENT
+    // ==========================================
+    async loadResellers() {
+        try {
+            const res = await fetch('api/super_admin?action=get_resellers');
+            const data = await res.json();
+            if (!data.success) return;
+
+            this.resellers = data.resellers || data.data || [];
+            this.renderResellersTable(this.resellers);
+
+            // Metrics
+            let totalWallet = 0;
+            let totalStores = 0;
+            let totalRevenue = 0;
+
+            this.resellers.forEach(r => {
+                totalWallet += Number(r.wallet_balance || 0);
+                totalStores += Number(r.tenants_count || 0);
+                totalRevenue += Number(r.total_revenue || 0);
+            });
+
+            const statCount = document.getElementById('stat-reseller-count');
+            if (statCount) statCount.innerText = this.resellers.length;
+
+            const statWallet = document.getElementById('stat-reseller-wallet-total');
+            if (statWallet) statWallet.innerText = totalWallet.toLocaleString('vi-VN') + ' đ';
+
+            const statStores = document.getElementById('stat-reseller-stores-count');
+            if (statStores) statStores.innerText = totalStores;
+
+            const statRev = document.getElementById('stat-reseller-revenue-total');
+            if (statRev) statRev.innerText = totalRevenue.toLocaleString('vi-VN') + ' đ';
+
+            const badgeTotal = document.getElementById('reseller-badge-total');
+            if (badgeTotal) badgeTotal.innerText = `${this.resellers.length} ĐẠI LÝ`;
+
+            const navBadge = document.getElementById('badge-total-resellers');
+            if (navBadge) navBadge.innerText = this.resellers.length;
+
+        } catch (err) {
+            console.error('loadResellers error:', err);
+        }
+    },
+
+    renderResellersTable(list) {
+        const tbody = document.getElementById('reseller-table-tbody');
+        if (!tbody) return;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">Chưa có đại lý nào trong hệ thống. Bấm "Thêm Đại Lý Mới" để bắt đầu!</td></tr>`;
+            return;
+        }
+
+        const tierMeta = {
+            bronze: { label: 'Đồng (Bronze)', badge: 'bg-amber-600/20 text-amber-300 border-amber-600/30', icon: '🥉' },
+            silver: { label: 'Bạc (Silver)', badge: 'bg-slate-400/20 text-slate-200 border-slate-400/30', icon: '🥈' },
+            gold: { label: 'Vàng (Gold)', badge: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30', icon: '🥇' },
+            diamond: { label: 'Kim Cương', badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', icon: '💎' }
+        };
+
+        tbody.innerHTML = list.map(r => {
+            const tm = tierMeta[r.tier] || tierMeta.gold;
+            const bal = Number(r.wallet_balance || 0);
+            const stores = Number(r.tenants_count || 0);
+            const rev = Number(r.total_revenue || 0);
+            const disc = Number(r.discount_percent || 0);
+            const isActive = r.status === 'active';
+
+            return `
+                <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+                    <td class="py-3 px-4 font-mono font-bold text-teal-300">${r.reseller_code}</td>
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-white">${r.company_name}</div>
+                        <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                            <span><i class="fas fa-user text-slate-500 mr-1"></i>${r.contact_name || '—'}</span>
+                            <span>&bull;</span>
+                            <span class="font-mono"><i class="fas fa-phone text-slate-500 mr-1"></i>${r.phone || '—'}</span>
+                            ${r.city ? `<span>&bull;</span><span>${r.city}</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${tm.badge}">
+                                ${tm.icon} ${tm.label}
+                            </span>
+                            <span class="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                                -${disc}%
+                            </span>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="font-mono font-black text-sm ${bal > 0 ? 'text-emerald-400' : 'text-slate-400'}">
+                            ${bal.toLocaleString('vi-VN')} đ
+                        </div>
+                        <div class="text-[10px] text-slate-500">Ví ký quỹ khả dụng</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="px-2.5 py-1 rounded-xl text-xs font-mono font-bold ${stores > 0 ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'text-slate-500 bg-white/5'}">
+                            ${stores}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right font-mono text-slate-300">
+                        ${rev.toLocaleString('vi-VN')} đ
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">
+                            ${isActive ? 'Hoạt động' : 'Tạm khóa'}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button type="button" onclick="SuperAdmin.openDepositModal(${r.id}, '${r.company_name.replace(/'/g, "\\'")}', ${bal})" class="btn-glass text-[11px] py-1 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-emerald-500/30 font-bold" title="Nạp tiền ví ký quỹ">
+                                <i class="fas fa-plus mr-1"></i>Nạp Ví
+                            </button>
+                            <button type="button" onclick="SuperAdmin.openResellerIssueLicenseModal(${r.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border-teal-500/30 font-bold" title="Cấp bản quyền cho quán mới">
+                                <i class="fas fa-key mr-1"></i>Cấp Key
+                            </button>
+                            <button type="button" onclick="SuperAdmin.openWalletLogsModal(${r.id}, '${r.company_name.replace(/'/g, "\\'")}')" class="btn-glass text-[11px] py-1 px-2 text-slate-300 hover:text-white" title="Lịch sử biến động số dư">
+                                <i class="fas fa-history"></i>
+                            </button>
+                            <button type="button" onclick="SuperAdmin.editReseller(${JSON.stringify(r).replace(/"/g, '&quot;')})" class="btn-glass text-[11px] py-1 px-2 text-sky-300 hover:text-white" title="Chỉnh sửa đại lý">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    filterResellersLocal() {
+        const query = (document.getElementById('reseller-search-input')?.value || '').toLowerCase().trim();
+        if (!query) {
+            this.renderResellersTable(this.resellers);
+            return;
+        }
+        const filtered = this.resellers.filter(r => 
+            (r.reseller_code || '').toLowerCase().includes(query) ||
+            (r.company_name || '').toLowerCase().includes(query) ||
+            (r.contact_name || '').toLowerCase().includes(query) ||
+            (r.phone || '').includes(query) ||
+            (r.city || '').toLowerCase().includes(query)
+        );
+        this.renderResellersTable(filtered);
+    },
+
+    openAddResellerModal() {
+        document.getElementById('reseller-modal-title').innerText = 'Thêm Đại Lý Phân Phối Mới';
+        document.getElementById('reseller-input-id').value = '0';
+        
+        // Sinh mã gợi ý DL-XXX
+        const nextId = this.resellers.length + 1;
+        document.getElementById('reseller-input-code').value = 'DL-' + String(nextId).padStart(3, '0');
+        document.getElementById('reseller-input-company').value = '';
+        document.getElementById('reseller-input-tier').value = 'gold';
+        document.getElementById('reseller-input-discount').value = '40';
+        document.getElementById('reseller-input-contact').value = '';
+        document.getElementById('reseller-input-phone').value = '';
+        document.getElementById('reseller-input-email').value = '';
+        document.getElementById('reseller-input-city').value = '';
+        document.getElementById('reseller-input-status').value = 'active';
+        document.getElementById('reseller-input-note').value = '';
+
+        this.openModal('modal-reseller-form');
+    },
+
+    onResellerTierChange(tier) {
+        const tierDiscounts = { bronze: 15, silver: 25, gold: 40, diamond: 55 };
+        const discInput = document.getElementById('reseller-input-discount');
+        if (discInput && tierDiscounts[tier] !== undefined) {
+            discInput.value = tierDiscounts[tier];
+        }
+    },
+
+    editReseller(r) {
+        document.getElementById('reseller-modal-title').innerText = 'Chỉnh Sửa Đại Lý: ' + r.company_name;
+        document.getElementById('reseller-input-id').value = r.id;
+        document.getElementById('reseller-input-code').value = r.reseller_code || '';
+        document.getElementById('reseller-input-company').value = r.company_name || '';
+        document.getElementById('reseller-input-tier').value = r.tier || 'gold';
+        document.getElementById('reseller-input-discount').value = r.discount_percent || 40;
+        document.getElementById('reseller-input-contact').value = r.contact_name || '';
+        document.getElementById('reseller-input-phone').value = r.phone || '';
+        document.getElementById('reseller-input-email').value = r.email || '';
+        document.getElementById('reseller-input-city').value = r.city || '';
+        document.getElementById('reseller-input-status').value = r.status || 'active';
+        document.getElementById('reseller-input-note').value = r.note || '';
+
+        this.openModal('modal-reseller-form');
+    },
+
+    async saveReseller(event) {
+        if (event && event.preventDefault) event.preventDefault();
+
+        const payload = {
+            id: Number(document.getElementById('reseller-input-id').value || 0),
+            reseller_code: document.getElementById('reseller-input-code').value.trim(),
+            company_name: document.getElementById('reseller-input-company').value.trim(),
+            tier: document.getElementById('reseller-input-tier').value,
+            discount_percent: parseFloat(document.getElementById('reseller-input-discount').value) || 0,
+            contact_name: document.getElementById('reseller-input-contact').value.trim(),
+            phone: document.getElementById('reseller-input-phone').value.trim(),
+            email: document.getElementById('reseller-input-email').value.trim(),
+            city: document.getElementById('reseller-input-city').value.trim(),
+            status: document.getElementById('reseller-input-status').value,
+            note: document.getElementById('reseller-input-note').value.trim()
+        };
+
+        try {
+            const res = await fetch('api/super_admin?action=save_reseller', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Lưu đại lý thành công!');
+                this.closeModal('modal-reseller-form');
+                this.loadResellers();
+            } else {
+                alert(data.message || 'Lỗi khi lưu đại lý!');
+            }
+        } catch (err) {
+            console.error('saveReseller error:', err);
+            alert('Lỗi kết nối máy chủ khi lưu đại lý.');
+        }
+    },
+
+    openDepositModal(resellerId, resellerName, curBalance) {
+        document.getElementById('deposit-reseller-id').value = resellerId;
+        document.getElementById('deposit-reseller-subtitle').innerText = 'Đại lý: ' + resellerName;
+        document.getElementById('deposit-reseller-name').innerText = resellerName;
+        document.getElementById('deposit-reseller-cur-bal').innerText = Number(curBalance || 0).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('deposit-wallet-amount').value = 15000000;
+        document.getElementById('deposit-wallet-note').value = '';
+
+        this.openModal('modal-deposit-reseller-wallet');
+    },
+
+    setDepositAmount(amount) {
+        const input = document.getElementById('deposit-wallet-amount');
+        if (input) input.value = amount;
+    },
+
+    async submitDepositWallet(event) {
+        if (event && event.preventDefault) event.preventDefault();
+
+        const payload = {
+            reseller_id: Number(document.getElementById('deposit-reseller-id').value),
+            amount: parseFloat(document.getElementById('deposit-wallet-amount').value) || 0,
+            payment_method: document.getElementById('deposit-wallet-method').value,
+            note: document.getElementById('deposit-wallet-note').value.trim()
+        };
+
+        if (payload.amount <= 0) {
+            alert('Vui lòng nhập số tiền nạp hợp lệ (> 0 VNĐ)!');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/super_admin?action=deposit_reseller_wallet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Nạp tiền thành công! Số dư mới: ${(data.new_balance || 0).toLocaleString('vi-VN')} đ`);
+                this.closeModal('modal-deposit-reseller-wallet');
+                this.loadResellers();
+            } else {
+                alert(data.message || 'Lỗi khi nạp tiền ví đại lý!');
+            }
+        } catch (err) {
+            console.error('submitDepositWallet error:', err);
+            alert('Lỗi máy chủ khi nạp tiền ví đại lý.');
+        }
+    },
+
+    openResellerIssueLicenseModal(preferredResellerId) {
+        const select = document.getElementById('issue-lic-reseller-select');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">-- Chọn đại lý phân phối --</option>' +
+            this.resellers.map(r => `
+                <option value="${r.id}" ${r.id === preferredResellerId ? 'selected' : ''}>
+                    ${r.reseller_code} - ${r.company_name} (Ví: ${Number(r.wallet_balance || 0).toLocaleString('vi-VN')}đ, Giảm: ${r.discount_percent}%)
+                </option>
+            `).join('');
+
+        document.getElementById('issue-lic-store-name').value = '';
+        document.getElementById('issue-lic-owner-phone').value = '';
+        document.getElementById('issue-lic-period').value = '1y';
+
+        const resBox = document.getElementById('issue-lic-result-box');
+        if (resBox) resBox.classList.add('hidden');
+
+        const submitBtn = document.getElementById('btn-submit-issue-lic');
+        if (submitBtn) submitBtn.disabled = false;
+
+        this.onIssueLicResellerChange();
+        this.openModal('modal-reseller-issue-license');
+    },
+
+    onIssueLicResellerChange() {
+        const select = document.getElementById('issue-lic-reseller-select');
+        const rId = Number(select?.value || 0);
+        const r = this.resellers.find(x => x.id === rId);
+
+        const discountText = document.getElementById('issue-lic-discount-text');
+        const walletText = document.getElementById('issue-lic-wallet-text');
+
+        if (r) {
+            const tm = { bronze: '🥉 Đồng', silver: '🥈 Bạc', gold: '🥇 Vàng', diamond: '💎 Kim Cương' }[r.tier] || '🥇 Vàng';
+            if (discountText) discountText.innerHTML = `${tm} &bull; <b class="text-teal-300 font-mono">Chiết khấu ${r.discount_percent}%</b>`;
+            if (walletText) walletText.innerText = Number(r.wallet_balance || 0).toLocaleString('vi-VN') + ' đ';
+        } else {
+            if (discountText) discountText.innerText = 'Vui lòng chọn đại lý';
+            if (walletText) walletText.innerText = '0 đ';
+        }
+
+        this.updateIssueLicPriceCalc();
+    },
+
+    updateIssueLicPriceCalc() {
+        const period = document.getElementById('issue-lic-period')?.value || '1y';
+        const msrpMap = { '1m': 399000, '1y': 3990000, 'lifetime': 4990000 };
+        const msrp = msrpMap[period] || 3990000;
+
+        const select = document.getElementById('issue-lic-reseller-select');
+        const rId = Number(select?.value || 0);
+        const r = this.resellers.find(x => x.id === rId);
+        const discPercent = r ? Number(r.discount_percent || 0) : 40;
+
+        const discAmount = msrp * discPercent / 100;
+        const finalPrice = msrp - discAmount;
+
+        const elMsrp = document.getElementById('issue-lic-calc-msrp');
+        const elDiscLabel = document.getElementById('issue-lic-calc-discount-label');
+        const elDiscAmount = document.getElementById('issue-lic-calc-discount-amount');
+        const elFinal = document.getElementById('issue-lic-calc-final-price');
+
+        if (elMsrp) elMsrp.innerText = msrp.toLocaleString('vi-VN') + ' đ';
+        if (elDiscLabel) elDiscLabel.innerText = `Chiết khấu đại lý (${discPercent}%):`;
+        if (elDiscAmount) elDiscAmount.innerText = '-' + discAmount.toLocaleString('vi-VN') + ' đ';
+        if (elFinal) elFinal.innerText = finalPrice.toLocaleString('vi-VN') + ' đ';
+    },
+
+    async submitResellerIssueLicense(event) {
+        if (event && event.preventDefault) event.preventDefault();
+
+        const rId = Number(document.getElementById('issue-lic-reseller-select')?.value || 0);
+        if (!rId) {
+            alert('Vui lòng chọn đại lý!');
+            return;
+        }
+
+        const storeName = document.getElementById('issue-lic-store-name').value.trim();
+        const ownerPhone = document.getElementById('issue-lic-owner-phone').value.trim();
+        const period = document.getElementById('issue-lic-period').value;
+
+        if (!storeName || !ownerPhone) {
+            alert('Vui lòng nhập tên quán và số điện thoại chủ quán!');
+            return;
+        }
+
+        const submitBtn = document.getElementById('btn-submit-issue-lic');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const res = await fetch('api/super_admin?action=reseller_issue_license', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reseller_id: rId,
+                    store_name: storeName,
+                    owner_phone: ownerPhone,
+                    period: period
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Show result box
+                const resBox = document.getElementById('issue-lic-result-box');
+                const keyEl = document.getElementById('issue-lic-result-key');
+                const detailEl = document.getElementById('issue-lic-result-detail');
+
+                if (resBox && keyEl && detailEl) {
+                    keyEl.innerText = data.license_key || '';
+                    detailEl.innerHTML = `Mã quán: <b class="text-sky-300 font-mono">${data.tenant_code}</b> &bull; Quán: <b class="text-white">${storeName}</b> &bull; Hạn: <b class="text-amber-300 font-mono">${data.expire_date}</b> &bull; Thực trừ: <b class="text-emerald-400 font-mono">${(data.price_charged || 0).toLocaleString('vi-VN')} đ</b>`;
+                    resBox.classList.remove('hidden');
+                }
+
+                // Update wallet text in modal
+                const walletText = document.getElementById('issue-lic-wallet-text');
+                if (walletText && data.wallet_balance !== undefined) {
+                    walletText.innerText = Number(data.wallet_balance).toLocaleString('vi-VN') + ' đ';
+                }
+
+                // Background reload
+                this.loadResellers();
+                this.loadTenants();
+
+            } else {
+                alert(data.message || 'Lỗi khi cấp bản quyền!');
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        } catch (err) {
+            console.error('submitResellerIssueLicense error:', err);
+            alert('Lỗi kết nối máy chủ khi cấp bản quyền.');
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    },
+
+    copyResultKey() {
+        const key = document.getElementById('issue-lic-result-key')?.innerText.trim();
+        if (key && navigator.clipboard) {
+            navigator.clipboard.writeText(key).then(() => {
+                alert('Đã sao chép mã License Key: ' + key);
+            });
+        }
+    },
+
+    async openWalletLogsModal(resellerId, resellerName) {
+        document.getElementById('wallet-logs-title-reseller').innerText = 'Đại lý: ' + resellerName;
+        const tbody = document.getElementById('wallet-logs-tbody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu biến động ví...</td></tr>';
+        }
+        this.openModal('modal-reseller-wallet-logs');
+
+        try {
+            const res = await fetch(`api/super_admin?action=get_reseller_wallet_logs&reseller_id=${resellerId}`);
+            const data = await res.json();
+            if (!data.success || !data.logs || data.logs.length === 0) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400">Chưa có giao dịch biến động ví nào.</td></tr>';
+                return;
+            }
+
+            const typeMeta = {
+                deposit: { label: 'Nạp Tiền Ví', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', sign: '+' },
+                license_deduct: { label: 'Cấp Bản Quyền', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30', sign: '-' }
+            };
+
+            const logList = data.logs || data.data || [];
+            if (tbody) {
+                tbody.innerHTML = logList.map(l => {
+                    const tm = typeMeta[l.trans_type] || { label: l.trans_type, badge: 'bg-slate-700 text-slate-200', sign: '' };
+                    const amount = Number(l.amount || 0);
+                    const balAfter = Number(l.balance_after || 0);
+
+                    return `
+                        <tr class="hover:bg-white/5 border-b border-white/5">
+                            <td class="py-2.5 px-3 text-slate-400">${l.created_at || '—'}</td>
+                            <td class="py-2.5 px-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${tm.badge}">
+                                    ${tm.label}
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-3 text-right font-bold ${tm.sign === '+' ? 'text-emerald-400' : 'text-rose-400'}">
+                                ${tm.sign}${amount.toLocaleString('vi-VN')} đ
+                            </td>
+                            <td class="py-2.5 px-3 text-right text-slate-200">
+                                ${balAfter.toLocaleString('vi-VN')} đ
+                            </td>
+                            <td class="py-2.5 px-3">
+                                ${l.license_key ? `<span class="text-teal-300 select-all">${l.license_key}</span>` : '—'}
+                                ${l.store_name ? `<div class="text-[11px] text-slate-400">${l.store_name}</div>` : ''}
+                            </td>
+                            <td class="py-2.5 px-3 text-slate-300 text-[11px]">
+                                ${l.note || '—'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        } catch (err) {
+            console.error('openWalletLogsModal error:', err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-rose-400">Lỗi khi tải lịch sử biến động ví.</td></tr>';
+        }
     },
 
     openModal(modalId) {

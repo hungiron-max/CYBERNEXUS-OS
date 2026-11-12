@@ -108,6 +108,33 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             return def;
         };
 
+        // Reseller data queries (accessible via both GET & POST)
+        if (action == "get_resellers") {
+            auto rows = db.query(R"(
+                SELECT r.*,
+                       (SELECT COUNT(*) FROM saas_tenants t WHERE t.reseller_id = r.id) as total_tenants,
+                       (SELECT COALESCE(SUM(t.price_charged), 0) FROM saas_tenants t WHERE t.reseller_id = r.id) as total_revenue
+                FROM saas_resellers r
+                ORDER BY r.id DESC
+            )");
+            sendJson(res, {{"success", true}, {"data", rows}, {"resellers", rows}});
+            return;
+        }
+
+        if (action == "get_reseller_wallet_logs") {
+            int64_t rId = getValInt("reseller_id", 0);
+            std::string sql = "SELECT * FROM saas_reseller_wallet_logs WHERE 1=1";
+            std::vector<std::pair<std::string, json>> params;
+            if (rId > 0) {
+                sql += " AND reseller_id = :rid";
+                params.push_back({":rid", rId});
+            }
+            sql += " ORDER BY id DESC LIMIT 100";
+            auto rows = db.query(sql, params);
+            sendJson(res, {{"success", true}, {"data", rows}, {"logs", rows}});
+            return;
+        }
+
         if (req.method == "GET") {
             if (action == "tenants" || action == "get_tenants" || action.empty()) {
                 std::string kw = req.get_param_value("kw");
@@ -448,7 +475,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 }
                 sql += " ORDER BY id DESC LIMIT 100";
                 auto rows = db.query(sql, params);
-                sendJson(res, {{"success", true}, {"data", rows}});
+                sendJson(res, {{"success", true}, {"data", rows}, {"logs", rows}});
                 return;
             }
 
@@ -1362,6 +1389,282 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         "{}", req.remote_addr);
                 }
                 sendJson(res, {{"success", true}, {"message", "Đã xóa tài liệu khỏi kho hồ sơ!"}});
+                return;
+            }
+
+            // ==========================================
+            // PHÂN HỆ ĐẠI LÝ PHÂN PHỐI (RESELLER MANAGEMENT)
+            // ==========================================
+            if (action == "get_resellers") {
+                auto rows = db.query(R"(
+                    SELECT r.*,
+                           (SELECT COUNT(*) FROM saas_tenants t WHERE t.reseller_id = r.id) as total_tenants,
+                           (SELECT COALESCE(SUM(t.price_charged), 0) FROM saas_tenants t WHERE t.reseller_id = r.id) as total_revenue
+                    FROM saas_resellers r
+                    ORDER BY r.id DESC
+                )");
+                sendJson(res, {{"success", true}, {"data", rows}, {"resellers", rows}});
+                return;
+            }
+
+            if (action == "save_reseller") {
+                int64_t rId = getValInt("id", 0);
+                std::string compName = getVal("company_name");
+                std::string contact = getVal("contact_name");
+                std::string phone = getVal("phone");
+                std::string email = getVal("email");
+                std::string tier = getVal("tier", "silver");
+                double discount = 25.0;
+                try { discount = std::stod(getVal("discount_percent", "25.0")); } catch (...) {}
+                std::string status = getVal("status", "active");
+                std::string notes = getVal("note");
+                if (notes.empty()) notes = getVal("notes");
+
+                if (compName.empty() || contact.empty() || phone.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập tên công ty/đại lý, người liên hệ và số điện thoại!"}}, 400);
+                    return;
+                }
+
+                if (rId <= 0) {
+                    std::string checkCode = getVal("reseller_code");
+                    if (!checkCode.empty()) {
+                        auto exist = db.queryRow("SELECT id FROM saas_resellers WHERE reseller_code = :rc", {{":rc", checkCode}});
+                        if (!exist.is_null()) {
+                            try {
+                                if (exist["id"].is_number()) rId = exist["id"].get<int64_t>();
+                                else if (exist["id"].is_string()) rId = std::stoll(exist["id"].get<std::string>());
+                            } catch (...) {}
+                        }
+                    }
+                }
+
+                if (rId > 0) {
+                    db.execute(R"(
+                        UPDATE saas_resellers
+                        SET company_name = :cn, contact_name = :ct, phone = :ph, email = :em,
+                            tier = :tr, discount_percent = :dc, status = :st, notes = :nt
+                        WHERE id = :id
+                    )", {
+                        {":cn", compName}, {":ct", contact}, {":ph", phone}, {":em", email},
+                        {":tr", tier}, {":dc", discount}, {":st", status}, {":nt", notes}, {":id", rId}
+                    });
+                    sendJson(res, {{"success", true}, {"message", "Cập nhật thông tin đại lý thành công!"}, {"id", rId}});
+                } else {
+                    int64_t nextNum = db.queryScalar("SELECT COUNT(*) FROM saas_resellers").get<int64_t>() + 1;
+                    char codeBuf[32];
+                    std::snprintf(codeBuf, sizeof(codeBuf), "DL-%03lld", static_cast<long long>(nextNum));
+                    std::string rCode = getVal("reseller_code", codeBuf);
+                    if (rCode.empty()) rCode = codeBuf;
+
+                    int64_t newId = db.execute(R"(
+                        INSERT INTO saas_resellers (reseller_code, company_name, contact_name, phone, email, tier, discount_percent, wallet_balance, status, notes)
+                        VALUES (:rc, :cn, :ct, :ph, :em, :tr, :dc, 0.0, :st, :nt)
+                    )", {
+                        {":rc", rCode}, {":cn", compName}, {":ct", contact}, {":ph", phone},
+                        {":em", email}, {":tr", tier}, {":dc", discount}, {":st", status}, {":nt", notes}
+                    });
+
+                    recordAuditLog(db, 0, "SuperAdmin", "super_admin", "ADD_RESELLER", rCode,
+                        "Tạo đại lý phân phối mới: " + compName + " (Chiết khấu: " + std::to_string(static_cast<int>(discount)) + "%)",
+                        "{}", req.remote_addr);
+
+                    sendJson(res, {
+                        {"success", true},
+                        {"message", "Tạo đại lý phân phối thành công (" + rCode + ")!"},
+                        {"id", newId},
+                        {"reseller_code", rCode}
+                    });
+                }
+                return;
+            }
+
+            if (action == "deposit_reseller_wallet") {
+                int64_t rId = getValInt("reseller_id", 0);
+                double amount = 0.0;
+                try { amount = std::stod(getVal("amount", "0")); } catch (...) {}
+                std::string note = getVal("note", "Nạp tiền ví đại lý");
+
+                if (rId <= 0 || amount <= 0) {
+                    sendJson(res, {{"success", false}, {"message", "Đại lý hoặc số tiền nạp không hợp lệ (phải > 0)!"}}, 400);
+                    return;
+                }
+
+                auto rRow = db.queryRow("SELECT * FROM saas_resellers WHERE id = :id", {{":id", rId}});
+                if (rRow.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Đại lý không tồn tại!"}}, 404);
+                    return;
+                }
+
+                double curBal = getValInt("wallet_balance", 0);
+                if (rRow.contains("wallet_balance") && !rRow["wallet_balance"].is_null()) {
+                    if (rRow["wallet_balance"].is_number()) curBal = rRow["wallet_balance"].get<double>();
+                }
+                double newBal = curBal + amount;
+                std::string rCode = getString(rRow, "reseller_code", "");
+                std::string compName = getString(rRow, "company_name", "");
+
+                db.beginTransaction();
+                db.execute("UPDATE saas_resellers SET wallet_balance = :nb WHERE id = :id",
+                    {{":nb", newBal}, {":id", rId}});
+
+                db.execute(R"(
+                    INSERT INTO saas_reseller_wallet_logs
+                    (reseller_id, reseller_code, trans_type, amount, balance_before, balance_after, note, created_by)
+                    VALUES (:rid, :rc, 'deposit', :am, :bb, :ba, :nt, 'superadmin')
+                )", {
+                    {":rid", rId}, {":rc", rCode}, {":am", amount},
+                    {":bb", curBal}, {":ba", newBal}, {":nt", note}
+                });
+
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "WALLET_DEPOSIT", rCode,
+                    "Nạp " + std::to_string(static_cast<int64_t>(amount)) + "đ vào ví đại lý " + compName + " (Số dư mới: " + std::to_string(static_cast<int64_t>(newBal)) + "đ)",
+                    "{}", req.remote_addr);
+                db.commit();
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Nạp tiền vào ví đại lý thành công!"},
+                    {"wallet_balance", newBal}
+                });
+                return;
+            }
+
+            if (action == "get_reseller_wallet_logs") {
+                int64_t rId = getValInt("reseller_id", 0);
+                std::string sql = "SELECT * FROM saas_reseller_wallet_logs WHERE 1=1";
+                std::vector<std::pair<std::string, json>> params;
+                if (rId > 0) {
+                    sql += " AND reseller_id = :rid";
+                    params.push_back({":rid", rId});
+                }
+                sql += " ORDER BY id DESC LIMIT 100";
+                auto rows = db.query(sql, params);
+                sendJson(res, {{"success", true}, {"data", rows}, {"logs", rows}});
+                return;
+            }
+
+            if (action == "reseller_issue_license") {
+                int64_t rId = getValInt("reseller_id", 0);
+                std::string storeName = getVal("store_name");
+                std::string planCode = getVal("plan_code", "full_fb");
+                std::string period = getVal("period", "lifetime"); // 1m, 1y, lifetime
+                std::string ownerPhone = getVal("owner_phone");
+
+                if (rId <= 0 || storeName.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng chọn đại lý và nhập tên quán khách hàng!"}}, 400);
+                    return;
+                }
+
+                auto rRow = db.queryRow("SELECT * FROM saas_resellers WHERE id = :id AND status = 'active'", {{":id", rId}});
+                if (rRow.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Đại lý không tồn tại hoặc đã bị tạm ngưng hoạt động!"}}, 403);
+                    return;
+                }
+
+                double curBal = 0.0;
+                if (rRow.contains("wallet_balance") && !rRow["wallet_balance"].is_null()) {
+                    if (rRow["wallet_balance"].is_number()) curBal = rRow["wallet_balance"].get<double>();
+                }
+                double discount = 25.0;
+                if (rRow.contains("discount_percent") && !rRow["discount_percent"].is_null()) {
+                    if (rRow["discount_percent"].is_number()) discount = rRow["discount_percent"].get<double>();
+                }
+
+                // Tính giá niêm yết theo gói & thời hạn
+                double msrp = 4990000.0; // Mặc định gói Combo F&B Trọn đời
+                std::string planName = "Trọn Gói F&B Full Modules";
+                std::string expireDate = "2099-12-31";
+                int days = 36500;
+
+                if (period == "1m") {
+                    msrp = 399000.0;
+                    days = 31;
+                    time_t tExp = time(nullptr) + (days * 86400);
+                    char b[32]; strftime(b, sizeof(b), "%Y-%m-%d", localtime(&tExp)); expireDate = b;
+                } else if (period == "1y") {
+                    msrp = 3990000.0;
+                    days = 365;
+                    time_t tExp = time(nullptr) + (days * 86400);
+                    char b[32]; strftime(b, sizeof(b), "%Y-%m-%d", localtime(&tExp)); expireDate = b;
+                }
+
+                double actualPrice = (msrp * (100.0 - discount)) / 100.0;
+
+                if (curBal < actualPrice) {
+                    sendJson(res, {
+                        {"success", false},
+                        {"message", "Số dư ví đại lý không đủ (" + std::to_string(static_cast<int64_t>(curBal)) + "đ < " + std::to_string(static_cast<int64_t>(actualPrice)) + "đ). Vui lòng nạp thêm tiền vào ví!"}
+                    }, 400);
+                    return;
+                }
+
+                // Sinh License Key mới (CBNX-XXXX-XXXX-XXXX-XXXX)
+                auto randAlnum = [](int len) {
+                    const char chars[] = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+                    std::string s = "";
+                    for (int i = 0; i < len; ++i) s += chars[rand() % (sizeof(chars) - 1)];
+                    return s;
+                };
+                std::string newKey = "CBNX-" + randAlnum(4) + "-" + randAlnum(4) + "-" + randAlnum(4) + "-" + randAlnum(4);
+                int64_t nextTid = db.queryScalar("SELECT COUNT(*) FROM saas_tenants").get<int64_t>() + 1;
+                char tCodeBuf[32];
+                std::snprintf(tCodeBuf, sizeof(tCodeBuf), "GP%03lld", static_cast<long long>(nextTid));
+                std::string tCode = tCodeBuf;
+
+                std::string rCode = getString(rRow, "reseller_code", "");
+                std::string compName = getString(rRow, "company_name", "");
+                double newBal = curBal - actualPrice;
+
+                db.beginTransaction();
+                // 1. Trừ tiền ví đại lý
+                db.execute("UPDATE saas_resellers SET wallet_balance = :nb WHERE id = :id",
+                    {{":nb", newBal}, {":id", rId}});
+
+                // 2. Ghi nhật ký biến động ví
+                db.execute(R"(
+                    INSERT INTO saas_reseller_wallet_logs
+                    (reseller_id, reseller_code, trans_type, amount, balance_before, balance_after, license_key, store_name, note, created_by)
+                    VALUES (:rid, :rc, 'license_deduct', :am, :bb, :ba, :lk, :sn, :nt, :cb)
+                )", {
+                    {":rid", rId}, {":rc", rCode}, {":am", actualPrice},
+                    {":bb", curBal}, {":ba", newBal}, {":lk", newKey}, {":sn", storeName},
+                    {":nt", "Cấp bản quyền " + planName + " (" + period + ") cho quán " + storeName},
+                    {":cb", compName}
+                });
+
+                std::string allMods = R"(["pos_core","vietqr_payment","kitchen_bar","table_management","order_waiter","inventory_management","jukebox","loyalty_crm","ai_analytics","multi_branch"])";
+                std::string cycle = (period == "1m") ? "monthly" : ((period == "lifetime") ? "lifetime" : "yearly");
+
+                // 3. Tạo bản ghi cửa hàng saas_tenants
+                int64_t newTenantId = db.execute(R"(
+                    INSERT INTO saas_tenants
+                    (tenant_code, store_name, owner_name, phone, email, address,
+                     plan_id, plan_name, billing_cycle, subscription_status, start_date, expire_date,
+                     enabled_modules, license_key, note, logo_path, reseller_id, price_charged, created_at, updated_at)
+                    VALUES (:tc, :sn, 'Chủ Quán', :ph, '', '', 1, :pn, :cycle, 'active', date('now'), :ed, :emods, :lk, :nt, '', :rid, :pcost, datetime('now'), datetime('now'))
+                )", {
+                    {":tc", tCode}, {":sn", storeName}, {":ph", ownerPhone},
+                    {":pn", planName}, {":cycle", cycle}, {":ed", expireDate},
+                    {":emods", allMods}, {":lk", newKey},
+                    {":nt", "Đại lý " + compName + " (" + rCode + ") cấp bản quyền"},
+                    {":rid", rId}, {":pcost", actualPrice}
+                });
+
+                recordAuditLog(db, 0, compName, "reseller", "ISSUE_LICENSE", tCode,
+                    "Đại lý " + compName + " (" + rCode + ") cấp bản quyền " + newKey + " cho quán " + storeName + " (Trừ ví: " + std::to_string(static_cast<int64_t>(actualPrice)) + "đ)",
+                    "{}", req.remote_addr);
+                db.commit();
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã cấp bản quyền thành công cho quán " + storeName + "!"},
+                    {"tenant_id", newTenantId},
+                    {"tenant_code", tCode},
+                    {"license_key", newKey},
+                    {"expire_date", expireDate},
+                    {"price_charged", actualPrice},
+                    {"wallet_balance", newBal}
+                });
                 return;
             }
         }

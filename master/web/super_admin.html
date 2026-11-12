@@ -347,6 +347,14 @@
                     <span id="badge-total-tenants" class="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/30">0</span>
                 </button>
 
+                <button type="button" onclick="SuperAdmin.switchTab('resellers')" id="nav-tab-resellers" class="saas-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-2.5">
+                        <i class="fas fa-handshake text-teal-400 w-4 text-center"></i>
+                        <span>Đại Lý Phân Phối</span>
+                    </div>
+                    <span id="badge-total-resellers" class="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">0</span>
+                </button>
+
                 <button type="button" onclick="SuperAdmin.switchTab('plans')" id="nav-tab-plans" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
                     <i class="fas fa-gem text-amber-400 w-4 text-center"></i>
                     <span>Gói Cước & Phí Dịch Vụ</span>
@@ -1006,6 +1014,150 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ============================================== -->
+            <!-- TAB: QUẢN LÝ ĐẠI LÝ & KÊNH PHÂN PHỐI (RESELLERS) -->
+            <!-- ============================================== -->
+            <section id="tab-content-resellers" class="saas-tab-section hidden space-y-6">
+                <!-- Page Title -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-handshake text-teal-400"></i> Quản Lý Kênh Đại Lý Phân Phối (Resellers)
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Mô hình đại lý ký quỹ trả trước, chiết khấu theo cấp bậc (15% - 55%), tự động cấp mã bản quyền CBNX và trích khấu trừ tức thì</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="SuperAdmin.openResellerIssueLicenseModal()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-teal-600/20">
+                            <i class="fas fa-key"></i> <span>Cấp Bản Quyền Cho Quán</span>
+                        </button>
+                        <button type="button" onclick="SuperAdmin.openAddResellerModal()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-teal-600 to-sky-600 hover:from-teal-500 hover:to-sky-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-teal-600/20">
+                            <i class="fas fa-user-plus"></i> <span>Thêm Đại Lý Mới</span>
+                        </button>
+                        <button type="button" onclick="SuperAdmin.loadResellers()" class="btn-glass text-xs py-2 px-3 text-slate-300 hover:text-white flex items-center gap-1" title="Làm mới">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 Metrics Cards Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Metric 1: Total Resellers -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-teal-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Tổng Số Đại Lý</div>
+                            <div id="stat-reseller-count" class="text-2xl font-black text-teal-400 font-mono">0</div>
+                            <div class="text-[10px] text-teal-400/80">Đối tác phân phối</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 text-xl">
+                            <i class="fas fa-users-line"></i>
+                        </div>
+                    </div>
+
+                    <!-- Metric 2: Total Wallet Balance -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-emerald-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Tổng Số Dư Ký Quỹ</div>
+                            <div id="stat-reseller-wallet-total" class="text-2xl font-black text-emerald-400 font-mono">0 đ</div>
+                            <div class="text-[10px] text-emerald-400/80">Khả dụng trong ví đại lý</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                    </div>
+
+                    <!-- Metric 3: Total Stores Deployed -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-sky-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Điểm Quán Đã Cấp</div>
+                            <div id="stat-reseller-stores-count" class="text-2xl font-black text-sky-400 font-mono">0</div>
+                            <div class="text-[10px] text-sky-400/80">Cửa hàng do đại lý kéo</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-xl">
+                            <i class="fas fa-store"></i>
+                        </div>
+                    </div>
+
+                    <!-- Metric 4: Total Revenue -->
+                    <div class="liquid-glass p-4 rounded-2xl border border-purple-500/20 flex items-center justify-between shadow-lg">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-400">Doanh Thu Thu Được</div>
+                            <div id="stat-reseller-revenue-total" class="text-2xl font-black text-purple-400 font-mono">0 đ</div>
+                            <div class="text-[10px] text-purple-400/80">Thực thu qua đại lý</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl">
+                            <i class="fas fa-sack-dollar"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reseller Tier Policy Overview -->
+                <div class="liquid-glass p-4 rounded-2xl border border-white/10 bg-slate-900/60 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/50 border border-amber-600/30">
+                        <span class="text-2xl">🥉</span>
+                        <div>
+                            <div class="font-bold text-amber-400">Đại Lý Đồng (Bronze)</div>
+                            <div class="text-[11px] text-slate-300">Chiết khấu: <b class="text-white font-mono">15%</b> &bull; Ký quỹ: <span class="text-slate-400">&ge; 5 triệu</span></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/50 border border-slate-400/30">
+                        <span class="text-2xl">🥈</span>
+                        <div>
+                            <div class="font-bold text-slate-200">Đại Lý Bạc (Silver)</div>
+                            <div class="text-[11px] text-slate-300">Chiết khấu: <b class="text-sky-300 font-mono">25%</b> &bull; Ký quỹ: <span class="text-slate-400">&ge; 15 triệu</span></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/50 border border-yellow-500/30">
+                        <span class="text-2xl">🥇</span>
+                        <div>
+                            <div class="font-bold text-yellow-300">Đại Lý Vàng (Gold)</div>
+                            <div class="text-[11px] text-slate-300">Chiết khấu: <b class="text-yellow-400 font-mono">40%</b> &bull; Ký quỹ: <span class="text-slate-400">&ge; 30 triệu</span></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/50 border border-cyan-400/30">
+                        <span class="text-2xl">💎</span>
+                        <div>
+                            <div class="font-bold text-cyan-300">Đại Lý Kim Cương (Diamond)</div>
+                            <div class="text-[11px] text-slate-300">Chiết khấu: <b class="text-cyan-400 font-mono">55%</b> &bull; Ký quỹ: <span class="text-slate-400">&ge; 60 triệu</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resellers Table Card -->
+                <div class="liquid-glass rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+                    <div class="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                                <i class="fas fa-list-check text-teal-400"></i> Danh Sách Đại Lý &amp; Ví Ký Quỹ
+                            </span>
+                            <span id="reseller-badge-total" class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">0 ĐẠI LÝ</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="reseller-search-input" placeholder="Tìm tên, mã ĐL, SĐT..." oninput="SuperAdmin.filterResellersLocal()" class="liquid-input text-xs py-1.5 px-3 w-48 sm:w-64" />
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-white/10 bg-slate-950/60 text-slate-400 text-[11px] uppercase tracking-wider">
+                                    <th class="py-3 px-4 w-28">Mã ĐL</th>
+                                    <th class="py-3 px-4">Doanh Nghiệp / Tên Đại Lý</th>
+                                    <th class="py-3 px-4">Cấp Bậc & Chiết Khấu</th>
+                                    <th class="py-3 px-4 text-right">Số Dư Ví Ký Quỹ</th>
+                                    <th class="py-3 px-4 text-center">Số Cửa Hàng</th>
+                                    <th class="py-3 px-4 text-right">Doanh Thu Quán</th>
+                                    <th class="py-3 px-4 text-center">Trạng Thái</th>
+                                    <th class="py-3 px-4 text-center">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reseller-table-tbody" class="divide-y divide-white/5 text-slate-300">
+                                <tr><td colspan="8" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu đại lý...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -1594,6 +1746,311 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL: THÊM / SỬA ĐẠI LÝ (ADD/EDIT RESELLER) -->
+    <!-- ==================================================== -->
+    <div id="modal-reseller-form" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[620px] max-w-full text-white shadow-2xl border border-teal-500/30 space-y-4 my-auto max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-teal-600/20 border border-teal-500/30 flex items-center justify-center text-teal-400 text-lg">
+                        <i class="fas fa-handshake"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-white" id="reseller-modal-title">Thêm Đại Lý Phân Phối Mới</h3>
+                        <p class="text-[11px] text-slate-400">Đăng ký hồ sơ đại lý, cấp bậc chiết khấu và kích hoạt ví ký quỹ</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-reseller-form')">&times;</button>
+            </div>
+
+            <form onsubmit="SuperAdmin.saveReseller(event)" class="space-y-4 overflow-y-auto custom-scrollbar pr-1">
+                <input type="hidden" id="reseller-input-id" value="0" />
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Mã Đại Lý (*)</label>
+                        <input type="text" id="reseller-input-code" required class="liquid-input w-full font-mono uppercase" placeholder="VD: DL-001" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Tên Công Ty / Đại Lý (*)</label>
+                        <input type="text" id="reseller-input-company" required class="liquid-input w-full" placeholder="VD: Cty TNHH Giải Pháp Số An Nam" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Cấp Bậc Đại Lý (*)</label>
+                        <select id="reseller-input-tier" onchange="SuperAdmin.onResellerTierChange(this.value)" class="liquid-input w-full cursor-pointer">
+                            <option value="bronze">🥉 Đồng (Bronze - Chiết khấu 15%)</option>
+                            <option value="silver">🥈 Bạc (Silver - Chiết khấu 25%)</option>
+                            <option value="gold" selected>🥇 Vàng (Gold - Chiết khấu 40%)</option>
+                            <option value="diamond">💎 Kim Cương (Diamond - Chiết khấu 55%)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Mức Chiết Khấu Thỏa Thuận (%) (*)</label>
+                        <input type="number" id="reseller-input-discount" min="0" max="90" step="0.5" value="40" required class="liquid-input w-full font-mono font-bold text-teal-300" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Người Đại Diện (*)</label>
+                        <input type="text" id="reseller-input-contact" required class="liquid-input w-full" placeholder="VD: Trần Văn Bình" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Số Điện Thoại (*)</label>
+                        <input type="text" id="reseller-input-phone" required class="liquid-input w-full font-mono" placeholder="0988.xxx.xxx" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Email Liên Hệ</label>
+                        <input type="email" id="reseller-input-email" class="liquid-input w-full" placeholder="daily@annamtech.vn" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Tỉnh / Thành Phố</label>
+                        <input type="text" id="reseller-input-city" class="liquid-input w-full" placeholder="Hồ Chí Minh, Đà Nẵng, Cần Thơ..." />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Trạng Thái Hoạt Động</label>
+                        <select id="reseller-input-status" class="liquid-input w-full cursor-pointer">
+                            <option value="active">Hoạt Động Bình Thường</option>
+                            <option value="locked">Tạm Khóa Ví / Cấp Phép</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Ghi Chú Hợp Đồng / Khu Vực</label>
+                        <input type="text" id="reseller-input-note" class="liquid-input w-full" placeholder="Khu vực miền Trung & Tây Nguyên..." />
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                    <button type="button" onclick="SuperAdmin.closeModal('modal-reseller-form')" class="btn-glass px-4 py-2 text-xs text-slate-300 hover:text-white">Hủy</button>
+                    <button type="submit" class="btn-glass px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1.5 shadow-md shadow-teal-600/30">
+                        <i class="fas fa-check"></i> <span>Lưu Thông Tin Đại Lý</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL: NẠP TIỀN VÍ ĐẠI LÝ (DEPOSIT WALLET) -->
+    <!-- ==================================================== -->
+    <div id="modal-deposit-reseller-wallet" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[520px] max-w-full text-white shadow-2xl border border-emerald-500/30 space-y-4 my-auto">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-lg">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-emerald-300">Nạp Tiền Vào Ví Ký Quỹ Đại Lý</h3>
+                        <p id="deposit-reseller-subtitle" class="text-[11px] text-slate-400">Đại lý: --</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-deposit-reseller-wallet')">&times;</button>
+            </div>
+
+            <form onsubmit="SuperAdmin.submitDepositWallet(event)" class="space-y-4">
+                <input type="hidden" id="deposit-reseller-id" />
+
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Đại lý thụ hưởng:</span>
+                        <span id="deposit-reseller-name" class="font-bold text-white">...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Số dư hiện tại:</span>
+                        <span id="deposit-reseller-cur-bal" class="font-mono text-emerald-400 font-bold text-sm">0 đ</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Chọn Nhanh Số Tiền Nạp (VNĐ):</label>
+                    <div class="grid grid-cols-4 gap-2 mb-2">
+                        <button type="button" onclick="SuperAdmin.setDepositAmount(5000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">5 Triệu</button>
+                        <button type="button" onclick="SuperAdmin.setDepositAmount(15000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">15 Triệu</button>
+                        <button type="button" onclick="SuperAdmin.setDepositAmount(30000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">30 Triệu</button>
+                        <button type="button" onclick="SuperAdmin.setDepositAmount(60000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">60 Triệu</button>
+                    </div>
+                    <input type="number" id="deposit-wallet-amount" min="100000" step="100000" value="15000000" required class="liquid-input w-full text-base font-mono font-bold text-emerald-400" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Phương Thức Thanh Toán:</label>
+                    <select id="deposit-wallet-method" class="liquid-input w-full text-xs">
+                        <option value="bank_transfer" selected>Chuyển khoản VietQR Ngân Hàng</option>
+                        <option value="cash">Tiền mặt tại trụ sở</option>
+                        <option value="deposit_guarantee">Bảo lãnh ký quỹ hợp đồng</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Ghi Chú Nạp Tiền (Mã GD Ngân Hàng / Hợp Đồng):</label>
+                    <input type="text" id="deposit-wallet-note" placeholder="VD: Nạp ký quỹ đại lý Q4/2026..." class="liquid-input w-full text-xs" />
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
+                    <button type="button" onclick="SuperAdmin.closeModal('modal-deposit-reseller-wallet')" class="btn-glass text-xs py-2 px-4 font-semibold">Hủy</button>
+                    <button type="submit" class="btn-glass-success text-xs py-2 px-5 font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                        <i class="fas fa-check-circle"></i> <span>Xác Nhận Nạp Tiền Ví</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL: CẤP BẢN QUYỀN CHO QUÁN TỪ ĐẠI LÝ (ISSUE LICENSE) -->
+    <!-- ==================================================== -->
+    <div id="modal-reseller-issue-license" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[640px] max-w-full text-white shadow-2xl border border-teal-500/30 space-y-4 my-auto max-h-[92vh] flex flex-col">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 text-lg">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-white">Cấp Bản Quyền Cho Điểm Bán Mới (Qua Đại Lý)</h3>
+                        <p class="text-[11px] text-slate-400">Trừ trực tiếp số dư ví ký quỹ của đại lý theo mức chiết khấu thỏa thuận</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-reseller-issue-license')">&times;</button>
+            </div>
+
+            <form onsubmit="SuperAdmin.submitResellerIssueLicense(event)" class="space-y-4 overflow-y-auto custom-scrollbar pr-1">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Chọn Đại Lý Thực Hiện Cấp Phép (*):</label>
+                    <select id="issue-lic-reseller-select" required onchange="SuperAdmin.onIssueLicResellerChange()" class="liquid-input w-full text-xs font-semibold cursor-pointer">
+                        <option value="">-- Chọn đại lý phân phối --</option>
+                    </select>
+                </div>
+
+                <!-- Info Box đại lý đã chọn -->
+                <div id="issue-lic-reseller-info" class="p-3.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-slate-400">Cấp bậc & Chiết khấu:</span>
+                        <div id="issue-lic-discount-text" class="font-bold text-teal-300 mt-0.5">--</div>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Số dư ví khả dụng:</span>
+                        <div id="issue-lic-wallet-text" class="font-mono font-bold text-emerald-400 text-sm mt-0.5">0 đ</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Tên Điểm Bán / Quán Mới (*)</label>
+                        <input type="text" id="issue-lic-store-name" required class="liquid-input w-full" placeholder="VD: The Coffee House - Chi Nhánh 5" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-300 font-bold mb-1">Số Điện Thoại Chủ Quán (*)</label>
+                        <input type="text" id="issue-lic-owner-phone" required class="liquid-input w-full font-mono" placeholder="0909.xxx.xxx" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Thời Hạn Gói Cước Bản Quyền (*):</label>
+                    <select id="issue-lic-period" onchange="SuperAdmin.updateIssueLicPriceCalc()" class="liquid-input w-full text-xs cursor-pointer">
+                        <option value="1m">Gói 1 Tháng (Thử nghiệm) - Niêm yết: 399.000 đ</option>
+                        <option value="1y" selected>Gói 1 Năm (Tiêu chuẩn F&B) - Niêm yết: 3.990.000 đ</option>
+                        <option value="lifetime">Bản Quyền Trọn Đời (Lifetime VIP) - Niêm yết: 4.990.000 đ</option>
+                    </select>
+                </div>
+
+                <!-- Bảng Khấu Trừ & Chiết Khấu Tức Thì -->
+                <div class="p-3.5 rounded-xl bg-slate-950/70 border border-teal-500/30 text-xs space-y-1.5 font-mono">
+                    <div class="flex justify-between text-slate-300">
+                        <span>Giá niêm yết (MSRP):</span>
+                        <span id="issue-lic-calc-msrp" class="font-bold">3.990.000 đ</span>
+                    </div>
+                    <div class="flex justify-between text-teal-400">
+                        <span id="issue-lic-calc-discount-label">Chiết khấu đại lý (40%):</span>
+                        <span id="issue-lic-calc-discount-amount" class="font-bold">-1.596.000 đ</span>
+                    </div>
+                    <div class="flex justify-between text-emerald-300 text-sm font-bold pt-1.5 border-t border-white/10">
+                        <span>Số tiền THỰC TRỪ VÍ đại lý:</span>
+                        <span id="issue-lic-calc-final-price" class="text-emerald-400 text-base">2.394.000 đ</span>
+                    </div>
+                </div>
+
+                <!-- Result Box (Hidden by default, shown when success) -->
+                <div id="issue-lic-result-box" class="hidden p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-xs space-y-2">
+                    <div class="flex items-center gap-2 text-emerald-300 font-bold text-sm">
+                        <i class="fas fa-circle-check"></i> Cấp Bản Quyền Thành Công!
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-300 font-mono text-sm font-bold bg-slate-900 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-200 flex-1 select-all" id="issue-lic-result-key">
+                            CBNX-XXXX-XXXX-XXXX
+                        </span>
+                        <button type="button" onclick="SuperAdmin.copyResultKey()" class="btn-glass px-3 py-1.5 text-xs text-emerald-300 border-emerald-500/30">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    <div class="text-[11px] text-slate-400" id="issue-lic-result-detail">
+                        Quán: ... &bull; Hạn dùng: ...
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-white/10 shrink-0">
+                    <button type="button" onclick="SuperAdmin.closeModal('modal-reseller-issue-license')" class="btn-glass text-xs py-2 px-4 font-semibold">Đóng</button>
+                    <button type="submit" id="btn-submit-issue-lic" class="btn-glass text-xs py-2 px-5 font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white flex items-center gap-1.5 shadow-lg shadow-teal-500/20">
+                        <i class="fas fa-bolt"></i> <span>Khấu Trừ Ví &amp; Sinh License Tức Thì</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- MODAL: LỊCH SỬ BIẾN ĐỘNG VÍ ĐẠI LÝ (WALLET LOGS) -->
+    <!-- ==================================================== -->
+    <div id="modal-reseller-wallet-logs" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[850px] max-w-full text-white shadow-2xl border border-teal-500/30 space-y-4 my-auto max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-lg">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-teal-300">Lịch Sử Biến Động Số Dư Ví Đại Lý</h3>
+                        <p id="wallet-logs-title-reseller" class="text-[11px] text-slate-400">Đại lý: --</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-reseller-wallet-logs')">&times;</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-white/10 bg-slate-950/60 text-slate-400 text-[11px] uppercase tracking-wider">
+                            <th class="py-2.5 px-3 w-36">Thời Gian</th>
+                            <th class="py-2.5 px-3 w-28">Loại GD</th>
+                            <th class="py-2.5 px-3 text-right">Số Tiền (VNĐ)</th>
+                            <th class="py-2.5 px-3 text-right">Số Dư Sau</th>
+                            <th class="py-2.5 px-3">Mã License / Cửa Hàng</th>
+                            <th class="py-2.5 px-3">Ghi Chú</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wallet-logs-tbody" class="divide-y divide-white/5 text-slate-300 font-mono">
+                        <tr><td colspan="6" class="text-center py-6 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu biến động ví...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pt-2 border-t border-white/10 flex justify-end shrink-0">
+                <button type="button" onclick="SuperAdmin.closeModal('modal-reseller-wallet-logs')" class="btn-glass text-xs py-2 px-5 font-semibold">Đóng</button>
+            </div>
         </div>
     </div>
 

@@ -173,3 +173,38 @@ flowchart TD
   - Bổ sung **Bảng Nhật Ký Kiểm Toán Bất Biến (`audit_logs`)** theo dõi thời gian thực từng thao tác nhạy cảm kèm lý do giải trình và nhân viên thực hiện.
   - Bổ sung **Bảng Đối Soát Bàn Giao Ca & Két Tiền (`pos_shifts`)** đối chiếu Tiền đầu ca, Thu tiền mặt, Thu/Chi tại quầy, Tiền lý thuyết, Tiền thực đếm và Chênh lệch thừa/thiếu.
 - [x] **Bước 5 (12/11/2026 09:40):** Biên dịch [`cybernexus_slave.exe`](../slave/cybernexus_slave.exe), đồng bộ đầy đủ sang `master/web/` và gói phát hành `GP001`, chạy kiểm thử tự động Playwright (`ALL SHIFT, CASHBOOK & AUDIT TESTS PASSED!`) và khởi động lại máy chủ ở trạng thái sạch.
+
+---
+
+## 6. KẾT QUẢ TRIỂN KHAI PHÂN HỆ ĐẠI LÝ PHÂN PHỐI & CẤP PHÉP BẢN QUYỀN (SUPERADMIN MASTER) (12/11/2026)
+
+- [x] **Bước 1 (12/11/2026 10:05):** Khởi tạo cấu trúc CSDL và Schema Master trong [`master/src/main_master.cpp`](../master/src/main_master.cpp):
+  - Bảng `saas_resellers`: Quản lý thông tin đối tác đại lý, cấp bậc phân hạng (Bronze 15%, Silver 25%, Gold 40%, Diamond 55%), mức chiết khấu thỏa thuận, số dư ví ký quỹ trả trước `wallet_balance`, trạng thái hoạt động.
+  - Bảng `saas_reseller_wallet_logs`: Sổ cái tài chính bất biến ghi nhận mọi biến động nạp tiền ký quỹ (`deposit`) và trừ tiền khi cấp phép (`license_deduct`) kèm snapshot số dư trước/sau, mã license, tên quán và ghi chú.
+  - Mở rộng bảng `saas_tenants`: Bổ sung 2 trường `reseller_id` (liên kết đại lý phụ trách) và `price_charged` (giá đại lý thực trả sau chiết khấu).
+- [x] **Bước 2 (12/11/2026 10:15):** Xây dựng bộ API xử lý nghiệp vụ Kênh Đại lý trong [`master/src/master_handlers.cpp`](../master/src/master_handlers.cpp):
+  - `get_resellers`: Trả về danh sách đại lý cùng subquery tính số lượng điểm quán đã cấp và tổng doanh thu thu được từ kênh đại lý.
+  - `save_reseller`: Thêm mới hoặc cập nhật hồ sơ đại lý, phân hạng tier và phần trăm chiết khấu tự động, hỗ trợ cập nhật linh hoạt theo mã đại lý `DL-XXX`.
+  - `deposit_reseller_wallet`: Nạp tiền vào ví ký quỹ đại lý (bằng chuyển khoản VietQR, tiền mặt hoặc bảo lãnh hợp đồng), tự động cộng số dư và ghi nhật ký sổ cái ví `saas_reseller_wallet_logs`.
+  - `get_reseller_wallet_logs`: Tra cứu toàn bộ lịch sử biến động số dư theo từng đại lý hoặc toàn hệ thống.
+  - `reseller_issue_license`: Nghiệp vụ cấp bản quyền cho điểm bán mới thông qua đại lý:
+    - Kiểm tra số dư ví ký quỹ của đại lý theo công thức: $\text{Giá thực trừ} = \text{MSRP} \times (100 - \text{Discount}) / 100$.
+    - Tự động trừ tiền ví đại lý và ghi nhận nhật ký biến động ví.
+    - Sinh mã bản quyền chuẩn quốc tế `CBNX-XXXX-XXXX-XXXX-XXXX`.
+    - Tạo hồ sơ cửa hàng `saas_tenants` với thời hạn hợp đồng tương ứng (1 tháng, 1 năm hoặc trọn đời) và kích hoạt trọn gói toàn bộ 10 module F&B.
+    - Ghi nhận Audit Trail hệ thống.
+- [x] **Bước 3 (12/11/2026 10:20):** Thiết kế giao diện Quản trị Đại lý Chuẩn Liquid Glass trong [`master/web/super_admin.html`](../master/web/super_admin.html) và [`master/web/assets/js/super_admin.js`](../master/web/assets/js/super_admin.js):
+  - Bổ sung nút điều hướng sidebar **`Đại Lý Phân Phối`** với huy hiệu đếm số đại lý hoạt động theo thời gian thực.
+  - Tab **`Quản Lý Đại Lý & Kênh Phân Phối`**:
+    - 4 Thẻ KPI: Tổng Đại Lý, Tổng Số Dư Ký Quỹ Trong Ví (VNĐ), Tổng Điểm Quán Đã Cấp, Doanh Thu Thu Được.
+    - Banner chính sách 4 cấp bậc đối tác (🥉 Đồng 15%, 🥈 Bạc 25%, 🥇 Vàng 40%, 💎 Kim Cương 55%).
+    - Bảng danh sách đại lý tương tác: hiển thị mã ĐL, tên công ty, cấp bậc & chiết khấu, số dư ví khả dụng, số cửa hàng đã kéo, tổng tiền, trạng thái và cụm nút thao tác nhanh (Nạp Ví, Cấp Key, Lịch Sử Ví, Sửa).
+  - 4 Modal nghiệp vụ chuyên sâu:
+    - `modal-reseller-form`: Đăng ký / chỉnh sửa thông tin đại lý, tự động đổi chiết khấu khi chọn cấp bậc.
+    - `modal-deposit-reseller-wallet`: Nạp tiền ví ký quỹ nhanh với các mốc tiền 5M, 15M, 30M, 60M hoặc tự nhập.
+    - `modal-reseller-issue-license`: Cấp bản quyền cho quán mới: chọn đại lý $\rightarrow$ tự động tính chiết khấu và số tiền thực trừ ví theo thời gian thực $\rightarrow$ sinh mã License Key tức thì kèm nút sao chép 1 chạm.
+    - `modal-reseller-wallet-logs`: Bảng tra cứu lịch sử nạp / trừ tiền chi tiết của đại lý.
+- [x] **Bước 4 (12/11/2026 10:25):** Biên dịch [`master/cybernexus_master.exe`](../master/cybernexus_master.exe) qua CMake UCRT64, chạy daemon Master Server port 8500.
+- [x] **Bước 5 (12/11/2026 10:30):** Kiểm thử tự động E2E:
+  - Kiểm thử toàn diện API: Tạo đại lý `DL-001` (Gold 40%), nạp ví ký quỹ 20,000,000đ, cấp license 1 năm cho quán "The Coffee Garden - Quận 7" (MSRP 3.990.000đ, chiết khấu 40% $\rightarrow$ trừ ví 2.394.000đ, số dư ví còn lại 17.606.000đ), kích hoạt thành công license `CBNX-RXZF-0JTT-TGLG-75AE` qua `/api/license/verify` với đủ 10 modules.
+  - Chụp ảnh màn hình nghiệm thu giao diện Playwright: Bảng đại lý, Modal cấp bản quyền, Modal biến động số dư ví.
