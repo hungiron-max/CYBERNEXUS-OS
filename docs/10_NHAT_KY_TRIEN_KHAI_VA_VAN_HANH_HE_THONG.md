@@ -253,7 +253,7 @@ flowchart TD
 - **Giao diện Cài Đặt Mạng Chuyên Nghiệp:**
   - Bổ sung Card chuyên dụng: **"Thiết Lập Máy Chủ & Địa Chỉ IP LAN (Static IP Quán)"** đặt nổi bật trong tab Cài Đặt Cửa Hàng.
   - **Danh sách card mạng trực quan:** Liệt kê các card mạng LAN tìm thấy trên máy chủ, phân biệt rõ card mạng vật lý ("Khuyên Dùng Cho Quán") và card ảo ("Card mạng ảo"), kèm nút bấm 1 chạm `[ Dùng IP Này ]` để điền nhanh IP vào cấu hình.
-  - **Ô nhập Server Static IP & Cổng Port (8501):** Cho phép chủ quán thiết lập IP tĩnh cố định theo sơ đồ mạng quán hoặc router DHCP reservation.
+  - **Ô nhập Server Static IP & Cổng Port (8501):** Cho phép chủ quán thiết lập IP tĩnh cố định theo sơ đồ mạng quán hoặc router DHCP reservation. Đặt icon minh họa trực tiếp trên thẻ nhãn (`<label>`) thay vì lồng bên trong ô nhập liệu để chống hiện tượng đè icon lên chữ số trên một số trình duyệt.
   - **Banner Base URL Thời Gian Thực:** Hiển thị trực tiếp URL dịch vụ nội bộ (Ví dụ: `http://10.0.126.159:8501/`), nút `[ Sao chép ]` 1 chạm và link mở thử `[ Mở thử trang khách ]`.
   - Nút `[ Quét Lại IP ]` hỗ trợ cập nhật lại danh sách card mạng tức thì khi quán đổi mạng hoặc cắm lại dây LAN.
 

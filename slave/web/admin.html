@@ -1893,24 +1893,18 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                             <div class="sm:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-300 mb-1">
-                                    Địa Chỉ IP Cố Định Máy Chủ (Server Static IP):
+                                    <i class="fas fa-server text-sky-400 mr-1.5"></i>Địa Chỉ IP Cố Định Máy Chủ (Server Static IP):
                                 </label>
-                                <div class="relative">
-                                    <input type="text" id="setting-server-ip" name="server_ip" value="10.0.126.159" maxlength="45" class="liquid-input w-full text-sm font-mono font-bold text-emerald-400 pl-8" placeholder="Ví dụ: 192.168.1.100 hoặc 10.0.126.159" required oninput="updateLiveServerBaseUrl()" />
-                                    <i class="fas fa-server absolute left-2.5 top-2.5 text-xs text-slate-400"></i>
-                                </div>
+                                <input type="text" id="setting-server-ip" name="server_ip" value="10.0.126.159" maxlength="45" class="liquid-input w-full text-sm font-mono font-bold text-emerald-400" placeholder="Ví dụ: 192.168.1.100 hoặc 10.0.126.159" required oninput="updateLiveServerBaseUrl()" />
                                 <p class="text-[10px] text-slate-400 mt-1">
                                     * Mẹo: Cài đặt IP tĩnh (Static IP) trên Windows hoặc cố định DHCP MAC IP trên Router Wi-Fi để tránh đổi địa chỉ IP khi mất điện / khởi động lại.
                                 </p>
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-300 mb-1">
-                                    Cổng Dịch Vụ (Port):
+                                    <i class="fas fa-plug text-sky-400 mr-1.5"></i>Cổng Dịch Vụ (Port):
                                 </label>
-                                <div class="relative">
-                                    <input type="number" id="setting-server-port" name="server_port" value="8501" min="80" max="65535" class="liquid-input w-full text-sm font-mono font-bold text-sky-300 pl-8" required oninput="updateLiveServerBaseUrl()" />
-                                    <i class="fas fa-plug absolute left-2.5 top-2.5 text-xs text-slate-400"></i>
-                                </div>
+                                <input type="number" id="setting-server-port" name="server_port" value="8501" min="80" max="65535" class="liquid-input w-full text-sm font-mono font-bold text-sky-300" required oninput="updateLiveServerBaseUrl()" />
                                 <p class="text-[10px] text-slate-400 mt-1">Mặc định: 8501</p>
                             </div>
                         </div>
