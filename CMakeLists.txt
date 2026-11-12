@@ -44,7 +44,7 @@ add_executable(cybernexus_master ${MASTER_SRCS})
 target_compile_definitions(cybernexus_master PRIVATE CYBERNEXUS_ROLE_MASTER=1)
 
 if(WIN32)
-    target_link_libraries(cybernexus_master PRIVATE ws2_32 crypt32 wsock32)
+    target_link_libraries(cybernexus_master PRIVATE ws2_32 crypt32 wsock32 iphlpapi)
 endif()
 
 # ========================================================
@@ -63,7 +63,7 @@ add_executable(cybernexus_slave ${SLAVE_SRCS})
 target_compile_definitions(cybernexus_slave PRIVATE CYBERNEXUS_ROLE_SLAVE=1)
 
 if(WIN32)
-    target_link_libraries(cybernexus_slave PRIVATE ws2_32 crypt32 wsock32)
+    target_link_libraries(cybernexus_slave PRIVATE ws2_32 crypt32 wsock32 iphlpapi)
 endif()
 
 # ========================================================

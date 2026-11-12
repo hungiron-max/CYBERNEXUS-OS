@@ -12,6 +12,10 @@
 #include <ctime>
 #include <fstream>
 #include <filesystem>
+#ifdef _WIN32
+#include <iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
+#endif
 
 namespace SaleApp::Backend {
 
@@ -2817,8 +2821,117 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 }
 
 // ==========================================
-// 8. SETTINGS HANDLER (Bước 4.1)
+// 8. SETTINGS HANDLER (Bước 4.1 & Server LAN Network Detection)
 // ==========================================
+struct LanAdapterInfo {
+    std::string ip;
+    std::string adapterName;
+    std::string description;
+    bool isVirtual = false;
+    bool isPrimary = false;
+};
+
+static std::vector<LanAdapterInfo> getDetectedLanIps() {
+    std::vector<LanAdapterInfo> list;
+#ifdef _WIN32
+    ULONG bufLen = 15000;
+    PIP_ADAPTER_ADDRESSES pAddresses = (IP_ADAPTER_ADDRESSES*)malloc(bufLen);
+    if (!pAddresses) return list;
+
+    DWORD ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, pAddresses, &bufLen);
+    if (ret == ERROR_BUFFER_OVERFLOW) {
+        free(pAddresses);
+        pAddresses = (IP_ADAPTER_ADDRESSES*)malloc(bufLen);
+        if (!pAddresses) return list;
+        ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, pAddresses, &bufLen);
+    }
+
+    if (ret == NO_ERROR) {
+        for (PIP_ADAPTER_ADDRESSES pCurr = pAddresses; pCurr; pCurr = pCurr->Next) {
+            if (pCurr->IfType == IF_TYPE_SOFTWARE_LOOPBACK) continue;
+            if (pCurr->OperStatus != IfOperStatusUp) continue;
+
+            std::wstring wFriendly(pCurr->FriendlyName ? pCurr->FriendlyName : L"");
+            std::string friendlyName(wFriendly.begin(), wFriendly.end());
+
+            std::wstring wDesc(pCurr->Description ? pCurr->Description : L"");
+            std::string desc(wDesc.begin(), wDesc.end());
+
+            std::string dLower = desc;
+            for (auto& c : dLower) c = (char)::tolower(c);
+            std::string nLower = friendlyName;
+            for (auto& c : nLower) c = (char)::tolower(c);
+
+            bool isVirt = (dLower.find("virtual") != std::string::npos ||
+                           dLower.find("vmware") != std::string::npos ||
+                           dLower.find("hyper-v") != std::string::npos ||
+                           dLower.find("vethernet") != std::string::npos ||
+                           dLower.find("loopback") != std::string::npos ||
+                           dLower.find("wsl") != std::string::npos ||
+                           dLower.find("tap") != std::string::npos ||
+                           dLower.find("radmin") != std::string::npos ||
+                           dLower.find("zerotier") != std::string::npos ||
+                           dLower.find("tailscale") != std::string::npos ||
+                           dLower.find("wireguard") != std::string::npos ||
+                           dLower.find("bluetooth") != std::string::npos ||
+                           nLower.find("wsl") != std::string::npos);
+
+            for (PIP_ADAPTER_UNICAST_ADDRESS pUnicast = pCurr->FirstUnicastAddress; pUnicast; pUnicast = pUnicast->Next) {
+                if (pUnicast->Address.lpSockaddr && pUnicast->Address.lpSockaddr->sa_family == AF_INET) {
+                    sockaddr_in* sa_in = (sockaddr_in*)pUnicast->Address.lpSockaddr;
+                    char ipStr[INET_ADDRSTRLEN] = {0};
+                    inet_ntop(AF_INET, &(sa_in->sin_addr), ipStr, INET_ADDRSTRLEN);
+                    std::string ip(ipStr);
+                    if (!ip.empty() && ip != "127.0.0.1" && ip.find("169.254.") != 0) {
+                        LanAdapterInfo info;
+                        info.ip = ip;
+                        info.adapterName = friendlyName.empty() ? "LAN Adapter" : friendlyName;
+                        info.description = desc;
+                        info.isVirtual = isVirt;
+                        list.push_back(info);
+                    }
+                }
+            }
+        }
+    }
+    if (pAddresses) free(pAddresses);
+
+    if (list.empty()) {
+        char host[256] = {0};
+        if (gethostname(host, sizeof(host)) == 0) {
+            struct addrinfo hints = {0}, *res = nullptr;
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            if (getaddrinfo(host, nullptr, &hints, &res) == 0 && res) {
+                for (struct addrinfo* ptr = res; ptr != nullptr; ptr = ptr->ai_next) {
+                    sockaddr_in* s = (sockaddr_in*)ptr->ai_addr;
+                    char ipStr[INET_ADDRSTRLEN] = {0};
+                    inet_ntop(AF_INET, &(s->sin_addr), ipStr, INET_ADDRSTRLEN);
+                    std::string ip(ipStr);
+                    if (!ip.empty() && ip != "127.0.0.1" && ip.find("169.254.") != 0) {
+                        LanAdapterInfo info;
+                        info.ip = ip;
+                        info.adapterName = "Local Network";
+                        info.isVirtual = false;
+                        list.push_back(info);
+                    }
+                }
+                freeaddrinfo(res);
+            }
+        }
+    }
+#endif
+    // Sort so physical adapters (isVirtual == false) come first
+    std::stable_sort(list.begin(), list.end(), [](const LanAdapterInfo& a, const LanAdapterInfo& b) {
+        return (!a.isVirtual && b.isVirtual);
+    });
+
+    if (!list.empty()) {
+        list[0].isPrimary = true;
+    }
+    return list;
+}
+
 void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response& res) {
     try {
         auto& db = Database::instance();
@@ -2835,6 +2948,7 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
                 {"bank_id", "OCB"},
                 {"bank_account_no", "0918608073"},
                 {"bank_account_name", "NGUYEN CHI HUNG"},
+                {"server_port", "8501"},
                 {"app_version", "v2.2"},
                 {"db_driver", "sqlite"}
             };
@@ -2849,6 +2963,34 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
                 map[k] = v;
             }
             map["has_gemini_key"] = hasGemini;
+
+            // Detect Local LAN IPs
+            auto detected = getDetectedLanIps();
+            json ipArr = json::array();
+            std::string primaryIp = "";
+            for (const auto& item : detected) {
+                if (primaryIp.empty() || item.isPrimary) {
+                    primaryIp = item.ip;
+                }
+                ipArr.push_back({
+                    {"ip", item.ip},
+                    {"adapter", item.adapterName},
+                    {"description", item.description},
+                    {"is_primary", item.isPrimary}
+                });
+            }
+            map["detected_ips"] = ipArr;
+            map["primary_lan_ip"] = primaryIp;
+
+            // If store_settings does not have server_ip yet, default to primary detected IP
+            if (!map.contains("server_ip") || map["server_ip"].get<std::string>().empty()) {
+                map["server_ip"] = primaryIp;
+            }
+            std::string finalServerIp = map["server_ip"].get<std::string>();
+            std::string finalServerPort = map.value("server_port", "8501");
+            if (finalServerPort.empty()) finalServerPort = "8501";
+            map["server_base_url"] = "http://" + (finalServerIp.empty() ? "localhost" : finalServerIp) + ":" + finalServerPort + "/";
+
             sendJson(res, {{"success", true}, {"data", map}});
             return;
         }

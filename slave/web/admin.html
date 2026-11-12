@@ -1862,6 +1862,81 @@
                         <input type="text" name="store_address" value="123 Đường Số 1, Phường 5, TP.HCM" class="liquid-input w-full text-sm" required />
                     </div>
 
+                    <!-- Cấu Hình Máy Chủ & Mạng LAN (Thiết Lập Bắt Buộc Khi Setup Quán) -->
+                    <div class="p-4 rounded-xl bg-slate-900/90 border border-sky-500/35 space-y-3.5 shadow-xl">
+                        <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+                            <div>
+                                <h4 class="font-bold text-xs uppercase tracking-wider text-sky-400 flex items-center gap-2">
+                                    <i class="fas fa-network-wired text-sm text-sky-400"></i>
+                                    Thiết Lập Máy Chủ & Địa Chỉ IP LAN (Static IP Quán)
+                                </h4>
+                                <p class="text-[11px] text-slate-400 mt-0.5">
+                                    Bắt buộc cấu hình Static IP cố định cho máy chủ quán để toàn bộ mã QR Bàn, mã QR Khách hàng, màn hình Bếp KDS và điện thoại nhân viên kết nối thông suốt trong mạng nội bộ.
+                                </p>
+                            </div>
+                            <button type="button" onclick="detectServerNetwork()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm">
+                                <i class="fas fa-arrows-rotate text-xs"></i> <span>Quét Lại IP</span>
+                            </button>
+                        </div>
+
+                        <!-- Detected Adapters Grid -->
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1.5">
+                                Các card mạng LAN phát hiện trên máy chủ này:
+                            </label>
+                            <div id="detected-lan-adapters-list" class="space-y-1.5">
+                                <div class="text-xs text-slate-400 italic">Đang quét danh sách card mạng...</div>
+                            </div>
+                        </div>
+
+                        <!-- Static IP Inputs -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                                    Địa Chỉ IP Cố Định Máy Chủ (Server Static IP):
+                                </label>
+                                <div class="relative">
+                                    <input type="text" id="setting-server-ip" name="server_ip" value="10.0.126.159" maxlength="45" class="liquid-input w-full text-sm font-mono font-bold text-emerald-400 pl-8" placeholder="Ví dụ: 192.168.1.100 hoặc 10.0.126.159" required oninput="updateLiveServerBaseUrl()" />
+                                    <i class="fas fa-server absolute left-2.5 top-2.5 text-xs text-slate-400"></i>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">
+                                    * Mẹo: Cài đặt IP tĩnh (Static IP) trên Windows hoặc cố định DHCP MAC IP trên Router Wi-Fi để tránh đổi địa chỉ IP khi mất điện / khởi động lại.
+                                </p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                                    Cổng Dịch Vụ (Port):
+                                </label>
+                                <div class="relative">
+                                    <input type="number" id="setting-server-port" name="server_port" value="8501" min="80" max="65535" class="liquid-input w-full text-sm font-mono font-bold text-sky-300 pl-8" required oninput="updateLiveServerBaseUrl()" />
+                                    <i class="fas fa-plug absolute left-2.5 top-2.5 text-xs text-slate-400"></i>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">Mặc định: 8501</p>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Live LAN URL Banner -->
+                        <div class="p-3 rounded-xl bg-slate-950/90 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-qrcode text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase font-bold text-slate-400">Đường dẫn QR & Kết nối các thiết bị (Base URL):</div>
+                                    <div id="setting-live-server-url" class="text-xs sm:text-sm font-mono font-black text-emerald-400 select-all">http://10.0.126.159:8501/</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="copyLiveServerUrl()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer">
+                                    <i class="fas fa-copy text-xs"></i> <span>Sao chép</span>
+                                </button>
+                                <a id="setting-live-server-link" href="http://10.0.126.159:8501/customer.html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-purple-600/25 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1 transition-all">
+                                    <i class="fas fa-external-link-alt text-xs"></i> <span>Mở thử trang khách</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="p-4 rounded-xl bg-slate-900/80 border border-amber-500/25 space-y-3">
                         <div>
                             <h4 class="font-bold text-xs uppercase tracking-wider text-amber-300"><i class="fas fa-bullhorn mr-1"></i> Trang khách hàng & quảng bá</h4>
@@ -4916,10 +4991,12 @@
             const container = document.getElementById('preview-customer-qr-canvas');
             if (!container) return;
             container.innerHTML = '';
-            const origin = window.location.origin;
-            const path = window.location.pathname;
-            const dir = path.substring(0, path.lastIndexOf('/'));
-            const url = origin + (dir ? dir + '/' : '/') + 'customer.html';
+            const base = (typeof getAdminBaseUrl === 'function') ? getAdminBaseUrl() : (function() {
+                const cached = localStorage.getItem('server_lan_base_url');
+                if (cached) return cached.endsWith('/') ? cached : (cached + '/');
+                return window.location.origin + '/';
+            })();
+            const url = base + 'customer.html';
             if (typeof QRCode !== 'undefined') {
                 try {
                     new QRCode(container, {
@@ -5245,6 +5322,117 @@
             closeBankPickerModal();
         }
 
+        function renderDetectedAdapters(adapters, currentServerIp) {
+            const list = document.getElementById('detected-lan-adapters-list');
+            if (!list) return;
+            if (!adapters || adapters.length === 0) {
+                list.innerHTML = `<div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">Không phát hiện card mạng LAN đang kết nối. Vui lòng kiểm tra Wi-Fi / Cáp mạng.</div>`;
+                return;
+            }
+
+            list.innerHTML = adapters.map(a => {
+                const isCurrent = (a.ip === currentServerIp);
+                return `
+                    <div class="p-2 sm:p-2.5 rounded-xl ${isCurrent ? 'bg-emerald-950/40 border-emerald-500/40 shadow-sm' : 'bg-slate-950/60 border-white/10'} border flex items-center justify-between gap-2 transition-all">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-2.5 h-2.5 rounded-full ${a.isVirtual ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'} shrink-0"></span>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-mono font-black text-xs ${isCurrent ? 'text-emerald-300' : 'text-white'}">${a.ip}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded ${a.isVirtual ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'} font-semibold truncate">${a.adapter}</span>
+                                    ${a.isVirtual ? '<span class="text-[9px] text-slate-500">(Card mạng ảo / Virtual)</span>' : '<span class="text-[9px] text-emerald-400 font-bold"><i class="fas fa-check-circle text-[9px] mr-0.5"></i>Khuyên Dùng Cho Quán</span>'}
+                                </div>
+                                ${a.description ? `<div class="text-[10px] text-slate-400 truncate max-w-md">${a.description}</div>` : ''}
+                            </div>
+                        </div>
+                        <button type="button" onclick="selectServerIp('${a.ip}')" class="px-2.5 py-1 rounded-lg ${isCurrent ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/50 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10'} text-[11px] shrink-0 transition-all cursor-pointer">
+                            ${isCurrent ? '<i class="fas fa-check mr-1 text-emerald-400"></i>Đang Dùng' : 'Dùng IP Này'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectServerIp(ip) {
+            const input = document.getElementById('setting-server-ip');
+            if (input) {
+                input.value = ip;
+                updateLiveServerBaseUrl();
+                input.classList.add('ring-2', 'ring-emerald-400');
+                setTimeout(() => input.classList.remove('ring-2', 'ring-emerald-400'), 1000);
+            }
+        }
+
+        function updateLiveServerBaseUrl() {
+            const ipInput = document.getElementById('setting-server-ip');
+            const portInput = document.getElementById('setting-server-port');
+            const urlEl = document.getElementById('setting-live-server-url');
+            const linkEl = document.getElementById('setting-live-server-link');
+            const ip = (ipInput && ipInput.value.trim()) ? ipInput.value.trim() : 'localhost';
+            const port = (portInput && portInput.value.trim()) ? portInput.value.trim() : '8501';
+            const baseUrl = `http://${ip}:${port}/`;
+            if (urlEl) urlEl.textContent = baseUrl;
+            if (linkEl) linkEl.href = baseUrl + 'customer.html';
+            localStorage.setItem('server_lan_base_url', baseUrl);
+        }
+
+        function copyLiveServerUrl() {
+            const urlEl = document.getElementById('setting-live-server-url');
+            if (urlEl && navigator.clipboard) {
+                navigator.clipboard.writeText(urlEl.textContent.trim());
+                alert('Đã sao chép Base URL máy chủ:\n' + urlEl.textContent.trim());
+            }
+        }
+
+        async function detectServerNetwork() {
+            await loadStoreSettings();
+        }
+
+        async function loadStoreSettings() {
+            try {
+                const res = await fetch('api/settings.php');
+                const json = await res.json();
+                if (!json.success || !json.data) return;
+                const d = json.data;
+
+                const form = document.getElementById('settings-form');
+                if (form) {
+                    for (const [k, v] of Object.entries(d)) {
+                        const input = form.querySelector(`[name="${k}"]`);
+                        if (input && typeof v === 'string') {
+                            input.value = v;
+                        }
+                    }
+                }
+
+                // Render detected LAN adapters
+                renderDetectedAdapters(d.detected_ips || [], d.server_ip || d.primary_lan_ip);
+
+                // Update server IP & Port inputs if empty
+                const ipInput = document.getElementById('setting-server-ip');
+                if (ipInput && (!ipInput.value || ipInput.value === 'localhost')) {
+                    ipInput.value = d.server_ip || d.primary_lan_ip || '10.0.126.159';
+                }
+                const portInput = document.getElementById('setting-server-port');
+                if (portInput && !portInput.value) {
+                    portInput.value = d.server_port || '8501';
+                }
+
+                // Update live base URL banner
+                updateLiveServerBaseUrl();
+
+                if (d.server_base_url) {
+                    localStorage.setItem('server_lan_base_url', d.server_base_url);
+                }
+            } catch (e) {
+                console.error('Error loading store settings:', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStoreSettings();
+        });
+
         async function saveStoreSettings(e) {
             e.preventDefault();
             const form = e.target;
@@ -5275,6 +5463,8 @@
                 const data = await res.json();
 
                 if (data.success) {
+                    updateLiveServerBaseUrl();
+                    loadStoreSettings();
                     // Sau khi lưu thành công: Xóa trắng ô nhập API key ngay lập tức và ẩn hoàn toàn
                     const keyInput = document.getElementById('setting-gemini-api-key');
                     if (keyInput) {

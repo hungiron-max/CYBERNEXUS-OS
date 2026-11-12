@@ -223,3 +223,49 @@ flowchart TD
     - Bổ sung khung hiển thị số tiền thanh toán rõ ràng (`#quick-vietqr-amount-display`) và thông tin tài khoản, nội dung CK trực tiếp trong modal.
   - Đồng bộ file sửa sang [`master/web/customer.html`](../master/web/customer.html) và gói phát hành [`CyberNexus_POS_Release_GP001/web/customer.html`](../master/packages/GP001/release/CyberNexus_POS_Release_GP001/web/customer.html).
   - Chạy kiểm thử tự động Playwright xác nhận mã VietQR sinh ra khớp hoàn toàn với số tiền giỏ món và nội dung bàn (`customer_vietqr_verified.png`).
+
+---
+
+## 8. TỐI ƯU GIAO DIỆN DI ĐỘNG (MOBILE RESPONSIVE) & THIẾT LẬP MÁY CHỦ STATIC IP / QR MẠNG LAN CHO QUÁN (12/11/2026)
+
+### 8.1. Khắc phục lỗi hiển thị mất cân đối & cắt xén lề trái trên điện thoại di động
+- **Hiện tượng lỗi:** Khi khách hàng mở modal chi tiết giỏ món tại bàn trên điện thoại (đặc biệt là Safari iOS), toàn bộ modal bị lệch sang mép trái, dẫn đến cắt xén chữ ở lề trái (mất chữ "Tên c", "Địa c", "Ghi c", "TỔNG C", và cụm nút chân trang "SL: 1" bị đẩy ra ngoài màn hình).
+- **Nguyên nhân kỹ thuật gốc rễ:**
+  1. Hàng nút bấm chân trang `#customer-sheet-action-grid` gồm 4 thành phần cố định (`[SL: 0]`, `[Thêm món]`, `[VietQR]`, `[Xác Nhận]`) kèm `whitespace-nowrap` có tổng min-width vượt quá chiều rộng khả dụng của màn hình mobile (< 360px).
+  2. Modal container dùng flexbox centering (`display: flex; justify-content: center;`). Trong CSS Flexbox, khi một phần tử con có kích thước lớn hơn viewport, căn giữa sẽ đẩy phần tràn đều sang 2 bên, khiến tọa độ lề trái rơi vào giá trị âm ($x < 0$), gây ra hiện tượng cắt cụt chữ không thể cuộn xem được trên mobile.
+- **Giải pháp triển khai trong [`slave/web/customer.html`](../slave/web/customer.html):**
+  - **Tái cấu trúc chân trang modal thành 2 tầng khoa học:**
+    - **Tầng 1 (Tóm tắt hóa đơn):** Căn lề 2 bên đối xứng: bên trái là nhãn `TỔNG HÓA ĐƠN` kèm huy hiệu `SL: X`, bên phải là tổng tiền cỡ lớn màu xanh ngọc font mono.
+    - **Tầng 2 (Bộ 3 nút bấm tác vụ):** Chuyển sang bố cục lưới co giãn `grid grid-cols-3 gap-1.5 sm:gap-2` cho 3 nút: `[+ Thêm món]` (phụ), `[VietQR]` (tím), và `[✓ Xác Nhận]` (xanh lá chính). Tự động dàn đều 33.3% chiều rộng, không bị gãy dòng hay đẩy mép.
+  - **Chuẩn hóa khung Modal Dialog:** Giới hạn `max-width: 480px; width: 100%; box-sizing: border-box; overflow-x: hidden;` với lề đệm an toàn `padding: 8px` trên mobile và bo góc 20px bo tròn hiện đại.
+  - **Tối ưu danh sách món ăn:** Bổ sung `min-w-0`, `flex-1 truncate` cho tên món, thu gọn cụm tăng giảm số lượng stepper và nút ghi chú/xóa để đảm bảo vừa vặn trên mọi màn hình điện thoại từ 320px đến 430px.
+  - **Cho phép khách hàng mở Menu tự do:** Điều chỉnh cơ chế xác thực đầu trang để khách hàng quét mã QR tại bàn mở ngay được menu món ăn mà không bị chuyển hướng sang trang đăng nhập nội bộ của nhân viên.
+
+### 8.2. Hệ thống Tự Động Nhận Diện IP Mạng LAN Máy Chủ & Cấu Hình Static IP Cố Định Cho Quán
+- **Hiện tượng lỗi:** Khi nhân viên hoặc chủ quán mở trang POS trên chính máy chủ qua `http://localhost:8501/`, toàn bộ mã QR Bàn và QR Khách Hàng sinh ra đều bị gán cứng đường dẫn `http://localhost:8501/customer.html`. Do đó, điện thoại của khách và nhân viên quét mã không thể truy cập được vì `localhost` chỉ trỏ về chính chiếc điện thoại đó.
+- **Giải pháp triển khai trong C++ Native Backend ([`slave/src/slave_handlers.cpp`](../slave/src/slave_handlers.cpp)):**
+  - Tích hợp thư viện mạng Windows Native `iphlpapi` (`GetAdaptersAddresses`) để tự động quét toàn bộ danh sách card mạng IPv4 đang kết nối (Up/Active) trên máy chủ.
+  - **Thuật toán phân loại card mạng thông minh:** Tự động lọc và gắn cờ nhận diện card mạng ảo (VirtualBox, VMware, Hyper-V, vEthernet, WSL, Radmin, VPN...) để ưu tiên tuyệt đối card mạng vật lý của quán (Ethernet, Wi-Fi Realtek/Intel) lên vị trí ưu tiên số 1 làm `primary_lan_ip` (Ví dụ: `10.0.126.159`).
+  - Nâng cấp endpoint `GET /api/settings`: Trả về danh sách `detected_ips`, `primary_lan_ip`, `server_ip`, `server_port`, và `server_base_url` (Ví dụ: `http://10.0.126.159:8501/`).
+  - Hỗ trợ lưu trữ cấu hình `server_ip` và `server_port` vào cơ sở dữ liệu `store_settings` qua `POST /api/settings`.
+
+### 8.3. Bổ sung Phân Hệ Thiết Lập Máy Chủ & Static IP trong Trang Quản Trị ([`admin.html`](../slave/web/admin.html))
+- **Giao diện Cài Đặt Mạng Chuyên Nghiệp:**
+  - Bổ sung Card chuyên dụng: **"Thiết Lập Máy Chủ & Địa Chỉ IP LAN (Static IP Quán)"** đặt nổi bật trong tab Cài Đặt Cửa Hàng.
+  - **Danh sách card mạng trực quan:** Liệt kê các card mạng LAN tìm thấy trên máy chủ, phân biệt rõ card mạng vật lý ("Khuyên Dùng Cho Quán") và card ảo ("Card mạng ảo"), kèm nút bấm 1 chạm `[ Dùng IP Này ]` để điền nhanh IP vào cấu hình.
+  - **Ô nhập Server Static IP & Cổng Port (8501):** Cho phép chủ quán thiết lập IP tĩnh cố định theo sơ đồ mạng quán hoặc router DHCP reservation.
+  - **Banner Base URL Thời Gian Thực:** Hiển thị trực tiếp URL dịch vụ nội bộ (Ví dụ: `http://10.0.126.159:8501/`), nút `[ Sao chép ]` 1 chạm và link mở thử `[ Mở thử trang khách ]`.
+  - Nút `[ Quét Lại IP ]` hỗ trợ cập nhật lại danh sách card mạng tức thì khi quán đổi mạng hoặc cắm lại dây LAN.
+
+### 8.4. Chuẩn hóa Sinh Mã QR Bàn & Link Menu Khách Hàng Đồng Bộ Toàn Hệ Thống
+- Nâng cấp toàn diện các hàm sinh mã QR trên toàn bộ hệ thống:
+  - [`admin.js`](../slave/web/assets/js/admin.js): Cụm standee QR từng bàn, Standee Modal và Bản in hàng loạt toàn bộ bàn (`renderBatchQrPrint`) đều lấy chuẩn `getAdminBaseUrl()` theo IP LAN cấu hình (Ví dụ: `http://10.0.126.159:8501/customer.html?table=B01&name=...`), tuyệt đối không dùng `localhost`.
+  - [`index.html`](../slave/web/index.html) (Màn hình Thu Ngân POS), [`kitchen.html`](../slave/web/kitchen.html) (Bếp KDS), và [`order.html`](../slave/web/order.html) (Phục Vụ): Nâng cấp modal `Mã QR Khách Hàng Gọi Món` để tự động đối chiếu IP máy chủ LAN cấu hình từ API và cache trình duyệt, hiển thị chuẩn `http://10.0.126.159:8501/customer.html`.
+
+### 8.5. Đồng bộ Gói Phát Hành & Kiểm Thử Tự Động Toàn Diện
+- Biên dịch thành công binary `cybernexus_slave.exe` (liên kết `ws2_32`, `crypt32`, `wsock32`, `iphlpapi`).
+- Đồng bộ toàn bộ mã nguồn web sang [`master/web/`](../master/web/) và gói phát hành chuẩn [`master/packages/GP001/release/CyberNexus_POS_Release_GP001/`](../master/packages/GP001/release/CyberNexus_POS_Release_GP001/).
+- Chạy kịch bản kiểm thử tự động Playwright ([`verify_lan_and_mobile.js`](../verify_lan_and_mobile.js)) đạt kết quả **100% Pass**:
+  1. `TEST 1 (Mobile iPhone 390x844)`: Modal giỏ món mở trên di động có tọa độ `left: 8px, right: 382px`, các nút tác vụ `left: 21px, right: 369px`, không còn bị cắt xén lề trái.
+  2. `TEST 2 (Admin Settings)`: Card mạng LAN tự động nhận dạng chính xác `10.0.126.159` (Realtek Gaming 2.5GbE), Static IP lưu và nạp tự động, Base URL `http://10.0.126.159:8501/`.
+  3. `TEST 3 (POS LAN QR)`: Modal QR trên POS sinh đúng link mạng LAN `http://10.0.126.159:8501/customer.html`, sẵn sàng cho mọi điện thoại di động quét mã gọi món.

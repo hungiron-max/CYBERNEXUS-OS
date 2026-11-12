@@ -680,18 +680,25 @@
     <script>
         let indexCustomerQrInstance = null;
         function getCustomerMenuUrl() {
-            var origin = window.location.origin;
-            if (!origin || origin === 'null') {
-                origin = window.location.protocol + '//' + window.location.host;
+            var cached = localStorage.getItem('server_lan_base_url');
+            var hostname = window.location.hostname;
+            var isLocalhost = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1');
+            if (!isLocalhost && hostname) {
+                var origin = window.location.protocol + '//' + window.location.host;
+                var path = window.location.pathname;
+                var dir = path.substring(0, path.lastIndexOf('/'));
+                return origin + (dir ? dir + '/' : '/') + 'customer.html';
             }
+            if (cached) {
+                return (cached.endsWith('/') ? cached : (cached + '/')) + 'customer.html';
+            }
+            var origin = window.location.protocol + '//' + window.location.host;
             var path = window.location.pathname;
             var dir = path.substring(0, path.lastIndexOf('/'));
             return origin + (dir ? dir + '/' : '/') + 'customer.html';
         }
 
-        function showLanQrModal() {
-            var url = getCustomerMenuUrl();
-            var modal = document.getElementById('lan-qr-modal');
+        function renderIndexCustomerQr(url) {
             var urlEl = document.getElementById('index-customer-url-text');
             var linkEl = document.getElementById('index-customer-direct-link');
             var canvasContainer = document.getElementById('index-customer-qr-canvas');
@@ -699,7 +706,7 @@
             if (urlEl) urlEl.textContent = url;
             if (linkEl) linkEl.href = url;
 
-            if (canvasContainer) {
+            if (canvasContainer && typeof QRCode !== 'undefined') {
                 canvasContainer.innerHTML = '';
                 try {
                     indexCustomerQrInstance = new QRCode(canvasContainer, {
@@ -715,8 +722,31 @@
                     canvasContainer.innerHTML = '<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>';
                 }
             }
+        }
 
-            modal.classList.add('open');
+        async function showLanQrModal() {
+            var modal = document.getElementById('lan-qr-modal');
+            var initialUrl = getCustomerMenuUrl();
+            renderIndexCustomerQr(initialUrl);
+            if (modal) modal.classList.add('open');
+
+            // Asynchronously fetch latest configured server IP/port from settings
+            try {
+                var res = await fetch('api/settings.php');
+                var json = await res.json();
+                if (json.success && json.data) {
+                    var ip = json.data.server_ip || json.data.primary_lan_ip;
+                    var port = json.data.server_port || window.location.port || '8501';
+                    if (ip) {
+                        var base = 'http://' + ip + ':' + port + '/';
+                        localStorage.setItem('server_lan_base_url', base);
+                        var freshUrl = base + 'customer.html';
+                        if (freshUrl !== initialUrl) {
+                            renderIndexCustomerQr(freshUrl);
+                        }
+                    }
+                }
+            } catch(e) {}
         }
 
         function closeLanQrModal() {

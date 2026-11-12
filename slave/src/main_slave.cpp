@@ -255,10 +255,10 @@ int main(int argc, char* argv[]) {
     svr.Get("/order.html", serveProtectedView("order", "waiter"));
     svr.Get("/order.php", serveProtectedView("order", "waiter"));
 
-    // Khách hàng: Mọi tài khoản đã đăng nhập
-    svr.Get("/customer", serveProtectedView("customer", "all_authenticated"));
-    svr.Get("/customer.html", serveProtectedView("customer", "all_authenticated"));
-    svr.Get("/customer.php", serveProtectedView("customer", "all_authenticated"));
+    // Menu Khách Hàng Gọi Món (Customer Menu - Quét QR xem menu tự do)
+    svr.Get("/customer", serveView("customer"));
+    svr.Get("/customer.html", serveView("customer"));
+    svr.Get("/customer.php", serveView("customer"));
 
     svr.Get("/login", serveView("login"));
     svr.Get("/login.html", serveView("login"));

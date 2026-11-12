@@ -3,6 +3,32 @@
  * Dashboard, Products CRUD, Categories CRUD, Tables & Revenue Reports
  */
 
+// Helper: Lấy Base URL mạng LAN chính xác cho toàn bộ Standee QR và liên kết chia sẻ
+function getAdminBaseUrl() {
+    const hostname = window.location.hostname;
+    const isLocalhost = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1');
+    if (!isLocalhost && hostname) {
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const live = origin + (dir ? dir + '/' : '/');
+        localStorage.setItem('server_lan_base_url', live);
+        return live;
+    }
+    const cached = localStorage.getItem('server_lan_base_url');
+    if (cached) {
+        return cached.endsWith('/') ? cached : (cached + '/');
+    }
+    const origin = window.location.origin && window.location.origin !== 'null' 
+        ? window.location.origin 
+        : (window.location.protocol + '//' + window.location.host);
+    const path = window.location.pathname;
+    const dir = path.substring(0, path.lastIndexOf('/'));
+    return origin + (dir ? dir + '/' : '/');
+}
+
 /**
  * Smart 4:3 Image Cropper Engine for Dishes
  * High performance HTML5 Canvas 4:3 cropper with interactive pan, zoom, rotate, auto-fit, and instant crop
@@ -343,6 +369,23 @@ const Admin = {
         await this.loadTables();
         this.initDishImageDrop();
 
+        // Warm up and cache server LAN base URL from backend settings
+        try {
+            fetch('api/settings.php')
+                .then(r => r.json())
+                .then(json => {
+                    if (json.success && json.data) {
+                        const ip = json.data.server_ip || json.data.primary_lan_ip;
+                        const port = json.data.server_port || window.location.port || '8501';
+                        if (ip) {
+                            const lanBase = `http://${ip}:${port}/`;
+                            localStorage.setItem('server_lan_base_url', lanBase);
+                        }
+                    }
+                })
+                .catch(() => {});
+        } catch (e) {}
+
         // Check if query string requests cloud sync modal
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('open_sync') === '1') {
@@ -568,6 +611,9 @@ const Admin = {
         if (tab === 'analytics') this.loadAnalyticsData();
         if (tab === 'operations') this.loadOperationsTab();
         if (tab === 'finance') this.loadFinance();
+        if (tab === 'settings') {
+            if (typeof loadStoreSettings === 'function') loadStoreSettings();
+        }
         if (tab === 'media') {
             this.loadMediaTab();
             this.startEqWaveAnimation();
@@ -1397,12 +1443,7 @@ const Admin = {
             return;
         }
 
-        const origin = window.location.origin && window.location.origin !== 'null' 
-            ? window.location.origin 
-            : (window.location.protocol + '//' + window.location.host);
-        const path = window.location.pathname;
-        const dir = path.substring(0, path.lastIndexOf('/'));
-        const baseUrl = origin + (dir ? dir + '/' : '/');
+        const baseUrl = getAdminBaseUrl();
 
         // Nhóm: Mang Về nằm trên, Tại Quán nằm dưới — mỗi nhóm xuống hàng riêng có tiêu đề
         const groupOf = t => (t.area_type === 'MANG_VE' ? 'MANG_VE' : 'TAI_QUAN');
@@ -1616,12 +1657,7 @@ const Admin = {
         const titleEl = document.getElementById('admin-table-qr-title');
         if (titleEl) titleEl.textContent = `Standee QR Bàn: ${table.name} (${table.code})`;
 
-        const origin = window.location.origin && window.location.origin !== 'null' 
-            ? window.location.origin 
-            : (window.location.protocol + '//' + window.location.host);
-        const path = window.location.pathname;
-        const dir = path.substring(0, path.lastIndexOf('/'));
-        const orderUrl = `${origin + (dir ? dir + '/' : '/')}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
+        const orderUrl = `${getAdminBaseUrl()}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
 
         const urlEl = document.getElementById('admin-table-qr-url');
         if (urlEl) urlEl.textContent = orderUrl;
@@ -1655,12 +1691,7 @@ const Admin = {
     printTableQrStandee() {
         if (!this.activeTableForQr) return;
         const table = this.activeTableForQr;
-        const origin = window.location.origin && window.location.origin !== 'null' 
-            ? window.location.origin 
-            : (window.location.protocol + '//' + window.location.host);
-        const path = window.location.pathname;
-        const dir = path.substring(0, path.lastIndexOf('/'));
-        const orderUrl = `${origin + (dir ? dir + '/' : '/')}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
+        const orderUrl = `${getAdminBaseUrl()}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
 
         const printZone = document.getElementById('print-container-zone');
         if (!printZone) return;
@@ -1802,12 +1833,7 @@ const Admin = {
             return;
         }
 
-        const origin = window.location.origin && window.location.origin !== 'null' 
-            ? window.location.origin 
-            : (window.location.protocol + '//' + window.location.host);
-        const path = window.location.pathname;
-        const dir = path.substring(0, path.lastIndexOf('/'));
-        const baseUrl = origin + (dir ? dir + '/' : '/');
+        const baseUrl = getAdminBaseUrl();
 
         const printZone = document.getElementById('print-container-zone');
         if (!printZone) return;
