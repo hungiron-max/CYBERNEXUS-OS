@@ -213,17 +213,15 @@ int main(int argc, char* argv[]) {
     };
 
     // Client Store Views (100% Bắt buộc có phiên đăng nhập hợp lệ & Đúng phân quyền bộ phận)
-    svr.Get("/", [](const httplib::Request& req, httplib::Response& res) {
+    svr.Get("/", [serveView](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         res.set_header("Pragma", "no-cache");
         res.set_header("Expires", "0");
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt.has_value()) {
-            res.status = 302;
-            res.set_header("Location", "/login.html");
-            res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_token"));
-            res.set_header("Set-Cookie", AuthService::formatClearCookie("PHPSESSID"));
-            res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_remember"));
+            // Khách vãng lai quét QR / gõ thẳng IP:Port -> hiển thị trực tiếp Menu khách hàng,
+            // giữ nguyên thanh địa chỉ gọn gàng (chỉ IP:Port, không lộ đường dẫn /customer.html)
+            serveView("customer")(req, res);
             return;
         }
         const auto& u = userOpt.value();

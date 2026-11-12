@@ -368,3 +368,13 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
   - Đăng nhập kiểm tra màn hình Quản Trị Admin Tab Media: Menu DSP Console hiển thị đủ 15 preset, chuyển đổi mượt mà giữa các cấu hình âm thanh.
 
 
+
+---
+
+## 11. Rút Gọn Đường Dẫn Trình Duyệt Khách Hàng (Chỉ Hiển Thị IP:Port)
+
+- **Yêu cầu:** Thanh địa chỉ khi khách mở menu chỉ hiển thị gọn IP:Port (ví dụ 10.0.126.159:8501), không lộ /customer.html.
+- **Backend C++ ([`slave/src/main_slave.cpp`](../slave/src/main_slave.cpp)):** Route `GET /` — nếu **chưa có phiên đăng nhập nhân viên** thì phục vụ trực tiếp Menu Khách Hàng (không redirect, URL giữ nguyên `IP:Port`); nếu đã đăng nhập thì vẫn tự chuyển về màn hình theo vai trò (Admin/POS/Bếp/Phục vụ) như cũ.
+- **Frontend ([`customer.html`](../slave/web/customer.html)):** Với khách vãng lai, script đầu trang dùng `history.replaceState` đổi `/customer.html` thành `/` (giữ nguyên `?table=...&name=...` của QR từng bàn); link/QR hero và nút Sao chép link sinh dạng `http://IP:Port/`. Link cũ `/customer.html` vẫn hoạt động.
+- **Lưu ý vận hành:** Nhân viên truy cập `IP:Port` trên máy chưa đăng nhập sẽ thấy menu khách; nhân viên vào `IP:Port/login.html` (hoặc nút đăng nhập trên menu) để đăng nhập.
+- **Kiểm thử Playwright:** `/` , `/customer.html`, `/customer.html?table=B01` đều hiển thị URL `http://10.0.126.159:8501/` (kèm `?table=` nếu có) và reload vẫn đúng menu khách. Đã build lại `cybernexus_slave.exe` và đồng bộ master/release.

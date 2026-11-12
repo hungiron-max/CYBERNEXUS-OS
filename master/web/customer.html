@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -32,6 +32,13 @@
             // Nếu là khách hàng vãng lai (quét QR tại bàn), cho phép mở thẳng thực đơn không bắt login nội bộ
             if (!u || !u.id) {
                 window.currentUser = null;
+                // Ẩn đường dẫn /customer.html trên thanh địa chỉ: chỉ hiển thị IP:Port (giữ nguyên ?table=...)
+                try {
+                    if (/\/customer(\.html|\.php)?$/i.test(window.location.pathname)) {
+                        var base = window.location.pathname.replace(/\/customer(\.html|\.php)?$/i, '/');
+                        window.history.replaceState(null, '', base + window.location.search + window.location.hash);
+                    }
+                } catch(e) {}
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', uncloak);
                 } else {
@@ -2579,7 +2586,7 @@
             }
             var path = window.location.pathname;
             var dir = path.substring(0, path.lastIndexOf('/'));
-            var url = origin + (dir ? dir + '/' : '/') + 'customer.html';
+            var url = origin + (dir ? dir + '/' : '/');
             if (typeof QRCode !== 'undefined') {
                 try {
                     new QRCode(container, {
@@ -2606,7 +2613,7 @@
             }
             var path = window.location.pathname;
             var dir = path.substring(0, path.lastIndexOf('/'));
-            var url = origin + (dir ? dir + '/' : '/') + 'customer.html';
+            var url = origin + (dir ? dir + '/' : '/');
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(url).then(function() {
                     alert('Đã sao chép link gọi món:\n' + url);
