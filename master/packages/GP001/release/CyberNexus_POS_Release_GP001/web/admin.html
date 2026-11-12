@@ -133,7 +133,7 @@
             flex-direction: column !important;
             align-items: center !important;
             justify-content: space-between !important;
-            height: 295px !important;
+            height: 268px !important;
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(2, 6, 23, 0.9) 100%) !important;
             border: 1px solid rgba(255, 255, 255, 0.08) !important;
             border-radius: 12px !important;
@@ -179,7 +179,7 @@
         .eq-fader-slot {
             position: relative !important;
             width: 28px !important;
-            height: 186px !important;
+            height: 162px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -187,7 +187,7 @@
         .eq-slot-groove {
             position: absolute !important;
             width: 5px !important;
-            height: 172px !important;
+            height: 148px !important;
             background: #050811 !important;
             border-radius: 999px !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -208,7 +208,7 @@
             -webkit-appearance: none !important;
             appearance: none !important;
             position: absolute !important;
-            width: 172px !important;
+            width: 148px !important;
             height: 28px !important;
             background: transparent !important;
             transform: rotate(-90deg) !important;
@@ -2579,31 +2579,19 @@
                         </div>
 
                         <!-- Realtime Frequency Response Curve Display Canvas (FluidEQ Style Hi-Fi Screen) -->
-                        <div class="dsp-spectrum-screen relative w-full rounded-xl border border-sky-500/30 p-2 pb-5 overflow-hidden mb-3 shadow-inner" style="height: 185px; min-height: 185px; background: radial-gradient(ellipse at 50% 45%, #0a1f3d 0%, #020713 100%);">
+                        <div class="dsp-spectrum-screen relative w-full rounded-xl border border-sky-500/30 p-2 pb-5 overflow-hidden mb-3 shadow-inner" style="height: 155px; min-height: 155px; background: radial-gradient(ellipse at 50% 45%, #0a1f3d 0%, #020713 100%);">
                             <!-- Background Grid Lines (Horizontal + Vertical) -->
-                            <div class="absolute inset-x-12 inset-y-2 bottom-5 pointer-events-none opacity-25">
+                            <div style="position: absolute; left: 48px; right: 48px; top: 8px; bottom: 20px; pointer-events: none; opacity: 0.25;">
                                 <div class="w-full h-full border-b border-t border-slate-400 grid grid-rows-4 relative">
                                     <div class="border-b border-dashed border-slate-500"></div>
                                     <div class="border-b border-cyan-400/80 shadow-[0_0_6px_rgba(34,211,238,0.5)]"></div>
                                     <div class="border-b border-dashed border-slate-500"></div>
                                     <div></div>
-                                    <!-- Vertical Frequency Grid Lines -->
-                                    <div class="absolute inset-0 grid grid-cols-9 pointer-events-none opacity-60">
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div class="border-r border-dashed border-slate-600/50"></div>
-                                        <div></div>
-                                    </div>
                                 </div>
                             </div>
 
                             <!-- Ambient / Live Spectrum Bars Overlay -->
-                            <div id="eq-spectrum-bars" class="absolute inset-x-12 bottom-5 h-28 flex items-end justify-between gap-1 pointer-events-none opacity-35 px-1">
+                            <div id="eq-spectrum-bars" style="position: absolute; left: 52px; right: 52px; bottom: 20px; height: 95px; display: flex; align-items: flex-end; gap: 4px; pointer-events: none; opacity: 0.32;">
                                 <div class="flex-1 bg-gradient-to-t from-sky-500/60 to-cyan-300/20 rounded-t transition-all duration-150" style="height:35%"></div>
                                 <div class="flex-1 bg-gradient-to-t from-sky-500/60 to-cyan-300/20 rounded-t transition-all duration-150" style="height:52%"></div>
                                 <div class="flex-1 bg-gradient-to-t from-sky-500/60 to-cyan-300/20 rounded-t transition-all duration-150" style="height:68%"></div>
@@ -2623,7 +2611,7 @@
                             </div>
 
                             <!-- Frequency Axis Labels at Bottom -->
-                            <div class="absolute inset-x-12 bottom-1 flex items-center justify-between text-[9px] font-mono text-slate-400 pointer-events-none px-1">
+                            <div style="position: absolute; left: 52px; right: 52px; bottom: 3px; display: flex; align-items: center; justify-content: space-between; font-size: 9px; font-family: monospace; color: #94a3b8; pointer-events: none;">
                                 <span>31Hz</span><span>62Hz</span><span>125Hz</span><span>250Hz</span><span>500Hz</span><span>1kHz</span><span>2kHz</span><span>4kHz</span><span>8kHz</span><span>16kHz</span>
                             </div>
 
@@ -2642,7 +2630,7 @@
                             <div class="dsp-db-label right m12">-12 dB</div>
 
                             <!-- SVG Curve with Professional Studio Mastering Visualizer -->
-                            <svg id="eq-curve-svg" class="w-full h-full relative z-1 pointer-events-none" viewBox="0 0 600 120" preserveAspectRatio="none" style="height: 155px;">
+                            <svg id="eq-curve-svg" class="w-full h-full relative z-1 pointer-events-none" viewBox="0 0 600 120" preserveAspectRatio="none" style="height: 126px;">
                                 <defs>
                                     <linearGradient id="eqGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                                         <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.32" />
