@@ -1,0 +1,8 @@
+{
+  "store_tenant_id": "TCT04",
+  "store_name": "TRÀ SỮA TOCOTOCO LINH TRUNG",
+  "license_key": "SALE-D425-18F1-75CD-EE84",
+  "master_server_url": "http://127.0.0.1:8500",
+  "port": 8501,
+  "auto_heartbeat": true
+}

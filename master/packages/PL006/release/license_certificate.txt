@@ -1,0 +1,13 @@
+==============================================================
+  CYBERNEXUS OS — CHỨNG NHẬN BẢN QUYỀN PHẦN MỀM ĐIỂM BÁN
+==============================================================
+Cửa Hàng:           PHUC LONG COFFEE & TEA
+Mã Quán (Tenant):   PL006
+Mã Khóa Bản Quyền:  LIC-1B9B-2091-1C6E-93E4
+Gói Dịch Vụ:        Gói Chuyên Nghiệp (Pro Max)
+Hạn Sử Dụng:        2027-12-31
+Khóa Phần Cứng:     Unbound (Chưa gán máy)
+Module Được Duyệt:  ["pos_core","vietqr_payment","qr_customer_order","kitchen_kds","inventory_recipes","ai_invoice_ocr","advanced_reports","staff_shifts"]
+Phát Hành Bởi:      SuperAdmin SaaS Central Authority
+Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition
+==============================================================

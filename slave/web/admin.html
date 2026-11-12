@@ -13,7 +13,7 @@
     <!-- Chart.js Local -->
     <script src="assets/js/chart.min.js"></script>
     <!-- Liquid Glass Custom Styles -->
-    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=7">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
     <style>
@@ -369,8 +369,6 @@
             flex: 0 0 auto !important;
         }
     </style>
-    <script>
-        // Tự động dọn sạch Service Worker cũ & CacheStorage để web chạy mượt cả ở chế độ thường lẫn ẩn danh
     <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY DÀNH CHO QUẢN TRỊ VIÊN -->
     <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
     <script>
@@ -442,25 +440,26 @@
     <div class="liquid-blob-2"></div>
 
     <!-- Top Admin Header (Tầng 1: Phân hệ & Nhận diện Chủ Quán) -->
-    <header class="liquid-header px-3 sm:px-6 py-2.5 flex items-center justify-between z-30 shrink-0 gap-3 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
+    <header class="liquid-header px-4 sm:px-6 py-2.5 flex items-center justify-between z-30 shrink-0 gap-4 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
         <!-- Brand & Badges -->
-        <div class="flex items-center gap-2.5 shrink-0 whitespace-nowrap min-w-0">
+        <div class="flex items-center gap-3 shrink-0 whitespace-nowrap">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 via-sky-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/25 shrink-0">
                 <i class="fas fa-cubes text-white text-base"></i>
             </div>
-            <div class="flex flex-col min-w-0">
-                <div class="flex items-center gap-2 whitespace-nowrap">
-                    <h1 class="font-black text-sm sm:text-base tracking-wide bg-gradient-to-r from-white via-indigo-100 to-sky-300 bg-clip-text text-transparent uppercase whitespace-nowrap">
-                        GÓC PHỐ COFFEE & TEA
+            <div class="flex flex-col shrink-0">
+                <div class="flex items-center gap-3 shrink-0">
+                    <h1 class="font-black text-sm sm:text-base tracking-wide uppercase text-white shrink-0 flex items-center gap-1.5">
+                        <span class="text-amber-400 font-black">GÓC PHỐ</span>
+                        <span class="text-white font-extrabold">COFFEE &amp; TEA</span>
                     </h1>
-                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/35 whitespace-nowrap shrink-0 shadow-sm">
-                        <i class="fas fa-crown text-[9px] text-amber-400"></i> Chủ Quán (Admin)
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/35 shrink-0 shadow-sm">
+                        <i class="fas fa-crown text-[10px] text-amber-400"></i> Chủ Quán (Admin)
                     </span>
-                    <span class="hidden md:inline-flex text-[9px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap items-center gap-1">
+                    <span class="hidden md:inline-flex text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0 items-center gap-1">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> C++ Native (Port 8500)
                     </span>
                 </div>
-                <div class="text-[11px] text-slate-400 flex items-center gap-2 whitespace-nowrap mt-0.5 truncate">
+                <div class="text-[11px] text-slate-400 flex items-center gap-2 whitespace-nowrap mt-0.5 shrink-0">
                     <span>Hệ Thống Quản Trị Trung Tâm</span>
                     <span class="text-slate-600">•</span>
                     <span class="text-sky-300 font-mono">SQLite WAL</span>
@@ -472,6 +471,27 @@
 
         <!-- Right Quick Actions -->
         <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+            <!-- Jukebox Mini Controller on Admin Topbar (Cố định 1 kích thước, Marquee direction left) -->
+            <div id="admin-jukebox-pill" class="juke-pill-fixed flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-fuchsia-500/30 hover:border-fuchsia-500/60 shadow-md shadow-fuchsia-500/10 transition-all cursor-pointer select-none shrink-0" onclick="Admin.switchTab('media')" title="Đến trang Quản lý Âm Nhạc & Jukebox">
+                <div class="w-6 h-6 rounded-lg bg-gradient-to-tr from-fuchsia-600 to-pink-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-fuchsia-500/40">
+                    <i id="admin-juke-disc" class="fas fa-compact-disc text-xs"></i>
+                </div>
+                <div class="juke-text-box">
+                    <div id="admin-juke-title" class="text-xs font-bold text-white leading-tight">Jukebox Âm Nhạc</div>
+                    <div id="admin-juke-artist" class="text-[10px] text-fuchsia-300 truncate leading-tight">Hệ thống sẵn sàng</div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <!-- Quick Play/Pause button -->
+                    <button type="button" onclick="event.stopPropagation(); window.JukeboxEngine ? window.JukeboxEngine.togglePlay() : Admin.mediaPlayer.togglePlay()" class="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-[10px] transition shrink-0" title="Phát / Tạm dừng">
+                        <i id="admin-juke-play-icon" class="fas fa-play"></i>
+                    </button>
+                    <!-- Quick Skip button -->
+                    <button type="button" onclick="event.stopPropagation(); window.JukeboxEngine ? window.JukeboxEngine.skip() : Admin.skipMediaTrack()" class="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-[10px] transition shrink-0" title="Chuyển bài tiếp theo">
+                        <i class="fas fa-forward-step"></i>
+                    </button>
+                </div>
+            </div>
+
             <a href="index.html" class="btn-glass text-xs py-1.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40 flex items-center gap-1.5 font-bold shadow-md shadow-emerald-500/10 shrink-0 whitespace-nowrap" title="Màn hình bán hàng POS Thu Ngân">
                 <i class="fas fa-cash-register text-xs"></i>
                 <span class="hidden sm:inline">POS Bán Hàng</span>
@@ -504,106 +524,87 @@
         </div>
     </header>
 
-    <!-- Sub-Navbar (Tầng 2: 10 Tabs Quản Trị Trải Ngang Thoáng Đãng - Không Bao Giờ Wrap) -->
-    <nav class="bg-slate-900/95 backdrop-blur-md border-b border-white/10 px-4 py-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none z-20 shrink-0">
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm flex items-center gap-1.5 shrink-0" data-tab="dashboard">
-            <i class="fas fa-chart-line text-xs"></i>
-            <span>Tổng Quan</span>
-        </button>
+    <!-- 2-Tier Enterprise Segmented Navigation Bar -->
+    <nav class="bg-slate-900/95 border-b border-white/10 px-3 sm:px-6 py-2 shrink-0 z-30">
+        <!-- Tier 1: 4 Domain Functional Groups -->
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-1.5 p-1 bg-slate-950/70 rounded-xl border border-white/10 overflow-x-auto scrollbar-none">
+                <button type="button" onclick="Admin.switchGroup('ops')" id="grp-btn-ops" class="group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white shrink-0">
+                    <i class="fas fa-cash-register text-emerald-400"></i>
+                    <span>Vận Hành</span>
+                </button>
+                <button type="button" onclick="Admin.switchGroup('menu')" id="grp-btn-menu" class="group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white shrink-0">
+                    <i class="fas fa-utensils text-amber-400"></i>
+                    <span>Thực Đơn &amp; Kho</span>
+                </button>
+                <button type="button" onclick="Admin.switchGroup('hr')" id="grp-btn-hr" class="group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white shrink-0">
+                    <i class="fas fa-users-gear text-sky-400"></i>
+                    <span>Nhân Sự &amp; Bếp</span>
+                </button>
+                <button type="button" onclick="Admin.switchGroup('sys')" id="grp-btn-sys" class="group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white shrink-0">
+                    <i class="fas fa-sliders text-purple-400"></i>
+                    <span>Hệ Thống &amp; Quán</span>
+                </button>
+            </div>
 
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="products">
-            <i class="fas fa-utensils text-xs"></i>
-            <span>Mặt Hàng (F4)</span>
-        </button>
+            <!-- Active Breadcrumb -->
+            <div class="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-400 shrink-0">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="active-tab-title" class="font-bold text-sky-300">Tổng Quan Doanh Số</span>
+            </div>
+        </div>
 
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="categories">
-            <i class="fas fa-layer-group text-xs"></i>
-            <span>Nhóm Hàng</span>
-        </button>
+        <!-- Tier 2: Sub-item Segment Strip (Tự động đổi theo Nhóm nghiệp vụ) -->
+        <div class="mt-2 pt-1.5 border-t border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-none" id="subnav-container">
+            <!-- Group 1 Sub-items (Vận Hành) -->
+            <div id="subnav-ops" class="subnav-group flex items-center gap-1.5">
+                <button type="button" onclick="Admin.switchTab('dashboard')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="dashboard">
+                    <i class="fas fa-chart-line text-sky-400"></i> <span>Tổng Quan Doanh Số</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('tables')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="tables">
+                    <i class="fas fa-border-all text-emerald-400"></i> <span>Bàn &amp; Khu Vực (QR)</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('orders')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="orders">
+                    <i class="fas fa-receipt text-amber-400"></i> <span>Lịch Sử Hóa Đơn</span>
+                </button>
+            </div>
 
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="tables">
-            <i class="fas fa-border-all text-xs"></i>
-            <span>Bàn & Khu Vực</span>
-        </button>
+            <!-- Group 2 Sub-items (Thực Đơn & Kho) -->
+            <div id="subnav-menu" class="subnav-group hidden flex items-center gap-1.5">
+                <button type="button" onclick="Admin.switchTab('products')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="products">
+                    <i class="fas fa-utensils text-amber-400"></i> <span>Mặt Hàng (F4)</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('categories')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="categories">
+                    <i class="fas fa-layer-group text-sky-400"></i> <span>Nhóm Hàng</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('operations')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="operations">
+                    <i class="fas fa-boxes-stacked text-emerald-400"></i> <span>Kho &amp; Chi Phí Vật Liệu</span>
+                </button>
+            </div>
 
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="users">
-            <i class="fas fa-users-cog text-xs"></i>
-            <span>Nhân Viên</span>
-        </button>
+            <!-- Group 3 Sub-items (Nhân Sự & Bếp) -->
+            <div id="subnav-hr" class="subnav-group hidden flex items-center gap-1.5">
+                <button type="button" onclick="Admin.switchTab('users')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="users">
+                    <i class="fas fa-users-gear text-indigo-400"></i> <span>Nhân Viên &amp; Phân Quyền</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('analytics')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="analytics">
+                    <i class="fas fa-chart-pie text-amber-400"></i> <span>Hiệu Suất Bếp &amp; Phục Vụ</span>
+                </button>
+            </div>
 
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="orders">
-            <i class="fas fa-receipt text-xs"></i>
-            <span>Lịch Sử Hóa Đơn</span>
-        </button>
-
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="analytics">
-            <i class="fas fa-chart-pie text-xs"></i>
-            <span>Hiệu Suất Bếp & Phục Vụ</span>
-        </button>
-
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="operations">
-            <i class="fas fa-boxes-stacked text-amber-400 text-xs"></i>
-            <span>Kho & Tiền Lương</span>
-        </button>
-
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="finance">
-            <i class="fas fa-file-invoice-dollar text-teal-400 text-xs"></i>
-            <span>Tài Chính</span>
-        </button>
-
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="media">
-            <i class="fas fa-compact-disc text-fuchsia-400 text-xs"></i>
-            <span>Âm Nhạc & Jukebox</span>
-        </button>
-
-        <button type="button" class="admin-nav-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0" data-tab="settings">
-            <i class="fas fa-cog text-sky-400 text-xs"></i>
-            <span>Cài Đặt Quán</span>
-        </button>
-    </nav>
-
-    <!-- Mobile Navigation Slider (< lg: Hiển thị đầy đủ tất cả chức năng quản lý trên điện thoại) -->
-    <nav class="lg:hidden flex items-center gap-1.5 px-2 py-1.5 bg-slate-900/95 border-b border-white/10 overflow-x-auto scrollbar-none shrink-0 z-20 text-xs">
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all bg-sky-500/20 text-sky-400 border border-sky-500/40 flex items-center gap-1.5 shrink-0" data-tab="dashboard">
-            <i class="fas fa-chart-line text-xs"></i>
-            <span>Tổng Quan</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="products">
-            <i class="fas fa-utensils text-xs"></i>
-            <span>Mặt Hàng</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="categories">
-            <i class="fas fa-layer-group text-xs"></i>
-            <span>Nhóm Hàng</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="tables">
-            <i class="fas fa-border-all text-xs"></i>
-            <span>Sơ Đồ Bàn</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="users">
-            <i class="fas fa-users-cog text-xs"></i>
-            <span>Nhân Viên</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="orders">
-            <i class="fas fa-receipt text-xs"></i>
-            <span>Lịch Sử Đơn</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="analytics">
-            <i class="fas fa-chart-pie text-xs"></i>
-            <span>Hiệu Suất</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="operations">
-            <i class="fas fa-boxes-stacked text-xs text-amber-400"></i>
-            <span>Kho & Lương</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="media">
-            <i class="fas fa-compact-disc text-xs text-fuchsia-400"></i>
-            <span>Âm Nhạc</span>
-        </button>
-        <button type="button" class="admin-nav-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0" data-tab="settings">
-            <i class="fas fa-cog text-xs"></i>
-            <span>Cài Đặt</span>
-        </button>
+            <!-- Group 4 Sub-items (Hệ Thống & Quán) -->
+            <div id="subnav-sys" class="subnav-group hidden flex items-center gap-1.5">
+                <button type="button" onclick="Admin.switchTab('finance')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="finance">
+                    <i class="fas fa-file-invoice-dollar text-teal-400"></i> <span>Báo Cáo Tài Chính</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('media')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="media">
+                    <i class="fas fa-compact-disc text-fuchsia-400"></i> <span>Âm Nhạc &amp; Jukebox</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('settings')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="settings">
+                    <i class="fas fa-cog text-sky-400"></i> <span>Cài Đặt Quán &amp; VietQR</span>
+                </button>
+            </div>
+        </div>
     </nav>
 
     <!-- Admin Main Body Container -->
@@ -755,26 +756,39 @@
                 </div>
             </div>
 
-            <!-- Products Table View (matching user legacy screenshot) -->
-            <div class="flex-1 overflow-x-auto overflow-y-auto">
-                <table class="w-full min-w-[650px] text-left border-collapse">
-                    <thead class="sticky top-0 bg-slate-950/90 backdrop-blur-md text-slate-400 text-xs uppercase tracking-wider border-b border-white/10 z-10">
-                        <tr>
-                            <th class="p-3 w-16 text-center">Hình Ảnh</th>
-                            <th class="p-3">Mã Hàng</th>
-                            <th class="p-3">Tên Mặt Hàng</th>
-                            <th class="p-3">Nhóm Mặt Hàng</th>
-                            <th class="p-3">Đơn Vị Tính</th>
-                            <th class="p-3">Giá Bán</th>
-                            <th class="p-3">Giá Nhập</th>
-                            <th class="p-3 text-center">Tạm Khóa</th>
-                            <th class="p-3 text-right">Thao Tác</th>
-                        </tr>
-                    </thead>
-                    <tbody id="products-table-body">
-                        <!-- Loaded dynamically -->
-                    </tbody>
-                </table>
+            <!-- Products Table View (Modern Enterprise SaaS Layout) -->
+            <div class="flex-1 overflow-x-auto overflow-y-auto p-3 sm:p-4 media-custom-scroll">
+                <div class="saas-table-card max-w-6xl mx-auto my-2">
+                    <table class="saas-table">
+                        <colgroup>
+                            <col style="width: 50px;">
+                            <col style="width: 90px;">
+                            <col style="width: 250px;">
+                            <col style="width: 140px;">
+                            <col style="width: 70px;">
+                            <col style="width: 110px;">
+                            <col style="width: 110px;">
+                            <col style="width: 80px;">
+                            <col style="width: 90px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th class="col-center">Ảnh</th>
+                                <th>Mã Hàng</th>
+                                <th class="col-name">Tên Mặt Hàng</th>
+                                <th>Nhóm Hàng</th>
+                                <th class="col-center">ĐVT</th>
+                                <th class="col-right">Giá Bán</th>
+                                <th class="col-right">Giá Vốn</th>
+                                <th class="col-center">Tạm Khóa</th>
+                                <th class="col-right">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -788,21 +802,30 @@
                 </button>
                 <span class="text-xs text-slate-400">Quản lý các danh mục đồ uống, đồ ăn, topping</span>
             </div>
-            <div class="flex-1 overflow-y-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="sticky top-0 bg-slate-950/90 backdrop-blur-md text-slate-400 text-xs uppercase tracking-wider border-b border-white/10 z-10">
-                        <tr>
-                            <th class="p-3">ID</th>
-                            <th class="p-3">Tên Nhóm Hàng</th>
-                            <th class="p-3">Số Lượng Món</th>
-                            <th class="p-3">Thứ Tự</th>
-                            <th class="p-3 text-right">Thao Tác</th>
-                        </tr>
-                    </thead>
-                    <tbody id="category-table-body">
-                        <!-- Loaded dynamically -->
-                    </tbody>
-                </table>
+            <div class="flex-1 overflow-x-auto overflow-y-auto p-3 sm:p-4 media-custom-scroll">
+                <div class="saas-table-card max-w-3xl mx-auto my-2">
+                    <table class="saas-table">
+                        <colgroup>
+                            <col style="width: 65px;">
+                            <col style="width: 280px;">
+                            <col style="width: 140px;">
+                            <col style="width: 90px;">
+                            <col style="width: 95px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th class="col-center">ID</th>
+                                <th class="col-name">Tên Nhóm Hàng</th>
+                                <th class="col-center">Số Lượng Món</th>
+                                <th class="col-center">Thứ Tự</th>
+                                <th class="col-right">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="category-table-body">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -895,24 +918,36 @@
                     <i class="fas fa-user-plus"></i> Thêm Người Dùng Mới
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="sticky top-0 bg-slate-950/90 backdrop-blur-md text-slate-400 text-xs uppercase tracking-wider border-b border-white/10 z-10">
-                        <tr>
-                            <th class="p-3">Mã User</th>
-                            <th class="p-3">Tài Khoản</th>
-                            <th class="p-3">Họ Và Tên</th>
-                            <th class="p-3">Vai Trò & Quyền Hạn</th>
-                            <th class="p-3">Số Điện Thoại</th>
-                            <th class="p-3">Mã PIN</th>
-                            <th class="p-3">Trạng Thái</th>
-                            <th class="p-3 text-right">Thao Tác</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-table-body">
-                        <!-- Loaded dynamically -->
-                    </tbody>
-                </table>
+            <div class="flex-1 overflow-x-auto overflow-y-auto p-3 sm:p-4 media-custom-scroll">
+                <div class="saas-table-card max-w-5xl mx-auto my-2">
+                    <table class="saas-table">
+                        <colgroup>
+                            <col style="width: 85px;">
+                            <col style="width: 110px;">
+                            <col style="width: 250px;">
+                            <col style="width: 160px;">
+                            <col style="width: 120px;">
+                            <col style="width: 80px;">
+                            <col style="width: 110px;">
+                            <col style="width: 95px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Mã User</th>
+                                <th>Tài Khoản</th>
+                                <th class="col-name">Họ Và Tên</th>
+                                <th class="col-center">Vai Trò &amp; Quyền Hạn</th>
+                                <th>Số Điện Thoại</th>
+                                <th class="col-center">Mã PIN</th>
+                                <th class="col-center">Trạng Thái</th>
+                                <th class="col-right">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -944,23 +979,34 @@
                     </div>
                 </div>
             </div>
-            <div class="flex-1 overflow-x-auto overflow-y-auto">
-                <table class="w-full min-w-[640px] text-left border-collapse">
-                    <thead class="sticky top-0 bg-slate-950/90 backdrop-blur-md text-slate-400 text-xs uppercase tracking-wider border-b border-white/10 z-10">
-                        <tr>
-                            <th class="p-3">Mã Hóa Đơn</th>
-                            <th class="p-3">Bàn</th>
-                            <th class="p-3">Thời Gian</th>
-                            <th class="p-3">Thu Ngân</th>
-                            <th class="p-3">Tổng Tiền</th>
-                            <th class="p-3">Trạng Thái</th>
-                            <th class="p-3 text-right">Xem</th>
-                        </tr>
-                    </thead>
-                    <tbody id="order-history-tbody">
-                        <!-- Loaded dynamically -->
-                    </tbody>
-                </table>
+            <div class="flex-1 overflow-x-auto overflow-y-auto p-3 sm:p-4 media-custom-scroll">
+                <div class="saas-table-card max-w-5xl mx-auto my-2">
+                    <table class="saas-table">
+                        <colgroup>
+                            <col style="width: 120px;">
+                            <col style="width: 100px;">
+                            <col style="width: 150px;">
+                            <col style="width: 160px;">
+                            <col style="width: 125px;">
+                            <col style="width: 115px;">
+                            <col style="width: 75px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Mã Hóa Đơn</th>
+                                <th>Bàn</th>
+                                <th>Thời Gian</th>
+                                <th class="col-name">Thu Ngân</th>
+                                <th class="col-right">Tổng Tiền</th>
+                                <th class="col-center">Trạng Thái</th>
+                                <th class="col-right">Xem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="order-history-tbody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -1045,26 +1091,26 @@
                 <!-- 2 Split Tables: Staff Ranking & Top Dishes -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     <!-- Staff Table (7 cols) -->
-                    <div class="lg:col-span-7 liquid-glass rounded-xl border border-white/10 overflow-hidden flex flex-col">
-                        <div class="p-3 border-b border-white/10 bg-slate-900/60 flex items-center justify-between">
+                    <div class="lg:col-span-7 saas-table-card flex flex-col">
+                        <div class="p-3 border-b border-white/10 bg-slate-900/80 flex items-center justify-between">
                             <h4 class="font-bold text-xs uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                                <i class="fas fa-medal"></i> BẢNG XẾP HẠNG PHỤC VỤ & THU NGÂN
+                                <i class="fas fa-medal"></i> BẢNG XẾP HẠNG PHỤC VỤ &amp; THU NGÂN
                             </h4>
-                            <span class="text-[11px] text-slate-400">Đơn nhận & bưng món</span>
+                            <span class="text-[11px] text-slate-400">Đơn nhận &amp; bưng món</span>
                         </div>
-                        <div class="flex-1 overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead class="bg-slate-950/80 text-slate-400 text-[11px] uppercase tracking-wider border-b border-white/10">
+                        <div class="flex-1 overflow-x-auto media-custom-scroll">
+                            <table class="saas-table">
+                                <thead>
                                     <tr>
-                                        <th class="p-2.5">Nhân viên</th>
-                                        <th class="p-2.5">Vai trò</th>
-                                        <th class="p-2.5 text-center">Đơn nhận</th>
-                                        <th class="p-2.5 text-center">Đã bưng</th>
-                                        <th class="p-2.5 text-right">Doanh số</th>
-                                        <th class="p-2.5 text-center">TG Bưng</th>
+                                        <th style="min-width: 140px;">Nhân viên</th>
+                                        <th style="width: 110px;">Vai trò</th>
+                                        <th style="width: 90px; text-align: center;">Đơn nhận</th>
+                                        <th style="width: 90px; text-align: center;">Đã bưng</th>
+                                        <th style="width: 120px; text-align: right;">Doanh số</th>
+                                        <th style="width: 100px; text-align: center;">TG Bưng</th>
                                     </tr>
                                 </thead>
-                                <tbody id="ana-staff-tbody" class="divide-y divide-white/5 text-xs">
+                                <tbody id="ana-staff-tbody">
                                     <!-- Rendered dynamically -->
                                 </tbody>
                             </table>
@@ -1072,23 +1118,23 @@
                     </div>
 
                     <!-- Top Dishes (5 cols) -->
-                    <div class="lg:col-span-5 liquid-glass rounded-xl border border-white/10 overflow-hidden flex flex-col">
-                        <div class="p-3 border-b border-white/10 bg-slate-900/60 flex items-center justify-between">
+                    <div class="lg:col-span-5 saas-table-card flex flex-col">
+                        <div class="p-3 border-b border-white/10 bg-slate-900/80 flex items-center justify-between">
                             <h4 class="font-bold text-xs uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                                 <i class="fas fa-mug-hot"></i> MÓN CHẾ BIẾN NHIỀU NHẤT
                             </h4>
                             <span class="text-[11px] text-slate-400">Top 10</span>
                         </div>
-                        <div class="flex-1 overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead class="bg-slate-950/80 text-slate-400 text-[11px] uppercase tracking-wider border-b border-white/10">
+                        <div class="flex-1 overflow-x-auto media-custom-scroll">
+                            <table class="saas-table">
+                                <thead>
                                     <tr>
-                                        <th class="p-2.5">Món ăn / Đồ uống</th>
-                                        <th class="p-2.5 text-center">Số lượng</th>
-                                        <th class="p-2.5 text-right">Doanh thu</th>
+                                        <th style="min-width: 160px;">Món ăn / Đồ uống</th>
+                                        <th style="width: 90px; text-align: center;">Số lượng</th>
+                                        <th style="width: 120px; text-align: right;">Doanh thu</th>
                                     </tr>
                                 </thead>
-                                <tbody id="ana-dishes-tbody" class="divide-y divide-white/5 text-xs">
+                                <tbody id="ana-dishes-tbody">
                                     <!-- Rendered dynamically -->
                                 </tbody>
                             </table>
@@ -1097,11 +1143,11 @@
                 </div>
 
                 <!-- Audit Service Logs Table -->
-                <div class="liquid-glass rounded-xl border border-white/10 overflow-hidden flex flex-col">
-                    <div class="p-3 border-b border-white/10 bg-slate-900/60 flex items-center justify-between">
+                <div class="saas-table-card flex flex-col">
+                    <div class="p-3 border-b border-white/10 bg-slate-900/80 flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <h4 class="font-bold text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                                <i class="fas fa-clipboard-check"></i> NHẬT KÝ PHỤC VỤ & PHA CHẾ THỜI GIAN THỰC (AUDIT TRAIL)
+                                <i class="fas fa-clipboard-check"></i> NHẬT KÝ PHỤC VỤ &amp; PHA CHẾ THỜI GIAN THỰC (AUDIT TRAIL)
                             </h4>
                             <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Chi tiết từng thao tác</span>
                         </div>
@@ -1109,20 +1155,20 @@
                             <i class="fas fa-sync-alt mr-1"></i> Làm mới
                         </button>
                     </div>
-                    <div class="flex-1 overflow-x-auto max-h-80">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="sticky top-0 bg-slate-950/95 backdrop-blur-md text-slate-400 text-[11px] uppercase tracking-wider border-b border-white/10 z-10">
+                    <div class="flex-1 overflow-x-auto max-h-80 media-custom-scroll">
+                        <table class="saas-table">
+                            <thead>
                                 <tr>
-                                    <th class="p-2.5">Thời gian</th>
-                                    <th class="p-2.5">Mã HĐ</th>
-                                    <th class="p-2.5">Bàn</th>
-                                    <th class="p-2.5">Hành động</th>
-                                    <th class="p-2.5">Người thực hiện</th>
-                                    <th class="p-2.5">Vai trò</th>
-                                    <th class="p-2.5">Chi tiết / Ghi chú</th>
+                                    <th style="width: 140px;">Thời gian</th>
+                                    <th style="width: 110px;">Mã HĐ</th>
+                                    <th style="width: 100px;">Bàn</th>
+                                    <th style="width: 130px;">Hành động</th>
+                                    <th style="width: 150px;">Người thực hiện</th>
+                                    <th style="width: 110px;">Vai trò</th>
+                                    <th style="min-width: 220px;">Chi tiết / Ghi chú</th>
                                 </tr>
                             </thead>
-                            <tbody id="ana-logs-tbody" class="divide-y divide-white/5 text-xs">
+                            <tbody id="ana-logs-tbody">
                                 <!-- Rendered dynamically -->
                             </tbody>
                         </table>
@@ -1221,7 +1267,7 @@
                     </div>
 
                     <!-- Live Active Staff Table -->
-                    <div class="liquid-glass rounded-xl border border-white/10 overflow-hidden">
+                    <div class="saas-table-card max-w-6xl mx-auto my-2">
                         <div class="p-3 bg-slate-900/60 border-b border-white/10 flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
@@ -1236,21 +1282,31 @@
                             </div>
                         </div>
 
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                        <div class="overflow-x-auto media-custom-scroll">
+                            <table class="saas-table">
+                                <colgroup>
+                                    <col style="width: 180px;">
+                                    <col style="width: 130px;">
+                                    <col style="width: 105px;">
+                                    <col style="width: 130px;">
+                                    <col style="width: 115px;">
+                                    <col style="width: 105px;">
+                                    <col style="width: 115px;">
+                                    <col style="width: 85px;">
+                                </colgroup>
                                 <thead>
-                                    <tr class="border-b border-white/10 text-[11px] text-slate-400 bg-slate-900/40 uppercase">
-                                        <th class="py-2.5 px-3">Nhân Viên</th>
-                                        <th class="py-2.5 px-3">Vị Trí / Vai Trò</th>
-                                        <th class="py-2.5 px-3">Giờ Check-in</th>
-                                        <th class="py-2.5 px-3">Thời Gian Làm Việc</th>
-                                        <th class="py-2.5 px-3">Mức Lương / Giờ</th>
-                                        <th class="py-2.5 px-3">Trạng Thái</th>
-                                        <th class="py-2.5 px-3">Thiết Bị / IP</th>
-                                        <th class="py-2.5 px-3 text-right">Thao Tác</th>
+                                    <tr>
+                                        <th class="col-name">Nhân Viên</th>
+                                        <th>Vị Trí / Vai Trò</th>
+                                        <th class="col-center">Giờ Check-in</th>
+                                        <th class="col-center">Thời Gian Làm Việc</th>
+                                        <th class="col-right">Mức Lương / Giờ</th>
+                                        <th class="col-center">Trạng Thái</th>
+                                        <th>Thiết Bị / IP</th>
+                                        <th class="col-right">Thao Tác</th>
                                     </tr>
                                 </thead>
-                                <tbody id="realtime-staff-tbody" class="divide-y divide-white/5 text-xs">
+                                <tbody id="realtime-staff-tbody">
                                     <!-- Rendered dynamically -->
                                 </tbody>
                             </table>
@@ -1655,22 +1711,33 @@
                 </div>
             </div>
 
-            <div class="liquid-glass rounded-xl border border-white/10 overflow-hidden">
-                <div class="px-4 py-2.5 border-b border-white/10 font-bold text-sm text-teal-300">Sổ chi phí trong kỳ</div>
+            <div class="saas-table-card max-w-6xl mx-auto my-2">
+                <div class="px-4 py-2.5 border-b border-white/10 font-bold text-sm text-teal-300 flex items-center justify-between bg-slate-900/60">
+                    <span>Sổ chi phí trong kỳ</span>
+                </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs whitespace-nowrap">
-                        <thead class="bg-slate-900">
-                            <tr class="border-b border-white/10 text-[11px] text-slate-400 uppercase">
-                                <th class="py-2.5 px-3">Ngày</th>
-                                <th class="py-2.5 px-3">Loại</th>
-                                <th class="py-2.5 px-3">Nội dung</th>
-                                <th class="py-2.5 px-3">Nhà cung cấp</th>
-                                <th class="py-2.5 px-3 text-right">Số tiền</th>
-                                <th class="py-2.5 px-3 text-right">VAT đầu vào</th>
-                                <th class="py-2.5 px-3 text-right"></th>
+                    <table class="saas-table">
+                        <colgroup>
+                            <col style="width: 110px;">
+                            <col style="width: 140px;">
+                            <col style="width: 250px;">
+                            <col style="width: 160px;">
+                            <col style="width: 130px;">
+                            <col style="width: 110px;">
+                            <col style="width: 70px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Loại</th>
+                                <th class="col-name">Nội dung</th>
+                                <th>Nhà cung cấp</th>
+                                <th class="col-right">Số tiền</th>
+                                <th class="col-right">VAT đầu vào</th>
+                                <th class="col-right">Thao tác</th>
                             </tr>
                         </thead>
-                        <tbody id="fin-expense-tbody" class="divide-y divide-white/5"></tbody>
+                        <tbody id="fin-expense-tbody"></tbody>
                     </table>
                 </div>
             </div>
@@ -2151,9 +2218,9 @@
                         </div>
 
                         <!-- Realtime Frequency Response Curve Display Canvas (Hi-Fi Screen) -->
-                        <div class="relative w-full h-32 bg-slate-950 rounded-xl border border-sky-500/30 p-2 overflow-hidden mb-4 shadow-inner" style="background: radial-gradient(ellipse at 50% 50%, #08172e 0%, #020713 100%);">
+                        <div class="dsp-spectrum-screen relative w-full rounded-xl border border-sky-500/30 p-2 overflow-hidden mb-4 shadow-inner" style="height: 130px; min-height: 130px; background: radial-gradient(ellipse at 50% 50%, #08172e 0%, #020713 100%);">
                             <!-- Background Grid Lines -->
-                            <div class="absolute inset-x-8 inset-y-2 pointer-events-none opacity-20">
+                            <div class="absolute inset-x-12 inset-y-2 pointer-events-none opacity-20">
                                 <div class="w-full h-full border-b border-t border-slate-400 grid grid-rows-4">
                                     <div class="border-b border-dashed border-slate-500"></div>
                                     <div class="border-b border-cyan-400/80 shadow-[0_0_6px_rgba(34,211,238,0.5)]"></div>
@@ -2162,28 +2229,36 @@
                                 </div>
                             </div>
 
-                            <!-- Non-overlapping Decibel Scale on Left -->
-                            <div class="absolute left-2.5 top-2 text-[9px] font-mono text-emerald-400 font-extrabold z-10">+12 dB</div>
-                            <div class="absolute left-2.5 top-[27%] text-[9px] font-mono text-emerald-400/60 font-semibold z-10">+6 dB</div>
-                            <div class="absolute left-2.5 top-[50%] -translate-y-1/2 text-[9px] font-mono text-cyan-400 font-extrabold z-10">0 dB</div>
-                            <div class="absolute left-2.5 bottom-[27%] text-[9px] font-mono text-rose-400/60 font-semibold z-10">-6 dB</div>
-                            <div class="absolute left-2.5 bottom-2 text-[9px] font-mono text-rose-400 font-extrabold z-10">-12 dB</div>
+                            <!-- Decibel Scale on Left -->
+                            <div class="dsp-db-label left p12">+12 dB</div>
+                            <div class="dsp-db-label left p6">+6 dB</div>
+                            <div class="dsp-db-label left zero">0 dB</div>
+                            <div class="dsp-db-label left m6">-6 dB</div>
+                            <div class="dsp-db-label left m12">-12 dB</div>
 
                             <!-- Decibel Scale on Right -->
-                            <div class="absolute right-2.5 top-2 text-[9px] font-mono text-emerald-400 font-extrabold z-10">+12 dB</div>
-                            <div class="absolute right-2.5 top-[50%] -translate-y-1/2 text-[9px] font-mono text-cyan-400 font-extrabold z-10">0 dB</div>
-                            <div class="absolute right-2.5 bottom-2 text-[9px] font-mono text-rose-400 font-extrabold z-10">-12 dB</div>
+                            <div class="dsp-db-label right p12">+12 dB</div>
+                            <div class="dsp-db-label right p6">+6 dB</div>
+                            <div class="dsp-db-label right zero">0 dB</div>
+                            <div class="dsp-db-label right m6">-6 dB</div>
+                            <div class="dsp-db-label right m12">-12 dB</div>
 
-                            <!-- SVG Curve with Neon Cyan Glow -->
-                            <svg id="eq-curve-svg" class="w-full h-full relative z-1" viewBox="0 0 600 120" preserveAspectRatio="none">
+                            <!-- SVG Curve with Professional Studio Mastering Visualizer -->
+                            <svg id="eq-curve-svg" class="w-full h-full relative z-1 pointer-events-none" viewBox="0 0 600 120" preserveAspectRatio="none" style="height: 114px;">
                                 <defs>
                                     <linearGradient id="eqGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.45" />
-                                        <stop offset="50%" stop-color="#818cf8" stop-opacity="0.2" />
-                                        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0" />
+                                        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.32" />
+                                        <stop offset="65%" stop-color="#818cf8" stop-opacity="0.10" />
+                                        <stop offset="100%" stop-color="#0284c7" stop-opacity="0.0" />
                                     </linearGradient>
-                                    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-                                        <feGaussianBlur stdDeviation="3" result="blur" />
+                                    <linearGradient id="eqWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="#38bdf8" />
+                                        <stop offset="35%" stop-color="#22d3ee" />
+                                        <stop offset="70%" stop-color="#a855f7" />
+                                        <stop offset="100%" stop-color="#38bdf8" />
+                                    </linearGradient>
+                                    <filter id="studioGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="1.0" result="blur" />
                                         <feMerge>
                                             <feMergeNode in="blur" />
                                             <feMergeNode in="SourceGraphic" />
@@ -2191,7 +2266,9 @@
                                     </filter>
                                 </defs>
                                 <path id="eq-curve-fill" d="" fill="url(#eqGradient)" />
-                                <path id="eq-curve-stroke" d="" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" filter="url(#neonGlow)" />
+                                <path id="eq-curve-wave" d="" fill="none" stroke="rgba(168, 85, 247, 0.45)" stroke-width="0.8" stroke-dasharray="4,2" />
+                                <path id="eq-curve-stroke" d="" fill="none" stroke="url(#eqWaveGrad)" stroke-width="1.3" stroke-linecap="round" filter="url(#studioGlow)" />
+                                <g id="eq-curve-nodes"></g>
                             </svg>
                         </div>
 
@@ -2373,7 +2450,7 @@
 
                         <div class="flex items-center gap-3.5 mb-3.5">
                             <!-- Spinning Vinyl Record -->
-                            <div class="vinyl-record shrink-0 cursor-pointer group" onclick="Admin.mediaPlayer.togglePlay()" title="Bấm để Phát / Tạm dừng">
+                            <div id="now-playing-vinyl" class="vinyl-record shrink-0 cursor-pointer group" onclick="Admin.mediaPlayer.togglePlay()" title="Bấm để Phát / Tạm dừng">
                                 <div class="vinyl-center flex items-center justify-center group-hover:scale-110 transition">
                                     <i id="now-playing-play-icon" class="fas fa-play text-[9px] text-white"></i>
                                 </div>
@@ -4170,6 +4247,9 @@
         // Xử lý đăng xuất Chủ Quán -> Quay về login.html
         async function handleAdminLogout() {
             if (!confirm('Bạn có chắc chắn muốn đăng xuất tài khoản Chủ Quán?')) return;
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.stopAndLogout();
+            }
             try {
                 await fetch('api/auth.php?action=logout');
             } catch(e) {}
@@ -4181,7 +4261,8 @@
         }
     </script>
     <script src="assets/js/image_processor.js?v=1"></script>
-    <script src="assets/js/admin.js?v=23"></script>
+    <script src="assets/js/jukebox-engine.js?v=2"></script>
+    <script src="assets/js/admin.js?v=29"></script>
     <script>
         // Master list of Vietnamese banks supported by VietQR / NAPAS 247
         const VIETQR_BANKS = [
@@ -5173,5 +5254,29 @@
             }
         }
     </script>
+
+    <!-- Mobile Bottom Navigation Bar (md:hidden) -->
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-2xl" id="admin-mobile-nav">
+        <button type="button" onclick="Admin.switchTab('tables')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="tables">
+            <i class="fas fa-border-all text-base text-emerald-400"></i>
+            <span class="text-[10px] font-bold mt-0.5">Bàn QR</span>
+        </button>
+        <button type="button" onclick="Admin.switchTab('products')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="products">
+            <i class="fas fa-utensils text-base text-amber-400"></i>
+            <span class="text-[10px] font-bold mt-0.5">Món (F4)</span>
+        </button>
+        <button type="button" onclick="Admin.switchTab('dashboard')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="dashboard">
+            <i class="fas fa-chart-line text-base text-sky-400"></i>
+            <span class="text-[10px] font-bold mt-0.5">Doanh Số</span>
+        </button>
+        <button type="button" onclick="Admin.switchTab('users')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="users">
+            <i class="fas fa-users-gear text-base text-indigo-400"></i>
+            <span class="text-[10px] font-bold mt-0.5">Nhân Sự</span>
+        </button>
+        <button type="button" onclick="Admin.switchTab('finance')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="finance">
+            <i class="fas fa-file-invoice-dollar text-base text-teal-400"></i>
+            <span class="text-[10px] font-bold mt-0.5">Tài Chính</span>
+        </button>
+    </nav>
 </body>
 </html>

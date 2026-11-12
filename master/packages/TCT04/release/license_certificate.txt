@@ -1,0 +1,13 @@
+==============================================================
+  CYBERNEXUS OS — CHỨNG NHẬN BẢN QUYỀN PHẦN MỀM ĐIỂM BÁN
+==============================================================
+Cửa Hàng:           TRÀ SỮA TOCOTOCO LINH TRUNG
+Mã Quán (Tenant):   TCT04
+Mã Khóa Bản Quyền:  SALE-D425-18F1-75CD-EE84
+Gói Dịch Vụ:        Gói Khởi Nghiệp (Starter)
+Hạn Sử Dụng:        2027-11-10
+Khóa Phần Cứng:     Unbound (Chưa gán máy)
+Module Được Duyệt:  ["pos_core","vietqr_payment"]
+Phát Hành Bởi:      SuperAdmin SaaS Central Authority
+Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition
+==============================================================

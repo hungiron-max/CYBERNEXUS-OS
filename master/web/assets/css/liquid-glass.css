@@ -555,6 +555,450 @@ body {
   min-width: 0;
 }
 
+/* ==========================================================================
+   MODERN SAAS ENTERPRISE DATA TABLE SYSTEM (GỌN - ĐẸP - CHUYÊN NGHIỆP)
+   ========================================================================== */
+.saas-table-card {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow-x: auto;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.saas-table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 12px;
+}
+
+.saas-table.saas-table-fixed {
+  table-layout: fixed !important;
+  width: 100% !important;
+}
+
+.saas-table.saas-table-fixed td,
+.saas-table.saas-table-fixed th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saas-table thead th {
+  background: rgba(11, 15, 25, 0.95);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 11px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.saas-table tbody tr {
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.saas-table tbody tr:hover {
+  background-color: rgba(56, 189, 248, 0.05);
+}
+
+.saas-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.saas-table tbody td {
+  padding: 10px 16px;
+  color: #e2e8f0;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  white-space: nowrap !important;
+}
+
+/* 10-Band DSP Studio Console & Spectrum Screen */
+.dsp-spectrum-screen {
+  position: relative;
+  width: 100%;
+  height: 130px !important;
+  min-height: 130px !important;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dsp-db-label {
+  position: absolute;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  z-index: 10;
+  pointer-events: none;
+}
+.dsp-db-label.left { left: 8px; }
+.dsp-db-label.right { right: 8px; text-align: right; }
+.dsp-db-label.p12 { top: 8px; color: #34d399; font-weight: 800; }
+.dsp-db-label.p6  { top: 35px; color: rgba(52, 211, 153, 0.7); }
+.dsp-db-label.zero{ top: 58px; color: #22d3ee; font-weight: 800; }
+.dsp-db-label.m6  { bottom: 35px; color: rgba(251, 113, 133, 0.7); }
+.dsp-db-label.m12 { bottom: 8px; color: #f43f5e; font-weight: 800; }
+
+.saas-table td.col-name,
+.saas-table th.col-name {
+  white-space: nowrap !important;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Numeric / Monospace Cell */
+.saas-table td.col-mono,
+.saas-table td.col-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.saas-table td.col-money {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  color: #38bdf8;
+  text-align: right;
+}
+
+.saas-table td.col-center,
+.saas-table th.col-center {
+  text-align: center;
+}
+
+.saas-table td.col-right,
+.saas-table th.col-right {
+  text-align: right;
+}
+
+/* Action Icon Buttons */
+.saas-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 11px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saas-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.saas-action-btn.btn-edit:hover {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: rgba(14, 165, 233, 0.5);
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+}
+
+.saas-action-btn.btn-delete:hover {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.5);
+  color: #fb7185;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
+}
+
+.saas-action-btn.btn-key:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.saas-action-btn.btn-view:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+/* Badges */
+.saas-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Extended Action Buttons */
+.saas-action-btn.btn-reset:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.saas-action-btn.btn-renew:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.saas-action-btn.btn-lock:hover {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.5);
+  color: #fb7185;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
+}
+
+.saas-action-btn.btn-package:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.saas-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Standard Tooltip */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]:hover::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #f1f5f9;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 50;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+/* Responsive Touch & Mobile System */
+@media (min-width: 768px) {
+  #admin-mobile-nav {
+    display: none !important;
+  }
+}
+
+/* ============================================================ */
+/* 2-TIER ENTERPRISE SEGMENTED NAVIGATION BAR                   */
+/* ============================================================ */
+.group-tab-btn {
+  cursor: pointer;
+  user-select: none;
+}
+.group-tab-btn:active {
+  transform: scale(0.97);
+}
+.admin-sub-btn {
+  cursor: pointer;
+  user-select: none;
+}
+.admin-sub-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 768px) {
+  .saas-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .saas-table thead th,
+  .saas-table tbody td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .saas-mobile-hide {
+    display: none !important;
+  }
+}
 
 
+
+
+
+
+
+
+/* ============================================================ */
+/* PRO AUDIO 10-BAND DSP EQUALIZER & STUDIO MIXER STYLES        */
+/* ============================================================ */
+.eq-studio-rack {
+    background: radial-gradient(circle at 50% 0%, #0c1527 0%, #030712 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.2) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+.eq-faders-grid {
+    display: grid !important;
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    align-items: stretch !important;
+}
+@media (max-width: 768px) {
+    .eq-faders-grid {
+        gap: 4px !important;
+    }
+}
+.eq-channel-strip {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: 245px !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(2, 6, 23, 0.9) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 8px 2px !important;
+    position: relative !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.eq-channel-strip:hover {
+    border-color: rgba(56, 189, 248, 0.45) !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 1) 100%) !important;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.2) !important;
+    transform: translateY(-2px) !important;
+}
+.eq-val-badge {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    padding: 3px 4px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    min-width: 32px !important;
+    text-align: center !important;
+    transition: all 0.2s ease !important;
+}
+.eq-val-boost {
+    color: #34d399 !important;
+    background: rgba(16, 185, 129, 0.15) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.3) !important;
+}
+.eq-val-flat {
+    color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.12) !important;
+    border-color: rgba(56, 189, 248, 0.25) !important;
+}
+.eq-val-cut {
+    color: #fb7185 !important;
+    background: rgba(244, 63, 94, 0.15) !important;
+    border-color: rgba(244, 63, 94, 0.35) !important;
+    box-shadow: 0 0 8px rgba(244, 63, 94, 0.3) !important;
+}
+.eq-fader-slot {
+    position: relative !important;
+    width: 28px !important;
+    height: 146px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.eq-slot-groove {
+    position: absolute !important;
+    width: 5px !important;
+    height: 132px !important;
+    background: #050811 !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9) !important;
+}
+.eq-zero-line {
+    position: absolute !important;
+    width: 16px !important;
+    height: 2px !important;
+    background: #38bdf8 !important;
+    box-shadow: 0 0 6px #38bdf8 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+}
+.eq-slider-input {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    position: absolute !important;
+    width: 132px !important;
+    height: 28px !important;
+    background: transparent !important;
+    transform: rotate(-90deg) !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    outline: none !important;
+    z-index: 5 !important;
+}
+.eq-slider-input::-webkit-slider-runnable-track {
+    width: 100% !important;
+    height: 4px !important;
+    background: transparent !important;
+}
+.eq-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 26px !important;
+    height: 14px !important;
+    border-radius: 3px !important;
+    background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 45%, #475569 50%, #1e293b 100%) !important;
+    border: 1px solid #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 10px rgba(56, 189, 248, 0.7) !important;
+    cursor: grab !important;
+    position: relative !important;
+    transition: all 0.15s ease !important;
+}
+.eq-slider-input::-webkit-slider-thumb:hover {
+    transform: scale(1.12) !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,1), 0 0 14px #38bdf8 !important;
+    background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 45%, #0284c7 50%, #0369a1 100%) !important;
+}
+.eq-freq-badge {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #e2e8f0 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1 !important;
+}
+.eq-band-role {
+    font-size: 8px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-top: 3px !important;
+}
 

@@ -1,0 +1,8 @@
+{
+  "store_tenant_id": "THD03",
+  "store_name": "TIỆM TRÀ HOA HƯỚNG DƯƠNG",
+  "license_key": "SALE-A4F2-7AE1-4D67-3FC2",
+  "master_server_url": "http://127.0.0.1:8500",
+  "port": 8501,
+  "auto_heartbeat": true
+}

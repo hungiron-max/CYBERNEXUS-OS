@@ -1,0 +1,69 @@
+================================================================================
+  CYBERNEXUS OS — PHIẾU BÀN GIAO TÀI KHOẢN VÀ MẬT KHẨU KHỞI TẠO ĐIỂM BÁN
+================================================================================
+Cửa Hàng:           TIỆM TRÀ HOA HƯỚNG DƯƠNG
+Mã Cửa Hàng:        THD03
+Gói Bản Quyền:      Gói Tiêu Chuẩn (Standard)
+Mã Giấy Phép (Key): SALE-A4F2-7AE1-4D67-3FC2
+Hạn Sử Dụng:        2026-11-04
+Ngày Phát Hành:     11/11/2026 09:58:47
+Quy Chuẩn Bàn Giao: SOP-CBNX-09 Enterprise Edition
+
+--------------------------------------------------------------------------------
+1. DANH SÁCH TÀI KHOẢN & MÃ PIN KHỞI TẠO MẶC ĐỊNH
+--------------------------------------------------------------------------------
+[1] TÀI KHOẢN QUẢN TRỊ VIÊN (CHỦ QUÁN / ADMIN)
+    - Tên đăng nhập (Username): admin
+    - Mật khẩu mặc định:        Admin@2026
+    - Mã PIN đăng nhập nhanh:   9999
+    - Phạm vi quyền hạn:        Toàn quyền quản trị quán, cài đặt menu, xem doanh thu, cấu hình hệ thống.
+    - Cổng truy cập:            http://localhost:8501/admin
+
+[2] TÀI KHOẢN BẾP & PHA CHẾ (CHEF / KITCHEN)
+    - Tên đăng nhập (Username): bep01
+    - Mật khẩu mặc định:        Bep@2026
+    - Mã PIN đăng nhập nhanh:   1111
+    - Phạm vi quyền hạn:        Xem đơn món cần chế biến, cập nhật tiến độ ra món (KDS Kitchen Display System).
+    - Cổng truy cập:            http://localhost:8501/kitchen
+
+[3] TÀI KHOẢN THU NGÂN (CASHIER / POS)
+    - Tên đăng nhập (Username): thungan01
+    - Mật khẩu mặc định:        ThuNgan@2026
+    - Mã PIN đăng nhập nhanh:   2222
+    - Phạm vi quyền hạn:        Mở ca, bán hàng, in bill hóa đơn, áp dụng khuyến mãi, thanh toán tiền mặt/chuyển khoản.
+    - Cổng truy cập:            http://localhost:8501/pos
+
+[4] TÀI KHOẢN NHÂN VIÊN PHỤC VỤ (WAITER)
+    - Tên đăng nhập (Username): phucvu01
+    - Mật khẩu mặc định:        PhucVu@2026
+    - Mã PIN đăng nhập nhanh:   3333
+    - Phạm vi quyền hạn:        Mở bàn, chọn món cho khách, chuyển bàn, gửi lệnh order xuống bếp/pha chế.
+    - Cổng truy cập:            http://localhost:8501/pos hoặc trên điện thoại máy tính bảng
+
+--------------------------------------------------------------------------------
+2. CẢNH BÁO AN NINH & YÊU CẦU ĐỔI MẬT KHẨU LẦN ĐẦU (BẮT BUỘC)
+--------------------------------------------------------------------------------
+⚠️  QUAN TRỌNG:
+    - Để đảm bảo an toàn tuyệt đối cho doanh thu, số liệu tài chính và bảo mật dữ liệu quán,
+      Chủ quán và Nhân viên BẮT BUỘC PHẢI ĐỔI MẬT KHẨU VÀ MÃ PIN NGAY TRONG LẦN ĐĂNG NHẬP ĐẦU TIÊN!
+    - Tuyệt đối không chia sẻ mật khẩu của tài khoản Quản trị (admin) cho nhân viên thời vụ.
+    - Mật khẩu mới cần tối thiểu 6 ký tự, kết hợp chữ và số để chống lộ lọt.
+
+--------------------------------------------------------------------------------
+3. DỮ LIỆU MẪU ĐÃ CÀI ĐẶT SẴN TRONG HỆ THỐNG
+--------------------------------------------------------------------------------
+Hệ thống đã khởi tạo sẵn 3 món ăn mẫu để quý khách có thể kiểm thử in hóa đơn và vận hành ngay:
+    1. Cà phê sữa đá Sài Gòn      - Mã: CF001 - Đơn giá: 29.000 VNĐ  (Nhóm: Cà Phê)
+    2. Bò bít tết sốt tiêu đen    - Mã: BT001 - Đơn giá: 89.000 VNĐ  (Nhóm: Món Chính)
+    3. Trà đào cam sả thanh nhiệt - Mã: TR001 - Đơn giá: 35.000 VNĐ  (Nhóm: Trà Trái Cây)
+
+--------------------------------------------------------------------------------
+4. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG TRÊN MÁY TRẠM
+--------------------------------------------------------------------------------
+Bước 1: Giải nén toàn bộ file ZIP vào thư mục làm việc (ví dụ: C:\CyberNexus_POS).
+Bước 2: Chạy file 'Mo_Tuong_Lua_LAN.bat' với quyền Run as Administrator để mở port mạng nội bộ.
+Bước 3: Nhấp đúp vào file 'RUN_SLAVE.bat' để khởi động hệ thống.
+Bước 4: Mở trình duyệt web truy cập http://localhost:8501/pos để bắt đầu bán hàng!
+
+Hotline Hỗ Trợ Kỹ Thuật 24/7: 1900 6868 - contact@cybernexus.vn
+================================================================================

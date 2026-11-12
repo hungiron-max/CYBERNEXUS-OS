@@ -267,69 +267,70 @@ const SuperAdmin = {
 
             return `
                 <tr class="hover:bg-white/5 transition-all">
-                    <td class="py-3 px-4 font-mono font-bold text-sky-400">${t.tenant_code}</td>
-                    <td class="py-3 px-4">
+                    <td class="py-2 px-2.5 font-mono font-bold text-sky-400 text-xs">${t.tenant_code}</td>
+                    <td class="py-2 px-2.5">
                         <div class="flex items-center gap-2">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-white/95 p-0.5">
-                                ${logoPath ? `<img src="${logoPath}" alt="" class="h-full w-full object-contain">` : '<i class="fas fa-store text-sm text-slate-400"></i>'}
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-white/95 p-0.5">
+                                ${logoPath ? `<img src="${logoPath}" alt="" class="h-full w-full object-contain">` : '<i class="fas fa-store text-xs text-slate-400"></i>'}
                             </span>
                             <div class="min-w-0">
-                                <div class="font-bold text-white text-xs">${t.store_name}</div>
-                                <div class="text-[11px] text-slate-400 truncate max-w-xs">${t.address || 'Chưa cập nhật địa chỉ'}</div>
-                                <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                <div class="font-bold text-white text-xs truncate max-w-[170px]" title="${t.store_name}">${t.store_name}</div>
+                                <div class="text-[10px] text-slate-400 truncate max-w-[160px]" title="${t.address || ''}">${t.address || 'Chưa cập nhật'}</div>
+                                <div class="mt-0.5 flex items-center gap-1 flex-wrap">
                                     ${t.machine_id 
-                                        ? `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono" title="Đã khóa phần cứng: ${t.machine_name || t.machine_id}"><i class="fas fa-desktop text-[8px]"></i> Đã Khóa Máy</span>` 
-                                        : `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono" title="Chưa kích hoạt trên máy nào"><i class="fas fa-unlock text-[8px]"></i> Chưa Gắn Máy</span>`
+                                        ? `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono" title="Đã khóa phần cứng: ${t.machine_name || t.machine_id}"><i class="fas fa-desktop text-[8px]"></i> Đã Khóa Máy</span>` 
+                                        : `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono" title="Chưa kích hoạt trên máy nào"><i class="fas fa-unlock text-[8px]"></i> Chưa Gắn Máy</span>`
                                     }
                                 </div>
                             </div>
                         </div>
                     </td>
-                    <td class="py-3 px-4">
-                        <div class="text-slate-200 font-semibold">${t.owner_name}</div>
-                        <div class="text-[11px] text-sky-400 font-mono">${t.phone}</div>
+                    <td class="py-2 px-2.5">
+                        <div class="text-slate-200 font-semibold text-xs">${t.owner_name}</div>
+                        <div class="text-[10px] text-sky-400 font-mono">${t.phone}</div>
                     </td>
-                    <td class="py-3 px-4">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    <td class="py-2 px-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 truncate inline-block max-w-[110px]" title="${t.plan_name}">
                             ${t.plan_name}
                         </span>
                     </td>
-                    <td class="py-3 px-4">
+                    <td class="py-2 px-2.5">
                         <div class="font-mono text-xs ${t.days_left <= 7 ? 'text-amber-400 font-bold' : 'text-slate-300'}">${expireDateFormatted}</div>
-                        <div class="text-[10px] ${t.days_left < 0 ? 'text-rose-400 font-bold' : (t.days_left <= 7 ? 'text-amber-400' : 'text-slate-500')}">
+                        <div class="text-[9px] ${t.days_left < 0 ? 'text-rose-400 font-bold' : (t.days_left <= 7 ? 'text-amber-400' : 'text-slate-500')}">
                             ${t.days_left < 0 ? `Quá hạn ${Math.abs(t.days_left)} ngày` : `Còn ${t.days_left} ngày`}
                         </div>
                     </td>
-                    <td class="py-3 px-4 text-center">
-                        <button type="button" onclick="SuperAdmin.openModulePermissions(${t.id})" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-600/30 to-sky-600/30 hover:from-purple-600/50 hover:to-sky-600/50 text-purple-200 border border-purple-500/30 text-[11px] font-bold transition-all shadow-sm" title="Bấm để Cấp quyền Bật/Tắt module">
-                            <i class="fas fa-sliders text-amber-400"></i>
-                            <span>${t.active_module_count}/${t.total_catalog_count} ON</span>
+                    <td class="py-2 px-2.5 text-center">
+                        <button type="button" onclick="SuperAdmin.openModulePermissions(${t.id})" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-purple-600/30 to-sky-600/30 hover:from-purple-600/50 hover:to-sky-600/50 text-purple-200 border border-purple-500/30 text-[10px] font-bold transition-all shadow-sm" title="Bấm để Cấp quyền Bật/Tắt module">
+                            <i class="fas fa-sliders text-amber-400 text-[10px]"></i>
+                            <span>${t.active_module_count}/${t.total_catalog_count}</span>
                         </button>
                     </td>
-                    <td class="py-3 px-4 text-center">
-                        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-${t.badge_color}-500/20 text-${t.badge_color}-300 border-${t.badge_color}-500/30">
+                    <td class="py-2 px-2.5 text-center">
+                        <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border bg-${t.badge_color}-500/20 text-${t.badge_color}-300 border-${t.badge_color}-500/30">
                             ${t.badge_status}
                         </span>
                     </td>
-                    <td class="py-3 px-4 text-right">
-                        <div class="inline-flex items-center gap-1.5">
-                            <button type="button" onclick="SuperAdmin.openPackagesModal(${t.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1" title="Quản lý Hồ sơ, Hợp đồng & Đóng gói cài đặt (SOP-09)">
-                                <i class="fas fa-box-archive text-amber-400"></i> <span>Hồ Sơ & Gói</span>
+                    <td class="py-2 px-2.5 text-right whitespace-nowrap">
+                        <div class="inline-flex items-center gap-1 justify-end">
+                            <button type="button" onclick="SuperAdmin.openPackagesModal(${t.id})" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition shadow-sm" title="Quản lý Hồ sơ, Hợp đồng & Đóng gói">
+                                <i class="fas fa-box-archive text-[10px]"></i>
+                                <span>Gói</span>
                             </button>
-                            <button type="button" onclick="SuperAdmin.openLicense(${t.id})" class="btn-glass text-[11px] py-1 px-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30 font-bold flex items-center gap-1" title="Quản lý License & Khóa Máy">
-                                <i class="fas fa-key text-amber-400"></i> <span>License</span>
+                            <button type="button" onclick="SuperAdmin.openLicense(${t.id})" class="w-7 h-7 rounded-lg bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 flex items-center justify-center text-[11px] transition" title="License & Khóa Máy">
+                                <i class="fas fa-key text-[10px]"></i>
                             </button>
-                            <button type="button" onclick="SuperAdmin.resetHardwareLock(${t.id}, '${t.tenant_code}')" class="btn-glass text-[11px] py-1 px-2 bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 border border-sky-500/30 font-bold flex items-center gap-1" title="Mở khóa máy trạm (khi quán thay máy mới)">
-                                <i class="fas fa-microchip text-sky-400"></i> <span>Reset Máy</span>
+                            <button type="button" onclick="SuperAdmin.resetHardwareLock(${t.id}, '${t.tenant_code}')" class="w-7 h-7 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 flex items-center justify-center text-[11px] transition" title="Reset Machine ID">
+                                <i class="fas fa-microchip text-[10px]"></i>
                             </button>
-                            <button type="button" onclick="SuperAdmin.openQuickExtend(${t.id}, '${t.store_name}', '${t.plan_name}', '${t.expire_date}')" class="btn-glass text-[11px] py-1 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1" title="Gia hạn gói">
-                                <i class="fas fa-calendar-plus"></i> <span>Gia Hạn</span>
+                            <button type="button" onclick="SuperAdmin.openQuickExtend(${t.id}, '${t.store_name}', '${t.plan_name}', '${t.expire_date}')" class="w-7 h-7 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-[11px] transition" title="Gia hạn gói">
+                                <i class="fas fa-calendar-plus text-[10px]"></i>
                             </button>
-                            <button type="button" onclick="SuperAdmin.toggleTenantStatus(${t.id}, '${isSuspended ? 'active' : 'suspended'}')" class="btn-glass text-[11px] py-1 px-2 text-${isSuspended ? 'emerald' : 'rose'}-400 hover:text-white" title="${isSuspended ? 'Mở khóa cửa hàng' : 'Tạm khóa cửa hàng'}">
-                                <i class="fas fa-${isSuspended ? 'unlock' : 'lock'}"></i>
+                            <button type="button" onclick="SuperAdmin.toggleTenantStatus(${t.id}, '${isSuspended ? 'active' : 'suspended'}')" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-${isSuspended ? 'emerald' : 'rose'}-400 border border-white/10 flex items-center justify-center text-[11px] transition" title="${isSuspended ? 'Mở khóa' : 'Tạm khóa'}">
+                                <i class="fas fa-${isSuspended ? 'unlock' : 'lock'} text-[10px]"></i>
                             </button>
-                            <button type="button" onclick="SuperAdmin.editTenant(${t.id})" class="btn-glass text-[11px] py-1 px-2 text-slate-300 hover:text-white" title="Chỉnh sửa thông tin">
-                                <i class="fas fa-pen"></i>
+                            <button type="button" onclick="SuperAdmin.editTenant(${t.id})" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 flex items-center justify-center text-[11px] transition" title="Chỉnh sửa">
+                                <i class="fas fa-pen text-[10px]"></i>
                             </button>
                         </div>
                     </td>

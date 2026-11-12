@@ -435,6 +435,25 @@ public:
         });
 
         // ==========================================
+        // 5b. POST /api/media/jukebox/remove - Xóa bài hát khỏi hàng đợi
+        // ==========================================
+        svr.Post("/api/media/jukebox/remove", [this](const httplib::Request& req, httplib::Response& res) {
+            try {
+                json body = json::parse(req.body);
+                int64_t queueId = body.value("queue_id", 0);
+                if (queueId == 0) queueId = body.value("id", 0);
+                if (queueId <= 0) {
+                    res.set_content("{\"success\":false,\"message\":\"Thiếu mã queue_id!\"}", "application/json; charset=utf-8");
+                    return;
+                }
+                execSql("DELETE FROM media_jukebox_queue WHERE id = " + std::to_string(queueId));
+                res.set_content("{\"success\":true,\"message\":\"Đã xóa bài hát khỏi hàng đợi thành công!\"}", "application/json; charset=utf-8");
+            } catch (...) {
+                res.set_content("{\"success\":false,\"message\":\"Lỗi xóa bài hát khỏi hàng đợi!\"}", "application/json; charset=utf-8");
+            }
+        });
+
+        // ==========================================
         // 6. GET /api/media/eq/presets - Lấy thông số 10-Band EQ & Presets
         // ==========================================
         svr.Get("/api/media/eq/presets", [this](const httplib::Request& req, httplib::Response& res) {
@@ -457,39 +476,44 @@ public:
             try {
                 json body = json::parse(req.body);
                 std::string presetName = body.value("preset_name", "Custom Studio");
-                double preamp = body.value("preamp", 0.0);
+                double preamp = body.value("preamp_gain", body.value("preamp", 0.0));
                 json b = body.contains("bands") ? body["bands"] : json::object();
 
-                double b31 = b.value("31hz", 0.0);
-                double b62 = b.value("62hz", 0.0);
-                double b125 = b.value("125hz", 0.0);
-                double b250 = b.value("250hz", 0.0);
-                double b500 = b.value("500hz", 0.0);
-                double b1k = b.value("1khz", 0.0);
-                double b2k = b.value("2khz", 0.0);
-                double b4k = b.value("4khz", 0.0);
-                double b8k = b.value("8khz", 0.0);
-                double b16k = b.value("16khz", 0.0);
+                double b31 = body.value("band_31hz", b.value("31hz", 0.0));
+                double b62 = body.value("band_62hz", b.value("62hz", 0.0));
+                double b125 = body.value("band_125hz", b.value("125hz", 0.0));
+                double b250 = body.value("band_250hz", b.value("250hz", 0.0));
+                double b500 = body.value("band_500hz", b.value("500hz", 0.0));
+                double b1k = body.value("band_1khz", b.value("1khz", 0.0));
+                double b2k = body.value("band_2khz", b.value("2khz", 0.0));
+                double b4k = body.value("band_4khz", b.value("4khz", 0.0));
+                double b8k = body.value("band_8khz", b.value("8khz", 0.0));
+                double b16k = body.value("band_16khz", b.value("16khz", 0.0));
 
                 execSql("UPDATE media_eq_presets SET is_active = 0");
 
-                // Cập nhật preset hiện tại hoặc insert Custom
-                json existing = queryOne("SELECT id FROM media_eq_presets WHERE preset_name = '" + presetName + "'");
-                if (!existing.is_null()) {
-                    std::string upSql = "UPDATE media_eq_presets SET preamp_gain = " + std::to_string(preamp) + 
-                        ", band_31hz = " + std::to_string(b31) + ", band_62hz = " + std::to_string(b62) +
-                        ", band_125hz = " + std::to_string(b125) + ", band_250hz = " + std::to_string(b250) +
-                        ", band_500hz = " + std::to_string(b500) + ", band_1khz = " + std::to_string(b1k) +
-                        ", band_2khz = " + std::to_string(b2k) + ", band_4khz = " + std::to_string(b4k) +
-                        ", band_8khz = " + std::to_string(b8k) + ", band_16khz = " + std::to_string(b16k) +
-                        ", is_active = 1 WHERE preset_name = '" + presetName + "'";
-                    execSql(upSql);
+                if (body.contains("preset_id") && body["preset_id"].is_number()) {
+                    int pid = body["preset_id"];
+                    execSql("UPDATE media_eq_presets SET is_active = 1 WHERE id = " + std::to_string(pid));
                 } else {
-                    std::string inSql = "INSERT INTO media_eq_presets (preset_name, preamp_gain, band_31hz, band_62hz, band_125hz, band_250hz, band_500hz, band_1khz, band_2khz, band_4khz, band_8khz, band_16khz, is_active) VALUES ('" +
-                        presetName + "', " + std::to_string(preamp) + ", " + std::to_string(b31) + ", " + std::to_string(b62) + ", " +
-                        std::to_string(b125) + ", " + std::to_string(b250) + ", " + std::to_string(b500) + ", " + std::to_string(b1k) + ", " +
-                        std::to_string(b2k) + ", " + std::to_string(b4k) + ", " + std::to_string(b8k) + ", " + std::to_string(b16k) + ", 1)";
-                    execSql(inSql);
+                    // Cập nhật preset hiện tại hoặc insert Custom
+                    json existing = queryOne("SELECT id FROM media_eq_presets WHERE preset_name = '" + presetName + "'");
+                    if (!existing.is_null()) {
+                        std::string upSql = "UPDATE media_eq_presets SET preamp_gain = " + std::to_string(preamp) + 
+                            ", band_31hz = " + std::to_string(b31) + ", band_62hz = " + std::to_string(b62) +
+                            ", band_125hz = " + std::to_string(b125) + ", band_250hz = " + std::to_string(b250) +
+                            ", band_500hz = " + std::to_string(b500) + ", band_1khz = " + std::to_string(b1k) +
+                            ", band_2khz = " + std::to_string(b2k) + ", band_4khz = " + std::to_string(b4k) +
+                            ", band_8khz = " + std::to_string(b8k) + ", band_16khz = " + std::to_string(b16k) +
+                            ", is_active = 1 WHERE preset_name = '" + presetName + "'";
+                        execSql(upSql);
+                    } else {
+                        std::string inSql = "INSERT INTO media_eq_presets (preset_name, preamp_gain, band_31hz, band_62hz, band_125hz, band_250hz, band_500hz, band_1khz, band_2khz, band_4khz, band_8khz, band_16khz, is_active) VALUES ('" +
+                            presetName + "', " + std::to_string(preamp) + ", " + std::to_string(b31) + ", " + std::to_string(b62) + ", " +
+                            std::to_string(b125) + ", " + std::to_string(b250) + ", " + std::to_string(b500) + ", " + std::to_string(b1k) + ", " +
+                            std::to_string(b2k) + ", " + std::to_string(b4k) + ", " + std::to_string(b8k) + ", " + std::to_string(b16k) + ", 1)";
+                        execSql(inSql);
+                    }
                 }
 
                 res.set_content("{\"success\":true,\"message\":\"Đã áp dụng cấu hình Equalizer thành công!\"}", "application/json; charset=utf-8");

@@ -1,0 +1,8 @@
+{
+  "store_tenant_id": "PL006",
+  "store_name": "PHUC LONG COFFEE & TEA",
+  "license_key": "LIC-1B9B-2091-1C6E-93E4",
+  "master_server_url": "http://127.0.0.1:8500",
+  "port": 8501,
+  "auto_heartbeat": true
+}

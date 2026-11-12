@@ -1,0 +1,8 @@
+{
+  "store_tenant_id": "TCH02",
+  "store_name": "THE COFFEE HOUSE - THỦ ĐỨC",
+  "license_key": "SALE-9A8B-EDCB-91A0-9131",
+  "master_server_url": "http://127.0.0.1:8500",
+  "port": 8501,
+  "auto_heartbeat": true
+}

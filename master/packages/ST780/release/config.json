@@ -1,0 +1,8 @@
+{
+  "store_tenant_id": "ST780",
+  "store_name": "HIGHLAND",
+  "license_key": "SALE-E60B-081C-F1C4-AA0B",
+  "master_server_url": "http://127.0.0.1:8500",
+  "port": 8501,
+  "auto_heartbeat": true
+}

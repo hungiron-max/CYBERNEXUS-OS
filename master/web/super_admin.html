@@ -11,7 +11,7 @@
     <!-- Chart.js for SaaS Metrics -->
     <script src="assets/js/chart.min.js"></script>
     <!-- Liquid Glass Custom Styles -->
-    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=5">
 
     <style>
         @media print {
@@ -525,19 +525,29 @@
                 </div>
 
                 <!-- Tenants Table -->
-                <div class="liquid-glass rounded-2xl border border-white/10 overflow-hidden shadow-xl">
-                    <div class="overflow-x-auto custom-scrollbar">
-                        <table class="w-full text-left text-xs whitespace-nowrap">
-                            <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/10">
+                <div class="saas-table-card shadow-2xl">
+                    <div class="overflow-x-auto media-custom-scroll">
+                        <table class="saas-table saas-table-fixed">
+                            <colgroup>
+                                <col style="width: 70px;">
+                                <col style="width: 220px;">
+                                <col style="width: 140px;">
+                                <col style="width: 120px;">
+                                <col style="width: 100px;">
+                                <col style="width: 80px;">
+                                <col style="width: 85px;">
+                                <col style="width: 205px;">
+                            </colgroup>
+                            <thead>
                                 <tr>
-                                    <th class="py-3 px-4">Mã Quán</th>
-                                    <th class="py-3 px-4">Tên Cửa Hàng / Quán</th>
-                                    <th class="py-3 px-4">Chủ Quán & Hotline</th>
-                                    <th class="py-3 px-4">Gói Bản Quyền</th>
-                                    <th class="py-3 px-4">Hạn Sử Dụng</th>
-                                    <th class="py-3 px-4 text-center">Module Cho Phép</th>
-                                    <th class="py-3 px-4 text-center">Trạng Thái</th>
-                                    <th class="py-3 px-4 text-right">Thao Tác</th>
+                                    <th>Mã Quán</th>
+                                    <th class="col-name">Tên Cửa Hàng / Quán</th>
+                                    <th>Chủ Quán &amp; SĐT</th>
+                                    <th>Gói Dịch Vụ</th>
+                                    <th>Hạn Dùng</th>
+                                    <th class="col-center">Module</th>
+                                    <th class="col-center">Trạng Thái</th>
+                                    <th class="col-right">Thao Tác</th>
                                 </tr>
                             </thead>
                             <tbody id="tenants-table-body" class="divide-y divide-white/5 font-medium">
@@ -1591,7 +1601,7 @@
 
 <!-- Super Admin Core Javascript Logic -->
 <script src="assets/js/image_processor.js?v=1"></script>
-<script src="assets/js/super_admin.js?v=2.1.8"></script>
+<script src="assets/js/super_admin.js?v=2.3.0"></script>
 <script>
 (function() {
     function hideLogin() {

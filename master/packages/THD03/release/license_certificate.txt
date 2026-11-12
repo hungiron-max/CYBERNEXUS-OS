@@ -1,0 +1,13 @@
+==============================================================
+  CYBERNEXUS OS — CHỨNG NHẬN BẢN QUYỀN PHẦN MỀM ĐIỂM BÁN
+==============================================================
+Cửa Hàng:           TIỆM TRÀ HOA HƯỚNG DƯƠNG
+Mã Quán (Tenant):   THD03
+Mã Khóa Bản Quyền:  SALE-A4F2-7AE1-4D67-3FC2
+Gói Dịch Vụ:        Gói Tiêu Chuẩn (Standard)
+Hạn Sử Dụng:        2026-11-04
+Khóa Phần Cứng:     Unbound (Chưa gán máy)
+Module Được Duyệt:  ["pos_core","vietqr_payment","kitchen_kds","advanced_reports","staff_shifts"]
+Phát Hành Bởi:      SuperAdmin SaaS Central Authority
+Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition
+==============================================================

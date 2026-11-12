@@ -606,9 +606,253 @@ window.shareStore = async () => {
     }
 };
 
+const CustomerJukebox = {
+    tracks: [],
+    queue: [],
+    nowPlaying: null,
+    activeTab: 'tracks',
+    timer: null,
+
+    async init() {
+        await this.loadStatus();
+        this.timer = setInterval(() => this.loadStatus(), 12000);
+    },
+
+    async loadStatus() {
+        try {
+            const res = await fetch('api/media/jukebox/status');
+            const data = await res.json();
+            if (data.success) {
+                this.nowPlaying = data.now_playing;
+                this.queue = data.queue || [];
+                this.updateNowPlayingUI();
+                this.renderQueueUI();
+            }
+        } catch (e) {
+            console.log('Jukebox status error:', e);
+        }
+    },
+
+    updateNowPlayingUI() {
+        if (!this.nowPlaying) return;
+        const title = this.nowPlaying.track_title || 'Chưa có bài hát';
+        const artist = this.nowPlaying.track_artist || 'Quán Tự Động';
+        const table = this.nowPlaying.table_name || 'Hệ Thống';
+
+        const barTitle = document.getElementById('jukebox-now-title');
+        const barArtist = document.getElementById('jukebox-now-artist');
+        const barTable = document.getElementById('jukebox-now-table');
+        if (barTitle) barTitle.textContent = title;
+        if (barArtist) barArtist.textContent = artist;
+        if (barTable) barTable.textContent = table;
+
+        const modalTitle = document.getElementById('juke-modal-now-title');
+        const modalArtist = document.getElementById('juke-modal-now-artist');
+        const modalTable = document.getElementById('juke-modal-now-table');
+        if (modalTitle) modalTitle.textContent = title;
+        if (modalArtist) modalArtist.textContent = artist;
+        if (modalTable) modalTable.textContent = table;
+    },
+
+    async loadTracks() {
+        try {
+            const res = await fetch('api/media/tracks');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.tracks)) {
+                this.tracks = data.tracks;
+                this.renderTracksUI(this.tracks);
+            }
+        } catch (e) {
+            console.log('Jukebox load tracks error:', e);
+        }
+    },
+
+    renderTracksUI(list) {
+        const container = document.getElementById('juke-tracks-list');
+        if (!container) return;
+        if (!list || list.length === 0) {
+            container.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">Không tìm thấy bài hát nào phù hợp.</div>';
+            return;
+        }
+
+        container.innerHTML = list.map(t => {
+            const durMin = Math.floor(t.duration_sec / 60);
+            const durSec = String(t.duration_sec % 60).padStart(2, '0');
+            return `
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/5 hover:border-purple-500/30 transition-all gap-3">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 flex items-center justify-center text-xs shrink-0 font-mono">
+                            <i class="fas fa-music"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-bold text-xs text-white truncate">${t.title}</div>
+                            <div class="text-[11px] text-slate-400 flex items-center gap-2 truncate mt-0.5">
+                                <span>${t.artist}</span>
+                                <span class="px-1.5 py-0.2 rounded bg-slate-800 text-purple-300 text-[9px] border border-white/5">${t.genre || 'Acoustic'}</span>
+                                <span class="text-slate-500 font-mono text-[10px]">${durMin}:${durSec}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="CustomerJukebox.requestSong(${t.id}, '${t.title.replace(/'/g, "\\'")}')" class="btn-glass text-[11px] py-1 px-2.5 bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border-purple-500/30 font-bold flex items-center gap-1 shrink-0 transition-all">
+                        <i class="fas fa-plus text-[10px]"></i>
+                        <span>Yêu Cầu</span>
+                    </button>
+                </div>
+            `;
+        }).join('');
+    },
+
+    renderQueueUI() {
+        const countBadge = document.getElementById('juke-queue-count');
+        if (countBadge) countBadge.textContent = this.queue.length;
+
+        const container = document.getElementById('juke-queue-list');
+        if (!container) return;
+        if (!this.queue || this.queue.length === 0) {
+            container.innerHTML = '<div class="p-4 text-center text-slate-400 text-xs rounded-xl border border-dashed border-white/10 bg-slate-950/40">Chưa có bài nào trong hàng đợi. Hãy là người đầu tiên chọn bài!</div>';
+            return;
+        }
+
+        container.innerHTML = this.queue.map((q, idx) => `
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 border border-white/5 gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-6 text-center font-mono font-bold text-xs ${idx === 0 ? 'text-amber-400' : 'text-slate-400'}">#${idx + 1}</span>
+                    <div class="min-w-0">
+                        <div class="font-bold text-xs text-white truncate flex items-center gap-1.5">
+                            <span>${q.track_title}</span>
+                            ${q.is_priority ? '<span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[8px] font-black border border-amber-500/30 uppercase">VIP</span>' : ''}
+                        </div>
+                        <div class="text-[10px] text-slate-400 flex items-center gap-2 truncate mt-0.5">
+                            <span>${q.track_artist}</span>
+                            <span class="text-sky-300"><i class="fas fa-chair text-[9px] mr-1"></i>${q.table_name || 'Tại Bàn'}</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="CustomerJukebox.voteSong(${q.id})" class="btn-glass text-[11px] py-1 px-2 text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 flex items-center gap-1 shrink-0 font-mono transition-all" title="Bấm thích / Vote bài này">
+                    <i class="fas fa-heart text-[10px]"></i>
+                    <span>${q.vote_count || 1}</span>
+                </button>
+            </div>
+        `).join('');
+    },
+
+    filterTracks() {
+        const kw = (document.getElementById('juke-search-input')?.value || '').toLowerCase().trim();
+        const genre = document.getElementById('juke-genre-filter')?.value || 'all';
+
+        let filtered = this.tracks;
+        if (genre !== 'all') {
+            filtered = filtered.filter(t => t.genre === genre);
+        }
+        if (kw) {
+            filtered = filtered.filter(t => 
+                (t.title || '').toLowerCase().includes(kw) || 
+                (t.artist || '').toLowerCase().includes(kw)
+            );
+        }
+        this.renderTracksUI(filtered);
+    },
+
+    async requestSong(trackId, title) {
+        let tableName = 'Khách tại bàn';
+        let tableId = 0;
+        try {
+            const ctx = CustomerOrdering.orderContext;
+            if (ctx && ctx.tableName) {
+                tableName = ctx.tableName;
+                tableId = Number(ctx.tableId) || 0;
+            }
+        } catch (_) {}
+
+        try {
+            const res = await fetch('api/media/jukebox/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    track_id: trackId,
+                    table_name: tableName,
+                    table_id: tableId,
+                    is_priority: 0
+                })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? 'Yêu cầu thành công!' : 'Lỗi yêu cầu bài'));
+            if (data.success) {
+                await this.loadStatus();
+                this.switchTab('queue');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối máy chủ: ' + e.message);
+        }
+    },
+
+    async voteSong(queueId) {
+        try {
+            const res = await fetch('api/media/jukebox/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ queue_id: queueId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.loadStatus();
+            }
+        } catch (e) {
+            console.log('Vote song error:', e);
+        }
+    },
+
+    switchTab(tab) {
+        this.activeTab = tab;
+        const btnTracks = document.getElementById('tab-btn-juke-tracks');
+        const btnQueue = document.getElementById('tab-btn-juke-queue');
+        const viewTracks = document.getElementById('juke-tab-tracks');
+        const viewQueue = document.getElementById('juke-tab-queue');
+
+        if (tab === 'tracks') {
+            btnTracks?.classList.add('bg-purple-600', 'text-white', 'shadow-sm');
+            btnTracks?.classList.remove('text-slate-400');
+            btnQueue?.classList.remove('bg-purple-600', 'text-white', 'shadow-sm');
+            btnQueue?.classList.add('text-slate-400');
+            viewTracks?.classList.remove('hidden');
+            viewQueue?.classList.add('hidden');
+            if (this.tracks.length === 0) this.loadTracks();
+        } else {
+            btnQueue?.classList.add('bg-purple-600', 'text-white', 'shadow-sm');
+            btnQueue?.classList.remove('text-slate-400');
+            btnTracks?.classList.remove('bg-purple-600', 'text-white', 'shadow-sm');
+            btnTracks?.classList.add('text-slate-400');
+            viewQueue?.classList.remove('hidden');
+            viewTracks?.classList.add('hidden');
+            this.loadStatus();
+        }
+    },
+
+    open() {
+        const modal = document.getElementById('customer-jukebox-modal');
+        if (modal) {
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            this.switchTab(this.activeTab);
+            this.loadStatus();
+        }
+    },
+
+    close() {
+        const modal = document.getElementById('customer-jukebox-modal');
+        if (modal) {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+    }
+};
+
+window.CustomerJukebox = CustomerJukebox;
+window.openJukeboxModal = () => CustomerJukebox.open();
+window.closeJukeboxModal = () => CustomerJukebox.close();
+
 const initializeCustomerExperience = () => {
     CustomerAdCarousel.init();
     CustomerOrdering.init();
+    CustomerJukebox.init();
 };
 
 if (document.readyState === 'loading') {

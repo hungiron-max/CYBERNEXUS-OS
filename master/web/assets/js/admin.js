@@ -318,8 +318,25 @@ const Admin = {
     tables: [],
     chartInstance: null,
 
+    renderEmptyState(colspan, icon, title, desc) {
+        return `
+            <tr>
+                <td colspan="${colspan}" class="py-12 px-4 text-center">
+                    <div class="inline-flex flex-col items-center justify-center max-w-sm mx-auto">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-800/80 border border-white/10 flex items-center justify-center text-slate-400 text-lg shadow-inner mb-3">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="text-sm font-bold text-slate-200 mb-1">${title}</div>
+                        <div class="text-xs text-slate-400 leading-relaxed">${desc}</div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    },
+
     async init() {
         this.bindNavigation();
+        this.switchTab('dashboard');
         await this.loadCategories();
         await this.loadDashboard();
         await this.loadProducts();
@@ -340,6 +357,95 @@ const Admin = {
             if (document.visibilityState === 'visible') sendAdminHeartbeat();
         });
         window.addEventListener('focus', sendAdminHeartbeat);
+
+        // Continuous background synchronization with Jukebox Engine
+        if (window.JukeboxEngine) {
+            window.JukeboxEngine.addListener(state => this.onJukeboxStateUpdate(state));
+        }
+    },
+
+    onJukeboxStateUpdate(state) {
+        if (!state) return;
+        // 1. Update Header Mini Pill
+        const disc = document.getElementById('admin-juke-disc');
+        const titleEl = document.getElementById('admin-juke-title');
+        const artistEl = document.getElementById('admin-juke-artist');
+        const playIcon = document.getElementById('admin-juke-play-icon');
+
+        if (state.currentTrack && state.currentTrack.track_title) {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.updateTitleWithMarquee('admin-juke-title', state.currentTrack.track_title);
+            } else if (titleEl) {
+                titleEl.textContent = state.currentTrack.track_title;
+            }
+            if (artistEl) artistEl.textContent = state.currentTrack.track_artist || 'Hệ thống';
+        } else {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.updateTitleWithMarquee('admin-juke-title', 'Jukebox Âm Nhạc');
+            } else if (titleEl) {
+                titleEl.textContent = 'Jukebox Âm Nhạc';
+            }
+            if (artistEl) artistEl.textContent = 'Hệ thống sẵn sàng';
+        }
+
+        // 2. Update Media Player Controls & Vinyl in Media Tab
+        const ctrlIcon = document.getElementById('jukebox-ctrl-play-icon');
+        const ctrlText = document.getElementById('jukebox-ctrl-play-text');
+        const vinylIcon = document.getElementById('now-playing-play-icon');
+        const vinylDisc = document.getElementById('now-playing-vinyl');
+
+        if (state.isPlaying) {
+            if (disc) disc.classList.add('animate-spin');
+            if (playIcon) playIcon.className = 'fas fa-pause text-[10px] text-fuchsia-300';
+            if (ctrlIcon) ctrlIcon.className = 'fas fa-pause text-xs text-amber-300';
+            if (ctrlText) ctrlText.textContent = 'Tạm Dừng';
+            if (vinylIcon) vinylIcon.className = 'fas fa-pause text-[9px] text-white';
+            if (vinylDisc) vinylDisc.classList.add('animate-spin');
+        } else {
+            if (disc) disc.classList.remove('animate-spin');
+            if (playIcon) playIcon.className = 'fas fa-play text-[10px] text-white';
+            if (ctrlIcon) ctrlIcon.className = 'fas fa-play text-xs text-sky-300';
+            if (ctrlText) ctrlText.textContent = 'Phát';
+            if (vinylIcon) vinylIcon.className = 'fas fa-play text-[9px] text-white';
+            if (vinylDisc) vinylDisc.classList.remove('animate-spin');
+        }
+
+        // Time and Progress Bar in Media Tab
+        const cur = state.currentTime || 0;
+        const dur = state.duration || (state.currentTrack ? Number(state.currentTrack.track_duration || state.currentTrack.duration_sec || 180) : 180);
+        const curTimeEl = document.getElementById('now-playing-current-time');
+        const durTimeEl = document.getElementById('now-playing-duration');
+        const progressBar = document.getElementById('now-playing-progress');
+
+        if (curTimeEl) {
+            const m = Math.floor(cur / 60);
+            const s = Math.floor(cur % 60);
+            curTimeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        if (durTimeEl && dur > 0) {
+            const m = Math.floor(dur / 60);
+            const s = Math.floor(dur % 60);
+            durTimeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        if (progressBar && dur > 0) {
+            const pct = Math.min(100, Math.max(0, (cur / dur) * 100));
+            progressBar.style.width = `${pct}%`;
+        }
+
+        // 3. If Media tab is currently open, keep queue and current track display in sync (only when changed)
+        if (this.currentTab === 'media') {
+            const trackKey = state.currentTrack ? `${state.currentTrack.id || ''}_${state.currentTrack.track_id || ''}_${state.currentTrack.track_title || ''}_${state.currentTrack.vote_count || 0}` : 'none';
+            if (this._lastRenderedTrackKey !== trackKey) {
+                this._lastRenderedTrackKey = trackKey;
+                this.renderNowPlaying(state.currentTrack);
+            }
+            const queueArr = state.queue || [];
+            const queueKey = queueArr.map(q => `${q.id}_${q.vote_count}_${q.is_priority}`).join('|');
+            if (this._lastRenderedQueueKey !== queueKey) {
+                this._lastRenderedQueueKey = queueKey;
+                this.renderMediaQueue(queueArr);
+            }
+        }
     },
 
     formatMoney(amount) {
@@ -347,24 +453,102 @@ const Admin = {
     },
 
     bindNavigation() {
-        const navButtons = document.querySelectorAll('.admin-nav-btn');
-        navButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tab = btn.dataset.tab;
-                this.switchTab(tab);
-            });
+        // Direct event delegation for fast navigation
+    },
+
+    currentGroup: 'ops',
+
+    switchGroup(group, defaultTab) {
+        this.currentGroup = group;
+
+        // 1. Show only target subnav-group
+        document.querySelectorAll('.subnav-group').forEach(el => el.classList.add('hidden'));
+        const targetSubnav = document.getElementById(`subnav-${group}`);
+        if (targetSubnav) targetSubnav.classList.remove('hidden');
+
+        // 2. Highlight Tier 1 group buttons
+        const groupStyles = {
+            ops: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10',
+            menu: 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/10',
+            hr: 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sky-500/10',
+            sys: 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-purple-500/10'
+        };
+
+        ['ops', 'menu', 'hr', 'sys'].forEach(g => {
+            const btn = document.getElementById(`grp-btn-${g}`);
+            if (!btn) return;
+            if (g === group) {
+                btn.className = `group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 border ${groupStyles[g]}`;
+            } else {
+                btn.className = 'group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 text-slate-400 hover:text-white hover:bg-white/5 border border-transparent';
+            }
         });
+
+        // 3. Switch to specified tab or first subtab of this group
+        if (defaultTab) {
+            this.switchTab(defaultTab);
+        } else {
+            const firstTabMap = {
+                ops: 'dashboard',
+                menu: 'products',
+                hr: 'users',
+                sys: 'finance'
+            };
+            const firstTab = firstTabMap[group];
+            if (firstTab) this.switchTab(firstTab);
+        }
     },
 
     switchTab(tab) {
         this.currentTab = tab;
-        document.querySelectorAll('.admin-nav-btn').forEach(b => {
+
+        const tabMeta = {
+            tables: { title: 'Bàn & Khu Vực (QR)', group: 'ops', icon: 'fa-border-all text-emerald-400' },
+            dashboard: { title: 'Tổng Quan Doanh Số', group: 'ops', icon: 'fa-chart-line text-sky-400' },
+            orders: { title: 'Lịch Sử Hóa Đơn', group: 'ops', icon: 'fa-receipt text-amber-400' },
+            products: { title: 'Mặt Hàng (F4)', group: 'menu', icon: 'fa-utensils text-amber-400' },
+            categories: { title: 'Nhóm Hàng', group: 'menu', icon: 'fa-layer-group text-sky-400' },
+            operations: { title: 'Kho & Chi Phí Vật Liệu', group: 'menu', icon: 'fa-boxes-stacked text-emerald-400' },
+            users: { title: 'Nhân Viên & Phân Quyền', group: 'hr', icon: 'fa-users-gear text-indigo-400' },
+            analytics: { title: 'Hiệu Suất Bếp & Phục Vụ', group: 'hr', icon: 'fa-chart-pie text-amber-400' },
+            finance: { title: 'Báo Cáo Tài Chính', group: 'sys', icon: 'fa-file-invoice-dollar text-teal-400' },
+            media: { title: 'Âm Nhạc & Jukebox', group: 'sys', icon: 'fa-compact-disc text-fuchsia-400' },
+            settings: { title: 'Cài Đặt Quán & VietQR', group: 'sys', icon: 'fa-cog text-sky-400' }
+        };
+
+        const info = tabMeta[tab] || { title: tab, group: 'ops', icon: 'fa-circle-dot text-sky-400' };
+
+        // Ensure parent group is active and visible
+        if (this.currentGroup !== info.group) {
+            this.switchGroup(info.group, tab);
+            return;
+        }
+
+        // 1. Update breadcrumb
+        const breadcrumb = document.getElementById('active-tab-title');
+        if (breadcrumb) {
+            breadcrumb.innerHTML = `<i class="fas ${info.icon} mr-1.5"></i>${info.title}`;
+        }
+
+        // 2. Highlight Tier 2 sub-buttons
+        document.querySelectorAll('.admin-sub-btn').forEach(b => {
             if (b.dataset.tab === tab) {
-                b.classList.add('bg-sky-500/20', 'text-sky-400', 'border-sky-500/40');
-                b.classList.remove('text-slate-400');
+                b.classList.add('bg-sky-500/25', 'text-sky-300', 'border-sky-500/40', 'shadow-sm');
+                b.classList.remove('text-slate-300', 'border-white/5');
             } else {
-                b.classList.remove('bg-sky-500/20', 'text-sky-400', 'border-sky-500/40');
-                b.classList.add('text-slate-400');
+                b.classList.remove('bg-sky-500/25', 'text-sky-300', 'border-sky-500/40', 'shadow-sm');
+                b.classList.add('text-slate-300', 'border-white/5');
+            }
+        });
+
+        // 3. Highlight mobile bottom nav buttons
+        document.querySelectorAll('[data-mobile-tab]').forEach(btn => {
+            if (btn.dataset.mobileTab === tab) {
+                btn.classList.add('bg-sky-500/20', 'text-sky-400');
+                btn.classList.remove('text-slate-400');
+            } else {
+                btn.classList.remove('bg-sky-500/20', 'text-sky-400');
+                btn.classList.add('text-slate-400');
             }
         });
 
@@ -383,6 +567,24 @@ const Admin = {
         if (tab === 'orders') this.loadOrderHistory();
         if (tab === 'analytics') this.loadAnalyticsData();
         if (tab === 'operations') this.loadOperationsTab();
+        if (tab === 'finance') this.loadFinance();
+        if (tab === 'media') {
+            this.loadMediaTab();
+            this.startEqWaveAnimation();
+        } else {
+            this.stopEqWaveAnimation();
+        }
+
+        // Keep continuous background synchronization active across all tabs
+        if (!this.mediaPollingTimer) {
+            this.mediaPollingTimer = setInterval(() => {
+                if (window.JukeboxEngine) {
+                    window.JukeboxEngine.refreshStatus();
+                } else {
+                    this.loadMediaJukeboxStatus();
+                }
+            }, 3500);
+        }
     },
 
     // 1. Dashboard & Reports
@@ -526,9 +728,10 @@ const Admin = {
             const ctx = document.getElementById('revenueChart');
             if (!ctx) return;
 
-            const labels = json.data.map(d => d.label);
-            const revenues = json.data.map(d => d.revenue);
-            const orders = json.data.map(d => d.orders);
+            const dataList = Array.isArray(json.data) ? json.data : [];
+            const labels = dataList.map(d => d.label);
+            const revenues = dataList.map(d => d.revenue);
+            const orders = dataList.map(d => d.orders);
 
             if (this.chartInstance) {
                 this.chartInstance.destroy();
@@ -615,13 +818,14 @@ const Admin = {
             const container = document.getElementById('top-selling-list');
             if (!container) return;
 
-            if (json.data.length === 0) {
+            const items = Array.isArray(json.data) ? json.data : [];
+            if (items.length === 0) {
                 container.innerHTML = '<div class="text-xs text-slate-500 py-4 text-center">Chưa có dữ liệu bán hàng hôm nay</div>';
                 return;
             }
 
             let html = '';
-            json.data.forEach((it, idx) => {
+            items.forEach((it, idx) => {
                 html += `
                     <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-white/5">
                         <div class="flex items-center gap-2.5">
@@ -661,26 +865,37 @@ const Admin = {
         const tbody = document.getElementById('category-table-body');
         if (!tbody) return;
 
+        if (!this.categories || this.categories.length === 0) {
+            tbody.innerHTML = this.renderEmptyState(5, 'fa-layer-group', 'Chưa có nhóm hàng nào', 'Bấm nút "Thêm Nhóm Hàng" để tạo danh mục phân loại đồ uống, đồ ăn.');
+            return;
+        }
+
         let html = '';
         this.categories.forEach(c => {
             html += `
-                <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3 text-xs font-mono text-slate-400">#${c.id}</td>
-                    <td class="p-3 text-sm font-bold text-white flex items-center gap-2">
-                        <span class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 text-xs">
-                            <i class="fas fa-${c.icon || 'tag'}"></i>
-                        </span>
-                        ${c.name}
+                <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                    <td class="col-center"><span class="font-mono text-xs text-slate-400 whitespace-nowrap">#${c.id}</span></td>
+                    <td class="col-name">
+                        <div class="font-bold text-white text-xs flex items-center gap-2 whitespace-nowrap">
+                            <span class="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/25 flex items-center justify-center text-xs shrink-0 shadow-sm">
+                                <i class="fas fa-${c.icon || 'tag'}"></i>
+                            </span>
+                            <span class="whitespace-nowrap">${c.name}</span>
+                        </div>
                     </td>
-                    <td class="p-3 text-xs text-sky-400 font-semibold font-mono">${c.product_count || 0} món</td>
-                    <td class="p-3 text-xs text-slate-400 font-mono">${c.sort_order || 0}</td>
-                    <td class="p-3 text-right space-x-1">
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.openEditCategoryModal(${c.id})">
-                            <i class="fas fa-edit"></i> Sửa
-                        </button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs" onclick="Admin.deleteCategory(${c.id})">
-                            <i class="fas fa-trash"></i> Xóa
-                        </button>
+                    <td class="col-center">
+                        <span class="font-mono font-bold text-sky-400 text-xs bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${c.product_count || 0} món</span>
+                    </td>
+                    <td class="col-center"><span class="font-mono text-xs text-slate-400 whitespace-nowrap">${c.sort_order || 0}</span></td>
+                    <td class="col-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditCategoryModal(${c.id})" title="Sửa nhóm hàng">
+                                <i class="fas fa-pen text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteCategory(${c.id})" title="Xóa nhóm hàng">
+                                <i class="fas fa-trash-can text-[10px]"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -799,8 +1014,8 @@ const Admin = {
         const tbody = document.getElementById('products-table-body');
         if (!tbody) return;
 
-        if (this.products.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500 text-sm">Không tìm thấy mặt hàng nào phù hợp</td></tr>`;
+        if (!this.products || this.products.length === 0) {
+            tbody.innerHTML = this.renderEmptyState(9, 'fa-utensils', 'Không tìm thấy mặt hàng nào', 'Chưa có mặt hàng nào trong hệ thống hoặc không khớp với bộ lọc.');
             return;
         }
 
@@ -809,31 +1024,35 @@ const Admin = {
             const isLocked = p.status === 'locked';
             const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
             html += `
-                <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors ${isLocked ? 'opacity-50' : ''}">
-                    <td class="p-2.5 text-center">
-                        <div class="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-white/10 mx-auto shadow relative group cursor-pointer" onclick="Admin.openEditProductModal(${p.id})">
-                            <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-125 transition-transform duration-300" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
+                <tr class="hover:bg-sky-500/[0.04] transition-colors ${isLocked ? 'opacity-50' : ''}">
+                    <td class="col-center">
+                        <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-900 border border-white/10 mx-auto shadow-sm relative group cursor-pointer" onclick="Admin.openEditProductModal(${p.id})">
+                            <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
                         </div>
                     </td>
-                    <td class="p-3 text-xs font-mono font-bold text-sky-400">${p.code || 'SP'}</td>
-                    <td class="p-3 text-sm font-bold text-white">
-                        ${p.name}
-                        ${p.is_topping == 1 ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-normal">Topping</span>' : ''}
+                    <td><span class="font-mono text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${p.code || 'SP'}</span></td>
+                    <td class="col-name">
+                        <div class="font-bold text-white text-xs flex items-center gap-1.5 whitespace-nowrap">
+                            <span class="whitespace-nowrap">${p.name}</span>
+                            ${p.is_topping == 1 ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shrink-0">Topping</span>' : ''}
+                        </div>
                     </td>
-                    <td class="p-3 text-xs text-slate-300 font-medium">${p.category_name || '-'}</td>
-                    <td class="p-3 text-xs text-slate-400 capitalize">${p.unit || 'ly'}</td>
-                    <td class="p-3 text-sm font-black text-amber-400 font-mono">${this.formatMoney(p.sale_price)} đ</td>
-                    <td class="p-3 text-xs text-slate-400 font-mono">${this.formatMoney(p.cost_price)} đ</td>
-                    <td class="p-3 text-center">
-                        <input type="checkbox" class="w-4 h-4 rounded text-rose-500 cursor-pointer" ${isLocked ? 'checked' : ''} onchange="Admin.toggleProductLock(${p.id})" title="Tạm khóa mặt hàng" />
+                    <td><span class="text-xs text-slate-300 font-medium whitespace-nowrap">${p.category_name || '-'}</span></td>
+                    <td class="col-center"><span class="text-xs text-slate-400 capitalize whitespace-nowrap">${p.unit || 'ly'}</span></td>
+                    <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs whitespace-nowrap">${this.formatMoney(p.sale_price)} đ</span></td>
+                    <td class="col-money"><span class="font-mono text-slate-400 text-xs whitespace-nowrap">${this.formatMoney(p.cost_price)} đ</span></td>
+                    <td class="col-center">
+                        <input type="checkbox" class="w-4 h-4 rounded text-rose-500 cursor-pointer accent-sky-500" ${isLocked ? 'checked' : ''} onchange="Admin.toggleProductLock(${p.id})" title="Tạm khóa mặt hàng" />
                     </td>
-                    <td class="p-3 text-right space-x-1">
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.openEditProductModal(${p.id})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs" onclick="Admin.deleteProduct(${p.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <td class="col-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditProductModal(${p.id})" title="Sửa mặt hàng">
+                                <i class="fas fa-pen text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteProduct(${p.id})" title="Xóa mặt hàng">
+                                <i class="fas fa-trash-can text-[10px]"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1124,27 +1343,163 @@ const Admin = {
         }
     },
 
+    currentTableArea: 'all',
+    tableSearchKw: '',
+    activeTableForQr: null,
+
     renderTablesList() {
         const container = document.getElementById('admin-tables-container');
         if (!container) return;
 
+        const tables = this.tables || [];
+        const total = tables.length;
+        const occupied = tables.filter(t => t.status === 'occupied').length;
+        const free = total - occupied;
+        const taiQuanCount = tables.filter(t => t.area_type === 'TAI_QUAN').length;
+        const mangVeCount = tables.filter(t => t.area_type === 'MANG_VE').length;
+
+        // Update Stats Counters
+        const totalEl = document.getElementById('stat-table-total');
+        if (totalEl) totalEl.textContent = total;
+        const freeEl = document.getElementById('stat-table-free');
+        if (freeEl) freeEl.textContent = free;
+        const occEl = document.getElementById('stat-table-occupied');
+        if (occEl) occEl.textContent = occupied;
+
+        const allPill = document.getElementById('count-area-all');
+        if (allPill) allPill.textContent = total;
+        const tqPill = document.getElementById('count-area-tai-quan');
+        if (tqPill) tqPill.textContent = taiQuanCount;
+        const mvPill = document.getElementById('count-area-mang-ve');
+        if (mvPill) mvPill.textContent = mangVeCount;
+
+        // Filter list
+        let filtered = tables;
+        if (this.currentTableArea && this.currentTableArea !== 'all') {
+            filtered = filtered.filter(t => t.area_type === this.currentTableArea);
+        }
+        if (this.tableSearchKw) {
+            const kw = this.tableSearchKw.toLowerCase().trim();
+            filtered = filtered.filter(t => 
+                (t.code && t.code.toLowerCase().includes(kw)) ||
+                (t.name && t.name.toLowerCase().includes(kw))
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full py-12 text-center text-slate-500" style="grid-column:1/-1;">
+                    <i class="fas fa-chair text-4xl mb-3 text-slate-600 block"></i>
+                    <p class="text-sm font-semibold">Không tìm thấy bàn nào phù hợp</p>
+                    <p class="text-xs text-slate-600 mt-1">Bấm "Thêm Bàn" hoặc "Tạo Hàng Loạt" để tạo mới</p>
+                </div>
+            `;
+            return;
+        }
+
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const baseUrl = origin + (dir ? dir + '/' : '/');
+
+        // Nhóm: Mang Về nằm trên, Tại Quán nằm dưới — mỗi nhóm xuống hàng riêng có tiêu đề
+        const groupOf = t => (t.area_type === 'MANG_VE' ? 'MANG_VE' : 'TAI_QUAN');
+        filtered = [
+            ...filtered.filter(t => groupOf(t) === 'MANG_VE'),
+            ...filtered.filter(t => groupOf(t) === 'TAI_QUAN')
+        ];
+        const groupMeta = {
+            TAI_QUAN: { label: 'Bàn Tại Quán', icon: 'fa-chair', color: '#38bdf8', border: 'rgba(56,189,248,.35)' },
+            MANG_VE:  { label: 'Đơn Mang Về',  icon: 'fa-bag-shopping', color: '#fbbf24', border: 'rgba(251,191,36,.35)' }
+        };
+        const groupCounts = {
+            TAI_QUAN: filtered.filter(t => groupOf(t) === 'TAI_QUAN').length,
+            MANG_VE: filtered.filter(t => groupOf(t) === 'MANG_VE').length
+        };
+
         let html = '';
-        this.tables.forEach(t => {
+        let currentGroup = null;
+        filtered.forEach(t => {
+            const g = groupOf(t);
+            if (g !== currentGroup) {
+                const m = groupMeta[g];
+                html += `
+                <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:6px 2px 8px;margin-top:${currentGroup ? '14px' : '0'};border-bottom:1px solid ${m.border};">
+                    <i class="fas ${m.icon}" style="color:${m.color};font-size:14px;"></i>
+                    <span style="color:${m.color};font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.05em;">${m.label}</span>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:1px 8px;">${groupCounts[g]}</span>
+                </div>`;
+                currentGroup = g;
+            }
             const isOccupied = t.status === 'occupied';
+            const isTakeaway = t.area_type === 'MANG_VE';
+            const guestCount = t.guest_count || (isTakeaway ? 1 : 4);
+            const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+
             html += `
-                <div class="liquid-glass-card p-4 flex flex-col justify-between border border-white/10">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="font-extrabold text-base text-white font-mono">${t.code}</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full font-bold ${isOccupied ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'}">
-                            ${isOccupied ? 'Có khách' : 'Trống'}
-                        </span>
+                <div class="liquid-glass-card p-3.5 rounded-2xl border ${isOccupied ? 'border-rose-500/40 bg-rose-950/10' : 'border-white/10 hover:border-sky-500/40'} flex flex-col justify-between transition-all duration-200 group relative" style="width:220px;height:300px;box-sizing:border-box;overflow:hidden;">
+                    <!-- Top Bar: Code + Area + Status Pill -->
+                    <div>
+                        <div class="flex items-center justify-between gap-1.5 mb-2.5">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 font-mono font-black text-xs border border-sky-500/30 truncate shadow-sm">
+                                    ${t.code}
+                                </span>
+                                <span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold ${isTakeaway ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25' : 'bg-slate-800 text-slate-300 border border-white/10'} truncate">
+                                    ${isTakeaway ? 'Mang Về' : 'Tại Quán'}
+                                </span>
+                            </div>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase shrink-0 ${isOccupied ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
+                                <span class="w-1.5 h-1.5 rounded-full ${isOccupied ? 'bg-rose-400 animate-ping' : 'bg-emerald-400'}"></span>
+                                ${isOccupied ? 'Có khách' : 'Trống'}
+                            </span>
+                        </div>
+
+                        <!-- Table Name & Seats -->
+                        <div class="flex items-baseline justify-between gap-1 mb-2">
+                            <h4 class="font-extrabold text-sm text-white truncate" title="${t.name}">${t.name}</h4>
+                            <span class="text-[10px] text-slate-400 font-medium shrink-0">
+                                <i class="fas fa-chair text-slate-500 text-[9px] mr-0.5"></i>${guestCount} chỗ
+                            </span>
+                        </div>
+
+                        <!-- QR Code Thumbnail Box (Clean Standard White Card) -->
+                        <div class="relative cursor-pointer transition-all group/qr" style="background:#fff;padding:8px;border-radius:12px;width:112px;height:112px;margin:8px auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 6px 16px rgba(0,0,0,.4);" onclick="Admin.openTableQrModal(${t.id})" title="Nhấp để phóng to & In Standee">
+                            <div id="table-qr-${t.id}" style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+                            <div class="absolute inset-0 bg-slate-950/80 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center">
+                                <i class="fas fa-search-plus text-base text-sky-400"></i>
+                                <span>Phóng to & In</span>
+                            </div>
+                        </div>
+
+                        <!-- Live Order Info / Status Description -->
+                        <div class="text-[11px] text-center my-1.5">
+                            ${isOccupied ? `
+                                <div class="px-2 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-200 font-medium flex items-center justify-between">
+                                    <span class="truncate"><i class="fas fa-receipt mr-1 text-rose-400"></i>${t.order_code || 'Đang mở'}</span>
+                                    <span class="font-bold text-amber-300 ml-1 font-mono">${(Number(t.total_amount) || 0).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            ` : `
+                                <div class="text-[10px] text-slate-400 font-medium">
+                                    <span class="text-emerald-400">●</span> Sẵn sàng đón khách
+                                </div>
+                            `}
+                        </div>
                     </div>
-                    <div class="text-xs text-slate-400 mb-4">${t.name} (${t.area_type === 'MANG_VE' ? 'Mang Về' : 'Tại Quán'})</div>
-                    <div class="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                        <span class="text-slate-400">${isOccupied ? 'HĐ: ' + t.order_code : 'Chưa có đơn'}</span>
+
+                    <!-- Bottom Action Buttons Strip -->
+                    <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-1 mt-2 text-xs">
+                        <button type="button" onclick="Admin.openTableQrModal(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-sky-300 hover:text-white border-sky-500/30 hover:bg-sky-500/20 font-bold flex items-center gap-1 flex-1 justify-center shadow-sm" title="Mở mã QR standee">
+                            <i class="fas fa-qrcode"></i> <span>Standee QR</span>
+                        </button>
+                        <button type="button" onclick="Admin.copyDirectOrderUrl('${encodeURIComponent(orderUrl)}')" class="btn-glass text-[10px] py-1 px-1.5 text-slate-300 hover:text-white border-white/10" title="Sao chép link gọi món tại bàn">
+                            <i class="fas fa-link"></i>
+                        </button>
                         ${!isOccupied ? `
-                            <button type="button" class="text-rose-400 hover:text-rose-300" onclick="Admin.deleteTable(${t.id})">
-                                <i class="fas fa-trash"></i>
+                            <button type="button" class="btn-glass text-[10px] py-1 px-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 border-rose-500/20" onclick="Admin.deleteTable(${t.id})" title="Xóa bàn này">
+                                <i class="fas fa-trash-alt"></i>
                             </button>
                         ` : ''}
                     </div>
@@ -1153,33 +1508,374 @@ const Admin = {
         });
 
         container.innerHTML = html;
+
+        // Render QR Code inside each card
+        setTimeout(() => {
+            filtered.forEach(t => {
+                const qrContainer = document.getElementById(`table-qr-${t.id}`);
+                if (qrContainer && typeof QRCode !== 'undefined') {
+                    qrContainer.innerHTML = '';
+                    const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+                    try {
+                        new QRCode(qrContainer, {
+                            text: orderUrl,
+                            width: 96,
+                            height: 96,
+                            colorDark: "#0b0f19",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.M
+                        });
+                    } catch (e) {
+                        console.error('Error drawing mini table QR:', e);
+                    }
+                }
+            });
+        }, 50);
     },
 
-    async addTable() {
-        const code = prompt('Nhập mã bàn (ví dụ: MV6, TQ9, B10...):');
-        if (!code) return;
-        const name = prompt('Nhập tên hiển thị bàn (ví dụ: Bàn 10, Mang về 06):', code);
-        const area = confirm('Bàn này thuộc khu vực MANG VỀ (OK) hay TẠI QUÁN (Cancel)?') ? 'MANG_VE' : 'TAI_QUAN';
+    filterTableArea(area) {
+        this.currentTableArea = area;
+        document.querySelectorAll('.table-area-pill').forEach(btn => {
+            const btnArea = btn.getAttribute('data-area');
+            if (btnArea === area) {
+                btn.className = 'table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center gap-1.5 shrink-0';
+            } else {
+                btn.className = 'table-area-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent flex items-center gap-1.5 shrink-0';
+            }
+        });
+        this.renderTablesList();
+    },
+
+    filterTablesSearch(kw) {
+        this.tableSearchKw = kw;
+        this.renderTablesList();
+    },
+
+    openAddTableModal() {
+        const modal = document.getElementById('admin-table-modal');
+        if (modal) modal.classList.add('open');
+        const codeInput = document.getElementById('admin-table-code');
+        if (codeInput) {
+            codeInput.value = '';
+            codeInput.focus();
+        }
+        const nameInput = document.getElementById('admin-table-name');
+        if (nameInput) nameInput.value = '';
+    },
+
+    closeAddTableModal() {
+        const modal = document.getElementById('admin-table-modal');
+        if (modal) modal.classList.remove('open');
+    },
+
+    async addTable(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const codeInput = document.getElementById('admin-table-code');
+        const nameInput = document.getElementById('admin-table-name');
+        const areaInput = document.getElementById('admin-table-area');
+        const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        const name = nameInput ? nameInput.value.trim() : '';
+        const area = areaInput ? areaInput.value : 'TAI_QUAN';
+
+        if (!code || !name) {
+            alert('Vui lòng điền đầy đủ Mã bàn và Tên bàn!');
+            return;
+        }
 
         try {
             const res = await fetch('api/tables.php?action=add_table', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: code.trim(), name: name.trim(), area_type: area })
+                body: JSON.stringify({ code: code, name: name, area_type: area })
             });
             const data = await res.json();
             if (data.success) {
+                this.closeAddTableModal();
                 await this.loadTables();
             } else {
                 alert(data.message || 'Lỗi thêm bàn');
             }
-        } catch (e) {
-            console.error('Error adding table:', e);
+        } catch (err) {
+            console.error('addTable error:', err);
+            alert('Lỗi khi thêm bàn');
         }
     },
 
+    openTableQrModal(tableId) {
+        const table = (this.tables || []).find(t => t.id === tableId);
+        if (!table) return;
+        this.activeTableForQr = table;
+
+        const modal = document.getElementById('admin-table-qr-modal');
+        if (!modal) return;
+
+        const codeEl = document.getElementById('standee-display-code');
+        if (codeEl) codeEl.textContent = table.code;
+        const nameEl = document.getElementById('standee-display-name');
+        if (nameEl) nameEl.textContent = table.name;
+        const titleEl = document.getElementById('admin-table-qr-title');
+        if (titleEl) titleEl.textContent = `Standee QR Bàn: ${table.name} (${table.code})`;
+
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const orderUrl = `${origin + (dir ? dir + '/' : '/')}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
+
+        const urlEl = document.getElementById('admin-table-qr-url');
+        if (urlEl) urlEl.textContent = orderUrl;
+
+        const qrContainer = document.getElementById('admin-table-qr-code');
+        if (qrContainer && typeof QRCode !== 'undefined') {
+            qrContainer.innerHTML = '';
+            try {
+                new QRCode(qrContainer, {
+                    text: orderUrl,
+                    width: 190,
+                    height: 190,
+                    colorDark: "#0b0f19",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch (e) {
+                console.error('Error drawing modal QR:', e);
+            }
+        }
+
+        modal.classList.add('open');
+    },
+
+    closeTableQrModal() {
+        const modal = document.getElementById('admin-table-qr-modal');
+        if (modal) modal.classList.remove('open');
+        this.activeTableForQr = null;
+    },
+
+    printTableQrStandee() {
+        if (!this.activeTableForQr) return;
+        const table = this.activeTableForQr;
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const orderUrl = `${origin + (dir ? dir + '/' : '/')}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
+
+        const printZone = document.getElementById('print-container-zone');
+        if (!printZone) return;
+
+        printZone.innerHTML = `
+            <div style="max-width: 400px; margin: 0 auto; padding: 25px; border: 3px dashed #0284c7; border-radius: 16px; text-align: center; font-family: sans-serif; background: #ffffff; color: #020617;">
+                <div style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #0284c7; margin-bottom: 4px;">GÓC PHỐ COFFEE & TEA</div>
+                <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 15px;">HỆ THỐNG GỌI MÓN & JUKEBOX THÔNG MINH TẠI BÀN</div>
+                
+                <div style="display: inline-block; padding: 8px 24px; border: 2px solid #0284c7; border-radius: 12px; background: #f0f9ff; margin-bottom: 15px;">
+                    <span style="font-size: 26px; font-weight: 900; color: #0369a1; font-family: monospace;">${table.code}</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #334155; margin-left: 8px;">(${table.name})</span>
+                </div>
+
+                <div id="print-single-qr-img" style="margin: 10px auto; width: 220px; height: 220px; display: flex; align-items: center; justify-content: center; background: #fff;"></div>
+
+                <div style="margin-top: 15px; font-size: 12px; font-weight: 700; color: #0f172a;">
+                    📷 Mở Camera / Zalo / App Ngân Hàng Quét Mã
+                </div>
+                <div style="margin-top: 4px; font-size: 11px; color: #64748b;">
+                    Xem thực đơn điện tử • Đặt món nhanh • Quán phục vụ tận bàn
+                </div>
+                <div style="margin-top: 15px; font-size: 9px; font-family: monospace; color: #94a3b8; word-break: break-all;">
+                    ${orderUrl}
+                </div>
+            </div>
+        `;
+
+        if (typeof QRCode !== 'undefined') {
+            const singleImgZone = document.getElementById('print-single-qr-img');
+            new QRCode(singleImgZone, {
+                text: orderUrl,
+                width: 210,
+                height: 210,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        setTimeout(() => {
+            window.print();
+        }, 200);
+    },
+
+    downloadTableQr() {
+        const qrContainer = document.getElementById('admin-table-qr-code');
+        if (!qrContainer) return;
+        const img = qrContainer.querySelector('img');
+        const canvas = qrContainer.querySelector('canvas');
+        let dataUrl = '';
+        if (img && img.src) {
+            dataUrl = img.src;
+        } else if (canvas) {
+            dataUrl = canvas.toDataURL('image/png');
+        }
+        if (!dataUrl) {
+            alert('Không tìm thấy ảnh mã QR để tải!');
+            return;
+        }
+        const a = document.createElement('a');
+        const code = this.activeTableForQr ? this.activeTableForQr.code : 'table';
+        a.href = dataUrl;
+        a.download = `QR_Standee_${code}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    },
+
+    copyTableQrUrl() {
+        const urlEl = document.getElementById('admin-table-qr-url');
+        if (!urlEl || !urlEl.textContent) return;
+        const url = urlEl.textContent;
+        this.copyDirectOrderUrl(url);
+    },
+
+    copyDirectOrderUrl(url) {
+        if (!url) return;
+        const decoded = decodeURIComponent(url);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(decoded).then(() => {
+                alert('Đã sao chép link gọi món tại bàn:\n' + decoded);
+            }).catch(() => {
+                prompt('Link gọi món tại bàn:', decoded);
+            });
+        } else {
+            prompt('Link gọi món tại bàn:', decoded);
+        }
+    },
+
+    openBatchTablesModal() {
+        const modal = document.getElementById('admin-batch-tables-modal');
+        if (modal) modal.classList.add('open');
+    },
+
+    async submitBatchTables(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const prefix = (document.getElementById('batch-prefix')?.value || 'TQ').trim().toUpperCase();
+        const fromNum = parseInt(document.getElementById('batch-from-num')?.value || '1', 10);
+        const toNum = parseInt(document.getElementById('batch-to-num')?.value || '10', 10);
+        const areaType = document.getElementById('batch-area-type')?.value || 'TAI_QUAN';
+        const guestCount = parseInt(document.getElementById('batch-guest-count')?.value || '4', 10);
+
+        if (toNum < fromNum) {
+            alert('Số kết thúc phải lớn hơn hoặc bằng số bắt đầu!');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/tables.php?action=batch_add_tables', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prefix: prefix,
+                    from_num: fromNum,
+                    to_num: toNum,
+                    area_type: areaType,
+                    guest_count: guestCount
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã tạo thành công hàng loạt bàn!');
+                document.getElementById('admin-batch-tables-modal')?.classList.remove('open');
+                await this.loadTables();
+            } else {
+                alert(data.message || 'Lỗi tạo hàng loạt bàn');
+            }
+        } catch (err) {
+            console.error('submitBatchTables error:', err);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    printAllTableQr() {
+        const tables = this.tables || [];
+        if (tables.length === 0) {
+            alert('Chưa có bàn nào để in!');
+            return;
+        }
+
+        const origin = window.location.origin && window.location.origin !== 'null' 
+            ? window.location.origin 
+            : (window.location.protocol + '//' + window.location.host);
+        const path = window.location.pathname;
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const baseUrl = origin + (dir ? dir + '/' : '/');
+
+        const printZone = document.getElementById('print-container-zone');
+        if (!printZone) return;
+
+        let html = `
+            <div style="font-family: sans-serif; background: #fff; color: #020617; padding: 15px;">
+                <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #0284c7; padding-bottom: 12px;">
+                    <h2 style="font-size: 20px; font-weight: 900; margin: 0; color: #0284c7; text-transform: uppercase;">GÓC PHỐ COFFEE & TEA</h2>
+                    <p style="font-size: 13px; color: #475569; margin: 4px 0 0 0;">BỘ THẺ STANDEE QR GỌI MÓN TẠI BÀN (${tables.length} BÀN)</p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        `;
+
+        tables.forEach((t, idx) => {
+            const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+            html += `
+                <div class="print-table-card" style="border: 2px dashed #0284c7; border-radius: 14px; padding: 16px; text-align: center; page-break-inside: avoid; background: #ffffff;">
+                    <div style="font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: #0284c7; text-transform: uppercase;">GÓC PHỐ COFFEE & TEA</div>
+                    <div style="font-size: 10px; color: #64748b; margin-top: 2px;">MÃ QR GỌI MÓN & JUKEBOX</div>
+                    
+                    <div style="display: inline-block; margin: 10px 0; padding: 4px 16px; border: 1.5px solid #0284c7; border-radius: 8px; background: #f0f9ff;">
+                        <span style="font-size: 20px; font-weight: 900; color: #0369a1; font-family: monospace;">${t.code}</span>
+                        <span style="font-size: 12px; font-weight: 700; color: #334155; margin-left: 6px;">(${t.name})</span>
+                    </div>
+
+                    <div id="print-batch-qr-${t.id}" style="margin: 8px auto; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center;"></div>
+
+                    <div style="font-size: 10px; font-weight: 700; color: #0f172a; margin-top: 6px;">
+                        📷 Mở Camera / Zalo quét mã
+                    </div>
+                    <div style="font-size: 9px; color: #64748b; margin-top: 2px;">
+                        Xem menu • Đặt món • Phục vụ tận bàn
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        printZone.innerHTML = html;
+
+        // Render QR codes
+        if (typeof QRCode !== 'undefined') {
+            tables.forEach(t => {
+                const zone = document.getElementById(`print-batch-qr-${t.id}`);
+                if (zone) {
+                    const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
+                    new QRCode(zone, {
+                        text: orderUrl,
+                        width: 135,
+                        height: 135,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
+            });
+        }
+
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    },
+
     async deleteTable(tableId) {
-        if (!confirm('Bạn có chắc muốn xóa bàn này?')) return;
         try {
             const res = await fetch('api/tables.php?action=delete_table', {
                 method: 'POST',
@@ -1188,12 +1884,14 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
+                this.showToast('🗑️ Đã xóa bàn thành công!', 'info');
                 await this.loadTables();
             } else {
-                alert(data.message || 'Lỗi xóa bàn');
+                this.showToast(data.message || 'Lỗi xóa bàn', 'error');
             }
         } catch (e) {
             console.error('Error deleting table:', e);
+            this.showToast('Lỗi kết nối máy chủ', 'error');
         }
     },
 
@@ -1220,29 +1918,29 @@ const Admin = {
             if (!tbody) return;
 
             if (data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-500 text-sm">Chưa có hóa đơn nào trong khoảng thời gian này</td></tr>';
+                tbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', 'Chưa có hóa đơn nào', 'Không tìm thấy hóa đơn nào trong khoảng thời gian hoặc trạng thái đã lọc.');
                 return;
             }
 
             let html = '';
             data.data.forEach(o => {
                 const statusBadge = o.status === 'completed' 
-                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">Đã thanh toán</span>'
+                    ? '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Đã thanh toán</span>'
                     : (o.status === 'pending' 
-                        ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold">Đang dùng</span>' 
-                        : '<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 text-xs font-bold">Đã hủy</span>');
+                        ? '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Đang dùng</span>' 
+                        : '<span class="saas-badge bg-rose-500/15 text-rose-300 border border-rose-500/30"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Đã hủy</span>');
 
                 html += `
-                    <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                        <td class="p-3 text-xs font-mono font-bold text-sky-400">${o.order_code}</td>
-                        <td class="p-3 text-xs font-bold text-white">${o.table_code}</td>
-                        <td class="p-3 text-xs text-slate-300">${o.created_at}</td>
-                        <td class="p-3 text-xs text-slate-300">${o.user_name || 'Thu ngân'}</td>
-                        <td class="p-3 text-sm font-black text-emerald-400 font-mono">${this.formatMoney(o.total_amount)} đ</td>
-                        <td class="p-3">${statusBadge}</td>
-                        <td class="p-3 text-right">
-                            <button type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.viewOrderDetail(${o.id})">
-                                <i class="fas fa-eye"></i> Chi tiết
+                    <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                        <td><span class="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">${o.order_code || ('#' + o.id)}</span></td>
+                        <td><span class="font-bold text-white text-xs">${o.table_code || o.table_name || 'Mang về'}</span></td>
+                        <td><span class="text-xs text-slate-400 font-mono">${o.created_at || '-'}</span></td>
+                        <td><span class="text-xs text-slate-300 font-medium">${o.user_name || 'Thu ngân'}</span></td>
+                        <td class="col-money"><span class="font-mono font-bold text-emerald-400 text-xs">${this.formatMoney(o.total_amount)} đ</span></td>
+                        <td class="col-center">${statusBadge}</td>
+                        <td class="col-right">
+                            <button type="button" class="saas-action-btn btn-view" onclick="Admin.viewOrderDetail(${o.id})" title="Xem chi tiết hóa đơn">
+                                <i class="fas fa-eye text-[11px]"></i>
                             </button>
                         </td>
                     </tr>
@@ -1506,7 +2204,7 @@ const Admin = {
         if (!tbody) return;
 
         if (!this.users || this.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500 text-sm">Chưa có nhân viên nào</td></tr>';
+            tbody.innerHTML = this.renderEmptyState(8, 'fa-users-gear', 'Chưa có người dùng nào', 'Bấm nút "Thêm Người Dùng Mới" để tạo tài khoản nhân viên hoặc thu ngân.');
             return;
         }
 
@@ -1516,49 +2214,50 @@ const Admin = {
             let codeColor = 'text-sky-300 bg-sky-500/10 border-sky-500/20';
 
             if (u.role === 'admin') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Quản Trị (ADM)</span>';
+                roleBadge = '<span class="saas-badge bg-purple-500/15 text-purple-300 border border-purple-500/30"><i class="fas fa-crown text-[9px]"></i> Quản Trị (ADM)</span>';
                 codeColor = 'text-purple-300 bg-purple-500/10 border-purple-500/20';
             } else if (u.role === 'cashier') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Thu Ngân (ACC)</span>';
+                roleBadge = '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fas fa-cash-register text-[9px]"></i> Thu Ngân (ACC)</span>';
                 codeColor = 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
             } else if (u.role === 'kitchen') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Bếp / Bar (KIT)</span>';
+                roleBadge = '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fas fa-fire text-[9px]"></i> Bếp / Bar (KIT)</span>';
                 codeColor = 'text-amber-300 bg-amber-500/10 border-amber-500/20';
             } else if (u.role === 'customer') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">Khách Hàng (USR)</span>';
+                roleBadge = '<span class="saas-badge bg-pink-500/15 text-pink-300 border border-pink-500/30"><i class="fas fa-user text-[9px]"></i> Khách Hàng (USR)</span>';
                 codeColor = 'text-pink-300 bg-pink-500/10 border-pink-500/20';
             } else {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">Phục Vụ (STF)</span>';
+                roleBadge = '<span class="saas-badge bg-sky-500/15 text-sky-300 border border-sky-500/30"><i class="fas fa-person-walking text-[9px]"></i> Phục Vụ (STF)</span>';
                 codeColor = 'text-sky-300 bg-sky-500/10 border-sky-500/20';
             }
 
             const isLocked = u.status === 'locked';
 
             html += `
-                <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors ${isLocked ? 'opacity-50' : ''}">
-                    <td class="p-3 text-xs font-mono font-black">
-                        <span class="px-2 py-0.5 rounded-md border font-bold ${codeColor}">${u.user_code || `U${u.id}`}</span>
-                    </td>
-                    <td class="p-3 text-sm font-bold text-slate-200 font-mono">${u.username}</td>
-                    <td class="p-3 text-sm font-bold text-white">${u.fullname}</td>
-                    <td class="p-3">${roleBadge}</td>
-                    <td class="p-3 text-xs text-slate-300 font-mono">${u.phone || '-'}</td>
-                    <td class="p-3 text-xs text-amber-400 font-mono font-bold">${u.pin_code || '-'}</td>
-                    <td class="p-3">
-                        <button type="button" onclick="Admin.toggleUserStatus(${u.id})" class="px-2 py-0.5 rounded text-xs font-bold ${isLocked ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}">
+                <tr class="hover:bg-sky-500/[0.04] transition-colors ${isLocked ? 'opacity-50' : ''}">
+                    <td><span class="font-mono text-xs font-bold px-2 py-0.5 rounded border ${codeColor} whitespace-nowrap">${u.user_code || `U${u.id}`}</span></td>
+                    <td><span class="text-xs text-slate-300 font-mono font-medium whitespace-nowrap">${u.username}</span></td>
+                    <td class="col-name"><span class="text-xs font-bold text-white whitespace-nowrap">${u.fullname}</span></td>
+                    <td class="col-center whitespace-nowrap">${roleBadge}</td>
+                    <td><span class="text-xs text-slate-400 font-mono whitespace-nowrap">${u.phone || '-'}</span></td>
+                    <td class="col-center"><span class="font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-xs whitespace-nowrap">${u.pin_code || '-'}</span></td>
+                    <td class="col-center">
+                        <button type="button" onclick="Admin.toggleUserStatus(${u.id})" class="saas-badge ${isLocked ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'} cursor-pointer hover:opacity-80 transition whitespace-nowrap">
+                            <span class="w-1.5 h-1.5 rounded-full ${isLocked ? 'bg-rose-400' : 'bg-emerald-400'}"></span>
                             ${isLocked ? 'Đang khóa' : 'Hoạt động'}
                         </button>
                     </td>
-                    <td class="p-3 text-right space-x-1">
-                        <button type="button" class="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.openEditUserModal(${u.id})" title="Sửa thông tin">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button type="button" class="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white text-xs" onclick="Admin.openResetPassModal(${u.id})" title="Đổi mật khẩu / PIN">
-                            <i class="fas fa-key"></i>
-                        </button>
-                        <button type="button" class="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs" onclick="Admin.deleteUser(${u.id})" title="Xóa người dùng">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <td class="col-right">
+                        <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditUserModal(${u.id})" title="Sửa thông tin">
+                                <i class="fas fa-pen text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-key" onclick="Admin.openResetPassModal(${u.id})" title="Đổi mật khẩu / PIN">
+                                <i class="fas fa-key text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteUser(${u.id})" title="Xóa người dùng">
+                                <i class="fas fa-trash-can text-[10px]"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1810,7 +2509,15 @@ const Admin = {
         try {
             const res = await fetch(`api/reports.php?action=service_performance&date_from=${dateFrom}&date_to=${dateTo}`);
             const data = await res.json();
-            if (!data.success) return;
+            if (!data.success) {
+                const staffTbody = document.getElementById('ana-staff-tbody');
+                if (staffTbody) staffTbody.innerHTML = this.renderEmptyState(6, 'fa-user-clock', 'Chưa có dữ liệu nhân viên', 'Dữ liệu xếp hạng phục vụ & thu ngân sẽ hiển thị khi phát sinh ca làm việc.');
+                const dishesTbody = document.getElementById('ana-dishes-tbody');
+                if (dishesTbody) dishesTbody.innerHTML = this.renderEmptyState(3, 'fa-mug-hot', 'Chưa có món chế biến', 'Top món sẽ cập nhật ngay khi bộ phận bếp hoàn thành món ăn.');
+                const logsTbody = document.getElementById('ana-logs-tbody');
+                if (logsTbody) logsTbody.innerHTML = this.renderEmptyState(7, 'fa-clipboard-check', 'Chưa có sự kiện nào', 'Nhật ký audit trail thời gian thực của bếp & phục vụ sẽ ghi nhận tại đây.');
+                return;
+            }
 
             // 1. KPI Cards
             const kpi = data.kitchen_kpi || {};
@@ -1830,30 +2537,32 @@ const Admin = {
             if (staffTbody) {
                 const staff = data.staff_stats || [];
                 if (staff.length === 0) {
-                    staffTbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">Chưa có dữ liệu nhân viên trong khoảng thời gian này</td></tr>`;
+                    staffTbody.innerHTML = this.renderEmptyState(6, 'fa-user-clock', 'Chưa có dữ liệu nhân viên', 'Dữ liệu xếp hạng phục vụ & thu ngân sẽ hiển thị khi phát sinh ca làm việc.');
                 } else {
                     let html = '';
                     staff.forEach((u, i) => {
-                        let roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">Nhân viên</span>';
-                        if (u.role === 'admin') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Quản Lý</span>';
-                        if (u.role === 'cashier') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Thu Ngân</span>';
-                        if (u.role === 'waiter') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">Phục Vụ</span>';
-                        if (u.role === 'kitchen') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Bếp / Bar</span>';
+                        let roleBadge = '<span class="saas-badge bg-slate-800 text-slate-300">Nhân viên</span>';
+                        if (u.role === 'admin') roleBadge = '<span class="saas-badge bg-purple-500/15 text-purple-300 border border-purple-500/30">Quản Lý</span>';
+                        if (u.role === 'cashier') roleBadge = '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Thu Ngân</span>';
+                        if (u.role === 'waiter') roleBadge = '<span class="saas-badge bg-sky-500/15 text-sky-300 border border-sky-500/30">Phục Vụ</span>';
+                        if (u.role === 'kitchen') roleBadge = '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30">Bếp / Bar</span>';
 
                         const rankMedal = i === 0 ? '🥇 ' : (i === 1 ? '🥈 ' : (i === 2 ? '🥉 ' : ''));
 
                         html += `
-                            <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                                <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
-                                    <span>${rankMedal}</span>
-                                    <span>${u.fullname}</span>
-                                    <span class="text-[10px] text-slate-400 font-mono">(@${u.username})</span>
+                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                                <td>
+                                    <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                        <span>${rankMedal}</span>
+                                        <span>${u.fullname}</span>
+                                        <span class="text-[10px] text-slate-400 font-mono">(@${u.username})</span>
+                                    </div>
                                 </td>
-                                <td class="p-2.5">${roleBadge}</td>
-                                <td class="p-2.5 text-center font-mono font-bold text-sky-400">${u.orders_created}</td>
-                                <td class="p-2.5 text-center font-mono font-bold text-emerald-400">${u.orders_served}</td>
-                                <td class="p-2.5 text-right font-mono font-bold text-amber-300">${this.formatMoney(u.total_revenue)} đ</td>
-                                <td class="p-2.5 text-center font-mono text-slate-300">${u.avg_deliver_minutes > 0 ? (u.avg_deliver_minutes + 'p') : '--'}</td>
+                                <td>${roleBadge}</td>
+                                <td class="col-center font-mono font-bold text-sky-400 text-xs">${u.orders_created}</td>
+                                <td class="col-center font-mono font-bold text-emerald-400 text-xs">${u.orders_served}</td>
+                                <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs">${this.formatMoney(u.total_revenue)} đ</span></td>
+                                <td class="col-center font-mono text-slate-300 text-xs">${u.avg_deliver_minutes > 0 ? (u.avg_deliver_minutes + 'p') : '--'}</td>
                             </tr>
                         `;
                     });
@@ -1866,20 +2575,22 @@ const Admin = {
             if (dishesTbody) {
                 const dishes = data.top_cooked_dishes || [];
                 if (dishes.length === 0) {
-                    dishesTbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-slate-500">Chưa có món nào được chế biến</td></tr>`;
+                    dishesTbody.innerHTML = this.renderEmptyState(3, 'fa-fire-burner', 'Chưa có món chế biến', 'Top món sẽ cập nhật ngay khi bộ phận bếp hoàn thành món ăn.');
                 } else {
                     let html = '';
                     dishes.forEach((d, i) => {
                         html += `
-                            <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                                <td class="p-2.5 font-bold text-white">
-                                    <span class="text-amber-400 font-mono mr-1">${i + 1}.</span>
-                                    <span>${d.product_name}</span>
+                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                                <td>
+                                    <div class="font-bold text-white text-xs flex items-center gap-1">
+                                        <span class="text-amber-400 font-mono font-bold text-xs">${i + 1}.</span>
+                                        <span class="truncate">${d.product_name}</span>
+                                    </div>
                                 </td>
-                                <td class="p-2.5 text-center font-mono font-bold text-amber-300">
-                                    <span class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">x${d.total_qty} ${d.unit || ''}</span>
+                                <td class="col-center font-mono font-bold text-amber-300 text-xs">
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">x${d.total_qty} ${d.unit || ''}</span>
                                 </td>
-                                <td class="p-2.5 text-right font-mono font-bold text-slate-200">${this.formatMoney(d.total_revenue)} đ</td>
+                                <td class="col-money"><span class="font-mono font-bold text-slate-200 text-xs">${this.formatMoney(d.total_revenue)} đ</span></td>
                             </tr>
                         `;
                     });
@@ -1892,7 +2603,7 @@ const Admin = {
             if (logsTbody) {
                 const logs = data.recent_logs || [];
                 if (logs.length === 0) {
-                    logsTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500">Chưa có sự kiện nào trong khoảng thời gian này</td></tr>`;
+                    logsTbody.innerHTML = this.renderEmptyState(7, 'fa-clock-rotate-left', 'Chưa có sự kiện nào', 'Nhật ký audit trail thời gian thực của bếp & phục vụ sẽ ghi nhận tại đây.');
                 } else {
                     let html = '';
                     logs.forEach(l => {
@@ -2250,15 +2961,7 @@ const Admin = {
             if (!tbody) return;
 
             if (!data.staff_list || data.staff_list.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="text-center py-8 text-slate-400">
-                            <i class="fas fa-user-clock text-2xl mb-2 text-slate-500 block"></i>
-                            Hiện chưa có nhân viên nào trong ca làm việc hôm nay.
-                            <div class="text-[11px] text-slate-500 mt-1">Khi nhân viên đăng nhập trên máy POS, Order hoặc Bếp, hệ thống sẽ tự động chấm công và hiển thị tại đây.</div>
-                        </td>
-                    </tr>
-                `;
+                tbody.innerHTML = this.renderEmptyState(8, 'fa-id-badge', 'Chưa có nhân viên trong ca làm việc', 'Khi nhân viên đăng nhập trên máy POS, Order hoặc Bếp, hệ thống sẽ tự động chấm công và hiển thị tại đây.');
                 return;
             }
 
@@ -2385,14 +3088,7 @@ const Admin = {
             if (!tbody) return;
 
             if (this.materialsList.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="10" class="text-center py-8 text-slate-400">
-                            <i class="fas fa-boxes-stacked text-2xl mb-2 text-slate-500 block"></i>
-                            Chưa có nguyên vật liệu nào trong kho phù hợp với tìm kiếm.
-                        </td>
-                    </tr>
-                `;
+                tbody.innerHTML = this.renderEmptyState(10, 'fa-boxes-stacked', 'Kho nguyên vật liệu trống', 'Chưa có nguyên vật liệu nào trong kho phù hợp với bộ lọc tìm kiếm.');
                 return;
             }
 
@@ -3665,30 +4361,34 @@ const Admin = {
             const sumTbody = document.getElementById('payroll-summary-tbody');
             if (sumTbody) {
                 const list = data.payroll_summary || [];
-                const roleLabels = {
-                    admin: 'Quản Trị (ADM)',
-                    cashier: 'Thu Ngân (ACC)',
-                    waiter: 'Phục Vụ (STF)',
-                    kitchen: 'Tổ Bếp (KIT)',
-                    customer: 'Khách Hàng'
-                };
+                if (list.length === 0) {
+                    sumTbody.innerHTML = this.renderEmptyState(8, 'fa-money-bill-wave', 'Chưa có bảng lương', 'Không có dữ liệu tổng hợp lương trong tháng đã chọn.');
+                } else {
+                    const roleLabels = {
+                        admin: 'Quản Trị (ADM)',
+                        cashier: 'Thu Ngân (ACC)',
+                        waiter: 'Phục Vụ (STF)',
+                        kitchen: 'Tổ Bếp (KIT)',
+                        customer: 'Khách Hàng'
+                    };
 
-                sumTbody.innerHTML = list.map(ps => `
-                    <tr class="hover:bg-white/5 transition-colors">
-                        <td class="py-2.5 px-3 font-mono font-bold text-sky-400">${ps.user_code || `NV${ps.user_id}`}</td>
-                        <td class="py-2.5 px-3 font-bold text-slate-100">${ps.fullname}</td>
-                        <td class="py-2.5 px-3 text-slate-300 text-xs">${roleLabels[ps.role] || ps.role}</td>
-                        <td class="py-2.5 px-3 font-mono font-bold text-amber-400">${Admin.formatMoney(ps.hourly_rate)} đ/h</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-300">${ps.total_shifts} ca</td>
-                        <td class="py-2.5 px-3 font-mono font-bold text-sky-300">${ps.total_hours} h</td>
-                        <td class="py-2.5 px-3 text-right font-mono font-black text-emerald-400 text-sm">${Admin.formatMoney(ps.total_salary)} đ</td>
-                        <td class="py-2.5 px-3 text-right">
-                            <button type="button" onclick="Admin.openSalaryModal(${ps.user_id}, '${ps.fullname}', '${ps.role}', ${ps.hourly_rate})" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 font-bold" title="Cập nhật mức lương / giờ">
-                                <i class="fas fa-coins mr-1"></i> Sửa Lương
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
+                    sumTbody.innerHTML = list.map(ps => `
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-2.5 px-3 font-mono font-bold text-sky-400">${ps.user_code || `NV${ps.user_id}`}</td>
+                            <td class="py-2.5 px-3 font-bold text-slate-100">${ps.fullname}</td>
+                            <td class="py-2.5 px-3 text-slate-300 text-xs">${roleLabels[ps.role] || ps.role}</td>
+                            <td class="py-2.5 px-3 font-mono font-bold text-amber-400">${Admin.formatMoney(ps.hourly_rate)} đ/h</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-300">${ps.total_shifts} ca</td>
+                            <td class="py-2.5 px-3 font-mono font-bold text-sky-300">${ps.total_hours} h</td>
+                            <td class="py-2.5 px-3 text-right font-mono font-black text-emerald-400 text-sm">${Admin.formatMoney(ps.total_salary)} đ</td>
+                            <td class="py-2.5 px-3 text-right">
+                                <button type="button" onclick="Admin.openSalaryModal(${ps.user_id}, '${ps.fullname}', '${ps.role}', ${ps.hourly_rate})" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 font-bold" title="Cập nhật mức lương / giờ">
+                                    <i class="fas fa-coins mr-1"></i> Sửa Lương
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
             }
 
             // Render Detailed Attendance Log
@@ -3696,7 +4396,7 @@ const Admin = {
             if (recTbody) {
                 const records = data.attendance_records || [];
                 if (records.length === 0) {
-                    recTbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">Không có lượt chấm công nào trong tháng ${month}.</td></tr>`;
+                    recTbody.innerHTML = this.renderEmptyState(8, 'fa-calendar-check', 'Không có lượt chấm công', `Không có lượt chấm công nào trong tháng ${month}.`);
                     return;
                 }
 
@@ -3828,6 +4528,1381 @@ const Admin = {
             }
         } catch (err) {
             alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    // ==========================================
+    // 9. MEDIA SERVER & 10-BAND DSP EQUALIZER STUDIO
+    // ==========================================
+    eqBands: {
+        band_31hz: 0.0,
+        band_62hz: 0.0,
+        band_125hz: 0.0,
+        band_250hz: 0.0,
+        band_500hz: 0.0,
+        band_1khz: 0.0,
+        band_2khz: 0.0,
+        band_4khz: 0.0,
+        band_8khz: 0.0,
+        band_16khz: 0.0
+    },
+    eqPreamp: 0.0,
+    eqPresets: [],
+    mediaCatalog: [],
+    mediaPollingTimer: null,
+    eqAnimFrameId: null,
+    eqBandsEnvelopes: new Float32Array(10),
+
+    async loadMediaTab() {
+        this._lastRenderedTrackKey = null;
+        this._lastRenderedQueueKey = null;
+        this.mediaPlayer.init();
+        this.startEqWaveAnimation();
+        await Promise.all([
+            this.loadMediaEqPresets(),
+            this.loadMediaJukeboxStatus(),
+            this.loadMediaTracksCatalog()
+        ]);
+
+        if (this.mediaPollingTimer) clearInterval(this.mediaPollingTimer);
+        this.mediaPollingTimer = setInterval(() => {
+            this.loadMediaJukeboxStatus();
+        }, 8000);
+    },
+
+    async loadMediaEqPresets() {
+        try {
+            const res = await fetch('/api/media/eq/presets');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.presets)) {
+                this.eqPresets = data.presets;
+                const select = document.getElementById('eq-preset-select');
+                if (select) {
+                    select.innerHTML = data.presets.map(p => 
+                        `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.preset_name}</option>`
+                    ).join('');
+                }
+
+                const active = data.active || data.presets[0];
+                if (active) {
+                    this.setEqFromPreset(active);
+                }
+            }
+        } catch (err) {
+            console.error('loadMediaEqPresets error:', err);
+        }
+    },
+
+    setEqFromPreset(preset) {
+        if (!preset) return;
+        const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+        bands.forEach((b, idx) => {
+            const raw = preset[b];
+            const val = (typeof raw === 'number') ? raw : (parseFloat(raw) || 0.0);
+            this.eqBands[b] = val;
+            const slider = document.getElementById(`eq-slider-${b}`);
+            const label = document.getElementById(`eq-val-${b}`);
+            if (slider) slider.value = val;
+            if (label) {
+                label.textContent = (val > 0 ? '+' : '') + val.toFixed(1);
+                label.className = 'eq-val-badge ' + (val > 0 ? 'eq-val-boost' : (val < 0 ? 'eq-val-cut' : 'eq-val-flat'));
+            }
+            const filters = (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters.length) ? window.JukeboxEngine.eqFilters : this.mediaPlayer.eqFilters;
+            if (filters && filters[idx]) {
+                filters[idx].gain.value = val;
+            }
+        });
+
+        const rawPreamp = preset.preamp_gain;
+        const preamp = (typeof rawPreamp === 'number') ? rawPreamp : (parseFloat(rawPreamp) || 0.0);
+        this.eqPreamp = preamp;
+        const preampSlider = document.getElementById('eq-slider-preamp');
+        const preampLabel = document.getElementById('eq-val-preamp');
+        if (preampSlider) preampSlider.value = preamp;
+        if (preampLabel) preampLabel.textContent = (preamp > 0 ? '+' : '') + preamp.toFixed(1) + ' dB';
+        if (this.mediaPlayer.preampNode) {
+            this.mediaPlayer.preampNode.gain.value = Math.pow(10, preamp / 20);
+        }
+
+        this.renderEqCurve();
+    },
+
+    onEqSliderInput(bandName, val) {
+        const num = parseFloat(val);
+        this.eqBands[bandName] = num;
+        const label = document.getElementById(`eq-val-${bandName}`);
+        if (label) {
+            label.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
+            label.className = 'eq-val-badge ' + (num > 0 ? 'eq-val-boost' : (num < 0 ? 'eq-val-cut' : 'eq-val-flat'));
+        }
+        const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+        const idx = bands.indexOf(bandName);
+        const filters = (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters.length) ? window.JukeboxEngine.eqFilters : this.mediaPlayer.eqFilters;
+        if (idx >= 0 && filters && filters[idx]) {
+            filters[idx].gain.value = num;
+        }
+        this.renderEqCurve();
+    },
+
+    onEqPreampInput(val) {
+        const num = parseFloat(val);
+        this.eqPreamp = num;
+        const label = document.getElementById('eq-val-preamp');
+        if (label) label.textContent = (num > 0 ? '+' : '') + num.toFixed(1) + ' dB';
+        if (this.mediaPlayer.preampNode) {
+            this.mediaPlayer.preampNode.gain.value = Math.pow(10, num / 20);
+        }
+    },
+
+    async onEqPresetSelect(presetId) {
+        const found = this.eqPresets.find(p => p.id == presetId);
+        if (found) {
+            this.setEqFromPreset(found);
+            // Apply preset and notify
+            try {
+                await fetch('/api/media/eq/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preset_id: Number(presetId),
+                        preset_name: found.preset_name
+                    })
+                });
+                this.showToast('🎛️ Đã áp dụng preset ' + found.preset_name, 'info');
+            } catch (err) {
+                console.error('onEqPresetSelect save error:', err);
+            }
+        }
+    },
+
+    resetEqFlat() {
+        const flatPreset = {
+            preset_name: 'Bypass Flat',
+            preamp_gain: 0.0,
+            band_31hz: 0.0,
+            band_62hz: 0.0,
+            band_125hz: 0.0,
+            band_250hz: 0.0,
+            band_500hz: 0.0,
+            band_1khz: 0.0,
+            band_2khz: 0.0,
+            band_4khz: 0.0,
+            band_8khz: 0.0,
+            band_16khz: 0.0
+        };
+        this.setEqFromPreset(flatPreset);
+        const select = document.getElementById('eq-preset-select');
+        if (select) {
+            const bypassOpt = Array.from(select.options).find(o => o.text.includes('Bypass Flat'));
+            if (bypassOpt) select.value = bypassOpt.value;
+        }
+    },
+
+    startEqWaveAnimation() {
+        if (this.eqAnimFrameId) return;
+        const loop = (timestamp) => {
+            const mediaTab = document.getElementById('tab-media');
+            if (mediaTab && !mediaTab.classList.contains('hidden')) {
+                this.renderDynamicEqWave(timestamp);
+                this.eqAnimFrameId = requestAnimationFrame(loop);
+            } else {
+                this.eqAnimFrameId = null;
+            }
+        };
+        this.eqAnimFrameId = requestAnimationFrame(loop);
+    },
+
+    stopEqWaveAnimation() {
+        if (this.eqAnimFrameId) {
+            cancelAnimationFrame(this.eqAnimFrameId);
+            this.eqAnimFrameId = null;
+        }
+    },
+
+    renderDynamicEqWave(timestamp) {
+        const strokeEl = document.getElementById('eq-curve-stroke');
+        const waveEl = document.getElementById('eq-curve-wave');
+        const fillEl = document.getElementById('eq-curve-fill');
+        const nodesGroup = document.getElementById('eq-curve-nodes');
+        if (!strokeEl && !waveEl && !fillEl) return;
+
+        const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+        const numPoints = bands.length;
+        const startX = 30;
+        const endX = 570;
+        const stepX = (endX - startX) / (numPoints - 1);
+
+        // Check if audio is actively playing and Web Audio analyser is available
+        const activeAnalyser = (window.JukeboxEngine && window.JukeboxEngine.analyser) || (this.mediaPlayer && this.mediaPlayer.analyser);
+        const activeAudio = (window.JukeboxEngine && window.JukeboxEngine.audio) || (this.mediaPlayer && this.mediaPlayer.audio);
+        const isAudioPlaying = activeAudio && !activeAudio.paused && activeAnalyser;
+        let freqData = null;
+        if (isAudioPlaying) {
+            if (!this._waveFreqData || this._waveFreqData.length !== activeAnalyser.frequencyBinCount) {
+                this._waveFreqData = new Uint8Array(activeAnalyser.frequencyBinCount);
+            }
+            activeAnalyser.getByteFrequencyData(this._waveFreqData);
+            freqData = this._waveFreqData;
+        }
+
+        const t = (timestamp || performance.now()) * 0.003;
+        const binMap = [1, 2, 3, 5, 8, 12, 17, 22, 26, 30];
+
+        const points = [];
+        const wavePoints = [];
+
+        for (let idx = 0; idx < numPoints; idx++) {
+            const b = bands[idx];
+            const x = startX + idx * stepX;
+            const eqVal = this.eqBands[b] || 0.0;
+            const baseY = 60 - (eqVal / 12.0) * 45;
+
+            // Audio reaction envelope
+            let targetEnergy = 0;
+            if (freqData && binMap[idx] < freqData.length) {
+                targetEnergy = (freqData[binMap[idx]] / 255.0);
+            }
+            const prevEnv = this.eqBandsEnvelopes[idx] || 0;
+            const currentEnv = targetEnergy > prevEnv ? (prevEnv * 0.35 + targetEnergy * 0.65) : (prevEnv * 0.88 + targetEnergy * 0.12);
+            this.eqBandsEnvelopes[idx] = currentEnv;
+
+            // Audio bounce + organic harmonic ripple
+            const musicBounce = currentEnv * 18.0;
+            const ripple = Math.sin(t * 1.5 + idx * 0.75) * (1.2 + currentEnv * 4.0);
+            const microPulse = Math.cos(t * 2.8 + idx * 1.2) * (0.8 + currentEnv * 2.5);
+
+            // Primary curve Y
+            const y1 = Math.max(12, Math.min(108, baseY - musicBounce + ripple));
+            points.push({ x, y: y1, energy: currentEnv });
+
+            // Secondary ghost harmonic wave Y
+            const waveRipple = Math.sin(t * 1.8 + idx * 0.8 + 1.2) * (1.6 + currentEnv * 6.0);
+            const y2 = Math.max(12, Math.min(108, baseY - musicBounce * 0.65 + waveRipple + microPulse));
+            wavePoints.push({ x, y: y2 });
+        }
+
+        const buildPath = (pts) => {
+            let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = (i > 0) ? pts[i - 1] : pts[0];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = (i !== pts.length - 2) ? pts[i + 2] : p2;
+
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+                d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+            }
+            return d;
+        };
+
+        const mainD = buildPath(points);
+        const waveD = buildPath(wavePoints);
+
+        if (strokeEl) strokeEl.setAttribute('d', mainD);
+        if (waveEl) waveEl.setAttribute('d', waveD);
+        if (fillEl) fillEl.setAttribute('d', `${mainD} L ${endX} 120 L ${startX} 120 Z`);
+
+        // Render glowing LED node dots at the 10 frequency positions
+        if (nodesGroup) {
+            let dotsSvg = '';
+            points.forEach((p) => {
+                const r = 2.0 + p.energy * 2.0;
+                const glowOpacity = (0.35 + p.energy * 0.65).toFixed(2);
+                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}" fill="#38bdf8" />`;
+                if (p.energy > 0.25) {
+                    dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(r + 3).toFixed(1)}" fill="none" stroke="#a855f7" stroke-width="0.8" opacity="${glowOpacity}" />`;
+                }
+            });
+            nodesGroup.innerHTML = dotsSvg;
+        }
+    },
+
+    renderEqCurve() {
+        this.renderDynamicEqWave();
+        this.startEqWaveAnimation();
+    },
+
+    async applyEqChanges() {
+        const select = document.getElementById('eq-preset-select');
+        const presetName = select ? select.options[select.selectedIndex]?.text : 'Custom Live EQ';
+
+        const payload = {
+            preset_name: presetName,
+            preamp_gain: this.eqPreamp,
+            ...this.eqBands
+        };
+
+        try {
+            const res = await fetch('/api/media/eq/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã áp dụng cấu hình 10-Band DSP Equalizer vào hệ thống âm thanh!');
+            } else {
+                alert(data.message || 'Lỗi khi áp dụng Equalizer');
+            }
+        } catch (err) {
+            console.error('applyEqChanges error:', err);
+            alert('Lỗi kết nối máy chủ Media');
+        }
+    },
+
+    async loadMediaJukeboxStatus() {
+        try {
+            const res = await fetch('/api/media/jukebox/status');
+            const data = await res.json();
+            if (data.success) {
+                this.renderNowPlaying(data.now_playing);
+                this.renderMediaQueue(data.queue || []);
+            }
+        } catch (err) {
+            console.error('loadMediaJukeboxStatus error:', err);
+        }
+    },
+
+    renderNowPlaying(track) {
+        const titleEl = document.getElementById('now-playing-title');
+        const artistEl = document.getElementById('now-playing-artist');
+        const genreEl = document.getElementById('now-playing-genre');
+        const tableEl = document.getElementById('now-playing-table');
+        const votesEl = document.getElementById('now-playing-votes');
+        const durationEl = document.getElementById('now-playing-duration');
+
+        if (!track || !track.track_title) {
+            if (titleEl) titleEl.textContent = 'Chưa có bài hát nào đang phát';
+            if (artistEl) artistEl.textContent = 'Hệ thống sẵn sàng';
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = track.track_title;
+        if (artistEl) artistEl.textContent = track.track_artist || 'Nghệ sĩ chưa rõ';
+        if (genreEl) genreEl.textContent = track.genre || 'Lossless';
+        if (tableEl) tableEl.textContent = track.table_name || 'Hệ Thống Quán';
+        if (votesEl) votesEl.innerHTML = `<i class="fas fa-thumbs-up text-sky-400 mr-0.5"></i> ${track.vote_count || 1} votes`;
+        const durSeconds = Number(track.track_duration || track.duration_sec || track.duration || 198);
+        if (durationEl && !isNaN(durSeconds)) {
+            const m = Math.floor(durSeconds / 60);
+            const s = Math.floor(durSeconds % 60);
+            durationEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // Real Audio Playback via HTML5 Audio + Web Audio DSP (only if standalone without JukeboxEngine)
+        if (!window.JukeboxEngine) {
+            this.mediaPlayer.playTrack(track);
+        }
+    },
+
+    renderMediaQueue(queue) {
+        const countEl = document.getElementById('media-queue-count');
+        const listEl = document.getElementById('media-queue-list');
+        if (!listEl) return;
+
+        if (countEl) countEl.textContent = `${queue.length} bài trong hàng đợi`;
+
+        if (queue.length === 0) {
+            listEl.innerHTML = `
+                <div class="p-4 rounded-xl bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
+                    <i class="fas fa-compact-disc text-slate-600 text-2xl mb-1 block"></i>
+                    Hàng đợi trống. Khách hàng quét mã QR tại bàn để yêu cầu bài hát.
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = queue.map((item, idx) => `
+            <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 hover:border-white/15 transition flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-6 h-6 rounded-lg bg-slate-800 text-sky-400 border border-white/10 text-xs font-mono font-bold flex items-center justify-center shrink-0">
+                        #${idx + 1}
+                    </span>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                            <span class="truncate">${item.track_title}</span>
+                            ${item.is_priority ? '<span class="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 font-semibold">VIP</span>' : ''}
+                        </div>
+                        <div class="text-[10px] text-slate-400 truncate flex items-center gap-2">
+                            <span>${item.track_artist}</span>
+                            <span>•</span>
+                            <span class="text-amber-300 font-semibold">${item.table_name || 'Khách tại bàn'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="Admin.voteMediaItem(${item.id})" class="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-[11px] font-bold flex items-center gap-1 transition" title="Bình chọn bài hát">
+                        <i class="fas fa-thumbs-up text-[10px]"></i>
+                        <span>${item.vote_count}</span>
+                    </button>
+                    <button type="button" onclick="Admin.removeMediaQueueItem(${item.id}, '${(item.track_title || '').replace(/'/g, "\\'")}')" class="w-7 h-7 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 flex items-center justify-center text-xs transition active:scale-95" title="Xóa bài hát khỏi hàng đợi">
+                        <i class="fas fa-trash-alt text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    async loadMediaTracksCatalog() {
+        try {
+            const res = await fetch('/api/media/tracks');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.tracks)) {
+                this.mediaCatalog = data.tracks;
+                this.renderMediaCatalog(data.tracks);
+            }
+        } catch (err) {
+            console.error('loadMediaTracksCatalog error:', err);
+        }
+    },
+
+    renderMediaCatalog(tracks) {
+        const listEl = document.getElementById('media-catalog-list');
+        if (!listEl) return;
+
+        if (tracks.length === 0) {
+            listEl.innerHTML = '<div class="text-center text-slate-500 py-3 text-xs">Không tìm thấy bài hát</div>';
+            return;
+        }
+
+        listEl.innerHTML = tracks.map(t => {
+            const durSeconds = Number(t.duration_sec || t.duration || 180);
+            const m = Math.floor(durSeconds / 60);
+            const s = Math.floor(durSeconds % 60);
+            const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+            return `
+                <div class="p-2 rounded-xl bg-slate-900/50 border border-white/5 hover:border-sky-500/30 transition flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex items-center gap-2">
+                        <i class="fas fa-music text-sky-400 text-xs shrink-0"></i>
+                        <div class="min-w-0">
+                            <div class="font-bold text-white truncate text-xs">${t.title}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${t.artist} • <span class="text-slate-500 font-mono">${dur}</span></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý">
+                        <i class="fas fa-plus"></i> Phát
+                    </button>
+                </div>
+            `;
+        }).join('');
+    },
+
+    filterMediaCatalog(keyword) {
+        if (!keyword || !keyword.trim()) {
+            this.renderMediaCatalog(this.mediaCatalog);
+            return;
+        }
+        const kw = keyword.toLowerCase().trim();
+        const filtered = this.mediaCatalog.filter(t => 
+            t.title.toLowerCase().includes(kw) || 
+            t.artist.toLowerCase().includes(kw) || 
+            (t.genre && t.genre.toLowerCase().includes(kw))
+        );
+        this.renderMediaCatalog(filtered);
+    },
+
+    // ==========================================
+    // CYBERTOAST NOTIFICATION ENGINE (NON-BLOCKING)
+    // ==========================================
+    showToast(message, type = 'info', duration = 3000) {
+        let container = document.getElementById('cyber-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'cyber-toast-container';
+            container.className = 'fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        const colorMap = {
+            success: 'border-emerald-500/40 bg-slate-900/95 text-emerald-300 shadow-emerald-500/10',
+            error: 'border-rose-500/40 bg-slate-900/95 text-rose-300 shadow-rose-500/10',
+            warning: 'border-amber-500/40 bg-slate-900/95 text-amber-300 shadow-amber-500/10',
+            info: 'border-sky-500/40 bg-slate-900/95 text-sky-300 shadow-sky-500/10'
+        };
+        const iconMap = {
+            success: 'fa-check-circle text-emerald-400',
+            error: 'fa-times-circle text-rose-400',
+            warning: 'fa-triangle-exclamation text-amber-400',
+            info: 'fa-info-circle text-sky-400'
+        };
+
+        const borderClass = colorMap[type] || colorMap.info;
+        const iconClass = iconMap[type] || iconMap.info;
+
+        toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-2 opacity-0 text-xs font-semibold ${borderClass}`;
+        toast.innerHTML = `
+            <i class="fas ${iconClass} text-sm shrink-0"></i>
+            <span class="text-white">${message}</span>
+            <button type="button" class="ml-2 text-slate-400 hover:text-white text-xs">&times;</button>
+        `;
+
+        toast.querySelector('button').onclick = () => {
+            toast.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => toast.remove(), 250);
+        };
+
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        });
+
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 250);
+            }
+        }, duration);
+    },
+
+    // ==========================================
+    // NATIVE HTML5 & WEB AUDIO API PLAYER ENGINE
+    // ==========================================
+    mediaPlayer: {
+        audio: null,
+        audioCtx: null,
+        sourceNode: null,
+        preampNode: null,
+        eqFilters: [],
+        isPlaying: false,
+        currentTrack: null,
+        init() {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.init();
+                this.audio = window.JukeboxEngine.audio;
+                this.audioCtx = window.JukeboxEngine.audioCtx;
+                this.analyser = window.JukeboxEngine.analyser;
+                this.eqFilters = window.JukeboxEngine.eqFilters;
+                this.preampNode = window.JukeboxEngine.preampNode;
+                this.freqData = window.JukeboxEngine.freqData;
+                this.isPlaying = window.JukeboxEngine.isPlaying;
+                this.currentTrack = window.JukeboxEngine.currentTrack;
+                return;
+            }
+            if (this.audio) return;
+            this.audio = new Audio();
+            this.audio.preload = 'auto';
+
+            this.audio.addEventListener('play', () => {
+                this.isPlaying = true;
+                const icon = document.getElementById('now-playing-play-icon');
+                if (icon) icon.className = 'fas fa-pause text-[9px] text-white';
+                const ctrlIcon = document.getElementById('jukebox-ctrl-play-icon');
+                if (ctrlIcon) ctrlIcon.className = 'fas fa-pause text-xs';
+                const ctrlText = document.getElementById('jukebox-ctrl-play-text');
+                if (ctrlText) ctrlText.textContent = 'Tạm Dừng';
+            });
+
+            this.audio.addEventListener('pause', () => {
+                this.isPlaying = false;
+                const icon = document.getElementById('now-playing-play-icon');
+                if (icon) icon.className = 'fas fa-play text-[9px] text-white';
+                const ctrlIcon = document.getElementById('jukebox-ctrl-play-icon');
+                if (ctrlIcon) ctrlIcon.className = 'fas fa-play text-xs';
+                const ctrlText = document.getElementById('jukebox-ctrl-play-text');
+                if (ctrlText) ctrlText.textContent = 'Phát';
+            });
+
+            this.audio.addEventListener('timeupdate', () => {
+                if (!this.audio.duration || isNaN(this.audio.duration)) return;
+                const cur = this.audio.currentTime;
+                const dur = this.audio.duration;
+                const bar = document.getElementById('now-playing-progress');
+                if (bar) bar.style.width = `${(cur / dur) * 100}%`;
+                const curTimeEl = document.getElementById('now-playing-current-time');
+                if (curTimeEl) {
+                    const m = Math.floor(cur / 60);
+                    const s = Math.floor(cur % 60);
+                    curTimeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                }
+            });
+
+            this.audio.addEventListener('ended', () => {
+                Admin.skipMediaTrack(); // Automatically advance to next queued song!
+            });
+        },
+
+        setupWebAudio() {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine._setupWebAudio();
+                this.audioCtx = window.JukeboxEngine.audioCtx;
+                this.analyser = window.JukeboxEngine.analyser;
+                this.eqFilters = window.JukeboxEngine.eqFilters;
+                this.preampNode = window.JukeboxEngine.preampNode;
+                this.freqData = window.JukeboxEngine.freqData;
+                return;
+            }
+            if (this.audioCtx) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                this.audioCtx = new AudioCtx();
+                this.sourceNode = this.audioCtx.createMediaElementSource(this.audio);
+                this.preampNode = this.audioCtx.createGain();
+                this.preampNode.gain.value = 1.0;
+
+                const bands = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+                this.eqFilters = bands.map((freq, idx) => {
+                    const f = this.audioCtx.createBiquadFilter();
+                    f.type = (idx === 0) ? 'lowshelf' : (idx === bands.length - 1 ? 'highshelf' : 'peaking');
+                    f.frequency.value = freq;
+                    f.Q.value = 1.4;
+                    f.gain.value = 0.0;
+                    return f;
+                });
+
+                // Web Audio Analyser for Real-Time Oscilloscope Wave Visualization
+                this.analyser = this.audioCtx.createAnalyser();
+                this.analyser.fftSize = 64; // 32 frequency bins
+                this.analyser.smoothingTimeConstant = 0.75;
+                this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+
+                let prev = this.sourceNode;
+                prev.connect(this.preampNode);
+                prev = this.preampNode;
+                this.eqFilters.forEach(node => {
+                    prev.connect(node);
+                    prev = node;
+                });
+                prev.connect(this.analyser);
+                this.analyser.connect(this.audioCtx.destination);
+            } catch (err) {
+                console.warn('Web Audio DSP not supported:', err);
+            }
+        },
+
+        playTrack(track) {
+            if (window.JukeboxEngine) {
+                if (track && track.file_path) {
+                    window.JukeboxEngine.playTrack(track);
+                }
+                return;
+            }
+            this.init();
+            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            } else if (!this.audioCtx) {
+                this.setupWebAudio();
+            }
+            if (!track || !track.file_path) return;
+            this.currentTrack = track;
+            let fullSrc = track.file_path.startsWith('/') ? track.file_path : ('/' + track.file_path);
+            
+            if (this.audio.getAttribute('data-current-src') !== fullSrc) {
+                this.audio.setAttribute('data-current-src', fullSrc);
+                this.audio.src = fullSrc;
+                this.audio.load();
+                this.audio.play().catch(e => {
+                    console.log('Autoplay policy caught, click Play to listen:', e);
+                });
+            }
+        },
+
+        togglePlay() {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.togglePlay();
+                return;
+            }
+            this.init();
+            if (!this.audioCtx) {
+                this.setupWebAudio();
+            } else if (this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            }
+            if (this.audio.paused) {
+                this.audio.play().catch(e => console.log('Play error:', e));
+            } else {
+                this.audio.pause();
+            }
+        },
+
+        seek(e) {
+            const bar = e.currentTarget;
+            const rect = bar.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.seek(ratio);
+                return;
+            }
+            if (!this.audio || !this.audio.duration) return;
+            this.audio.currentTime = ratio * this.audio.duration;
+        },
+
+        setVolume(val) {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.setVolume(val);
+                return;
+            }
+            if (!this.audio) this.init();
+            this.audio.volume = Math.max(0, Math.min(1, Number(val) / 100));
+        },
+
+        setDucking(enable) {
+            if (!this.audio) this.init();
+            this.audio.volume = enable ? 0.3 : 1.0;
+        }
+    },
+
+    async requestMediaTrack(trackId) {
+        try {
+            const res = await fetch('/api/media/jukebox/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    track_id: trackId,
+                    table_id: 0,
+                    table_name: 'Quầy Quản Trị (Admin)',
+                    customer_phone: '',
+                    is_priority: 1
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast('🎵 Đã thêm bài hát vào hàng đợi Jukebox!', 'success');
+                this.loadMediaJukeboxStatus();
+            } else {
+                this.showToast(data.message || 'Lỗi khi yêu cầu bài hát', 'error');
+            }
+        } catch (err) {
+            console.error('requestMediaTrack error:', err);
+            this.showToast('Lỗi kết nối máy chủ Media', 'error');
+        }
+    },
+
+    async voteMediaItem(queueId) {
+        try {
+            const res = await fetch('/api/media/jukebox/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ queue_id: queueId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast('👍 Đã bình chọn bài hát!', 'success');
+                this.loadMediaJukeboxStatus();
+            } else {
+                this.showToast(data.message || 'Lỗi bình chọn', 'warning');
+            }
+        } catch (err) {
+            console.error('voteMediaItem error:', err);
+        }
+    },
+
+    showConfirmDialog({ title, message, subtext, icon, confirmText, confirmClass, onConfirm }) {
+        let modal = document.getElementById('admin-glass-confirm-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'admin-glass-confirm-modal';
+            modal.style.cssText = 'position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; padding: 1rem; background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);';
+            modal.innerHTML = `
+                <div style="width: 440px; max-width: 100%; border-radius: 1.25rem; padding: 1.5rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); color: #fff; transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);" id="admin-glass-confirm-content">
+                    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                        <div style="width: 3rem; height: 3rem; border-radius: 1rem; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+                            <i id="admin-confirm-icon" class="fas fa-trash-alt" style="color: #fb7185;"></i>
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <h3 id="admin-confirm-title" style="font-weight: 700; font-size: 1rem; color: #fff; margin: 0;">Xác nhận xóa bài</h3>
+                            <p id="admin-confirm-msg" style="font-size: 0.8125rem; color: #cbd5e1; margin: 0.375rem 0 0 0; line-height: 1.5;"></p>
+                            <p id="admin-confirm-sub" style="font-size: 0.6875rem; color: #64748b; margin: 0.25rem 0 0 0;"></p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.625rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+                        <button type="button" id="admin-confirm-cancel-btn" style="padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.75rem; font-weight: 600; color: #94a3b8; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; transition: all 0.15s;">
+                            Hủy Bỏ
+                        </button>
+                        <button type="button" id="admin-confirm-ok-btn" style="padding: 0.5rem 1.125rem; border-radius: 0.75rem; font-size: 0.75rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, #e11d48, #be123c); border: 1px solid rgba(244, 63, 94, 0.4); box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35); cursor: pointer; transition: all 0.15s;">
+                            Xác Nhận Xóa
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closeConfirmDialog();
+            });
+        }
+
+        const titleEl = document.getElementById('admin-confirm-title');
+        const msgEl = document.getElementById('admin-confirm-msg');
+        const subEl = document.getElementById('admin-confirm-sub');
+        const iconEl = document.getElementById('admin-confirm-icon');
+        const okBtn = document.getElementById('admin-confirm-ok-btn');
+        const cancelBtn = document.getElementById('admin-confirm-cancel-btn');
+        const content = document.getElementById('admin-glass-confirm-content');
+
+        if (titleEl) titleEl.textContent = title || 'Xác nhận';
+        if (msgEl) msgEl.textContent = message || '';
+        if (subEl) subEl.textContent = subtext || '';
+        if (iconEl && icon) iconEl.className = 'fas ' + icon;
+
+        if (okBtn) {
+            okBtn.textContent = confirmText || 'Đồng Ý';
+            okBtn.onclick = async () => {
+                this.closeConfirmDialog();
+                if (typeof onConfirm === 'function') await onConfirm();
+            };
+        }
+
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeConfirmDialog();
+        }
+
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            if (content) content.style.transform = 'scale(1)';
+        });
+    },
+
+    closeConfirmDialog() {
+        const modal = document.getElementById('admin-glass-confirm-modal');
+        const content = document.getElementById('admin-glass-confirm-content');
+        if (content) content.style.transform = 'scale(0.95)';
+        if (modal) {
+            setTimeout(() => { modal.style.display = 'none'; }, 100);
+        }
+    },
+
+    removeMediaQueueItem(queueId, trackTitle = '') {
+        const songName = trackTitle ? `"${trackTitle}"` : 'bài hát này';
+        this.showConfirmDialog({
+            title: 'Xóa Bài Hát Khỏi Hàng Đợi',
+            message: `Bạn có chắc muốn xóa bài hát ${songName} khỏi danh sách phát?`,
+            subtext: 'Bài hát sẽ được dọn ngay và nhường quyền phát cho bài tiếp theo.',
+            icon: 'fa-trash-alt text-rose-400',
+            confirmText: 'Xác Nhận Xóa',
+            confirmClass: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-rose-600/30 active:scale-95',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('/api/media/jukebox/remove', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ queue_id: queueId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.showToast('🗑️ Đã xóa bài hát khỏi hàng đợi!', 'success');
+                        this.loadMediaJukeboxStatus();
+                    } else {
+                        this.showToast(data.message || 'Lỗi khi xóa bài hát', 'error');
+                    }
+                } catch (err) {
+                    console.error('removeMediaQueueItem error:', err);
+                    this.showToast('Lỗi kết nối khi xóa bài hát', 'error');
+                }
+            }
+        });
+    },
+
+    async skipMediaTrack() {
+        if (window.JukeboxEngine) {
+            await window.JukeboxEngine.skip();
+            this.showToast('⏭️ Đã chuyển sang bài hát kế tiếp!', 'info');
+            return;
+        }
+        // Instant non-blocking skip without freezing prompt!
+        try {
+            const res = await fetch('/api/media/jukebox/skip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_admin: true })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast('⏭️ Đã chuyển sang bài hát tiếp theo!', 'success');
+                await this.loadMediaJukeboxStatus();
+            } else {
+                this.showToast(data.message || 'Lỗi khi chuyển bài', 'error');
+            }
+        } catch (err) {
+            console.error('skipMediaTrack error:', err);
+            this.showToast('Lỗi kết nối máy chủ Media', 'error');
+        }
+    },
+
+    toggleAudioDucking(enabled) {
+        this.mediaPlayer.setDucking(enabled);
+        const msg = enabled ? 
+            'Đã BẬT Auto-Ducking: Âm lượng nhạc tự động hạ -10dB khi POS gọi món.' : 
+            'Đã TẮT Auto-Ducking: Giữ nguyên mức âm lượng khi gọi món.';
+        this.showToast(msg, 'info');
+    },
+
+    // ==========================================
+    // OFFLINE MEDIA LIBRARY MANAGER METHODS
+    // ==========================================
+    openMediaManagerModal() {
+        const modal = document.getElementById('admin-media-manager-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        this.renderMediaManagerTable();
+    },
+
+    renderMediaManagerTable() {
+        const tbody = document.getElementById('modal-media-table-body');
+        const countEl = document.getElementById('modal-media-total-count');
+        if (!tbody) return;
+
+        const tracks = this.mediaCatalog || [];
+        if (countEl) countEl.textContent = tracks.length;
+
+        const kw = (document.getElementById('modal-media-search')?.value || '').toLowerCase().trim();
+        const filtered = kw ? tracks.filter(t => 
+            t.title.toLowerCase().includes(kw) || 
+            t.artist.toLowerCase().includes(kw) || 
+            (t.genre && t.genre.toLowerCase().includes(kw))
+        ) : tracks;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">Không tìm thấy bài hát nào</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(t => {
+            const durSeconds = Number(t.duration_sec || t.duration || 180);
+            const m = Math.floor(durSeconds / 60);
+            const s = Math.floor(durSeconds % 60);
+            const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="p-2.5 font-mono text-slate-500">#${t.id}</td>
+                    <td class="p-2.5 font-bold text-white flex items-center gap-2">
+                        <i class="fas fa-music text-teal-400 text-xs"></i>
+                        <span class="truncate max-w-[200px]">${t.title}</span>
+                    </td>
+                    <td class="p-2.5 text-slate-300 truncate max-w-[150px]">${t.artist || 'Chưa rõ'}</td>
+                    <td class="p-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                            ${t.genre || 'Lossless'}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center font-mono text-slate-400">${dur}</td>
+                    <td class="p-2.5 text-right space-x-1 whitespace-nowrap">
+                        <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-sky-300 hover:text-white" title="Phát bài này">
+                            <i class="fas fa-play text-[9px]"></i> Phát
+                        </button>
+                        <button type="button" onclick="Admin.deleteMediaTrack(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-rose-400 hover:text-rose-300 border-rose-500/20" title="Xóa bài hát">
+                            <i class="fas fa-trash-alt text-[9px]"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    filterMediaManagerTable(kw) {
+        this.renderMediaManagerTable();
+    },
+
+    openUploadMediaModal() {
+        const modal = document.getElementById('admin-media-upload-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            this.selectedUploadFiles = [];
+            this.renderBatchFilesQueue();
+            const dropzone = document.getElementById('media-dropzone');
+            if (dropzone && !dropzone.dataset.bound) {
+                dropzone.dataset.bound = 'true';
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('border-teal-300', 'bg-slate-900/90');
+                });
+                dropzone.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-teal-300', 'bg-slate-900/90');
+                });
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-teal-300', 'bg-slate-900/90');
+                    if (e.dataTransfer && e.dataTransfer.files) {
+                        Admin.handleBatchAudioPicked(e.dataTransfer.files);
+                    }
+                });
+            }
+        }
+    },
+
+    closeUploadMediaModal() {
+        const modal = document.getElementById('admin-media-upload-modal');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    selectedUploadFiles: [],
+
+    handleBatchAudioPicked(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        const newFiles = Array.from(fileList).filter(f => {
+            const ext = (f.name.substring(f.name.lastIndexOf('.')) || '').toLowerCase();
+            return ['.mp3', '.wav', '.flac', '.ogg'].includes(ext);
+        });
+
+        if (newFiles.length === 0) {
+            this.showToast('Vui lòng chỉ chọn các tệp âm thanh định dạng .mp3, .wav, .flac, .ogg!', 'warning');
+            return;
+        }
+
+        // Append to existing queue or set
+        this.selectedUploadFiles = [...this.selectedUploadFiles, ...newFiles];
+        this.renderBatchFilesQueue();
+        this.showToast(`Đã nhận diện ${newFiles.length} file nhạc vào hàng đợi tải lên!`, 'info');
+    },
+
+    removeUploadQueueItem(idx) {
+        if (idx >= 0 && idx < this.selectedUploadFiles.length) {
+            this.selectedUploadFiles.splice(idx, 1);
+            this.renderBatchFilesQueue();
+        }
+    },
+
+    clearUploadQueue() {
+        this.selectedUploadFiles = [];
+        this.renderBatchFilesQueue();
+    },
+
+    applyBatchGenre(genre) {
+        this.showToast(`Đã gán thể loại "${genre}" cho toàn bộ danh sách tải lên!`, 'info');
+    },
+
+    renderBatchFilesQueue() {
+        const tbody = document.getElementById('media-upload-queue-body');
+        const controlBar = document.getElementById('media-batch-control-bar');
+        const countBadge = document.getElementById('media-batch-count-badge');
+        const sizeBadge = document.getElementById('media-batch-size-badge');
+        const startBtn = document.getElementById('media-upload-start-btn');
+        const progressContainer = document.getElementById('media-upload-progress-container');
+        
+        if (progressContainer) progressContainer.classList.add('hidden');
+
+        const totalFiles = this.selectedUploadFiles.length;
+
+        if (totalFiles === 0) {
+            if (controlBar) controlBar.classList.add('hidden');
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-slate-500">
+                            Chưa có file nào được chọn. Hãy chọn hoặc kéo thả nhiều file nhạc vào khung bên trên.
+                        </td>
+                    </tr>
+                `;
+            }
+            return;
+        }
+
+        // Has files -> Show control bar and enable submit button
+        if (controlBar) controlBar.classList.remove('hidden');
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        const totalBytes = this.selectedUploadFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+        if (countBadge) countBadge.textContent = `${totalFiles} bài hát`;
+        if (sizeBadge) sizeBadge.textContent = `${totalMb} MB`;
+
+        if (!tbody) return;
+
+        tbody.innerHTML = this.selectedUploadFiles.map((file, idx) => {
+            let name = file.name;
+            const dotIdx = name.lastIndexOf('.');
+            const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+            if (dotIdx > 0) name = name.substring(0, dotIdx);
+
+            let artist = 'Various Artists';
+            let title = name;
+            if (name.includes(' - ')) {
+                const parts = name.split(' - ');
+                artist = parts[0].trim();
+                title = parts.slice(1).join(' - ').trim();
+            }
+
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition text-xs">
+                    <td class="p-2 font-mono text-slate-500">#${idx + 1}</td>
+                    <td class="p-2 font-bold text-white flex items-center gap-1.5 truncate max-w-[240px]">
+                        <span class="px-1.5 py-0.5 rounded text-[9px] bg-teal-500/20 text-teal-300 font-mono font-bold">${ext}</span>
+                        <span class="truncate" title="${title}">${title}</span>
+                    </td>
+                    <td class="p-2 text-slate-400 truncate max-w-[140px]" title="${artist}">${artist}</td>
+                    <td class="p-2 text-center font-mono text-slate-300">${sizeMb} MB</td>
+                    <td class="p-2 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                            Sẵn sàng
+                        </span>
+                    </td>
+                    <td class="p-2 text-right">
+                        <button type="button" onclick="Admin.removeUploadQueueItem(${idx})" class="w-6 h-6 rounded-lg bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 hover:text-white transition" title="Bỏ file này">
+                            <i class="fas fa-times text-[10px]"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    async startBatchUpload() {
+        if (!this.selectedUploadFiles || this.selectedUploadFiles.length === 0) {
+            this.showToast('Vui lòng chọn ít nhất 1 file âm thanh!', 'warning');
+            return;
+        }
+
+        const startBtn = document.getElementById('media-upload-start-btn');
+        const progressContainer = document.getElementById('media-upload-progress-container');
+        const progressBar = document.getElementById('media-upload-progress-bar');
+        const percentText = document.getElementById('media-upload-percent-text');
+        const statusText = document.getElementById('media-upload-status-text');
+        const genre = document.getElementById('media-batch-genre-select')?.value || 'Acoustic';
+
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải lên...';
+        }
+        if (progressContainer) progressContainer.classList.remove('hidden');
+
+        const formData = new FormData();
+        this.selectedUploadFiles.forEach((file) => {
+            formData.append('audio_files[]', file);
+        });
+        formData.append('genre', genre);
+
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/media/tracks/upload', true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    if (progressBar) progressBar.style.width = `${percent}%`;
+                    if (percentText) percentText.textContent = `${percent}%`;
+                    if (statusText) statusText.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Đang tải lên ${this.selectedUploadFiles.length} bài hát (${percent}%)...`;
+                }
+            };
+
+            xhr.onload = async () => {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            this.showToast(data.message || `Đã tải lên thành công ${this.selectedUploadFiles.length} bài hát!`, 'success');
+                            this.selectedUploadFiles = [];
+                            this.closeUploadMediaModal();
+                            await this.loadMediaTracksCatalog();
+                            this.renderMediaManagerTable();
+                        } else {
+                            this.showToast(data.message || 'Lỗi khi tải lên file nhạc', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('Đã tải lên bài hát thành công!', 'success');
+                        this.selectedUploadFiles = [];
+                        this.closeUploadMediaModal();
+                        await this.loadMediaTracksCatalog();
+                        this.renderMediaManagerTable();
+                    }
+                } else {
+                    this.showToast(`Lỗi HTTP ${xhr.status} khi tải lên bài hát`, 'error');
+                }
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Tải Lên Tất Cả';
+                }
+            };
+
+            xhr.onerror = () => {
+                this.showToast('Lỗi kết nối khi tải lên bài hát', 'error');
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Tải Lên Tất Cả';
+                }
+            };
+
+            xhr.send(formData);
+        } catch (err) {
+            console.error('startBatchUpload error:', err);
+            this.showToast('Lỗi gửi dữ liệu lên máy chủ', 'error');
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-cloud-arrow-up mr-1"></i> Bắt Đầu Tải Lên Tất Cả';
+            }
+        }
+    },
+
+    async deleteMediaTrack(id) {
+        // Direct delete with feedback toast! Zero blocking popups!
+        try {
+            const res = await fetch(`/api/media/tracks/delete?action=delete&id=${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', id: id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast(data.message || 'Đã xóa bài hát khỏi kho nhạc!', 'info');
+                await this.loadMediaTracksCatalog();
+                this.renderMediaManagerTable();
+            } else {
+                this.showToast(data.message || 'Lỗi xóa bài hát', 'error');
+            }
+        } catch (err) {
+            console.error('deleteMediaTrack error:', err);
+            this.showToast('Lỗi kết nối máy chủ', 'error');
+        }
+    },
+
+    async rescanMediaTracks() {
+        try {
+            const res = await fetch('/api/media/tracks/rescan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast(data.message || 'Đã quét xong thư mục nhạc!', 'success');
+                await this.loadMediaTracksCatalog();
+                this.renderMediaManagerTable();
+            } else {
+                this.showToast(data.message || 'Lỗi quét thư mục nhạc', 'error');
+            }
+        } catch (err) {
+            console.error('rescanMediaTracks error:', err);
+            this.showToast('Lỗi kết nối máy chủ', 'error');
+        }
+    },
+
+    // ==========================================
+    // 8. TÀI CHÍNH & SỔ QUỸ (FINANCE REPORTS)
+    // ==========================================
+    async loadFinance() {
+        const monthInput = document.getElementById('fin-month-input');
+        if (monthInput && !monthInput.value) {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            monthInput.value = `${yyyy}-${mm}`;
+        }
+        const month = monthInput ? monthInput.value : '';
+
+        try {
+            const [repRes, expRes] = await Promise.all([
+                fetch(`api/finance.php?action=get_report&month=${month}`).then(r => r.json()).catch(() => ({})),
+                fetch(`api/finance.php?action=list_expenses&month=${month}`).then(r => r.json()).catch(() => ({}))
+            ]);
+
+            const summary = (repRes && repRes.summary) || { revenue: 0, expenses: 0, net_profit: 0 };
+            const kpiContainer = document.getElementById('fin-kpi-cards');
+            if (kpiContainer) {
+                kpiContainer.innerHTML = `
+                    <div class="liquid-glass-card p-3 border-l-4 border-emerald-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DOANH THU THỰC</span>
+                        <div class="text-xl font-black text-emerald-400 font-mono mt-1">${this.formatMoney(summary.revenue)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Tổng thu hóa đơn hoàn tất</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG CHI PHÍ</span>
+                        <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(summary.expenses)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Các khoản chi ghi nhận</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 ${summary.net_profit >= 0 ? 'border-sky-400' : 'border-rose-400'}">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LỢI NHUẬN RÒNG</span>
+                        <div class="text-xl font-black ${summary.net_profit >= 0 ? 'text-sky-400' : 'text-rose-400'} font-mono mt-1">${this.formatMoney(summary.net_profit)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Doanh thu trừ chi phí</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-purple-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỶ SUẤT LỢI NHUẬN</span>
+                        <div class="text-xl font-black text-purple-400 font-mono mt-1">${summary.revenue > 0 ? ((summary.net_profit / summary.revenue) * 100).toFixed(1) : '0'}%</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Hiệu quả dòng tiền</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-teal-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SỐ KHOẢN CHI</span>
+                        <div class="text-xl font-black text-teal-400 font-mono mt-1">${(expRes && expRes.data) ? expRes.data.length : 0}</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Phiếu chi tháng ${month}</span>
+                    </div>
+                `;
+            }
+
+            const expTbody = document.getElementById('fin-expense-tbody');
+            if (expTbody) {
+                const list = (expRes && expRes.data) ? expRes.data : [];
+                if (list.length === 0) {
+                    expTbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', 'Chưa có khoản chi nào trong kỳ', 'Bấm nút "Thêm chi phí" ở trên để ghi nhận các khoản chi phát sinh trong tháng.');
+                } else {
+                    let html = '';
+                    list.forEach(item => {
+                        html += `
+                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                                <td><span class="font-mono text-xs text-slate-300 whitespace-nowrap">${item.expense_date || '-'}</span></td>
+                                <td><span class="saas-badge bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">${item.category || 'Khác'}</span></td>
+                                <td class="col-name"><span class="text-xs font-medium text-white whitespace-nowrap">${item.description || '-'}</span></td>
+                                <td><span class="text-xs text-slate-400 whitespace-nowrap">${item.supplier || '-'}</span></td>
+                                <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs whitespace-nowrap">${this.formatMoney(item.amount)} đ</span></td>
+                                <td class="col-money"><span class="font-mono text-slate-400 text-xs whitespace-nowrap">${this.formatMoney(item.vat_amount || 0)} đ</span></td>
+                                <td class="col-right">
+                                    <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteFinanceExpense(${item.id})" title="Xóa khoản chi">
+                                        <i class="fas fa-trash-can text-[10px]"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    expTbody.innerHTML = html;
+                }
+            }
+
+            const expGroups = document.getElementById('fin-expense-groups');
+            if (expGroups) {
+                const groups = (repRes && repRes.expense_groups) ? repRes.expense_groups : [];
+                if (groups.length === 0) {
+                    expGroups.innerHTML = '<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có phân loại chi phí trong tháng này</div>';
+                } else {
+                    let gHtml = '';
+                    groups.forEach(g => {
+                        gHtml += `
+                            <div class="flex items-center justify-between text-xs py-1 border-b border-white/5">
+                                <span class="text-slate-300">${g.category || 'Khác'} (${g.count} phiếu)</span>
+                                <span class="font-mono font-bold text-amber-400">${this.formatMoney(g.amount)} đ</span>
+                            </div>
+                        `;
+                    });
+                    expGroups.innerHTML = gHtml;
+                }
+            }
+        } catch (e) {
+            console.error('Error loading finance:', e);
+        }
+    },
+
+    async deleteFinanceExpense(id) {
+        if (!confirm('Bạn có chắc muốn xóa khoản chi này không?')) return;
+        try {
+            const res = await fetch('api/finance.php?action=delete_expense', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.loadFinance();
+            } else {
+                alert(data.message || 'Lỗi xóa khoản chi');
+            }
+        } catch (e) {
+            alert('Lỗi: ' + e.message);
         }
     }
 };

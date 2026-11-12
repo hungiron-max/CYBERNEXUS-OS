@@ -138,66 +138,102 @@
             transition: all 0.25s ease;
         }
 
-        /* Banner Hero 150% Height (Gốc ~200px x 150% = 300px - 320px) */
-        .customer-banner-hero-box {
-            min-height: 290px !important;
-            height: 290px !important;
+        /* Banner Hero Standard 16:9 Aspect Ratio (Tỷ lệ tiêu chuẩn video & banner) */
+        #customer-ad-carousel {
+            width: 100% !important;
+            aspect-ratio: 16 / 9 !important;
+            height: auto !important;
+            min-height: unset !important;
+            max-height: none !important;
         }
-        @media (min-width: 640px) {
-            .customer-banner-hero-box {
-                min-height: 315px !important;
-                height: 315px !important;
+        .customer-banner-hero-box {
+            min-height: unset !important;
+        }
+
+        /* Header Responsive Action Buttons (Zero Overflow, No Tailwind w-auto dependency) */
+        .nav-action-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            height: 34px !important;
+            width: auto !important;
+            padding: 0 12px !important;
+            border-radius: 12px !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            overflow: hidden !important;
+        }
+        @media (max-width: 639px) {
+            .nav-action-btn {
+                width: 34px !important;
+                height: 34px !important;
+                padding: 0 !important;
             }
+            .nav-action-btn .nav-btn-label {
+                display: none !important;
+            }
+        }
+
+        /* Strict anti-overflow protection across all viewports */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        #category-filter-pills {
+            -webkit-overflow-scrolling: touch;
         }
     </style>
 </head>
-<body class="antialiased flex flex-col min-h-screen relative overflow-x-hidden selection:bg-sky-500 selection:text-white" style="padding-bottom: 90px;">
+<body class="antialiased flex flex-col min-h-screen relative overflow-x-hidden selection:bg-sky-500 selection:text-white" style="padding-bottom: 90px; width: 100%; max-width: 100vw;">
 
-    <!-- Ambient Glowing Blobs -->
-    <div class="liquid-blob w-96 h-96 bg-purple-600 -top-20 -left-20"></div>
-    <div class="liquid-blob w-96 h-96 bg-sky-600 top-1/3 -right-20"></div>
-    <div class="liquid-blob w-96 h-96 bg-pink-600 bottom-10 left-1/4"></div>
+    <!-- Ambient Glowing Blobs (Strictly clipped in background) -->
+    <div style="position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;">
+        <div class="liquid-blob w-96 h-96 bg-purple-600 -top-20 -left-20"></div>
+        <div class="liquid-blob w-96 h-96 bg-sky-600 top-1/3 -right-20"></div>
+        <div class="liquid-blob w-96 h-96 bg-pink-600 bottom-10 left-1/4"></div>
+    </div>
 
-    <!-- Header Navigation (Liquid Glass Aesthetic - 100% No-Wrap) -->
-    <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-white/10 px-3 py-2.5 sm:px-6">
-        <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
+    <!-- Header Navigation (Clean, Compact, Responsive - Zero Mobile Overflow) -->
+    <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-white/10 px-3 py-2 sm:px-6">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
             <!-- Brand -->
-            <div class="flex items-center gap-2.5 min-w-0 shrink-0">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-base shadow-lg shadow-indigo-500/25 shrink-0">
+            <div class="flex items-center gap-2 min-w-0 shrink-0">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-xs sm:text-base shadow-md shadow-indigo-500/25 shrink-0">
                     <i class="fas fa-mug-hot"></i>
                 </div>
                 <div class="min-w-0">
-                    <div class="flex items-center gap-2 whitespace-nowrap">
-                        <h1 class="text-sm sm:text-base font-black tracking-wide uppercase whitespace-nowrap">
-                            <span class="goc-pho-gradient-text">GÓC PHỐ</span> <span class="text-white">COFFEE & TEA</span>
-                        </h1>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 whitespace-nowrap shrink-0 shadow-sm">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Khách Hàng
-                        </span>
-                    </div>
-                    <p class="text-[11px] text-slate-400 whitespace-nowrap truncate max-w-[260px] sm:max-w-none mt-0.5">
-                        Hệ Thống Phục Vụ Bán Hàng & Thực Đơn Điện Tử
+                    <h1 class="text-xs sm:text-base font-black tracking-wide uppercase whitespace-nowrap">
+                        <span class="goc-pho-gradient-text">GÓC PHỐ</span> <span class="text-white">COFFEE &amp; TEA</span>
+                    </h1>
+                    <p class="text-[10px] text-slate-400 whitespace-nowrap truncate hidden sm:block mt-0.5">
+                        Hệ Thống Phục Vụ Bán Hàng &amp; Thực Đơn Điện Tử
                     </p>
                 </div>
             </div>
 
-            <!-- Wi-Fi & Contact Pill -->
-            <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+            <!-- Wi-Fi & Quick Icon Actions -->
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-slate-300 font-mono whitespace-nowrap shrink-0 shadow-sm">
                     <i class="fas fa-wifi text-sky-400"></i>
                     <span>Wi-Fi: <b class="text-white">GocPho_Guest</b> <span class="text-slate-500">·</span> pass: <b class="text-amber-300 font-bold">88888888</b></span>
                 </div>
 
-                <a href="tel:0903100001" class="btn-glass px-3 py-1.5 text-xs text-emerald-300 hover:text-white flex items-center gap-1.5 font-bold whitespace-nowrap shrink-0 border border-emerald-500/30 bg-emerald-500/10 shadow-sm" title="Gọi Hotline">
-                    <i class="fas fa-phone-alt text-[10px]"></i>
-                    <span class="hidden sm:inline">0903 100 001</span>
+                <!-- Hotline: Compact Icon on Mobile, full on desktop -->
+                <a href="tel:0903100001" class="nav-action-btn btn-glass text-xs text-emerald-300 hover:text-white font-bold border border-emerald-500/30 bg-emerald-500/10 shadow-sm" title="Gọi Hotline: 0903 100 001">
+                    <i class="fas fa-phone-alt text-[11px]"></i>
+                    <span class="nav-btn-label">0903 100 001</span>
                 </a>
 
-                <div id="user-nav-zone" class="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-                    <a href="index.html" class="btn-glass px-3 py-1.5 text-xs text-sky-300 hover:text-white font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 border border-sky-500/30 bg-sky-500/10 shadow-sm">
+                <!-- User / Login Zone: Compact Icon on Mobile -->
+                <div id="user-nav-zone" class="flex items-center gap-1.5 shrink-0">
+                    <a href="index.html" class="nav-action-btn btn-glass text-xs text-sky-300 hover:text-white font-bold border border-sky-500/30 bg-sky-500/10 shadow-sm" title="Đăng Nhập">
                         <i class="fas fa-sign-in-alt text-xs"></i>
-                        <span>Đăng Nhập</span>
+                        <span class="nav-btn-label">Đăng Nhập</span>
                     </a>
                 </div>
             </div>
@@ -205,38 +241,34 @@
     </header>
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6 z-10">
+    <main class="flex-1 max-w-6xl w-full min-w-0 mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 z-10">
         
         <!-- Hero Promotional Banner with Smart Carousel in Red Box (Chiều cao tăng 150%) -->
-        <section class="liquid-glass rounded-3xl p-4 sm:p-6 border border-white/15 relative overflow-hidden shadow-2xl">
+        <section class="liquid-glass rounded-2xl sm:rounded-3xl p-3 sm:p-6 border border-white/15 relative overflow-hidden shadow-2xl w-full min-w-0">
             <div class="absolute -right-12 -top-12 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
             
-            <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-                <!-- Smart Hero Slider Container (Chiều cao tăng 150%: min-h 480px - 520px) -->
-                <div id="customer-ad-carousel" class="lg:col-span-2 relative customer-banner-hero-box rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner flex flex-col justify-between">
-                    <!-- Slides Container -->
-                    <div id="customer-ad-slides-container" class="relative flex-1 h-full">
+            <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch w-full min-w-0">
+                <!-- Smart Hero Slider Container (16:9 Standard Video & Slide Ratio) -->
+                <div id="customer-ad-carousel" class="lg:col-span-2 relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner" style="aspect-ratio: 16 / 9; width: 100%;">
+                    <!-- Slides Container (Full Bleed 100% of 16:9 Frame) -->
+                    <div id="customer-ad-slides-container" class="absolute inset-0 w-full h-full overflow-hidden">
                         <!-- Slide 0: Hình ảnh mở đầu (6s) -->
                         <article class="customer-ad-slide customer-store-slide is-active" data-ad-index="0" data-ad-duration="6">
                             <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Góc Phố" />
-                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
-                                <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-slate-950/75 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-300 shadow-lg backdrop-blur-md">
+                            <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-3.5 pb-10 sm:px-6 sm:pb-12 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-slate-950/75 px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-300 shadow-lg backdrop-blur-md">
                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                                     <i class="fas fa-sparkles text-amber-300 text-[9px]"></i> ƯU ĐÃI ĐẶC BIỆT · KM1
                                 </span>
-                                <h2 class="mt-1.5 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight slide-title-rainbow">
+                                <h2 class="mt-1 text-sm sm:text-base lg:text-lg font-black leading-snug tracking-tight slide-title-rainbow">
                                     Thưởng Thức Hương Vị Đậm Đà Tại <span class="goc-pho-gradient-text">Góc Phố</span>
                                 </h2>
-                                <div class="mt-1 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
-                                <p class="mt-1 max-w-md text-xs sm:text-[13px] leading-relaxed line-clamp-2 slide-desc-crisp">
-                                    Cà phê phin truyền thống thơm lừng, trà sữa béo ngậy cùng các món điểm tâm bánh mì chảo, bò bít tết hảo hạng.
+                                <p class="mt-0.5 max-w-md text-[11px] sm:text-xs leading-relaxed line-clamp-1 sm:line-clamp-2 slide-desc-crisp">
+                                    Cà phê phin truyền thống thơm lừng, trà sữa béo ngậy cùng các món điểm tâm hảo hạng.
                                 </p>
-                                <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[10px] font-semibold">
+                                <div class="hidden sm:flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-semibold">
                                     <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
                                         <i class="fas fa-check-circle text-[9px]"></i> Giảm 10% VietQR
-                                    </span>
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-purple-300 border border-purple-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
-                                        <i class="fas fa-gift text-[9px]"></i> Tặng topping Flan
                                     </span>
                                 </div>
                             </div>
@@ -245,15 +277,15 @@
                         <!-- Slide 1: Video Trải Nghiệm Quán (Play hết thời lượng video) -->
                         <article class="customer-ad-slide is-video" data-ad-index="1" data-ad-duration="0">
                             <video class="absolute inset-0 h-full w-full object-cover" src="uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4" muted playsinline preload="auto"></video>
-                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
-                                <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-300/40 bg-slate-950/75 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-300 backdrop-blur-md shadow-lg">
+                            <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-3.5 pb-10 sm:px-6 sm:pb-12 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-300/40 bg-slate-950/75 px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-300 backdrop-blur-md shadow-lg">
                                     <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                                     <i class="fas fa-play text-sky-300 text-[9px]"></i> VIDEO TRẢI NGHIỆM · QC1
                                 </span>
-                                <h3 class="mt-1.5 text-base sm:text-xl font-black leading-snug slide-title-rainbow">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
-                                <p class="mt-1 text-xs sm:text-[13px] leading-relaxed max-w-md line-clamp-2 slide-desc-crisp">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
+                                <h3 class="mt-1 text-sm sm:text-base font-black leading-snug slide-title-rainbow">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
+                                <p class="mt-0.5 text-[11px] sm:text-xs leading-relaxed max-w-md line-clamp-1 sm:line-clamp-2 slide-desc-crisp">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
                             </div>
-                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20 transition-all" title="Bật/Tắt tiếng">
+                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-3 right-3 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20 transition-all" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
                             </button>
                         </article>
@@ -261,38 +293,32 @@
                         <!-- Slide 2: Bánh mì giòn rụm (6s) -->
                         <article class="customer-ad-slide" data-ad-index="2" data-ad-duration="6">
                             <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh mì chảo" />
-                            <div class="relative z-10 flex h-full customer-banner-hero-box flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
-                                <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-300/40 bg-slate-950/75 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-300 backdrop-blur-md shadow-lg">
+                            <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-3.5 pb-10 sm:px-6 sm:pb-12 max-w-xl">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-300/40 bg-slate-950/75 px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-300 backdrop-blur-md shadow-lg">
                                     <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-                                    <i class="fas fa-fire text-rose-300 text-[9px]"></i> MÓN BẢN CHẠY NHẤT · KM2
+                                    <i class="fas fa-fire text-rose-300 text-[9px]"></i> MÓN BÁN CHẠY NHẤT · KM2
                                 </span>
-                                <h3 class="mt-1.5 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight slide-title-rainbow">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
-                                <div class="mt-1 h-0.5 w-10 rounded-full bg-gradient-to-r from-rose-400 to-amber-400"></div>
-                                <p class="mt-1 max-w-md text-xs sm:text-[13px] leading-relaxed line-clamp-2 slide-desc-crisp">Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.</p>
-                                <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[10px] font-semibold">
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-rose-300 border border-rose-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
-                                        <i class="fas fa-bread-slice text-[9px]"></i> Giòn rụm nóng hổi
-                                    </span>
-                                </div>
+                                <h3 class="mt-1 text-sm sm:text-base lg:text-lg font-black leading-snug tracking-tight slide-title-rainbow">Bánh Mì Chảo Thơm Giòn Nóng Hổi</h3>
+                                <p class="mt-0.5 max-w-md text-[11px] sm:text-xs leading-relaxed line-clamp-1 sm:line-clamp-2 slide-desc-crisp">Pate béo ngậy, xúc xích và trứng ốp la sốt sánh mịn đậm vị khó cưỡng.</p>
                             </div>
                         </article>
                     </div>
 
-                    <!-- Slide Controls (Bottom Bar) -->
-                    <div class="relative z-20 flex items-center justify-between gap-3 px-4 py-2 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent">
-                        <div id="customer-ad-dots" class="flex items-center gap-1.5">
-                            <button type="button" class="customer-ad-dot h-1.5 w-7 rounded-full bg-white transition-all" onclick="CustomerAdCarousel.show(0)"></button>
-                            <button type="button" class="customer-ad-dot h-1.5 w-2 rounded-full bg-white/45 transition-all" onclick="CustomerAdCarousel.show(1)"></button>
-                            <button type="button" class="customer-ad-dot h-1.5 w-2 rounded-full bg-white/45 transition-all" onclick="CustomerAdCarousel.show(2)"></button>
+                    <!-- Slide Controls (Overlay at Bottom) -->
+                    <div class="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none">
+                        <div id="customer-ad-dots" class="flex items-center gap-1.5 pointer-events-auto">
+                            <button type="button" class="customer-ad-dot h-1.5 w-7 rounded-full bg-white transition-all cursor-pointer" onclick="CustomerAdCarousel.show(0)"></button>
+                            <button type="button" class="customer-ad-dot h-1.5 w-2 rounded-full bg-white/45 transition-all cursor-pointer" onclick="CustomerAdCarousel.show(1)"></button>
+                            <button type="button" class="customer-ad-dot h-1.5 w-2 rounded-full bg-white/45 transition-all cursor-pointer" onclick="CustomerAdCarousel.show(2)"></button>
                         </div>
-                        <div class="flex items-center gap-1.5">
-                            <button id="customer-ad-toggle" type="button" onclick="CustomerAdCarousel.togglePlayback()" title="Tạm dừng / Tiếp tục" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center">
+                        <div class="flex items-center gap-1.5 pointer-events-auto">
+                            <button id="customer-ad-toggle" type="button" onclick="CustomerAdCarousel.togglePlayback()" title="Tạm dừng / Tiếp tục" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center cursor-pointer">
                                 <i class="fas fa-pause"></i>
                             </button>
-                            <button type="button" onclick="CustomerAdCarousel.prev()" title="Slide trước" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center">
+                            <button type="button" onclick="CustomerAdCarousel.prev()" title="Slide trước" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center cursor-pointer">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
-                            <button type="button" onclick="CustomerAdCarousel.next()" title="Slide tiếp theo" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center">
+                            <button type="button" onclick="CustomerAdCarousel.next()" title="Slide tiếp theo" class="h-7 w-7 rounded-full border border-white/20 bg-slate-950/60 text-xs text-white backdrop-blur hover:bg-white/20 flex items-center justify-center cursor-pointer">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>
@@ -329,32 +355,32 @@
         </section>
 
         <!-- Smart Jukebox Live Bar for Table Customers -->
-        <div id="customer-jukebox-bar" class="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/70 via-slate-900/90 to-sky-950/70 border border-purple-500/30 flex items-center justify-between gap-3 shadow-lg backdrop-blur-md">
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center text-lg shrink-0 relative overflow-hidden shadow-inner">
-                    <i class="fas fa-compact-disc text-purple-400 text-xl"></i>
+        <div id="customer-jukebox-bar" class="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/70 via-slate-900/90 to-sky-950/70 border border-purple-500/30 flex items-center justify-between gap-2.5 sm:gap-3 shadow-lg backdrop-blur-md w-full min-w-0">
+            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center text-base sm:text-lg shrink-0 relative overflow-hidden shadow-inner">
+                    <i class="fas fa-compact-disc text-purple-400 text-lg sm:text-xl"></i>
                 </div>
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-300 border border-purple-500/35">
-                            🎵 ĐANG PHÁT TẠI QUÁN
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-300 border border-purple-500/35 whitespace-nowrap shrink-0">
+                            🎵 ĐANG PHÁT
                         </span>
                         <span id="jukebox-now-table" class="text-[10px] text-slate-400 truncate">Hệ Thống</span>
                     </div>
                     <div id="jukebox-now-title" class="font-bold text-white text-xs sm:text-sm truncate mt-0.5">Lofi Chill Morning Coffee</div>
-                    <div id="jukebox-now-artist" class="text-[11px] text-slate-400 truncate">CyberNexus Sound</div>
+                    <div id="jukebox-now-artist" class="text-[10px] sm:text-[11px] text-slate-400 truncate">CyberNexus Sound</div>
                 </div>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
-                <button type="button" onclick="CustomerJukebox.open()" class="btn-glass py-2 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/30 flex items-center gap-1.5 transition-all">
-                    <i class="fas fa-music"></i>
-                    <span>Chọn Bài / Hàng Đợi</span>
+            <div class="shrink-0">
+                <button type="button" onclick="CustomerJukebox.open()" class="btn-glass py-1.5 px-2.5 sm:py-2 sm:px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/30 flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap">
+                    <i class="fas fa-music text-xs"></i>
+                    <span>Chọn Bài</span><span class="hidden sm:inline"> / Hàng Đợi</span>
                 </button>
             </div>
         </div>
 
         <!-- Digital Menu Section -->
-        <section class="space-y-4">
+        <section class="space-y-4 w-full min-w-0">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
                 <div class="flex items-center justify-between">
                     <div>
@@ -373,7 +399,7 @@
             </div>
 
             <!-- Category Filter Pills -->
-            <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none" id="category-filter-pills">
+            <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none w-full min-w-0 max-w-full" id="category-filter-pills" style="-webkit-overflow-scrolling: touch;">
                 <button type="button" onclick="CustomerOrdering.filterCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0">Tất Cả (42)</button>
 <button type="button" onclick="CustomerOrdering.filterCategory(1)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">BÁNH MÌ CHẢO (12)</button>
 <button type="button" onclick="CustomerOrdering.filterCategory(2)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0">BÁNH FLAN (3)</button>
@@ -1775,37 +1801,28 @@
                     if (isVideo) {
                         article.innerHTML = `
                             <video class="absolute inset-0 h-full w-full object-cover" src="${slide.media_path}" muted playsinline preload="auto"></video>
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
+                            <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-3.5 pb-10 sm:px-6 sm:pb-12 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} bg-slate-950/70 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-lg">
                                     <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                                     <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
                                 </span>
-                                <h3 class="mt-1.5 text-base sm:text-xl font-black leading-snug slide-title-rainbow">${slide.title || 'Video Trải Nghiệm Góc Phố'}</h3>
-                                <p class="mt-1 text-xs leading-relaxed max-w-md line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
+                                <h3 class="mt-1 text-sm sm:text-base font-black leading-snug slide-title-rainbow">${slide.title || 'Video Trải Nghiệm Góc Phố'}</h3>
+                                <p class="mt-0.5 text-[11px] sm:text-xs leading-relaxed max-w-md line-clamp-1 sm:line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
                             </div>
-                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-4 right-4 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
+                            <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-3 right-3 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
                             </button>
                         `;
                     } else {
                         article.innerHTML = `
                             <img class="absolute inset-0 h-full w-full object-cover object-center" src="${slide.media_path}" alt="${slide.title}" />
-                            <div class="relative z-10 flex h-full min-h-[300px] sm:min-h-[340px] flex-col items-start justify-end px-5 pb-5 sm:px-8 sm:pb-6 max-w-xl">
+                            <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-3.5 pb-10 sm:px-6 sm:pb-12 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border ${meta.badge} bg-slate-950/70 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-lg">
                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                                     <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
                                 </span>
-                                <h2 class="mt-1.5 text-base sm:text-xl lg:text-2xl font-black leading-snug tracking-tight slide-title-rainbow">${slide.title}</h2>
-                                <div class="mt-1 h-0.5 w-10 rounded-full bg-gradient-to-r from-amber-400 via-rose-400 to-transparent"></div>
-                                <p class="mt-1 max-w-md text-xs sm:text-[13px] leading-relaxed line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
-                                <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[10px] font-semibold">
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
-                                        <i class="fas fa-check-circle text-[9px]"></i> Món ngon phục vụ nhanh
-                                    </span>
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-sky-300 border border-sky-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
-                                        <i class="fas fa-qrcode text-[9px]"></i> Thanh toán VietQR
-                                    </span>
-                                </div>
+                                <h2 class="mt-1 text-sm sm:text-base lg:text-lg font-black leading-snug tracking-tight slide-title-rainbow">${slide.title}</h2>
+                                <p class="mt-0.5 max-w-md text-[11px] sm:text-xs leading-relaxed line-clamp-1 sm:line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
                             </div>
                         `;
                     }
@@ -2433,10 +2450,309 @@
             }
         }
 
+        // ==========================================
+        // 3. SMART JUKEBOX CONTROLLER (QUÁN & KHÁCH BÀN)
+        // ==========================================
+        const CustomerJukebox = {
+            tracks: [],
+            queue: [],
+            nowPlaying: null,
+            activeTab: 'tracks',
+            timer: null,
+
+            async init() {
+                await this.loadStatus();
+                if (this.timer) clearInterval(this.timer);
+                this.timer = setInterval(() => this.loadStatus(), 10000);
+            },
+
+            async loadStatus() {
+                try {
+                    const res = await fetch('/api/media/jukebox/status');
+                    const data = await res.json();
+                    if (data.success) {
+                        this.nowPlaying = data.now_playing;
+                        this.queue = data.queue || [];
+                        this.updateNowPlayingUI();
+                        this.renderQueueUI();
+                    }
+                } catch (e) {
+                    console.log('Jukebox status error:', e);
+                }
+            },
+
+            updateNowPlayingUI() {
+                if (!this.nowPlaying) return;
+                const title = this.nowPlaying.track_title || 'Chưa có bài hát';
+                const artist = this.nowPlaying.track_artist || 'Quán Tự Động';
+                const table = this.nowPlaying.table_name || 'Hệ Thống';
+
+                const barTitle = document.getElementById('jukebox-now-title');
+                const barArtist = document.getElementById('jukebox-now-artist');
+                const barTable = document.getElementById('jukebox-now-table');
+                if (barTitle) barTitle.textContent = title;
+                if (barArtist) barArtist.textContent = artist;
+                if (barTable) barTable.textContent = table;
+
+                const modalTitle = document.getElementById('juke-modal-now-title');
+                const modalArtist = document.getElementById('juke-modal-now-artist');
+                const modalTable = document.getElementById('juke-modal-now-table');
+                if (modalTitle) modalTitle.textContent = title;
+                if (modalArtist) modalArtist.textContent = artist;
+                if (modalTable) modalTable.textContent = table;
+            },
+
+            async loadTracks() {
+                try {
+                    const res = await fetch('/api/media/tracks');
+                    const data = await res.json();
+                    if (data.success && Array.isArray(data.tracks)) {
+                        this.tracks = data.tracks;
+                        this.renderTracksUI(this.tracks);
+                    }
+                } catch (e) {
+                    console.log('Jukebox load tracks error:', e);
+                }
+            },
+
+            renderTracksUI(list) {
+                const container = document.getElementById('juke-tracks-list');
+                if (!container) return;
+
+                if (!list || list.length === 0) {
+                    container.innerHTML = `
+                        <div class="p-6 text-center text-slate-400 text-xs rounded-xl bg-slate-900/50 border border-white/5">
+                            <i class="fas fa-music-slash text-2xl mb-1 text-slate-600 block"></i>
+                            Không tìm thấy bài hát phù hợp.
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = list.map(t => {
+                    const durSec = Number(t.duration_sec || t.duration || 180);
+                    const m = Math.floor(durSec / 60);
+                    const s = Math.floor(durSec % 60);
+                    const dur = `${m}:${s.toString().padStart(2, '0')}`;
+                    const safeTitle = (t.title || '').replace(/'/g, "\\'");
+
+                    return `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/5 hover:border-purple-500/30 transition-all gap-3">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 flex items-center justify-center text-xs shrink-0 font-mono">
+                                    <i class="fas fa-music"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-xs text-white truncate">${t.title}</div>
+                                    <div class="text-[11px] text-slate-400 flex items-center gap-2 truncate mt-0.5">
+                                        <span>${t.artist}</span>
+                                        <span>•</span>
+                                        <span class="text-purple-300 font-medium">${t.genre || 'Music'}</span>
+                                        <span>•</span>
+                                        <span class="font-mono text-[10px] text-slate-500">${dur}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="CustomerJukebox.requestSong(${t.id}, '${safeTitle}')" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all shadow-md shadow-purple-600/20 active:scale-95">
+                                <i class="fas fa-plus text-[10px]"></i>
+                                <span>Chọn bài</span>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            renderQueueUI() {
+                const countBadge = document.getElementById('juke-queue-count');
+                const listEl = document.getElementById('juke-queue-list');
+                if (countBadge) countBadge.textContent = this.queue.length;
+                if (!listEl) return;
+
+                if (!this.queue || this.queue.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="p-6 text-center text-slate-400 text-xs rounded-xl bg-slate-900/50 border border-white/5">
+                            <i class="fas fa-compact-disc text-2xl mb-1 text-slate-600 block animate-spin" style="animation-duration: 8s;"></i>
+                            Hàng đợi đang trống. Hãy là người đầu tiên chọn bài yêu thích!
+                        </div>
+                    `;
+                    return;
+                }
+
+                listEl.innerHTML = this.queue.map((q, idx) => `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 border border-white/5 hover:border-white/10 transition-all gap-3">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-6 h-6 rounded-lg bg-slate-800 text-purple-300 border border-purple-500/20 text-xs font-mono font-bold flex items-center justify-center shrink-0">
+                                #${idx + 1}
+                            </span>
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs text-white truncate flex items-center gap-1.5">
+                                    <span class="truncate">${q.track_title}</span>
+                                    ${q.is_priority ? '<span class="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 font-semibold">VIP</span>' : ''}
+                                </div>
+                                <div class="text-[11px] text-slate-400 flex items-center gap-2 truncate mt-0.5">
+                                    <span>${q.track_artist}</span>
+                                    <span>•</span>
+                                    <span class="text-amber-300 font-semibold">${q.table_name || 'Khách tại bàn'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="CustomerJukebox.voteSong(${q.id})" class="px-2.5 py-1 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 flex items-center gap-1 shrink-0 font-mono transition-all active:scale-95" title="Thả tim / Bình chọn">
+                            <i class="fas fa-heart text-[10px]"></i>
+                            <span>${q.vote_count || 1}</span>
+                        </button>
+                    </div>
+                `).join('');
+            },
+
+            filterTracks() {
+                const kw = (document.getElementById('juke-search-input')?.value || '').toLowerCase().trim();
+                const genre = document.getElementById('juke-genre-filter')?.value || 'all';
+
+                let filtered = this.tracks;
+                if (genre !== 'all') {
+                    filtered = filtered.filter(t => (t.genre || '').toLowerCase().includes(genre.toLowerCase()));
+                }
+                if (kw) {
+                    filtered = filtered.filter(t =>
+                        (t.title || '').toLowerCase().includes(kw) ||
+                        (t.artist || '').toLowerCase().includes(kw)
+                    );
+                }
+                this.renderTracksUI(filtered);
+            },
+
+            async requestSong(trackId, title) {
+                let tableName = 'Khách tại bàn';
+                let tableId = 0;
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const tCode = params.get('table') || params.get('table_code') || params.get('t');
+                    const tName = params.get('name') || params.get('table_name');
+                    if (tCode) {
+                        tableName = tName || `Bàn ${tCode}`;
+                    }
+                } catch (_) {}
+
+                try {
+                    const res = await fetch('/api/media/jukebox/request', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            track_id: trackId,
+                            table_name: tableName,
+                            table_id: tableId,
+                            is_priority: 0
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.showNotification('🎵 ' + (data.message || 'Đã thêm bài hát vào hàng đợi!'), 'success');
+                        await this.loadStatus();
+                        this.switchTab('queue');
+                    } else {
+                        this.showNotification('⚠️ ' + (data.message || 'Lỗi yêu cầu bài'), 'warning');
+                    }
+                } catch (e) {
+                    this.showNotification('❌ Lỗi kết nối: ' + e.message, 'error');
+                }
+            },
+
+            async voteSong(queueId) {
+                try {
+                    const res = await fetch('/api/media/jukebox/vote', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ queue_id: queueId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.showNotification('❤️ Đã thả tim bình chọn bài hát!', 'success');
+                        this.loadStatus();
+                    } else {
+                        this.showNotification(data.message || 'Lỗi bình chọn', 'warning');
+                    }
+                } catch (e) {
+                    console.log('Vote song error:', e);
+                }
+            },
+
+            switchTab(tab) {
+                this.activeTab = tab;
+                const btnTracks = document.getElementById('tab-btn-juke-tracks');
+                const btnQueue = document.getElementById('tab-btn-juke-queue');
+                const viewTracks = document.getElementById('juke-tab-tracks');
+                const viewQueue = document.getElementById('juke-tab-queue');
+
+                if (tab === 'tracks') {
+                    btnTracks?.classList.add('bg-purple-600', 'text-white', 'shadow-sm');
+                    btnTracks?.classList.remove('text-slate-400');
+                    btnQueue?.classList.remove('bg-purple-600', 'text-white', 'shadow-sm');
+                    btnQueue?.classList.add('text-slate-400');
+                    viewTracks?.classList.remove('hidden');
+                    viewQueue?.classList.add('hidden');
+                    if (this.tracks.length === 0) this.loadTracks();
+                } else {
+                    btnQueue?.classList.add('bg-purple-600', 'text-white', 'shadow-sm');
+                    btnQueue?.classList.remove('text-slate-400');
+                    btnTracks?.classList.remove('bg-purple-600', 'text-white', 'shadow-sm');
+                    btnTracks?.classList.add('text-slate-400');
+                    viewQueue?.classList.remove('hidden');
+                    viewTracks?.classList.add('hidden');
+                    this.loadStatus();
+                }
+            },
+
+            open() {
+                const modal = document.getElementById('customer-jukebox-modal');
+                if (modal) {
+                    modal.classList.remove('opacity-0', 'pointer-events-none');
+                    this.switchTab(this.activeTab);
+                    this.loadStatus();
+                }
+            },
+
+            close() {
+                const modal = document.getElementById('customer-jukebox-modal');
+                if (modal) {
+                    modal.classList.add('opacity-0', 'pointer-events-none');
+                }
+            },
+
+            showNotification(text, type = 'info') {
+                let toast = document.getElementById('customer-jukebox-toast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'customer-jukebox-toast';
+                    toast.className = 'fixed top-4 inset-x-4 max-w-sm mx-auto z-[999] py-2 px-4 rounded-xl text-xs font-bold text-center shadow-xl backdrop-blur-md transition-all duration-300 pointer-events-none opacity-0 transform -translate-y-2';
+                    document.body.appendChild(toast);
+                }
+
+                if (type === 'success') {
+                    toast.className = 'fixed top-4 inset-x-4 max-w-sm mx-auto z-[999] py-2 px-4 rounded-xl text-xs font-bold text-center shadow-xl backdrop-blur-md transition-all duration-300 pointer-events-none opacity-100 transform translate-y-0 bg-emerald-950/90 text-emerald-200 border border-emerald-500/40';
+                } else if (type === 'warning') {
+                    toast.className = 'fixed top-4 inset-x-4 max-w-sm mx-auto z-[999] py-2 px-4 rounded-xl text-xs font-bold text-center shadow-xl backdrop-blur-md transition-all duration-300 pointer-events-none opacity-100 transform translate-y-0 bg-amber-950/90 text-amber-200 border border-amber-500/40';
+                } else if (type === 'error') {
+                    toast.className = 'fixed top-4 inset-x-4 max-w-sm mx-auto z-[999] py-2 px-4 rounded-xl text-xs font-bold text-center shadow-xl backdrop-blur-md transition-all duration-300 pointer-events-none opacity-100 transform translate-y-0 bg-rose-950/90 text-rose-200 border border-rose-500/40';
+                } else {
+                    toast.className = 'fixed top-4 inset-x-4 max-w-sm mx-auto z-[999] py-2 px-4 rounded-xl text-xs font-bold text-center shadow-xl backdrop-blur-md transition-all duration-300 pointer-events-none opacity-100 transform translate-y-0 bg-purple-950/90 text-purple-200 border border-purple-500/40';
+                }
+
+                toast.textContent = text;
+                clearTimeout(toast._timer);
+                toast._timer = setTimeout(() => {
+                    toast.classList.add('opacity-0', '-translate-y-2');
+                    toast.classList.remove('opacity-100', 'translate-y-0');
+                }, 3000);
+            }
+        };
+
+        window.CustomerJukebox = CustomerJukebox;
+
         // Initialization
         document.addEventListener('DOMContentLoaded', () => {
             CustomerAdCarousel.init();
             CustomerOrdering.init();
+            CustomerJukebox.init();
             initHeroCustomerQr();
 
             // Auto detect Table QR Order param (?table=TQ1&name=Bàn+01)
@@ -2476,13 +2792,13 @@
                     const zone = document.getElementById('user-nav-zone');
                     if (zone && u) {
                         zone.innerHTML = `
-                            <div class="flex items-center gap-1.5 pl-2 border-l border-white/10 shrink-0 whitespace-nowrap">
-                                <span class="px-2.5 py-1 rounded-xl bg-indigo-500/20 text-indigo-200 border border-indigo-500/35 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
-                                    <i class="fas fa-user-circle text-sky-300"></i>
-                                    <span class="max-w-[120px] truncate">${u.fullname || u.username}</span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <!-- Compact User Avatar Icon (Bỏ ô chữ dài) -->
+                                <span class="w-8 h-8 rounded-xl btn-glass flex items-center justify-center text-sky-300 border border-indigo-500/35 bg-indigo-500/15 shadow-sm shrink-0" title="${u.fullname || u.username}">
+                                    <i class="fas fa-user-check text-xs"></i>
                                 </span>
-                                ${u.role === 'admin' ? '<a href="admin.html" class="btn-glass px-2 py-1 text-xs text-indigo-300 hover:text-white shrink-0 border border-indigo-500/30" title="Trang Quản Trị"><i class="fas fa-chart-pie"></i></a>' : ''}
-                                <button type="button" onclick="handleLogout()" class="w-7 h-7 rounded-lg btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 hover:text-white flex items-center justify-center p-0 border border-rose-500/30 transition-all shrink-0" title="Đăng xuất">
+                                ${u.role === 'admin' ? '<a href="admin.html" class="w-8 h-8 rounded-xl btn-glass flex items-center justify-center text-xs text-indigo-300 hover:text-white shrink-0 border border-indigo-500/30 shadow-sm" title="Trang Quản Trị"><i class="fas fa-chart-pie text-xs"></i></a>' : ''}
+                                <button type="button" onclick="handleLogout()" class="w-8 h-8 rounded-xl btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 hover:text-white flex items-center justify-center border border-rose-500/30 transition-all shrink-0" title="Đăng xuất">
                                     <i class="fas fa-sign-out-alt text-xs"></i>
                                 </button>
                             </div>

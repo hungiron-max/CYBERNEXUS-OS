@@ -1,0 +1,13 @@
+==============================================================
+  CYBERNEXUS OS — CHỨNG NHẬN BẢN QUYỀN PHẦN MỀM ĐIỂM BÁN
+==============================================================
+Cửa Hàng:           HIGHLAND
+Mã Quán (Tenant):   ST780
+Mã Khóa Bản Quyền:  SALE-E60B-081C-F1C4-AA0B
+Gói Dịch Vụ:        Gói Trải Nghiệm (14 Ngày)
+Hạn Sử Dụng:        2027-11-02
+Khóa Phần Cứng:     Unbound (Chưa gán máy)
+Module Được Duyệt:  ["pos_core","vietqr_payment","qr_customer_order","kitchen_kds"]
+Phát Hành Bởi:      SuperAdmin SaaS Central Authority
+Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition
+==============================================================

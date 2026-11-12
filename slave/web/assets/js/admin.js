@@ -318,8 +318,25 @@ const Admin = {
     tables: [],
     chartInstance: null,
 
+    renderEmptyState(colspan, icon, title, desc) {
+        return `
+            <tr>
+                <td colspan="${colspan}" class="py-12 px-4 text-center">
+                    <div class="inline-flex flex-col items-center justify-center max-w-sm mx-auto">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-800/80 border border-white/10 flex items-center justify-center text-slate-400 text-lg shadow-inner mb-3">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="text-sm font-bold text-slate-200 mb-1">${title}</div>
+                        <div class="text-xs text-slate-400 leading-relaxed">${desc}</div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    },
+
     async init() {
         this.bindNavigation();
+        this.switchTab('dashboard');
         await this.loadCategories();
         await this.loadDashboard();
         await this.loadProducts();
@@ -340,6 +357,95 @@ const Admin = {
             if (document.visibilityState === 'visible') sendAdminHeartbeat();
         });
         window.addEventListener('focus', sendAdminHeartbeat);
+
+        // Continuous background synchronization with Jukebox Engine
+        if (window.JukeboxEngine) {
+            window.JukeboxEngine.addListener(state => this.onJukeboxStateUpdate(state));
+        }
+    },
+
+    onJukeboxStateUpdate(state) {
+        if (!state) return;
+        // 1. Update Header Mini Pill
+        const disc = document.getElementById('admin-juke-disc');
+        const titleEl = document.getElementById('admin-juke-title');
+        const artistEl = document.getElementById('admin-juke-artist');
+        const playIcon = document.getElementById('admin-juke-play-icon');
+
+        if (state.currentTrack && state.currentTrack.track_title) {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.updateTitleWithMarquee('admin-juke-title', state.currentTrack.track_title);
+            } else if (titleEl) {
+                titleEl.textContent = state.currentTrack.track_title;
+            }
+            if (artistEl) artistEl.textContent = state.currentTrack.track_artist || 'Hệ thống';
+        } else {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.updateTitleWithMarquee('admin-juke-title', 'Jukebox Âm Nhạc');
+            } else if (titleEl) {
+                titleEl.textContent = 'Jukebox Âm Nhạc';
+            }
+            if (artistEl) artistEl.textContent = 'Hệ thống sẵn sàng';
+        }
+
+        // 2. Update Media Player Controls & Vinyl in Media Tab
+        const ctrlIcon = document.getElementById('jukebox-ctrl-play-icon');
+        const ctrlText = document.getElementById('jukebox-ctrl-play-text');
+        const vinylIcon = document.getElementById('now-playing-play-icon');
+        const vinylDisc = document.getElementById('now-playing-vinyl');
+
+        if (state.isPlaying) {
+            if (disc) disc.classList.add('animate-spin');
+            if (playIcon) playIcon.className = 'fas fa-pause text-[10px] text-fuchsia-300';
+            if (ctrlIcon) ctrlIcon.className = 'fas fa-pause text-xs text-amber-300';
+            if (ctrlText) ctrlText.textContent = 'Tạm Dừng';
+            if (vinylIcon) vinylIcon.className = 'fas fa-pause text-[9px] text-white';
+            if (vinylDisc) vinylDisc.classList.add('animate-spin');
+        } else {
+            if (disc) disc.classList.remove('animate-spin');
+            if (playIcon) playIcon.className = 'fas fa-play text-[10px] text-white';
+            if (ctrlIcon) ctrlIcon.className = 'fas fa-play text-xs text-sky-300';
+            if (ctrlText) ctrlText.textContent = 'Phát';
+            if (vinylIcon) vinylIcon.className = 'fas fa-play text-[9px] text-white';
+            if (vinylDisc) vinylDisc.classList.remove('animate-spin');
+        }
+
+        // Time and Progress Bar in Media Tab
+        const cur = state.currentTime || 0;
+        const dur = state.duration || (state.currentTrack ? Number(state.currentTrack.track_duration || state.currentTrack.duration_sec || 180) : 180);
+        const curTimeEl = document.getElementById('now-playing-current-time');
+        const durTimeEl = document.getElementById('now-playing-duration');
+        const progressBar = document.getElementById('now-playing-progress');
+
+        if (curTimeEl) {
+            const m = Math.floor(cur / 60);
+            const s = Math.floor(cur % 60);
+            curTimeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        if (durTimeEl && dur > 0) {
+            const m = Math.floor(dur / 60);
+            const s = Math.floor(dur % 60);
+            durTimeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        if (progressBar && dur > 0) {
+            const pct = Math.min(100, Math.max(0, (cur / dur) * 100));
+            progressBar.style.width = `${pct}%`;
+        }
+
+        // 3. If Media tab is currently open, keep queue and current track display in sync (only when changed)
+        if (this.currentTab === 'media') {
+            const trackKey = state.currentTrack ? `${state.currentTrack.id || ''}_${state.currentTrack.track_id || ''}_${state.currentTrack.track_title || ''}_${state.currentTrack.vote_count || 0}` : 'none';
+            if (this._lastRenderedTrackKey !== trackKey) {
+                this._lastRenderedTrackKey = trackKey;
+                this.renderNowPlaying(state.currentTrack);
+            }
+            const queueArr = state.queue || [];
+            const queueKey = queueArr.map(q => `${q.id}_${q.vote_count}_${q.is_priority}`).join('|');
+            if (this._lastRenderedQueueKey !== queueKey) {
+                this._lastRenderedQueueKey = queueKey;
+                this.renderMediaQueue(queueArr);
+            }
+        }
     },
 
     formatMoney(amount) {
@@ -347,24 +453,102 @@ const Admin = {
     },
 
     bindNavigation() {
-        const navButtons = document.querySelectorAll('.admin-nav-btn');
-        navButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tab = btn.dataset.tab;
-                this.switchTab(tab);
-            });
+        // Direct event delegation for fast navigation
+    },
+
+    currentGroup: 'ops',
+
+    switchGroup(group, defaultTab) {
+        this.currentGroup = group;
+
+        // 1. Show only target subnav-group
+        document.querySelectorAll('.subnav-group').forEach(el => el.classList.add('hidden'));
+        const targetSubnav = document.getElementById(`subnav-${group}`);
+        if (targetSubnav) targetSubnav.classList.remove('hidden');
+
+        // 2. Highlight Tier 1 group buttons
+        const groupStyles = {
+            ops: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10',
+            menu: 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/10',
+            hr: 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sky-500/10',
+            sys: 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-purple-500/10'
+        };
+
+        ['ops', 'menu', 'hr', 'sys'].forEach(g => {
+            const btn = document.getElementById(`grp-btn-${g}`);
+            if (!btn) return;
+            if (g === group) {
+                btn.className = `group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 border ${groupStyles[g]}`;
+            } else {
+                btn.className = 'group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 text-slate-400 hover:text-white hover:bg-white/5 border border-transparent';
+            }
         });
+
+        // 3. Switch to specified tab or first subtab of this group
+        if (defaultTab) {
+            this.switchTab(defaultTab);
+        } else {
+            const firstTabMap = {
+                ops: 'dashboard',
+                menu: 'products',
+                hr: 'users',
+                sys: 'finance'
+            };
+            const firstTab = firstTabMap[group];
+            if (firstTab) this.switchTab(firstTab);
+        }
     },
 
     switchTab(tab) {
         this.currentTab = tab;
-        document.querySelectorAll('.admin-nav-btn').forEach(b => {
+
+        const tabMeta = {
+            tables: { title: 'Bàn & Khu Vực (QR)', group: 'ops', icon: 'fa-border-all text-emerald-400' },
+            dashboard: { title: 'Tổng Quan Doanh Số', group: 'ops', icon: 'fa-chart-line text-sky-400' },
+            orders: { title: 'Lịch Sử Hóa Đơn', group: 'ops', icon: 'fa-receipt text-amber-400' },
+            products: { title: 'Mặt Hàng (F4)', group: 'menu', icon: 'fa-utensils text-amber-400' },
+            categories: { title: 'Nhóm Hàng', group: 'menu', icon: 'fa-layer-group text-sky-400' },
+            operations: { title: 'Kho & Chi Phí Vật Liệu', group: 'menu', icon: 'fa-boxes-stacked text-emerald-400' },
+            users: { title: 'Nhân Viên & Phân Quyền', group: 'hr', icon: 'fa-users-gear text-indigo-400' },
+            analytics: { title: 'Hiệu Suất Bếp & Phục Vụ', group: 'hr', icon: 'fa-chart-pie text-amber-400' },
+            finance: { title: 'Báo Cáo Tài Chính', group: 'sys', icon: 'fa-file-invoice-dollar text-teal-400' },
+            media: { title: 'Âm Nhạc & Jukebox', group: 'sys', icon: 'fa-compact-disc text-fuchsia-400' },
+            settings: { title: 'Cài Đặt Quán & VietQR', group: 'sys', icon: 'fa-cog text-sky-400' }
+        };
+
+        const info = tabMeta[tab] || { title: tab, group: 'ops', icon: 'fa-circle-dot text-sky-400' };
+
+        // Ensure parent group is active and visible
+        if (this.currentGroup !== info.group) {
+            this.switchGroup(info.group, tab);
+            return;
+        }
+
+        // 1. Update breadcrumb
+        const breadcrumb = document.getElementById('active-tab-title');
+        if (breadcrumb) {
+            breadcrumb.innerHTML = `<i class="fas ${info.icon} mr-1.5"></i>${info.title}`;
+        }
+
+        // 2. Highlight Tier 2 sub-buttons
+        document.querySelectorAll('.admin-sub-btn').forEach(b => {
             if (b.dataset.tab === tab) {
-                b.classList.add('bg-sky-500/20', 'text-sky-400', 'border-sky-500/40');
-                b.classList.remove('text-slate-400');
+                b.classList.add('bg-sky-500/25', 'text-sky-300', 'border-sky-500/40', 'shadow-sm');
+                b.classList.remove('text-slate-300', 'border-white/5');
             } else {
-                b.classList.remove('bg-sky-500/20', 'text-sky-400', 'border-sky-500/40');
-                b.classList.add('text-slate-400');
+                b.classList.remove('bg-sky-500/25', 'text-sky-300', 'border-sky-500/40', 'shadow-sm');
+                b.classList.add('text-slate-300', 'border-white/5');
+            }
+        });
+
+        // 3. Highlight mobile bottom nav buttons
+        document.querySelectorAll('[data-mobile-tab]').forEach(btn => {
+            if (btn.dataset.mobileTab === tab) {
+                btn.classList.add('bg-sky-500/20', 'text-sky-400');
+                btn.classList.remove('text-slate-400');
+            } else {
+                btn.classList.remove('bg-sky-500/20', 'text-sky-400');
+                btn.classList.add('text-slate-400');
             }
         });
 
@@ -383,11 +567,23 @@ const Admin = {
         if (tab === 'orders') this.loadOrderHistory();
         if (tab === 'analytics') this.loadAnalyticsData();
         if (tab === 'operations') this.loadOperationsTab();
-        if (tab === 'media') this.loadMediaTab();
+        if (tab === 'finance') this.loadFinance();
+        if (tab === 'media') {
+            this.loadMediaTab();
+            this.startEqWaveAnimation();
+        } else {
+            this.stopEqWaveAnimation();
+        }
 
-        if (tab !== 'media' && this.mediaPollingTimer) {
-            clearInterval(this.mediaPollingTimer);
-            this.mediaPollingTimer = null;
+        // Keep continuous background synchronization active across all tabs
+        if (!this.mediaPollingTimer) {
+            this.mediaPollingTimer = setInterval(() => {
+                if (window.JukeboxEngine) {
+                    window.JukeboxEngine.refreshStatus();
+                } else {
+                    this.loadMediaJukeboxStatus();
+                }
+            }, 3500);
         }
     },
 
@@ -532,9 +728,10 @@ const Admin = {
             const ctx = document.getElementById('revenueChart');
             if (!ctx) return;
 
-            const labels = json.data.map(d => d.label);
-            const revenues = json.data.map(d => d.revenue);
-            const orders = json.data.map(d => d.orders);
+            const dataList = Array.isArray(json.data) ? json.data : [];
+            const labels = dataList.map(d => d.label);
+            const revenues = dataList.map(d => d.revenue);
+            const orders = dataList.map(d => d.orders);
 
             if (this.chartInstance) {
                 this.chartInstance.destroy();
@@ -621,13 +818,14 @@ const Admin = {
             const container = document.getElementById('top-selling-list');
             if (!container) return;
 
-            if (json.data.length === 0) {
+            const items = Array.isArray(json.data) ? json.data : [];
+            if (items.length === 0) {
                 container.innerHTML = '<div class="text-xs text-slate-500 py-4 text-center">Chưa có dữ liệu bán hàng hôm nay</div>';
                 return;
             }
 
             let html = '';
-            json.data.forEach((it, idx) => {
+            items.forEach((it, idx) => {
                 html += `
                     <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-white/5">
                         <div class="flex items-center gap-2.5">
@@ -667,26 +865,37 @@ const Admin = {
         const tbody = document.getElementById('category-table-body');
         if (!tbody) return;
 
+        if (!this.categories || this.categories.length === 0) {
+            tbody.innerHTML = this.renderEmptyState(5, 'fa-layer-group', 'Chưa có nhóm hàng nào', 'Bấm nút "Thêm Nhóm Hàng" để tạo danh mục phân loại đồ uống, đồ ăn.');
+            return;
+        }
+
         let html = '';
         this.categories.forEach(c => {
             html += `
-                <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3 text-xs font-mono text-slate-400">#${c.id}</td>
-                    <td class="p-3 text-sm font-bold text-white flex items-center gap-2">
-                        <span class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 text-xs">
-                            <i class="fas fa-${c.icon || 'tag'}"></i>
-                        </span>
-                        ${c.name}
+                <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                    <td class="col-center"><span class="font-mono text-xs text-slate-400 whitespace-nowrap">#${c.id}</span></td>
+                    <td class="col-name">
+                        <div class="font-bold text-white text-xs flex items-center gap-2 whitespace-nowrap">
+                            <span class="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/25 flex items-center justify-center text-xs shrink-0 shadow-sm">
+                                <i class="fas fa-${c.icon || 'tag'}"></i>
+                            </span>
+                            <span class="whitespace-nowrap">${c.name}</span>
+                        </div>
                     </td>
-                    <td class="p-3 text-xs text-sky-400 font-semibold font-mono">${c.product_count || 0} món</td>
-                    <td class="p-3 text-xs text-slate-400 font-mono">${c.sort_order || 0}</td>
-                    <td class="p-3 text-right space-x-1">
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.openEditCategoryModal(${c.id})">
-                            <i class="fas fa-edit"></i> Sửa
-                        </button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs" onclick="Admin.deleteCategory(${c.id})">
-                            <i class="fas fa-trash"></i> Xóa
-                        </button>
+                    <td class="col-center">
+                        <span class="font-mono font-bold text-sky-400 text-xs bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${c.product_count || 0} món</span>
+                    </td>
+                    <td class="col-center"><span class="font-mono text-xs text-slate-400 whitespace-nowrap">${c.sort_order || 0}</span></td>
+                    <td class="col-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditCategoryModal(${c.id})" title="Sửa nhóm hàng">
+                                <i class="fas fa-pen text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteCategory(${c.id})" title="Xóa nhóm hàng">
+                                <i class="fas fa-trash-can text-[10px]"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -805,8 +1014,8 @@ const Admin = {
         const tbody = document.getElementById('products-table-body');
         if (!tbody) return;
 
-        if (this.products.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500 text-sm">Không tìm thấy mặt hàng nào phù hợp</td></tr>`;
+        if (!this.products || this.products.length === 0) {
+            tbody.innerHTML = this.renderEmptyState(9, 'fa-utensils', 'Không tìm thấy mặt hàng nào', 'Chưa có mặt hàng nào trong hệ thống hoặc không khớp với bộ lọc.');
             return;
         }
 
@@ -815,31 +1024,35 @@ const Admin = {
             const isLocked = p.status === 'locked';
             const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
             html += `
-                <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors ${isLocked ? 'opacity-50' : ''}">
-                    <td class="p-2.5 text-center">
-                        <div class="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-white/10 mx-auto shadow relative group cursor-pointer" onclick="Admin.openEditProductModal(${p.id})">
-                            <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-125 transition-transform duration-300" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
+                <tr class="hover:bg-sky-500/[0.04] transition-colors ${isLocked ? 'opacity-50' : ''}">
+                    <td class="col-center">
+                        <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-900 border border-white/10 mx-auto shadow-sm relative group cursor-pointer" onclick="Admin.openEditProductModal(${p.id})">
+                            <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
                         </div>
                     </td>
-                    <td class="p-3 text-xs font-mono font-bold text-sky-400">${p.code || 'SP'}</td>
-                    <td class="p-3 text-sm font-bold text-white">
-                        ${p.name}
-                        ${p.is_topping == 1 ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-normal">Topping</span>' : ''}
+                    <td><span class="font-mono text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${p.code || 'SP'}</span></td>
+                    <td class="col-name">
+                        <div class="font-bold text-white text-xs flex items-center gap-1.5 whitespace-nowrap">
+                            <span class="whitespace-nowrap">${p.name}</span>
+                            ${p.is_topping == 1 ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shrink-0">Topping</span>' : ''}
+                        </div>
                     </td>
-                    <td class="p-3 text-xs text-slate-300 font-medium">${p.category_name || '-'}</td>
-                    <td class="p-3 text-xs text-slate-400 capitalize">${p.unit || 'ly'}</td>
-                    <td class="p-3 text-sm font-black text-amber-400 font-mono">${this.formatMoney(p.sale_price)} đ</td>
-                    <td class="p-3 text-xs text-slate-400 font-mono">${this.formatMoney(p.cost_price)} đ</td>
-                    <td class="p-3 text-center">
-                        <input type="checkbox" class="w-4 h-4 rounded text-rose-500 cursor-pointer" ${isLocked ? 'checked' : ''} onchange="Admin.toggleProductLock(${p.id})" title="Tạm khóa mặt hàng" />
+                    <td><span class="text-xs text-slate-300 font-medium whitespace-nowrap">${p.category_name || '-'}</span></td>
+                    <td class="col-center"><span class="text-xs text-slate-400 capitalize whitespace-nowrap">${p.unit || 'ly'}</span></td>
+                    <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs whitespace-nowrap">${this.formatMoney(p.sale_price)} đ</span></td>
+                    <td class="col-money"><span class="font-mono text-slate-400 text-xs whitespace-nowrap">${this.formatMoney(p.cost_price)} đ</span></td>
+                    <td class="col-center">
+                        <input type="checkbox" class="w-4 h-4 rounded text-rose-500 cursor-pointer accent-sky-500" ${isLocked ? 'checked' : ''} onchange="Admin.toggleProductLock(${p.id})" title="Tạm khóa mặt hàng" />
                     </td>
-                    <td class="p-3 text-right space-x-1">
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.openEditProductModal(${p.id})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs" onclick="Admin.deleteProduct(${p.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <td class="col-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditProductModal(${p.id})" title="Sửa mặt hàng">
+                                <i class="fas fa-pen text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteProduct(${p.id})" title="Xóa mặt hàng">
+                                <i class="fas fa-trash-can text-[10px]"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1705,29 +1918,29 @@ const Admin = {
             if (!tbody) return;
 
             if (data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-500 text-sm">Chưa có hóa đơn nào trong khoảng thời gian này</td></tr>';
+                tbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', 'Chưa có hóa đơn nào', 'Không tìm thấy hóa đơn nào trong khoảng thời gian hoặc trạng thái đã lọc.');
                 return;
             }
 
             let html = '';
             data.data.forEach(o => {
                 const statusBadge = o.status === 'completed' 
-                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">Đã thanh toán</span>'
+                    ? '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Đã thanh toán</span>'
                     : (o.status === 'pending' 
-                        ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold">Đang dùng</span>' 
-                        : '<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 text-xs font-bold">Đã hủy</span>');
+                        ? '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Đang dùng</span>' 
+                        : '<span class="saas-badge bg-rose-500/15 text-rose-300 border border-rose-500/30"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Đã hủy</span>');
 
                 html += `
-                    <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                        <td class="p-3 text-xs font-mono font-bold text-sky-400">${o.order_code}</td>
-                        <td class="p-3 text-xs font-bold text-white">${o.table_code}</td>
-                        <td class="p-3 text-xs text-slate-300">${o.created_at}</td>
-                        <td class="p-3 text-xs text-slate-300">${o.user_name || 'Thu ngân'}</td>
-                        <td class="p-3 text-sm font-black text-emerald-400 font-mono">${this.formatMoney(o.total_amount)} đ</td>
-                        <td class="p-3">${statusBadge}</td>
-                        <td class="p-3 text-right">
-                            <button type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.viewOrderDetail(${o.id})">
-                                <i class="fas fa-eye"></i> Chi tiết
+                    <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                        <td><span class="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">${o.order_code || ('#' + o.id)}</span></td>
+                        <td><span class="font-bold text-white text-xs">${o.table_code || o.table_name || 'Mang về'}</span></td>
+                        <td><span class="text-xs text-slate-400 font-mono">${o.created_at || '-'}</span></td>
+                        <td><span class="text-xs text-slate-300 font-medium">${o.user_name || 'Thu ngân'}</span></td>
+                        <td class="col-money"><span class="font-mono font-bold text-emerald-400 text-xs">${this.formatMoney(o.total_amount)} đ</span></td>
+                        <td class="col-center">${statusBadge}</td>
+                        <td class="col-right">
+                            <button type="button" class="saas-action-btn btn-view" onclick="Admin.viewOrderDetail(${o.id})" title="Xem chi tiết hóa đơn">
+                                <i class="fas fa-eye text-[11px]"></i>
                             </button>
                         </td>
                     </tr>
@@ -1991,7 +2204,7 @@ const Admin = {
         if (!tbody) return;
 
         if (!this.users || this.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500 text-sm">Chưa có nhân viên nào</td></tr>';
+            tbody.innerHTML = this.renderEmptyState(8, 'fa-users-gear', 'Chưa có người dùng nào', 'Bấm nút "Thêm Người Dùng Mới" để tạo tài khoản nhân viên hoặc thu ngân.');
             return;
         }
 
@@ -2001,49 +2214,50 @@ const Admin = {
             let codeColor = 'text-sky-300 bg-sky-500/10 border-sky-500/20';
 
             if (u.role === 'admin') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Quản Trị (ADM)</span>';
+                roleBadge = '<span class="saas-badge bg-purple-500/15 text-purple-300 border border-purple-500/30"><i class="fas fa-crown text-[9px]"></i> Quản Trị (ADM)</span>';
                 codeColor = 'text-purple-300 bg-purple-500/10 border-purple-500/20';
             } else if (u.role === 'cashier') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Thu Ngân (ACC)</span>';
+                roleBadge = '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fas fa-cash-register text-[9px]"></i> Thu Ngân (ACC)</span>';
                 codeColor = 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
             } else if (u.role === 'kitchen') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Bếp / Bar (KIT)</span>';
+                roleBadge = '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fas fa-fire text-[9px]"></i> Bếp / Bar (KIT)</span>';
                 codeColor = 'text-amber-300 bg-amber-500/10 border-amber-500/20';
             } else if (u.role === 'customer') {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">Khách Hàng (USR)</span>';
+                roleBadge = '<span class="saas-badge bg-pink-500/15 text-pink-300 border border-pink-500/30"><i class="fas fa-user text-[9px]"></i> Khách Hàng (USR)</span>';
                 codeColor = 'text-pink-300 bg-pink-500/10 border-pink-500/20';
             } else {
-                roleBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">Phục Vụ (STF)</span>';
+                roleBadge = '<span class="saas-badge bg-sky-500/15 text-sky-300 border border-sky-500/30"><i class="fas fa-person-walking text-[9px]"></i> Phục Vụ (STF)</span>';
                 codeColor = 'text-sky-300 bg-sky-500/10 border-sky-500/20';
             }
 
             const isLocked = u.status === 'locked';
 
             html += `
-                <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors ${isLocked ? 'opacity-50' : ''}">
-                    <td class="p-3 text-xs font-mono font-black">
-                        <span class="px-2 py-0.5 rounded-md border font-bold ${codeColor}">${u.user_code || `U${u.id}`}</span>
-                    </td>
-                    <td class="p-3 text-sm font-bold text-slate-200 font-mono">${u.username}</td>
-                    <td class="p-3 text-sm font-bold text-white">${u.fullname}</td>
-                    <td class="p-3">${roleBadge}</td>
-                    <td class="p-3 text-xs text-slate-300 font-mono">${u.phone || '-'}</td>
-                    <td class="p-3 text-xs text-amber-400 font-mono font-bold">${u.pin_code || '-'}</td>
-                    <td class="p-3">
-                        <button type="button" onclick="Admin.toggleUserStatus(${u.id})" class="px-2 py-0.5 rounded text-xs font-bold ${isLocked ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}">
+                <tr class="hover:bg-sky-500/[0.04] transition-colors ${isLocked ? 'opacity-50' : ''}">
+                    <td><span class="font-mono text-xs font-bold px-2 py-0.5 rounded border ${codeColor} whitespace-nowrap">${u.user_code || `U${u.id}`}</span></td>
+                    <td><span class="text-xs text-slate-300 font-mono font-medium whitespace-nowrap">${u.username}</span></td>
+                    <td class="col-name"><span class="text-xs font-bold text-white whitespace-nowrap">${u.fullname}</span></td>
+                    <td class="col-center whitespace-nowrap">${roleBadge}</td>
+                    <td><span class="text-xs text-slate-400 font-mono whitespace-nowrap">${u.phone || '-'}</span></td>
+                    <td class="col-center"><span class="font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-xs whitespace-nowrap">${u.pin_code || '-'}</span></td>
+                    <td class="col-center">
+                        <button type="button" onclick="Admin.toggleUserStatus(${u.id})" class="saas-badge ${isLocked ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'} cursor-pointer hover:opacity-80 transition whitespace-nowrap">
+                            <span class="w-1.5 h-1.5 rounded-full ${isLocked ? 'bg-rose-400' : 'bg-emerald-400'}"></span>
                             ${isLocked ? 'Đang khóa' : 'Hoạt động'}
                         </button>
                     </td>
-                    <td class="p-3 text-right space-x-1">
-                        <button type="button" class="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white text-xs" onclick="Admin.openEditUserModal(${u.id})" title="Sửa thông tin">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button type="button" class="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white text-xs" onclick="Admin.openResetPassModal(${u.id})" title="Đổi mật khẩu / PIN">
-                            <i class="fas fa-key"></i>
-                        </button>
-                        <button type="button" class="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs" onclick="Admin.deleteUser(${u.id})" title="Xóa người dùng">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <td class="col-right">
+                        <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditUserModal(${u.id})" title="Sửa thông tin">
+                                <i class="fas fa-pen text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-key" onclick="Admin.openResetPassModal(${u.id})" title="Đổi mật khẩu / PIN">
+                                <i class="fas fa-key text-[10px]"></i>
+                            </button>
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteUser(${u.id})" title="Xóa người dùng">
+                                <i class="fas fa-trash-can text-[10px]"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -2295,7 +2509,15 @@ const Admin = {
         try {
             const res = await fetch(`api/reports.php?action=service_performance&date_from=${dateFrom}&date_to=${dateTo}`);
             const data = await res.json();
-            if (!data.success) return;
+            if (!data.success) {
+                const staffTbody = document.getElementById('ana-staff-tbody');
+                if (staffTbody) staffTbody.innerHTML = this.renderEmptyState(6, 'fa-user-clock', 'Chưa có dữ liệu nhân viên', 'Dữ liệu xếp hạng phục vụ & thu ngân sẽ hiển thị khi phát sinh ca làm việc.');
+                const dishesTbody = document.getElementById('ana-dishes-tbody');
+                if (dishesTbody) dishesTbody.innerHTML = this.renderEmptyState(3, 'fa-mug-hot', 'Chưa có món chế biến', 'Top món sẽ cập nhật ngay khi bộ phận bếp hoàn thành món ăn.');
+                const logsTbody = document.getElementById('ana-logs-tbody');
+                if (logsTbody) logsTbody.innerHTML = this.renderEmptyState(7, 'fa-clipboard-check', 'Chưa có sự kiện nào', 'Nhật ký audit trail thời gian thực của bếp & phục vụ sẽ ghi nhận tại đây.');
+                return;
+            }
 
             // 1. KPI Cards
             const kpi = data.kitchen_kpi || {};
@@ -2315,30 +2537,32 @@ const Admin = {
             if (staffTbody) {
                 const staff = data.staff_stats || [];
                 if (staff.length === 0) {
-                    staffTbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">Chưa có dữ liệu nhân viên trong khoảng thời gian này</td></tr>`;
+                    staffTbody.innerHTML = this.renderEmptyState(6, 'fa-user-clock', 'Chưa có dữ liệu nhân viên', 'Dữ liệu xếp hạng phục vụ & thu ngân sẽ hiển thị khi phát sinh ca làm việc.');
                 } else {
                     let html = '';
                     staff.forEach((u, i) => {
-                        let roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">Nhân viên</span>';
-                        if (u.role === 'admin') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Quản Lý</span>';
-                        if (u.role === 'cashier') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Thu Ngân</span>';
-                        if (u.role === 'waiter') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">Phục Vụ</span>';
-                        if (u.role === 'kitchen') roleBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Bếp / Bar</span>';
+                        let roleBadge = '<span class="saas-badge bg-slate-800 text-slate-300">Nhân viên</span>';
+                        if (u.role === 'admin') roleBadge = '<span class="saas-badge bg-purple-500/15 text-purple-300 border border-purple-500/30">Quản Lý</span>';
+                        if (u.role === 'cashier') roleBadge = '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Thu Ngân</span>';
+                        if (u.role === 'waiter') roleBadge = '<span class="saas-badge bg-sky-500/15 text-sky-300 border border-sky-500/30">Phục Vụ</span>';
+                        if (u.role === 'kitchen') roleBadge = '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30">Bếp / Bar</span>';
 
                         const rankMedal = i === 0 ? '🥇 ' : (i === 1 ? '🥈 ' : (i === 2 ? '🥉 ' : ''));
 
                         html += `
-                            <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                                <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
-                                    <span>${rankMedal}</span>
-                                    <span>${u.fullname}</span>
-                                    <span class="text-[10px] text-slate-400 font-mono">(@${u.username})</span>
+                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                                <td>
+                                    <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                        <span>${rankMedal}</span>
+                                        <span>${u.fullname}</span>
+                                        <span class="text-[10px] text-slate-400 font-mono">(@${u.username})</span>
+                                    </div>
                                 </td>
-                                <td class="p-2.5">${roleBadge}</td>
-                                <td class="p-2.5 text-center font-mono font-bold text-sky-400">${u.orders_created}</td>
-                                <td class="p-2.5 text-center font-mono font-bold text-emerald-400">${u.orders_served}</td>
-                                <td class="p-2.5 text-right font-mono font-bold text-amber-300">${this.formatMoney(u.total_revenue)} đ</td>
-                                <td class="p-2.5 text-center font-mono text-slate-300">${u.avg_deliver_minutes > 0 ? (u.avg_deliver_minutes + 'p') : '--'}</td>
+                                <td>${roleBadge}</td>
+                                <td class="col-center font-mono font-bold text-sky-400 text-xs">${u.orders_created}</td>
+                                <td class="col-center font-mono font-bold text-emerald-400 text-xs">${u.orders_served}</td>
+                                <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs">${this.formatMoney(u.total_revenue)} đ</span></td>
+                                <td class="col-center font-mono text-slate-300 text-xs">${u.avg_deliver_minutes > 0 ? (u.avg_deliver_minutes + 'p') : '--'}</td>
                             </tr>
                         `;
                     });
@@ -2351,20 +2575,22 @@ const Admin = {
             if (dishesTbody) {
                 const dishes = data.top_cooked_dishes || [];
                 if (dishes.length === 0) {
-                    dishesTbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-slate-500">Chưa có món nào được chế biến</td></tr>`;
+                    dishesTbody.innerHTML = this.renderEmptyState(3, 'fa-fire-burner', 'Chưa có món chế biến', 'Top món sẽ cập nhật ngay khi bộ phận bếp hoàn thành món ăn.');
                 } else {
                     let html = '';
                     dishes.forEach((d, i) => {
                         html += `
-                            <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                                <td class="p-2.5 font-bold text-white">
-                                    <span class="text-amber-400 font-mono mr-1">${i + 1}.</span>
-                                    <span>${d.product_name}</span>
+                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                                <td>
+                                    <div class="font-bold text-white text-xs flex items-center gap-1">
+                                        <span class="text-amber-400 font-mono font-bold text-xs">${i + 1}.</span>
+                                        <span class="truncate">${d.product_name}</span>
+                                    </div>
                                 </td>
-                                <td class="p-2.5 text-center font-mono font-bold text-amber-300">
-                                    <span class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">x${d.total_qty} ${d.unit || ''}</span>
+                                <td class="col-center font-mono font-bold text-amber-300 text-xs">
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">x${d.total_qty} ${d.unit || ''}</span>
                                 </td>
-                                <td class="p-2.5 text-right font-mono font-bold text-slate-200">${this.formatMoney(d.total_revenue)} đ</td>
+                                <td class="col-money"><span class="font-mono font-bold text-slate-200 text-xs">${this.formatMoney(d.total_revenue)} đ</span></td>
                             </tr>
                         `;
                     });
@@ -2377,7 +2603,7 @@ const Admin = {
             if (logsTbody) {
                 const logs = data.recent_logs || [];
                 if (logs.length === 0) {
-                    logsTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500">Chưa có sự kiện nào trong khoảng thời gian này</td></tr>`;
+                    logsTbody.innerHTML = this.renderEmptyState(7, 'fa-clock-rotate-left', 'Chưa có sự kiện nào', 'Nhật ký audit trail thời gian thực của bếp & phục vụ sẽ ghi nhận tại đây.');
                 } else {
                     let html = '';
                     logs.forEach(l => {
@@ -2735,15 +2961,7 @@ const Admin = {
             if (!tbody) return;
 
             if (!data.staff_list || data.staff_list.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="text-center py-8 text-slate-400">
-                            <i class="fas fa-user-clock text-2xl mb-2 text-slate-500 block"></i>
-                            Hiện chưa có nhân viên nào trong ca làm việc hôm nay.
-                            <div class="text-[11px] text-slate-500 mt-1">Khi nhân viên đăng nhập trên máy POS, Order hoặc Bếp, hệ thống sẽ tự động chấm công và hiển thị tại đây.</div>
-                        </td>
-                    </tr>
-                `;
+                tbody.innerHTML = this.renderEmptyState(8, 'fa-id-badge', 'Chưa có nhân viên trong ca làm việc', 'Khi nhân viên đăng nhập trên máy POS, Order hoặc Bếp, hệ thống sẽ tự động chấm công và hiển thị tại đây.');
                 return;
             }
 
@@ -2870,14 +3088,7 @@ const Admin = {
             if (!tbody) return;
 
             if (this.materialsList.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="10" class="text-center py-8 text-slate-400">
-                            <i class="fas fa-boxes-stacked text-2xl mb-2 text-slate-500 block"></i>
-                            Chưa có nguyên vật liệu nào trong kho phù hợp với tìm kiếm.
-                        </td>
-                    </tr>
-                `;
+                tbody.innerHTML = this.renderEmptyState(10, 'fa-boxes-stacked', 'Kho nguyên vật liệu trống', 'Chưa có nguyên vật liệu nào trong kho phù hợp với bộ lọc tìm kiếm.');
                 return;
             }
 
@@ -4150,30 +4361,34 @@ const Admin = {
             const sumTbody = document.getElementById('payroll-summary-tbody');
             if (sumTbody) {
                 const list = data.payroll_summary || [];
-                const roleLabels = {
-                    admin: 'Quản Trị (ADM)',
-                    cashier: 'Thu Ngân (ACC)',
-                    waiter: 'Phục Vụ (STF)',
-                    kitchen: 'Tổ Bếp (KIT)',
-                    customer: 'Khách Hàng'
-                };
+                if (list.length === 0) {
+                    sumTbody.innerHTML = this.renderEmptyState(8, 'fa-money-bill-wave', 'Chưa có bảng lương', 'Không có dữ liệu tổng hợp lương trong tháng đã chọn.');
+                } else {
+                    const roleLabels = {
+                        admin: 'Quản Trị (ADM)',
+                        cashier: 'Thu Ngân (ACC)',
+                        waiter: 'Phục Vụ (STF)',
+                        kitchen: 'Tổ Bếp (KIT)',
+                        customer: 'Khách Hàng'
+                    };
 
-                sumTbody.innerHTML = list.map(ps => `
-                    <tr class="hover:bg-white/5 transition-colors">
-                        <td class="py-2.5 px-3 font-mono font-bold text-sky-400">${ps.user_code || `NV${ps.user_id}`}</td>
-                        <td class="py-2.5 px-3 font-bold text-slate-100">${ps.fullname}</td>
-                        <td class="py-2.5 px-3 text-slate-300 text-xs">${roleLabels[ps.role] || ps.role}</td>
-                        <td class="py-2.5 px-3 font-mono font-bold text-amber-400">${Admin.formatMoney(ps.hourly_rate)} đ/h</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-300">${ps.total_shifts} ca</td>
-                        <td class="py-2.5 px-3 font-mono font-bold text-sky-300">${ps.total_hours} h</td>
-                        <td class="py-2.5 px-3 text-right font-mono font-black text-emerald-400 text-sm">${Admin.formatMoney(ps.total_salary)} đ</td>
-                        <td class="py-2.5 px-3 text-right">
-                            <button type="button" onclick="Admin.openSalaryModal(${ps.user_id}, '${ps.fullname}', '${ps.role}', ${ps.hourly_rate})" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 font-bold" title="Cập nhật mức lương / giờ">
-                                <i class="fas fa-coins mr-1"></i> Sửa Lương
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
+                    sumTbody.innerHTML = list.map(ps => `
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-2.5 px-3 font-mono font-bold text-sky-400">${ps.user_code || `NV${ps.user_id}`}</td>
+                            <td class="py-2.5 px-3 font-bold text-slate-100">${ps.fullname}</td>
+                            <td class="py-2.5 px-3 text-slate-300 text-xs">${roleLabels[ps.role] || ps.role}</td>
+                            <td class="py-2.5 px-3 font-mono font-bold text-amber-400">${Admin.formatMoney(ps.hourly_rate)} đ/h</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-300">${ps.total_shifts} ca</td>
+                            <td class="py-2.5 px-3 font-mono font-bold text-sky-300">${ps.total_hours} h</td>
+                            <td class="py-2.5 px-3 text-right font-mono font-black text-emerald-400 text-sm">${Admin.formatMoney(ps.total_salary)} đ</td>
+                            <td class="py-2.5 px-3 text-right">
+                                <button type="button" onclick="Admin.openSalaryModal(${ps.user_id}, '${ps.fullname}', '${ps.role}', ${ps.hourly_rate})" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 font-bold" title="Cập nhật mức lương / giờ">
+                                    <i class="fas fa-coins mr-1"></i> Sửa Lương
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
             }
 
             // Render Detailed Attendance Log
@@ -4181,7 +4396,7 @@ const Admin = {
             if (recTbody) {
                 const records = data.attendance_records || [];
                 if (records.length === 0) {
-                    recTbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">Không có lượt chấm công nào trong tháng ${month}.</td></tr>`;
+                    recTbody.innerHTML = this.renderEmptyState(8, 'fa-calendar-check', 'Không có lượt chấm công', `Không có lượt chấm công nào trong tháng ${month}.`);
                     return;
                 }
 
@@ -4335,8 +4550,14 @@ const Admin = {
     eqPresets: [],
     mediaCatalog: [],
     mediaPollingTimer: null,
+    eqAnimFrameId: null,
+    eqBandsEnvelopes: new Float32Array(10),
 
     async loadMediaTab() {
+        this._lastRenderedTrackKey = null;
+        this._lastRenderedQueueKey = null;
+        this.mediaPlayer.init();
+        this.startEqWaveAnimation();
         await Promise.all([
             this.loadMediaEqPresets(),
             this.loadMediaJukeboxStatus(),
@@ -4373,9 +4594,11 @@ const Admin = {
     },
 
     setEqFromPreset(preset) {
+        if (!preset) return;
         const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
-        bands.forEach(b => {
-            const val = typeof preset[b] === 'number' ? preset[b] : 0.0;
+        bands.forEach((b, idx) => {
+            const raw = preset[b];
+            const val = (typeof raw === 'number') ? raw : (parseFloat(raw) || 0.0);
             this.eqBands[b] = val;
             const slider = document.getElementById(`eq-slider-${b}`);
             const label = document.getElementById(`eq-val-${b}`);
@@ -4384,14 +4607,22 @@ const Admin = {
                 label.textContent = (val > 0 ? '+' : '') + val.toFixed(1);
                 label.className = 'eq-val-badge ' + (val > 0 ? 'eq-val-boost' : (val < 0 ? 'eq-val-cut' : 'eq-val-flat'));
             }
+            const filters = (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters.length) ? window.JukeboxEngine.eqFilters : this.mediaPlayer.eqFilters;
+            if (filters && filters[idx]) {
+                filters[idx].gain.value = val;
+            }
         });
 
-        const preamp = typeof preset.preamp_gain === 'number' ? preset.preamp_gain : 0.0;
+        const rawPreamp = preset.preamp_gain;
+        const preamp = (typeof rawPreamp === 'number') ? rawPreamp : (parseFloat(rawPreamp) || 0.0);
         this.eqPreamp = preamp;
         const preampSlider = document.getElementById('eq-slider-preamp');
         const preampLabel = document.getElementById('eq-val-preamp');
         if (preampSlider) preampSlider.value = preamp;
         if (preampLabel) preampLabel.textContent = (preamp > 0 ? '+' : '') + preamp.toFixed(1) + ' dB';
+        if (this.mediaPlayer.preampNode) {
+            this.mediaPlayer.preampNode.gain.value = Math.pow(10, preamp / 20);
+        }
 
         this.renderEqCurve();
     },
@@ -4404,6 +4635,12 @@ const Admin = {
             label.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
             label.className = 'eq-val-badge ' + (num > 0 ? 'eq-val-boost' : (num < 0 ? 'eq-val-cut' : 'eq-val-flat'));
         }
+        const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+        const idx = bands.indexOf(bandName);
+        const filters = (window.JukeboxEngine && window.JukeboxEngine.eqFilters && window.JukeboxEngine.eqFilters.length) ? window.JukeboxEngine.eqFilters : this.mediaPlayer.eqFilters;
+        if (idx >= 0 && filters && filters[idx]) {
+            filters[idx].gain.value = num;
+        }
         this.renderEqCurve();
     },
 
@@ -4412,12 +4649,29 @@ const Admin = {
         this.eqPreamp = num;
         const label = document.getElementById('eq-val-preamp');
         if (label) label.textContent = (num > 0 ? '+' : '') + num.toFixed(1) + ' dB';
+        if (this.mediaPlayer.preampNode) {
+            this.mediaPlayer.preampNode.gain.value = Math.pow(10, num / 20);
+        }
     },
 
-    onEqPresetSelect(presetId) {
+    async onEqPresetSelect(presetId) {
         const found = this.eqPresets.find(p => p.id == presetId);
         if (found) {
             this.setEqFromPreset(found);
+            // Apply preset and notify
+            try {
+                await fetch('/api/media/eq/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preset_id: Number(presetId),
+                        preset_name: found.preset_name
+                    })
+                });
+                this.showToast('🎛️ Đã áp dụng preset ' + found.preset_name, 'info');
+            } catch (err) {
+                console.error('onEqPresetSelect save error:', err);
+            }
         }
     },
 
@@ -4444,42 +4698,133 @@ const Admin = {
         }
     },
 
-    renderEqCurve() {
+    startEqWaveAnimation() {
+        if (this.eqAnimFrameId) return;
+        const loop = (timestamp) => {
+            const mediaTab = document.getElementById('tab-media');
+            if (mediaTab && !mediaTab.classList.contains('hidden')) {
+                this.renderDynamicEqWave(timestamp);
+                this.eqAnimFrameId = requestAnimationFrame(loop);
+            } else {
+                this.eqAnimFrameId = null;
+            }
+        };
+        this.eqAnimFrameId = requestAnimationFrame(loop);
+    },
+
+    stopEqWaveAnimation() {
+        if (this.eqAnimFrameId) {
+            cancelAnimationFrame(this.eqAnimFrameId);
+            this.eqAnimFrameId = null;
+        }
+    },
+
+    renderDynamicEqWave(timestamp) {
+        const strokeEl = document.getElementById('eq-curve-stroke');
+        const waveEl = document.getElementById('eq-curve-wave');
+        const fillEl = document.getElementById('eq-curve-fill');
+        const nodesGroup = document.getElementById('eq-curve-nodes');
+        if (!strokeEl && !waveEl && !fillEl) return;
+
         const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
         const numPoints = bands.length;
         const startX = 30;
         const endX = 570;
         const stepX = (endX - startX) / (numPoints - 1);
 
-        const points = bands.map((b, idx) => {
-            const x = startX + idx * stepX;
-            const val = this.eqBands[b] || 0.0;
-            // 0 dB is at y = 60. Max +12dB -> y = 15, -12dB -> y = 105
-            const y = 60 - (val / 12.0) * 45;
-            return { x, y };
-        });
-
-        // Generate smooth cubic bezier curve through points
-        let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-        for (let i = 0; i < points.length - 1; i++) {
-            const p0 = (i > 0) ? points[i - 1] : points[0];
-            const p1 = points[i];
-            const p2 = points[i + 1];
-            const p3 = (i !== points.length - 2) ? points[i + 2] : p2;
-
-            const cp1x = p1.x + (p2.x - p0.x) / 6;
-            const cp1y = p1.y + (p2.y - p0.y) / 6;
-
-            const cp2x = p2.x - (p3.x - p1.x) / 6;
-            const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-            d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+        // Check if audio is actively playing and Web Audio analyser is available
+        const activeAnalyser = (window.JukeboxEngine && window.JukeboxEngine.analyser) || (this.mediaPlayer && this.mediaPlayer.analyser);
+        const activeAudio = (window.JukeboxEngine && window.JukeboxEngine.audio) || (this.mediaPlayer && this.mediaPlayer.audio);
+        const isAudioPlaying = activeAudio && !activeAudio.paused && activeAnalyser;
+        let freqData = null;
+        if (isAudioPlaying) {
+            if (!this._waveFreqData || this._waveFreqData.length !== activeAnalyser.frequencyBinCount) {
+                this._waveFreqData = new Uint8Array(activeAnalyser.frequencyBinCount);
+            }
+            activeAnalyser.getByteFrequencyData(this._waveFreqData);
+            freqData = this._waveFreqData;
         }
 
-        const strokeEl = document.getElementById('eq-curve-stroke');
-        const fillEl = document.getElementById('eq-curve-fill');
-        if (strokeEl) strokeEl.setAttribute('d', d);
-        if (fillEl) fillEl.setAttribute('d', `${d} L ${endX} 120 L ${startX} 120 Z`);
+        const t = (timestamp || performance.now()) * 0.003;
+        const binMap = [1, 2, 3, 5, 8, 12, 17, 22, 26, 30];
+
+        const points = [];
+        const wavePoints = [];
+
+        for (let idx = 0; idx < numPoints; idx++) {
+            const b = bands[idx];
+            const x = startX + idx * stepX;
+            const eqVal = this.eqBands[b] || 0.0;
+            const baseY = 60 - (eqVal / 12.0) * 45;
+
+            // Audio reaction envelope
+            let targetEnergy = 0;
+            if (freqData && binMap[idx] < freqData.length) {
+                targetEnergy = (freqData[binMap[idx]] / 255.0);
+            }
+            const prevEnv = this.eqBandsEnvelopes[idx] || 0;
+            const currentEnv = targetEnergy > prevEnv ? (prevEnv * 0.35 + targetEnergy * 0.65) : (prevEnv * 0.88 + targetEnergy * 0.12);
+            this.eqBandsEnvelopes[idx] = currentEnv;
+
+            // Audio bounce + organic harmonic ripple
+            const musicBounce = currentEnv * 18.0;
+            const ripple = Math.sin(t * 1.5 + idx * 0.75) * (1.2 + currentEnv * 4.0);
+            const microPulse = Math.cos(t * 2.8 + idx * 1.2) * (0.8 + currentEnv * 2.5);
+
+            // Primary curve Y
+            const y1 = Math.max(12, Math.min(108, baseY - musicBounce + ripple));
+            points.push({ x, y: y1, energy: currentEnv });
+
+            // Secondary ghost harmonic wave Y
+            const waveRipple = Math.sin(t * 1.8 + idx * 0.8 + 1.2) * (1.6 + currentEnv * 6.0);
+            const y2 = Math.max(12, Math.min(108, baseY - musicBounce * 0.65 + waveRipple + microPulse));
+            wavePoints.push({ x, y: y2 });
+        }
+
+        const buildPath = (pts) => {
+            let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = (i > 0) ? pts[i - 1] : pts[0];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = (i !== pts.length - 2) ? pts[i + 2] : p2;
+
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+                d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+            }
+            return d;
+        };
+
+        const mainD = buildPath(points);
+        const waveD = buildPath(wavePoints);
+
+        if (strokeEl) strokeEl.setAttribute('d', mainD);
+        if (waveEl) waveEl.setAttribute('d', waveD);
+        if (fillEl) fillEl.setAttribute('d', `${mainD} L ${endX} 120 L ${startX} 120 Z`);
+
+        // Render glowing LED node dots at the 10 frequency positions
+        if (nodesGroup) {
+            let dotsSvg = '';
+            points.forEach((p) => {
+                const r = 2.0 + p.energy * 2.0;
+                const glowOpacity = (0.35 + p.energy * 0.65).toFixed(2);
+                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}" fill="#38bdf8" />`;
+                if (p.energy > 0.25) {
+                    dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(r + 3).toFixed(1)}" fill="none" stroke="#a855f7" stroke-width="0.8" opacity="${glowOpacity}" />`;
+                }
+            });
+            nodesGroup.innerHTML = dotsSvg;
+        }
+    },
+
+    renderEqCurve() {
+        this.renderDynamicEqWave();
+        this.startEqWaveAnimation();
     },
 
     async applyEqChanges() {
@@ -4549,8 +4894,10 @@ const Admin = {
             durationEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
-        // Real Audio Playback via HTML5 Audio + Web Audio DSP
-        this.mediaPlayer.playTrack(track);
+        // Real Audio Playback via HTML5 Audio + Web Audio DSP (only if standalone without JukeboxEngine)
+        if (!window.JukeboxEngine) {
+            this.mediaPlayer.playTrack(track);
+        }
     },
 
     renderMediaQueue(queue) {
@@ -4590,9 +4937,12 @@ const Admin = {
                 </div>
 
                 <div class="flex items-center gap-2 shrink-0">
-                    <button type="button" onclick="Admin.voteMediaItem(${item.id})" class="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-[11px] font-bold flex items-center gap-1 transition">
+                    <button type="button" onclick="Admin.voteMediaItem(${item.id})" class="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-[11px] font-bold flex items-center gap-1 transition" title="Bình chọn bài hát">
                         <i class="fas fa-thumbs-up text-[10px]"></i>
                         <span>${item.vote_count}</span>
+                    </button>
+                    <button type="button" onclick="Admin.removeMediaQueueItem(${item.id}, '${(item.track_title || '').replace(/'/g, "\\'")}')" class="w-7 h-7 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 flex items-center justify-center text-xs transition active:scale-95" title="Xóa bài hát khỏi hàng đợi">
+                        <i class="fas fa-trash-alt text-[10px]"></i>
                     </button>
                 </div>
             </div>
@@ -4724,6 +5074,18 @@ const Admin = {
         isPlaying: false,
         currentTrack: null,
         init() {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.init();
+                this.audio = window.JukeboxEngine.audio;
+                this.audioCtx = window.JukeboxEngine.audioCtx;
+                this.analyser = window.JukeboxEngine.analyser;
+                this.eqFilters = window.JukeboxEngine.eqFilters;
+                this.preampNode = window.JukeboxEngine.preampNode;
+                this.freqData = window.JukeboxEngine.freqData;
+                this.isPlaying = window.JukeboxEngine.isPlaying;
+                this.currentTrack = window.JukeboxEngine.currentTrack;
+                return;
+            }
             if (this.audio) return;
             this.audio = new Audio();
             this.audio.preload = 'auto';
@@ -4768,6 +5130,15 @@ const Admin = {
         },
 
         setupWebAudio() {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine._setupWebAudio();
+                this.audioCtx = window.JukeboxEngine.audioCtx;
+                this.analyser = window.JukeboxEngine.analyser;
+                this.eqFilters = window.JukeboxEngine.eqFilters;
+                this.preampNode = window.JukeboxEngine.preampNode;
+                this.freqData = window.JukeboxEngine.freqData;
+                return;
+            }
             if (this.audioCtx) return;
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -4787,6 +5158,12 @@ const Admin = {
                     return f;
                 });
 
+                // Web Audio Analyser for Real-Time Oscilloscope Wave Visualization
+                this.analyser = this.audioCtx.createAnalyser();
+                this.analyser.fftSize = 64; // 32 frequency bins
+                this.analyser.smoothingTimeConstant = 0.75;
+                this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+
                 let prev = this.sourceNode;
                 prev.connect(this.preampNode);
                 prev = this.preampNode;
@@ -4794,13 +5171,20 @@ const Admin = {
                     prev.connect(node);
                     prev = node;
                 });
-                prev.connect(this.audioCtx.destination);
+                prev.connect(this.analyser);
+                this.analyser.connect(this.audioCtx.destination);
             } catch (err) {
                 console.warn('Web Audio DSP not supported:', err);
             }
         },
 
         playTrack(track) {
+            if (window.JukeboxEngine) {
+                if (track && track.file_path) {
+                    window.JukeboxEngine.playTrack(track);
+                }
+                return;
+            }
             this.init();
             if (this.audioCtx && this.audioCtx.state === 'suspended') {
                 this.audioCtx.resume();
@@ -4822,8 +5206,14 @@ const Admin = {
         },
 
         togglePlay() {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.togglePlay();
+                return;
+            }
             this.init();
-            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+            if (!this.audioCtx) {
+                this.setupWebAudio();
+            } else if (this.audioCtx.state === 'suspended') {
                 this.audioCtx.resume();
             }
             if (this.audio.paused) {
@@ -4834,15 +5224,23 @@ const Admin = {
         },
 
         seek(e) {
-            if (!this.audio || !this.audio.duration) return;
             const bar = e.currentTarget;
             const rect = bar.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.seek(ratio);
+                return;
+            }
+            if (!this.audio || !this.audio.duration) return;
             this.audio.currentTime = ratio * this.audio.duration;
         },
 
         setVolume(val) {
+            if (window.JukeboxEngine) {
+                window.JukeboxEngine.setVolume(val);
+                return;
+            }
             if (!this.audio) this.init();
             this.audio.volume = Math.max(0, Math.min(1, Number(val) / 100));
         },
@@ -4898,7 +5296,118 @@ const Admin = {
         }
     },
 
+    showConfirmDialog({ title, message, subtext, icon, confirmText, confirmClass, onConfirm }) {
+        let modal = document.getElementById('admin-glass-confirm-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'admin-glass-confirm-modal';
+            modal.style.cssText = 'position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; padding: 1rem; background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);';
+            modal.innerHTML = `
+                <div style="width: 440px; max-width: 100%; border-radius: 1.25rem; padding: 1.5rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); color: #fff; transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);" id="admin-glass-confirm-content">
+                    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                        <div style="width: 3rem; height: 3rem; border-radius: 1rem; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+                            <i id="admin-confirm-icon" class="fas fa-trash-alt" style="color: #fb7185;"></i>
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <h3 id="admin-confirm-title" style="font-weight: 700; font-size: 1rem; color: #fff; margin: 0;">Xác nhận xóa bài</h3>
+                            <p id="admin-confirm-msg" style="font-size: 0.8125rem; color: #cbd5e1; margin: 0.375rem 0 0 0; line-height: 1.5;"></p>
+                            <p id="admin-confirm-sub" style="font-size: 0.6875rem; color: #64748b; margin: 0.25rem 0 0 0;"></p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.625rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+                        <button type="button" id="admin-confirm-cancel-btn" style="padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.75rem; font-weight: 600; color: #94a3b8; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; transition: all 0.15s;">
+                            Hủy Bỏ
+                        </button>
+                        <button type="button" id="admin-confirm-ok-btn" style="padding: 0.5rem 1.125rem; border-radius: 0.75rem; font-size: 0.75rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, #e11d48, #be123c); border: 1px solid rgba(244, 63, 94, 0.4); box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35); cursor: pointer; transition: all 0.15s;">
+                            Xác Nhận Xóa
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closeConfirmDialog();
+            });
+        }
+
+        const titleEl = document.getElementById('admin-confirm-title');
+        const msgEl = document.getElementById('admin-confirm-msg');
+        const subEl = document.getElementById('admin-confirm-sub');
+        const iconEl = document.getElementById('admin-confirm-icon');
+        const okBtn = document.getElementById('admin-confirm-ok-btn');
+        const cancelBtn = document.getElementById('admin-confirm-cancel-btn');
+        const content = document.getElementById('admin-glass-confirm-content');
+
+        if (titleEl) titleEl.textContent = title || 'Xác nhận';
+        if (msgEl) msgEl.textContent = message || '';
+        if (subEl) subEl.textContent = subtext || '';
+        if (iconEl && icon) iconEl.className = 'fas ' + icon;
+
+        if (okBtn) {
+            okBtn.textContent = confirmText || 'Đồng Ý';
+            okBtn.onclick = async () => {
+                this.closeConfirmDialog();
+                if (typeof onConfirm === 'function') await onConfirm();
+            };
+        }
+
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeConfirmDialog();
+        }
+
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            if (content) content.style.transform = 'scale(1)';
+        });
+    },
+
+    closeConfirmDialog() {
+        const modal = document.getElementById('admin-glass-confirm-modal');
+        const content = document.getElementById('admin-glass-confirm-content');
+        if (content) content.style.transform = 'scale(0.95)';
+        if (modal) {
+            setTimeout(() => { modal.style.display = 'none'; }, 100);
+        }
+    },
+
+    removeMediaQueueItem(queueId, trackTitle = '') {
+        const songName = trackTitle ? `"${trackTitle}"` : 'bài hát này';
+        this.showConfirmDialog({
+            title: 'Xóa Bài Hát Khỏi Hàng Đợi',
+            message: `Bạn có chắc muốn xóa bài hát ${songName} khỏi danh sách phát?`,
+            subtext: 'Bài hát sẽ được dọn ngay và nhường quyền phát cho bài tiếp theo.',
+            icon: 'fa-trash-alt text-rose-400',
+            confirmText: 'Xác Nhận Xóa',
+            confirmClass: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-rose-600/30 active:scale-95',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('/api/media/jukebox/remove', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ queue_id: queueId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.showToast('🗑️ Đã xóa bài hát khỏi hàng đợi!', 'success');
+                        this.loadMediaJukeboxStatus();
+                    } else {
+                        this.showToast(data.message || 'Lỗi khi xóa bài hát', 'error');
+                    }
+                } catch (err) {
+                    console.error('removeMediaQueueItem error:', err);
+                    this.showToast('Lỗi kết nối khi xóa bài hát', 'error');
+                }
+            }
+        });
+    },
+
     async skipMediaTrack() {
+        if (window.JukeboxEngine) {
+            await window.JukeboxEngine.skip();
+            this.showToast('⏭️ Đã chuyển sang bài hát kế tiếp!', 'info');
+            return;
+        }
         // Instant non-blocking skip without freezing prompt!
         try {
             const res = await fetch('/api/media/jukebox/skip', {
@@ -5273,6 +5782,127 @@ const Admin = {
         } catch (err) {
             console.error('rescanMediaTracks error:', err);
             this.showToast('Lỗi kết nối máy chủ', 'error');
+        }
+    },
+
+    // ==========================================
+    // 8. TÀI CHÍNH & SỔ QUỸ (FINANCE REPORTS)
+    // ==========================================
+    async loadFinance() {
+        const monthInput = document.getElementById('fin-month-input');
+        if (monthInput && !monthInput.value) {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            monthInput.value = `${yyyy}-${mm}`;
+        }
+        const month = monthInput ? monthInput.value : '';
+
+        try {
+            const [repRes, expRes] = await Promise.all([
+                fetch(`api/finance.php?action=get_report&month=${month}`).then(r => r.json()).catch(() => ({})),
+                fetch(`api/finance.php?action=list_expenses&month=${month}`).then(r => r.json()).catch(() => ({}))
+            ]);
+
+            const summary = (repRes && repRes.summary) || { revenue: 0, expenses: 0, net_profit: 0 };
+            const kpiContainer = document.getElementById('fin-kpi-cards');
+            if (kpiContainer) {
+                kpiContainer.innerHTML = `
+                    <div class="liquid-glass-card p-3 border-l-4 border-emerald-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DOANH THU THỰC</span>
+                        <div class="text-xl font-black text-emerald-400 font-mono mt-1">${this.formatMoney(summary.revenue)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Tổng thu hóa đơn hoàn tất</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG CHI PHÍ</span>
+                        <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(summary.expenses)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Các khoản chi ghi nhận</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 ${summary.net_profit >= 0 ? 'border-sky-400' : 'border-rose-400'}">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LỢI NHUẬN RÒNG</span>
+                        <div class="text-xl font-black ${summary.net_profit >= 0 ? 'text-sky-400' : 'text-rose-400'} font-mono mt-1">${this.formatMoney(summary.net_profit)} đ</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Doanh thu trừ chi phí</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-purple-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỶ SUẤT LỢI NHUẬN</span>
+                        <div class="text-xl font-black text-purple-400 font-mono mt-1">${summary.revenue > 0 ? ((summary.net_profit / summary.revenue) * 100).toFixed(1) : '0'}%</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Hiệu quả dòng tiền</span>
+                    </div>
+                    <div class="liquid-glass-card p-3 border-l-4 border-teal-400">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SỐ KHOẢN CHI</span>
+                        <div class="text-xl font-black text-teal-400 font-mono mt-1">${(expRes && expRes.data) ? expRes.data.length : 0}</div>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Phiếu chi tháng ${month}</span>
+                    </div>
+                `;
+            }
+
+            const expTbody = document.getElementById('fin-expense-tbody');
+            if (expTbody) {
+                const list = (expRes && expRes.data) ? expRes.data : [];
+                if (list.length === 0) {
+                    expTbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', 'Chưa có khoản chi nào trong kỳ', 'Bấm nút "Thêm chi phí" ở trên để ghi nhận các khoản chi phát sinh trong tháng.');
+                } else {
+                    let html = '';
+                    list.forEach(item => {
+                        html += `
+                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
+                                <td><span class="font-mono text-xs text-slate-300 whitespace-nowrap">${item.expense_date || '-'}</span></td>
+                                <td><span class="saas-badge bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">${item.category || 'Khác'}</span></td>
+                                <td class="col-name"><span class="text-xs font-medium text-white whitespace-nowrap">${item.description || '-'}</span></td>
+                                <td><span class="text-xs text-slate-400 whitespace-nowrap">${item.supplier || '-'}</span></td>
+                                <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs whitespace-nowrap">${this.formatMoney(item.amount)} đ</span></td>
+                                <td class="col-money"><span class="font-mono text-slate-400 text-xs whitespace-nowrap">${this.formatMoney(item.vat_amount || 0)} đ</span></td>
+                                <td class="col-right">
+                                    <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteFinanceExpense(${item.id})" title="Xóa khoản chi">
+                                        <i class="fas fa-trash-can text-[10px]"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    expTbody.innerHTML = html;
+                }
+            }
+
+            const expGroups = document.getElementById('fin-expense-groups');
+            if (expGroups) {
+                const groups = (repRes && repRes.expense_groups) ? repRes.expense_groups : [];
+                if (groups.length === 0) {
+                    expGroups.innerHTML = '<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có phân loại chi phí trong tháng này</div>';
+                } else {
+                    let gHtml = '';
+                    groups.forEach(g => {
+                        gHtml += `
+                            <div class="flex items-center justify-between text-xs py-1 border-b border-white/5">
+                                <span class="text-slate-300">${g.category || 'Khác'} (${g.count} phiếu)</span>
+                                <span class="font-mono font-bold text-amber-400">${this.formatMoney(g.amount)} đ</span>
+                            </div>
+                        `;
+                    });
+                    expGroups.innerHTML = gHtml;
+                }
+            }
+        } catch (e) {
+            console.error('Error loading finance:', e);
+        }
+    },
+
+    async deleteFinanceExpense(id) {
+        if (!confirm('Bạn có chắc muốn xóa khoản chi này không?')) return;
+        try {
+            const res = await fetch('api/finance.php?action=delete_expense', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.loadFinance();
+            } else {
+                alert(data.message || 'Lỗi xóa khoản chi');
+            }
+        } catch (e) {
+            alert('Lỗi: ' + e.message);
         }
     }
 };
