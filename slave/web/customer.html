@@ -2636,6 +2636,7 @@
         // ==========================================
         const CustomerJukebox = {
             tracks: [],
+            _tracksSig: '',
             queue: [],
             nowPlaying: null,
             activeTab: 'tracks',
@@ -2651,8 +2652,12 @@
                     return;
                 }
                 await this.loadStatus();
+                await this.loadTracks(true);
                 if (this.timer) clearInterval(this.timer);
-                this.timer = setInterval(() => this.loadStatus(), 10000);
+                this.timer = setInterval(() => {
+                    this.loadStatus();
+                    this.loadTracks(true);
+                }, 10000);
             },
 
             async loadStatus() {
@@ -2691,13 +2696,18 @@
                 if (modalTable) modalTable.textContent = table;
             },
 
-            async loadTracks() {
+            async loadTracks(silent = false) {
                 try {
                     const res = await fetch('/api/media/tracks');
                     const data = await res.json();
                     if (data.success && Array.isArray(data.tracks)) {
+                        const sig = data.tracks.map(t => `${t.id}:${t.title}:${t.artist}:${t.genre}`).join('|');
+                        if (silent && sig === this._tracksSig && this.tracks.length > 0) {
+                            return;
+                        }
+                        this._tracksSig = sig;
                         this.tracks = data.tracks;
-                        this.renderTracksUI(this.tracks);
+                        this.filterTracks();
                     }
                 } catch (e) {
                     console.log('Jukebox load tracks error:', e);
@@ -2879,7 +2889,7 @@
                     btnQueue?.classList.add('text-slate-400');
                     viewTracks?.classList.remove('hidden');
                     viewQueue?.classList.add('hidden');
-                    if (this.tracks.length === 0) this.loadTracks();
+                    this.loadTracks(this.tracks.length > 0);
                 } else {
                     btnQueue?.classList.add('bg-purple-600', 'text-white', 'shadow-sm');
                     btnQueue?.classList.remove('text-slate-400');
