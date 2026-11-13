@@ -833,6 +833,56 @@
                                 </div>
                             </section>
 
+                            <section class="liquid-glass rounded-3xl border border-purple-500/25 p-5 sm:p-6 space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+                                    <div>
+                                        <span class="text-[10px] font-bold uppercase tracking-[.16em] text-purple-300">Master AI Vault • Zero-Exposure</span>
+                                        <h3 class="mt-0.5 text-sm font-bold text-white flex items-center gap-2">
+                                            <i class="fas fa-shield-halved text-purple-400"></i> Kho Bảo Mật Google Gemini API Key (AI Proxy)
+                                        </h3>
+                                        <p class="mt-0.5 text-[11px] text-slate-400">Key chỉ lưu duy nhất trên Master Server — máy quán không bao giờ thấy hoặc chạm vào Key.</p>
+                                    </div>
+                                    <button type="button" id="btn-master-ai-edit" onclick="SuperAdmin.toggleMasterAiKeyBox(true)" class="hidden text-xs py-1.5 px-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 border border-purple-400/30 font-semibold">
+                                        <i class="fas fa-key mr-1"></i> Đổi Key mới
+                                    </button>
+                                </div>
+
+                                <div id="master-ai-configured" class="hidden p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <div class="flex items-center gap-2 text-emerald-300 font-semibold">
+                                        <i class="fas fa-lock text-emerald-400"></i>
+                                        <span>Gemini API Key đã được xác thực, lưu &amp; ẩn bảo mật trên Master.</span>
+                                        <span id="master-ai-updated-at" class="text-[10px] text-slate-400 font-mono"></span>
+                                    </div>
+                                    <button type="button" onclick="SuperAdmin.deleteMasterGeminiKey()" class="text-[11px] text-rose-400 hover:text-rose-300 underline">Xóa Key</button>
+                                </div>
+
+                                <div id="master-ai-unconfigured" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300 flex items-center gap-2">
+                                    <i class="fas fa-triangle-exclamation text-amber-400"></i>
+                                    <span>Chưa có Gemini API Key trên Master. Hãy dán Key bên dưới để kích hoạt AI cho toàn bộ chuỗi quán.</span>
+                                </div>
+
+                                <div id="master-ai-input-box" class="space-y-2">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <input type="password" id="cfg-master-gemini-key" value="" placeholder="Dán mã Google Gemini API Key (AIza...) tại đây..." class="liquid-input flex-1 min-w-[220px] text-xs font-mono text-purple-200" autocomplete="off" />
+                                        <button type="button" onclick="SuperAdmin.verifyAndSaveMasterGeminiKey(this)" class="btn-glass text-xs py-2 px-3.5 bg-purple-600/35 hover:bg-purple-600/55 text-purple-100 border-purple-400/40 font-bold whitespace-nowrap">
+                                            <i class="fas fa-wand-magic-sparkles mr-1"></i> Kiểm tra &amp; Lưu (Tự ẩn)
+                                        </button>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400">Hệ thống sẽ kiểm tra trực tiếp với Google Gemini; hợp lệ sẽ tự động lưu và <b>ẩn khung nhập ngay</b>.</p>
+                                </div>
+
+                                <div class="pt-3 border-t border-white/10 space-y-3">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                        <div>
+                                            <span class="font-semibold text-slate-200">Cấp Quota &amp; Giám sát AI Credit theo quán (Tháng này)</span>
+                                            <div class="text-[10px] text-slate-400 mt-0.5">Quy đổi: <span class="text-sky-300">OCR = 1 cr</span> • <span class="text-emerald-300">Ảnh món = 2 cr</span> • <span class="text-purple-300">Tạo Slide = 3 cr</span></div>
+                                        </div>
+                                        <span id="master-ai-total-calls" class="font-mono font-bold text-sky-300">0 lượt • 0 credit</span>
+                                    </div>
+                                    <div id="master-ai-usage-list" class="space-y-2 text-[11px] text-slate-300 max-h-[340px] overflow-y-auto pr-1"></div>
+                                </div>
+                            </section>
+
                             <div class="sa-settings-actions rounded-3xl border border-white/10 bg-slate-900/65 p-4 sm:px-5">
                                 <p class="sa-settings-actions__note text-xs text-slate-400"><i class="fas fa-shield-halved mr-1.5 text-slate-400"></i>Thay đổi được áp dụng sau khi lưu.</p>
                                 <button type="submit" class="sa-settings-actions__button btn-glass text-sm bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
@@ -1722,7 +1772,7 @@
                     <span class="text-[10px] text-slate-400 font-mono" id="pkg-storage-dir">packages/GP001/</span>
                 </div>
 
-                <div class="rounded-xl border border-white/10 bg-slate-950/60 overflow-hidden">
+                <div class="rounded-xl border border-white/10 bg-slate-950/60 overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-900/90 text-[10px] uppercase font-bold text-slate-400 border-b border-white/10">
                             <tr>
@@ -1971,7 +2021,7 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1.5">Chọn Nhanh Số Tiền Nạp (VNĐ):</label>
-                    <div class="grid grid-cols-4 gap-2 mb-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                         <button type="button" onclick="SuperAdmin.setDepositAmount(5000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">5 Triệu</button>
                         <button type="button" onclick="SuperAdmin.setDepositAmount(15000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">15 Triệu</button>
                         <button type="button" onclick="SuperAdmin.setDepositAmount(30000000)" class="btn-glass text-xs py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-bold font-mono">30 Triệu</button>
@@ -2124,7 +2174,7 @@
                 <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-reseller-wallet-logs')">&times;</button>
             </div>
 
-            <div class="flex-1 overflow-y-auto custom-scrollbar">
+            <div class="flex-1 overflow-auto custom-scrollbar">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="border-b border-white/10 bg-slate-950/60 text-slate-400 text-[11px] uppercase tracking-wider">

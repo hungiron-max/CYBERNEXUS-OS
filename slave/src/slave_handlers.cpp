@@ -9,6 +9,7 @@
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
 #include "PluginManager.hpp"
+#include "gemini_client.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -17,7 +18,9 @@
 #include <filesystem>
 #ifdef _WIN32
 #include <iphlpapi.h>
+#include <winhttp.h>
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "winhttp.lib")
 #endif
 
 namespace SaleApp::Backend {
@@ -53,6 +56,72 @@ json ApiHandlers::parseBody(const httplib::Request& req) {
     return BodyParser::parseBody(req);
 }
 
+static std::string resolveGeminiApiKey(Database& db, const std::string& passedKey = "") {
+    if (!passedKey.empty() && passedKey.find("•••") == std::string::npos && passedKey.find("***") == std::string::npos) {
+        return passedKey;
+    }
+    auto row = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'gemini_api_key'");
+    if (!row.is_null()) {
+        return row.value("setting_value", "");
+    }
+    return "";
+}
+
+static bool callMasterAiProxy(const json& payload, json& respJsonOut, std::string& errOut) {
+    std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+    if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
+    while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
+
+    json reqJson = payload;
+    json licInfo = LicenseService::instance().getLicenseStatus();
+    reqJson["license_key"] = licInfo.value("license_key", "");
+    reqJson["machine_id"] = LicenseService::instance().getMachineId();
+
+    int st = 0;
+    std::string rawResp;
+    if (!SaleApp::AI::winHttpUrlPostJson(masterUrl + "/api/ai/proxy", reqJson.dump(), st, rawResp, errOut)) {
+        errOut = "Không thể kết nối tới Master AI Proxy (" + masterUrl + "): " + errOut;
+        return false;
+    }
+    try {
+        respJsonOut = json::parse(rawResp);
+    } catch (...) {
+        errOut = "Phản hồi không hợp lệ từ Master AI Proxy (HTTP " + std::to_string(st) + ")";
+        return false;
+    }
+    if (st < 200 || st >= 300 || !respJsonOut.value("success", false)) {
+        errOut = respJsonOut.value("message", "Master AI Proxy từ chối yêu cầu (HTTP " + std::to_string(st) + ")");
+        return false;
+    }
+    return true;
+}
+
+static bool fetchMasterAiQuota(json& quotaOut) {
+    std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+    if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
+    while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
+    json licInfo = LicenseService::instance().getLicenseStatus();
+    std::string licKey = licInfo.value("license_key", "");
+    if (licKey.empty()) return false;
+    json reqJson = {
+        {"license_key", licKey},
+        {"machine_id", LicenseService::instance().getMachineId()}
+    };
+    int st = 0;
+    std::string rawResp, errOut;
+    if (!SaleApp::AI::winHttpUrlPostJson(masterUrl + "/api/ai/quota", reqJson.dump(), st, rawResp, errOut)) {
+        return false;
+    }
+    try {
+        json j = json::parse(rawResp);
+        if (st >= 200 && st < 300 && j.value("success", false)) {
+            quotaOut = j;
+            return true;
+        }
+    } catch (...) {}
+    return false;
+}
+
 static std::string getCurrentTimestamp() {
     std::time_t now = std::time(nullptr);
     char buf[64];
@@ -65,6 +134,204 @@ static std::string getCurrentDate() {
     char buf[32];
     std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&now));
     return std::string(buf);
+}
+
+struct ShiftCfg {
+    std::string s1Name = "Ca 1 (Ca Sáng)";
+    std::string s1Start = "06:30";
+    std::string s1End = "12:30";
+    std::string s2Name = "Ca 2 (Ca Chiều / Tối)";
+    std::string s2Start = "12:30";
+    std::string s2End = "22:30";
+    int graceMinutes = 15;
+    bool autoClose = true;
+};
+
+static int parseHHMMToMinutes(const std::string& hhmm, int fallbackMin) {
+    int h = 0, m = 0;
+    if (std::sscanf(hhmm.c_str(), "%d:%d", &h, &m) >= 2) {
+        return std::max(0, std::min(1439, h * 60 + m));
+    }
+    return fallbackMin;
+}
+
+static std::time_t parseTimestampLocal(const std::string& ts) {
+    if (ts.size() < 16) return 0;
+    std::tm tmVal{};
+    int sec = 0;
+    int parsed = std::sscanf(ts.c_str(), "%d-%d-%d %d:%d:%d",
+                             &tmVal.tm_year, &tmVal.tm_mon, &tmVal.tm_mday,
+                             &tmVal.tm_hour, &tmVal.tm_min, &sec);
+    if (parsed < 5) return 0;
+    tmVal.tm_year -= 1900;
+    tmVal.tm_mon -= 1;
+    tmVal.tm_sec = (parsed >= 6) ? sec : 0;
+    tmVal.tm_isdst = -1;
+    return std::mktime(&tmVal);
+}
+
+static double calcHoursBetween(const std::string& startTs, const std::string& endTs) {
+    std::time_t t1 = parseTimestampLocal(startTs);
+    std::time_t t2 = parseTimestampLocal(endTs);
+    if (t1 <= 0 || t2 <= 0 || t2 <= t1) return 0.0;
+    double hrs = static_cast<double>(t2 - t1) / 3600.0;
+    return std::round(hrs * 100.0) / 100.0;
+}
+
+static std::string formatElapsedHMS(const std::string& startTs, const std::string& nowTs) {
+    std::time_t t1 = parseTimestampLocal(startTs);
+    std::time_t t2 = parseTimestampLocal(nowTs);
+    int64_t diff = (t1 > 0 && t2 > t1) ? static_cast<int64_t>(t2 - t1) : 0;
+    int64_t h = diff / 3600;
+    int64_t m = (diff % 3600) / 60;
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%02lldh %02lldm", static_cast<long long>(h), static_cast<long long>(m));
+    return std::string(buf);
+}
+
+static ShiftCfg loadShiftCfg(Database& db) {
+    ShiftCfg cfg;
+    json rows = db.query("SELECT setting_key, setting_value FROM store_settings WHERE setting_key LIKE 'shift%'");
+    for (const auto& r : rows) {
+        std::string k = r.value("setting_key", "");
+        std::string v = r.value("setting_value", "");
+        if (v.empty()) continue;
+        if (k == "shift1_name") cfg.s1Name = v;
+        else if (k == "shift1_start") cfg.s1Start = v;
+        else if (k == "shift1_end") cfg.s1End = v;
+        else if (k == "shift2_name") cfg.s2Name = v;
+        else if (k == "shift2_start") cfg.s2Start = v;
+        else if (k == "shift2_end") cfg.s2End = v;
+        else if (k == "shift_grace_minutes") { try { cfg.graceMinutes = std::max(0, std::stoi(v)); } catch (...) {} }
+        else if (k == "shift_autoclose_enabled") cfg.autoClose = (v == "1" || v == "true");
+    }
+    return cfg;
+}
+
+static std::string shortDeviceLabel(const std::string& ua) {
+    if (ua.empty()) return "POS / Web";
+    if (ua.find("iPhone") != std::string::npos || ua.find("iPad") != std::string::npos) return "iPhone / iPad";
+    if (ua.find("Android") != std::string::npos) return "Android Mobile";
+    if (ua.find("Windows") != std::string::npos) return "Windows PC";
+    if (ua.find("Macintosh") != std::string::npos) return "MacOS";
+    return ua.substr(0, std::min<size_t>(40, ua.size()));
+}
+
+static void closeStaffAttendance(Database& db, int64_t attId, const std::string& checkOutTs, const std::string& note) {
+    auto row = db.queryRow("SELECT check_in_time, hourly_rate FROM attendances WHERE id = :id", {{":id", attId}});
+    if (row.is_null()) return;
+    std::string inTs = row.value("check_in_time", "");
+    double rate = 25000.0;
+    try { if (row.contains("hourly_rate") && row["hourly_rate"].is_number()) rate = row["hourly_rate"].get<double>(); } catch (...) {}
+    double hrs = calcHoursBetween(inTs, checkOutTs);
+    double pay = std::round(hrs * rate);
+    db.execute(R"(
+        UPDATE attendances
+        SET check_out_time = :out, work_hours = :hrs, total_pay = :pay, status = 'completed',
+            note = CASE WHEN :note != '' THEN :note ELSE note END
+        WHERE id = :id
+    )", {
+        {":out", checkOutTs}, {":hrs", hrs}, {":pay", pay}, {":note", note}, {":id", attId}
+    });
+}
+
+static void ensureStaffCheckIn(Database& db, int64_t userId, const std::string& userAgent) {
+    if (userId <= 0) return;
+    auto u = db.queryRow("SELECT id, username, fullname, user_code, role, COALESCE(hourly_rate, 25000) as hourly_rate FROM users WHERE id = :id", {{":id", userId}});
+    if (u.is_null()) return;
+    std::string role = u.value("role", "cashier");
+    if (role == "customer") return;
+
+    std::string today = getCurrentDate();
+    std::string nowTs = getCurrentTimestamp();
+    std::string dev = shortDeviceLabel(userAgent);
+
+    db.execute("UPDATE users SET is_online = 1, last_active_at = :now WHERE id = :id", {{":now", nowTs}, {":id", userId}});
+
+    auto openRow = db.queryRow("SELECT id FROM attendances WHERE user_id = :uid AND work_date = :wd AND status = 'working' ORDER BY id DESC LIMIT 1", {{":uid", userId}, {":wd", today}});
+    if (!openRow.is_null()) {
+        if (!userAgent.empty()) {
+            db.execute("UPDATE attendances SET device_info = :dev WHERE id = :id", {{":dev", dev}, {":id", openRow["id"]}});
+        }
+        return;
+    }
+
+    std::string fullname = u.value("fullname", u.value("username", "Nhân viên"));
+    std::string userCode = u.value("user_code", "");
+    double rate = 25000.0;
+    try { if (u.contains("hourly_rate") && u["hourly_rate"].is_number()) rate = u["hourly_rate"].get<double>(); } catch (...) {}
+
+    db.execute(R"(
+        INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, hourly_rate, status, device_info, note)
+        VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :rate, 'working', :dev, 'Tự động check-in khi đăng nhập')
+    )", {
+        {":uid", userId}, {":uname", fullname}, {":ucode", userCode}, {":urole", role},
+        {":wd", today}, {":cin", nowTs}, {":rate", rate}, {":dev", dev}
+    });
+}
+
+static void autoProcessShifts(Database& db) {
+    ShiftCfg cfg = loadShiftCfg(db);
+    std::string today = getCurrentDate();
+    std::string nowTs = getCurrentTimestamp();
+    std::time_t nowT = std::time(nullptr);
+    std::tm* nowTm = std::localtime(&nowT);
+    int nowMin = nowTm ? (nowTm->tm_hour * 60 + nowTm->tm_min) : 0;
+    int s1EndMin = parseHHMMToMinutes(cfg.s1End, 12 * 60 + 30);
+    int s2EndMin = parseHHMMToMinutes(cfg.s2End, 22 * 60 + 30);
+
+    json openRows = db.query(R"(
+        SELECT a.id, a.user_id, a.user_name, a.user_code, a.user_role, a.work_date, a.check_in_time,
+               a.hourly_rate, a.device_info, COALESCE(u.last_active_at, '') as last_active_at
+        FROM attendances a
+        LEFT JOIN users u ON u.id = a.user_id
+        WHERE a.status = 'working'
+    )");
+
+    for (const auto& r : openRows) {
+        int64_t attId = r.value("id", static_cast<int64_t>(0));
+        int64_t uid = r.value("user_id", static_cast<int64_t>(0));
+        std::string wd = r.value("work_date", "");
+        std::string cin = r.value("check_in_time", "");
+        std::string lastAct = r.value("last_active_at", "");
+
+        if (wd < today) {
+            closeStaffAttendance(db, attId, wd + " " + cfg.s2End + ":00", "Tự động chốt ca qua ngày");
+            continue;
+        }
+        if (!cfg.autoClose || wd != today) continue;
+
+        std::string cinHHMM = (cin.size() >= 16) ? cin.substr(11, 5) : "00:00";
+        int inMin = parseHHMMToMinutes(cinHHMM, 0);
+
+        // If checked in during Ca 1 and past Ca 1 end + grace
+        if (inMin < s1EndMin && nowMin > s1EndMin + cfg.graceMinutes) {
+            std::string s1CloseTs = today + " " + cfg.s1End + ":00";
+            std::time_t actT = parseTimestampLocal(lastAct);
+            bool stillActive = (actT > 0 && (nowT - actT) <= 20 * 60);
+            closeStaffAttendance(db, attId, s1CloseTs, stillActive ? "Tự động tách ca hết Ca 1" : "Tự động chốt hết Ca 1");
+
+            if (stillActive && nowMin <= s2EndMin + cfg.graceMinutes) {
+                double rate = 25000.0;
+                try { if (r.contains("hourly_rate") && r["hourly_rate"].is_number()) rate = r["hourly_rate"].get<double>(); } catch (...) {}
+                db.execute(R"(
+                    INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, hourly_rate, status, device_info, note)
+                    VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :rate, 'working', :dev, 'Tự động tách sang Ca 2')
+                )", {
+                    {":uid", uid},
+                    {":uname", r.value("user_name", "")},
+                    {":ucode", r.value("user_code", "")},
+                    {":urole", r.value("user_role", "cashier")},
+                    {":wd", today},
+                    {":cin", s1CloseTs},
+                    {":rate", rate},
+                    {":dev", r.value("device_info", "POS / Web")}
+                });
+            }
+        } else if (nowMin > s2EndMin + cfg.graceMinutes) {
+            closeStaffAttendance(db, attId, today + " " + cfg.s2End + ":00", "Tự động chốt hết Ca 2");
+        }
+    }
 }
 
 static std::string getAction(const httplib::Request& req, const json& body) {
@@ -237,6 +504,9 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 
         auto result = auth.login(username, password);
         if (result.value("success", false)) {
+            if (result.contains("user") && result["user"].contains("id")) {
+                ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"));
+            }
             std::string token = result.value("token", "");
             res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", token));
             res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
@@ -259,6 +529,9 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 
         auto result = auth.loginPin(pin);
         if (result.value("success", false)) {
+            if (result.contains("user") && result["user"].contains("id")) {
+                ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"));
+            }
             std::string token = result.value("token", "");
             res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", token));
             res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
@@ -279,11 +552,8 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 
         std::string token = auth.extractToken(req);
         auth.touchSession(token);
-
-        db.execute(
-            "UPDATE users SET is_online = 1, last_active_at = datetime('now') WHERE id = :id",
-            {{":id", userOpt->id}}
-        );
+        ensureStaffCheckIn(db, userOpt->id, req.get_header_value("User-Agent"));
+        autoProcessShifts(db);
 
         sendJson(res, {
             {"success", true},
@@ -294,8 +564,17 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         return;
     }
 
-    // 1.5 Action: logout (hủy phiên & xóa cookie)
+    // 1.5 Action: logout (hủy phiên & xóa cookie + chốt checkout ca đang mở)
     if (action == "logout") {
+        auto userOpt = auth.authenticate(req);
+        if (userOpt.has_value()) {
+            std::string nowTs = getCurrentTimestamp();
+            json openRows = db.query("SELECT id FROM attendances WHERE user_id = :uid AND status = 'working'", {{":uid", userOpt->id}});
+            for (const auto& r : openRows) {
+                closeStaffAttendance(db, r.value("id", static_cast<int64_t>(0)), nowTs, "Check-out khi đăng xuất");
+            }
+            db.execute("UPDATE users SET is_online = 0 WHERE id = :id", {{":id", userOpt->id}});
+        }
         std::string token = auth.extractToken(req);
         auth.destroySession(token);
 
@@ -716,6 +995,72 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
     auto userOpt = AuthService::instance().authenticate(req);
     if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
         sendJson(res, {{"success", false}, {"message", "Bạn không có quyền thực hiện thao tác này (yêu cầu Admin)!"}}, 403);
+        return;
+    }
+
+    // 1.5 AI Tạo Ảnh Món Ăn Tự Động (ai_dish_studio) — ưu tiên Master AI Proxy bảo mật
+    if (action == "ai_generate_dish_image") {
+        if (!requireModule(res, "ai_dish_studio", "AI Tạo Ảnh Món Ăn Tự Động")) return;
+        std::string name = BodyParser::getParam(req, body, "name");
+        std::string catName = BodyParser::getParam(req, body, "category_name");
+        std::string passedKey = BodyParser::getParam(req, body, "gemini_api_key");
+        int64_t id = 0;
+        try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+        if (name.empty()) {
+            sendError(res, "Vui lòng nhập tên món ăn!", 400);
+            return;
+        }
+
+        std::string imgB64, mime, modelUsed, err;
+        std::string localKey = resolveGeminiApiKey(db, passedKey);
+        if (!localKey.empty()) {
+            std::string prompt = "Professional commercial food and beverage studio photography of Vietnamese cafe/restaurant dish: \"" + name + "\"";
+            if (!catName.empty()) prompt += " (Category: " + catName + ")";
+            prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
+            if (!SaleApp::AI::geminiGenerateImageBase64(localKey, prompt, imgB64, mime, modelUsed, err)) {
+                sendError(res, "Không thể tạo ảnh AI: " + err, 502);
+                return;
+            }
+        } else {
+            json proxyResp;
+            if (!callMasterAiProxy({{"action", "generate_dish_image"}, {"name", name}, {"category_name", catName}}, proxyResp, err)) {
+                sendError(res, err, 502);
+                return;
+            }
+            imgB64 = proxyResp.value("image_base64", "");
+            mime = proxyResp.value("mime_type", "image/png");
+            modelUsed = proxyResp.value("ai_engine", "CyberNexus Master AI");
+        }
+
+        std::string imgBytes = SaleApp::AI::base64Decode(imgB64);
+        if (imgBytes.empty()) {
+            sendError(res, "Dữ liệu ảnh AI trả về không hợp lệ!", 502);
+            return;
+        }
+        std::string ext = (mime.find("jpeg") != std::string::npos || mime.find("jpg") != std::string::npos) ? ".jpg" : ".png";
+        auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+        std::string saveName = "dish_" + AuthService::sha256(name + std::to_string(nowMs)).substr(0, 20) + ext;
+        namespace fs = std::filesystem;
+        fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "products";
+        fs::create_directories(targetDir);
+        std::ofstream ofs(targetDir / saveName, std::ios::binary);
+        if (!ofs) {
+            sendError(res, "Không thể lưu file ảnh trên server!", 500);
+            return;
+        }
+        ofs.write(imgBytes.data(), imgBytes.size());
+        ofs.close();
+
+        std::string webUrl = "uploads/products/" + saveName;
+        if (id > 0) {
+            db.execute("UPDATE products SET image = :img WHERE id = :id", {{":img", webUrl}, {":id", id}});
+        }
+        sendJson(res, {
+            {"success", true},
+            {"image_url", webUrl},
+            {"ai_engine", modelUsed},
+            {"message", "AI (" + modelUsed + ") đã tạo ảnh món ăn thành công!"}
+        });
         return;
     }
 
@@ -1382,27 +1727,39 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 std::string dateFrom = BodyParser::getParam(req, body, "date_from", "");
                 std::string dateTo = BodyParser::getParam(req, body, "date_to", "");
                 std::string statusFilter = BodyParser::getParam(req, body, "status", "");
+                std::string search = BodyParser::getParam(req, body, "search", "");
+                std::string allDates = BodyParser::getParam(req, body, "all_dates", "");
 
-                if (dateFrom.empty() && dateTo.empty()) {
+                if (dateFrom.empty() && dateTo.empty() && allDates != "1" && search.empty()) {
                     dateFrom = today;
                     dateTo = today;
                 }
 
-                std::string sql = "SELECT * FROM orders WHERE 1=1";
+                std::string sql = R"(
+                    SELECT o.*,
+                           (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id) as items_count,
+                           (SELECT GROUP_CONCAT(oi.product_name || ' x' || oi.quantity, ', ') FROM order_items oi WHERE oi.order_id = o.id) as items_summary
+                    FROM orders o
+                    WHERE 1=1
+                )";
                 std::vector<std::pair<std::string, json>> params;
                 if (!dateFrom.empty()) {
-                    sql += " AND substr(created_at, 1, 10) >= :df";
+                    sql += " AND substr(o.created_at, 1, 10) >= :df";
                     params.emplace_back(":df", dateFrom);
                 }
                 if (!dateTo.empty()) {
-                    sql += " AND substr(created_at, 1, 10) <= :dt";
+                    sql += " AND substr(o.created_at, 1, 10) <= :dt";
                     params.emplace_back(":dt", dateTo);
                 }
                 if (!statusFilter.empty() && statusFilter != "all") {
-                    sql += " AND status = :st";
+                    sql += " AND o.status = :st";
                     params.emplace_back(":st", statusFilter);
                 }
-                sql += " ORDER BY id DESC LIMIT 500";
+                if (!search.empty()) {
+                    sql += " AND (o.order_code LIKE :q OR o.table_code LIKE :q OR o.user_name LIKE :q OR o.customer_name LIKE :q)";
+                    params.emplace_back(":q", "%" + search + "%");
+                }
+                sql += " ORDER BY o.id DESC LIMIT 500";
                 sendJson(res, {{"success", true}, {"data", db.query(sql, params)}});
                 return;
             }
@@ -2290,47 +2647,78 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
             std::string dateFrom = req.get_param_value("date_from");
             std::string dateTo = req.get_param_value("date_to");
 
-            int days = 7;
-            if (period == "14d") days = 14;
-            else if (period == "30d" || period == "month") days = 30;
-
-            json chartData;
-            if (!dateFrom.empty() && !dateTo.empty()) {
-                chartData = db.query(R"(
-                    SELECT date(created_at) as order_date, COALESCE(SUM(total_amount), 0) as daily_revenue, COUNT(*) as count
-                    FROM orders
-                    WHERE status = 'completed' AND date(created_at) >= :f AND date(created_at) <= :t
-                    GROUP BY date(created_at)
-                    ORDER BY date(created_at) ASC
-                )", {{":f", dateFrom}, {":t", dateTo}});
-            } else {
-                std::string offset = "-" + std::to_string(days) + " days";
-                chartData = db.query(R"(
-                    SELECT date(created_at) as order_date, COALESCE(SUM(total_amount), 0) as daily_revenue, COUNT(*) as count
-                    FROM orders
-                    WHERE status = 'completed' AND created_at >= date('now', :off)
-                    GROUP BY date(created_at)
-                    ORDER BY date(created_at) ASC
-                )", {{":off", offset}});
+            if (dateFrom.empty() || dateTo.empty()) {
+                json rangeRow;
+                if (period == "today") {
+                    rangeRow = db.queryRow("SELECT date('now', 'localtime') as f, date('now', 'localtime') as t");
+                } else if (period == "14d") {
+                    rangeRow = db.queryRow("SELECT date('now', 'localtime', '-13 days') as f, date('now', 'localtime') as t");
+                } else if (period == "30d") {
+                    rangeRow = db.queryRow("SELECT date('now', 'localtime', '-29 days') as f, date('now', 'localtime') as t");
+                } else if (period == "month") {
+                    rangeRow = db.queryRow("SELECT date('now', 'localtime', 'start of month') as f, date('now', 'localtime') as t");
+                } else if (period == "last_month") {
+                    rangeRow = db.queryRow("SELECT date('now', 'localtime', 'start of month', '-1 month') as f, date('now', 'localtime', 'start of month', '-1 day') as t");
+                } else {
+                    rangeRow = db.queryRow("SELECT date('now', 'localtime', '-6 days') as f, date('now', 'localtime') as t");
+                }
+                dateFrom = getString(rangeRow, "f");
+                dateTo = getString(rangeRow, "t");
             }
+            if (dateFrom > dateTo) std::swap(dateFrom, dateTo);
 
-            json labels = json::array();
-            json revenues = json::array();
-            json counts = json::array();
+            json chartData = db.query(R"(
+                WITH RECURSIVE dates(d, step) AS (
+                    SELECT date(:f), 0
+                    UNION ALL
+                    SELECT date(d, '+1 day'), step + 1
+                    FROM dates
+                    WHERE d < date(:t) AND step < 366
+                ),
+                agg AS (
+                    SELECT date(created_at) as order_date,
+                           COALESCE(SUM(total_amount), 0) as daily_revenue,
+                           COUNT(id) as orders_count
+                    FROM orders
+                    WHERE status = 'completed'
+                      AND date(created_at) >= date(:f)
+                      AND date(created_at) <= date(:t)
+                    GROUP BY date(created_at)
+                )
+                SELECT dates.d as order_date,
+                       strftime('%d/%m', dates.d) as label,
+                       COALESCE(agg.daily_revenue, 0) as revenue,
+                       COALESCE(agg.orders_count, 0) as orders
+                FROM dates
+                LEFT JOIN agg ON agg.order_date = dates.d
+                ORDER BY dates.d ASC
+            )", {{":f", dateFrom}, {":t", dateTo}});
+
+            double totalRev = 0.0;
+            int64_t totalOrd = 0;
+            json dataArr = json::array();
             for (const auto& r : chartData) {
-                labels.push_back(r.value("order_date", ""));
-                revenues.push_back(getDouble(r, "daily_revenue", 0.0));
-                counts.push_back(getInt(r, "count", 0));
+                double rev = getDouble(r, "revenue", 0.0);
+                int64_t ord = getInt(r, "orders", 0);
+                totalRev += rev;
+                totalOrd += ord;
+                dataArr.push_back({
+                    {"date", getString(r, "order_date")},
+                    {"label", getString(r, "label")},
+                    {"revenue", rev},
+                    {"orders", ord}
+                });
             }
 
             sendJson(res, {
                 {"success", true},
-                {"data", {
-                    {"labels", labels},
-                    {"datasets", {
-                        {{"label", "Doanh thu (VNĐ)"}, {"data", revenues}},
-                        {{"label", "Số đơn hàng"}, {"data", counts}}
-                    }}
+                {"data", dataArr},
+                {"summary", {
+                    {"total_revenue", totalRev},
+                    {"total_orders", totalOrd},
+                    {"date_from", dateFrom},
+                    {"date_to", dateTo},
+                    {"days_count", dataArr.size()}
                 }}
             });
             return;
@@ -2468,6 +2856,21 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                 LIMIT 5
             )", p);
 
+            auto userOpt = AuthService::instance().authenticate(req);
+            std::string userName = userOpt.has_value() && !userOpt->fullname.empty() ? userOpt->fullname : "Thu ngân";
+            std::string userRole = userOpt.has_value() && !userOpt->role.empty() ? userOpt->role : "POS";
+            std::time_t nowT = std::time(nullptr);
+            std::tm tmBuf{};
+#ifdef _WIN32
+            localtime_s(&tmBuf, &nowT);
+#else
+            localtime_r(&nowT, &tmBuf);
+#endif
+            char genBuf[32] = {0};
+            std::snprintf(genBuf, sizeof(genBuf), "%02d/%02d/%02d %02d:%02d:%02d",
+                          tmBuf.tm_mday, tmBuf.tm_mon + 1, (tmBuf.tm_year + 1900) % 100,
+                          tmBuf.tm_hour, tmBuf.tm_min, tmBuf.tm_sec);
+
             sendJson(res, {
                 {"success", true},
                 {"data", {
@@ -2481,7 +2884,10 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                     {"banking_orders", getInt(agg, "banking_orders", 0)},
                     {"avg_order_value", avgOrderValue},
                     {"total_discount", getDouble(agg, "total_discount", 0.0)},
-                    {"top_products", topProducts}
+                    {"top_products", topProducts},
+                    {"user_name", userName},
+                    {"user_role", userRole},
+                    {"generated_at", std::string(genBuf)}
                 }}
             });
             return;
@@ -2504,34 +2910,98 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
         if (req.method == "GET") {
             std::string month = req.get_param_value("month");
-            if (month.empty()) {
+            if (month.empty() || month.size() < 7) {
                 char buf[16];
                 std::time_t now = std::time(nullptr);
                 std::strftime(buf, sizeof(buf), "%Y-%m", std::localtime(&now));
                 month = buf;
+            } else {
+                month = month.substr(0, 7);
+            }
+
+            // Compute exact cycle: day 01 to last day of month
+            int yr = 2026, mo = 1;
+            if (std::sscanf(month.c_str(), "%d-%d", &yr, &mo) < 2 || mo < 1 || mo > 12) {
+                std::time_t now = std::time(nullptr);
+                std::tm* lt = std::localtime(&now);
+                yr = lt ? (lt->tm_year + 1900) : 2026;
+                mo = lt ? (lt->tm_mon + 1) : 1;
+            }
+            static const int mdays[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+            int daysInMonth = mdays[mo - 1];
+            if (mo == 2 && ((yr % 4 == 0 && yr % 100 != 0) || (yr % 400 == 0))) daysInMonth = 29;
+
+            char pStartBuf[16], pEndBuf[16];
+            std::snprintf(pStartBuf, sizeof(pStartBuf), "%04d-%02d-01", yr, mo);
+            std::snprintf(pEndBuf, sizeof(pEndBuf), "%04d-%02d-%02d", yr, mo, daysInMonth);
+            std::string periodStart = pStartBuf;
+            std::string periodEnd = pEndBuf;
+
+            std::string todayStr = getCurrentDate();
+            std::string todayMonth = todayStr.substr(0, 7);
+            int elapsedDays = daysInMonth;
+            if (month == todayMonth && todayStr.size() >= 10) {
+                elapsedDays = std::max(1, std::min(daysInMonth, std::stoi(todayStr.substr(8, 2))));
+            } else if (month > todayMonth) {
+                elapsedDays = 0;
+            }
+
+            // Ensure payment_status column exists on finance_expenses for AP debt tracking
+            static bool finColChecked = false;
+            if (!finColChecked) {
+                finColChecked = true;
+                try {
+                    json cols = db.query("PRAGMA table_info(finance_expenses)");
+                    bool hasPayStatus = false;
+                    for (const auto& c : cols) {
+                        if (c.value("name", "") == "payment_status") { hasPayStatus = true; break; }
+                    }
+                    if (!hasPayStatus) {
+                        db.execute("ALTER TABLE finance_expenses ADD COLUMN payment_status TEXT DEFAULT 'paid'");
+                    }
+                } catch (...) {}
             }
 
             if (action == "list_expenses" || action.empty()) {
                 if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
                 json list = db.query(
-                    "SELECT * FROM finance_expenses WHERE substr(expense_date, 1, 7) = :m ORDER BY expense_date DESC, id DESC",
-                    {{":m", month}}
+                    "SELECT * FROM finance_expenses WHERE substr(expense_date, 1, 10) BETWEEN :ps AND :pe ORDER BY expense_date DESC, id DESC",
+                    {{":ps", periodStart}, {":pe", periodEnd}}
                 );
-                sendJson(res, {{"success", true}, {"data", list}});
+                sendJson(res, {{"success", true}, {"period_start", periodStart}, {"period_end", periodEnd}, {"data", list}});
+                return;
+            }
+
+            if (action == "get_tax_settings") {
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                json rows = db.query("SELECT setting_key, setting_value FROM store_settings WHERE setting_key LIKE 'finance_%'");
+                json cfg = {
+                    {"finance_vat_rate", "8"},
+                    {"finance_pit_rate", "1.5"},
+                    {"finance_fixed_cost", "0"}
+                };
+                for (const auto& r : rows) {
+                    cfg[r.value("setting_key", "")] = r.value("setting_value", "");
+                }
+                sendJson(res, {{"success", true}, {"data", cfg}});
                 return;
             }
 
             if (action == "get_report") {
                 if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                autoProcessShifts(db);
+                std::string nowTs = getCurrentTimestamp();
+
                 json orderAgg = db.queryRow(R"(
                     SELECT COUNT(*) as order_count,
-                           COALESCE(SUM(subtotal), 0) as gross_sales,
-                           COALESCE(SUM(discount_amount), 0) as discounts,
-                           COALESCE(SUM(vat_amount), 0) as vat_collected,
+                           COALESCE(SUM(CASE WHEN subtotal > 0 THEN subtotal ELSE total_amount + COALESCE(discount_amount, 0) - COALESCE(vat_amount, 0) END), 0) as gross_sales,
+                           COALESCE(SUM(COALESCE(discount_amount, 0)), 0) as discounts,
+                           COALESCE(SUM(COALESCE(vat_amount, 0)), 0) as vat_collected,
                            COALESCE(SUM(total_amount), 0) as revenue
                     FROM orders
-                    WHERE status = 'completed' AND substr(created_at, 1, 7) = :m
-                )", {{":m", month}});
+                    WHERE status = 'completed'
+                      AND substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) BETWEEN :ps AND :pe
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
 
                 int64_t orderCount = getInt(orderAgg, "order_count", 0);
                 double grossSales = getDouble(orderAgg, "gross_sales", 0.0);
@@ -2539,42 +3009,185 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 double vatCollected = getDouble(orderAgg, "vat_collected", 0.0);
                 double revenue = getDouble(orderAgg, "revenue", 0.0);
 
-                double cogs = db.queryScalar(R"(
-                    SELECT COALESCE(SUM(oi.quantity * COALESCE(p.cost_price, 0)), 0)
+                // Live pending / serving tables (unrealized revenue)
+                json pendingAgg = db.queryRow(
+                    "SELECT COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as amt FROM orders WHERE status = 'pending'"
+                );
+                int64_t pendingOrdersCount = getInt(pendingAgg, "cnt", 0);
+                double pendingRevenue = getDouble(pendingAgg, "amt", 0.0);
+
+                // Receivables (công nợ phải thu: đơn đã chốt nhưng chưa thu tiền / ghi nợ)
+                json recAgg = db.queryRow(R"(
+                    SELECT COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as amt
+                    FROM orders
+                    WHERE status = 'completed'
+                      AND (COALESCE(payment_status, 'paid') = 'unpaid' OR LOWER(COALESCE(payment_method, '')) = 'debt')
+                      AND substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) BETWEEN :ps AND :pe
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
+                int64_t receivableCount = getInt(recAgg, "cnt", 0);
+                double receivableAmount = getDouble(recAgg, "amt", 0.0);
+
+                // Smart COGS: direct from order_items + proportional estimate for orders without item cost
+                json cogsRow = db.queryRow(R"(
+                    SELECT COALESCE(SUM(oi.quantity * COALESCE(p.cost_price, 0)), 0) as direct_cogs,
+                           COALESCE(SUM(CASE WHEN COALESCE(p.cost_price, 0) > 0 THEN oi.subtotal ELSE 0 END), 0) as costed_rev
                     FROM order_items oi
                     JOIN orders o ON oi.order_id = o.id
                     LEFT JOIN products p ON oi.product_id = p.id
-                    WHERE o.status = 'completed' AND substr(o.created_at, 1, 7) = :m
-                )", {{":m", month}}).get<double>();
+                    WHERE o.status = 'completed'
+                      AND substr(COALESCE(NULLIF(o.completed_at, ''), o.created_at), 1, 10) BETWEEN :ps AND :pe
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
+                double directCogs = getDouble(cogsRow, "direct_cogs", 0.0);
+                double costedRev = getDouble(cogsRow, "costed_rev", 0.0);
+                double cogs = directCogs;
+                if (revenue > costedRev && costedRev > 0 && directCogs > 0) {
+                    double ratio = std::max(0.20, std::min(0.65, directCogs / costedRev));
+                    cogs += std::round((revenue - costedRev) * ratio);
+                } else if (directCogs <= 0 && revenue > 0) {
+                    cogs = std::round(revenue * 0.35);
+                }
 
+                // Material inventory transactions in cycle
+                double materialImportCost = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'import' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                    {{":ps", periodStart}, {":pe", periodEnd}}
+                ).get<double>();
+                double materialLossCost = db.queryScalar(
+                    "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'loss' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                    {{":ps", periodStart}, {":pe", periodEnd}}
+                ).get<double>();
+
+                // Real-time Labor cost from attendances (completed + live working shifts)
+                json attRows = db.query(
+                    "SELECT check_in_time, work_hours, hourly_rate, total_pay, status FROM attendances WHERE work_date BETWEEN :ps AND :pe",
+                    {{":ps", periodStart}, {":pe", periodEnd}}
+                );
+                double laborCost = 0.0;
+                double laborHours = 0.0;
+                double laborRealtimeAccrued = 0.0;
+                int workingStaffCount = 0;
+                for (const auto& a : attRows) {
+                    std::string st = a.value("status", "");
+                    double rate = a.value("hourly_rate", 0.0);
+                    if (st == "working") {
+                        workingStaffCount++;
+                        double hrs = calcHoursBetween(a.value("check_in_time", ""), nowTs);
+                        double pay = std::round(hrs * rate);
+                        laborHours += hrs;
+                        laborCost += pay;
+                        laborRealtimeAccrued += pay;
+                    } else {
+                        laborHours += a.value("work_hours", 0.0);
+                        laborCost += a.value("total_pay", 0.0);
+                    }
+                }
+                laborHours = std::round(laborHours * 100.0) / 100.0;
+                laborCost = std::round(laborCost);
+
+                // Finance expenses & Payables (Công nợ phải trả)
                 json expAgg = db.queryRow(R"(
-                    SELECT COALESCE(SUM(CASE WHEN category != 'Nguyên Vật Liệu' THEN amount ELSE 0 END), 0) as opex_expenses,
+                    SELECT COALESCE(SUM(CASE WHEN category NOT IN ('Nguyên Vật Liệu', 'Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
+                           COALESCE(SUM(CASE WHEN category IN ('Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as bonus_expenses,
+                           COALESCE(SUM(CASE WHEN category = 'Nguyên Vật Liệu' THEN amount ELSE 0 END), 0) as nvl_expenses,
                            COALESCE(SUM(amount), 0) as total_expenses,
-                           COALESCE(SUM(vat_amount), 0) as vat_input
+                           COALESCE(SUM(vat_amount), 0) as vat_input,
+                           COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') = 'unpaid' THEN amount ELSE 0 END), 0) as payable_debt,
+                           COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') = 'unpaid' THEN 1 ELSE 0 END), 0) as payable_count
                     FROM finance_expenses
-                    WHERE substr(expense_date, 1, 7) = :m
-                )", {{":m", month}});
+                    WHERE substr(expense_date, 1, 10) BETWEEN :ps AND :pe
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
 
-                double totalExpenses = getDouble(expAgg, "opex_expenses", 0.0);
+                double opexExpenses = getDouble(expAgg, "opex_expenses", 0.0);
+                double bonusCost = getDouble(expAgg, "bonus_expenses", 0.0);
+                double nvlExpenses = getDouble(expAgg, "nvl_expenses", 0.0);
                 double vatInput = getDouble(expAgg, "vat_input", 0.0);
+                double payableDebt = getDouble(expAgg, "payable_debt", 0.0);
+                int64_t payableCount = getInt(expAgg, "payable_count", 0);
 
+                // Counter cash transactions & POS shift discrepancy in period
+                double cashOutCounter = db.queryScalar(
+                    "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE trans_type = 'out' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                    {{":ps", periodStart}, {":pe", periodEnd}}
+                ).get<double>();
+                double shiftDiscrepancy = db.queryScalar(
+                    "SELECT COALESCE(SUM(discrepancy), 0) FROM pos_shifts WHERE status = 'closed' AND substr(COALESCE(NULLIF(closed_at, ''), opened_at), 1, 10) BETWEEN :ps AND :pe",
+                    {{":ps", periodStart}, {":pe", periodEnd}}
+                ).get<double>();
+                double shortageLoss = (shiftDiscrepancy < 0) ? -shiftDiscrepancy : 0.0;
+
+                // Expense breakdown groups (manual + smart auto categories)
                 json expenseGroups = db.query(R"(
                     SELECT category, SUM(amount) as amount, SUM(vat_amount) as vat, COUNT(*) as count
                     FROM finance_expenses
-                    WHERE substr(expense_date, 1, 7) = :m
+                    WHERE substr(expense_date, 1, 10) BETWEEN :ps AND :pe
                     GROUP BY category
                     ORDER BY amount DESC
-                )", {{":m", month}});
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
 
-                json dailyRevenue = db.query(R"(
-                    SELECT substr(created_at, 1, 10) as day,
+                if (laborCost > 0) {
+                    expenseGroups.push_back({
+                        {"category", "Lương nhân sự (Chấm công Realtime)"},
+                        {"amount", laborCost},
+                        {"vat", 0},
+                        {"count", static_cast<int>(attRows.size())},
+                        {"auto", true}
+                    });
+                }
+                if (cashOutCounter > 0) {
+                    expenseGroups.push_back({
+                        {"category", "Chi tại quầy (Sổ quỹ ca)"},
+                        {"amount", cashOutCounter},
+                        {"vat", 0},
+                        {"count", 1},
+                        {"auto", true}
+                    });
+                }
+                if (materialLossCost > 0) {
+                    expenseGroups.push_back({
+                        {"category", "Hao hụt / Hủy nguyên liệu"},
+                        {"amount", materialLossCost},
+                        {"vat", 0},
+                        {"count", 1},
+                        {"auto", true}
+                    });
+                }
+                if (shortageLoss > 0) {
+                    expenseGroups.push_back({
+                        {"category", "Thất thoát / Lệch két ca"},
+                        {"amount", shortageLoss},
+                        {"vat", 0},
+                        {"count", 1},
+                        {"auto", true}
+                    });
+                }
+
+                // Daily revenue + daily expense map for ALL days 01 -> daysInMonth
+                json dailyRaw = db.query(R"(
+                    SELECT substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) as day,
                            COUNT(*) as orders,
                            COALESCE(SUM(total_amount), 0) as revenue
                     FROM orders
-                    WHERE status = 'completed' AND substr(created_at, 1, 7) = :m
-                    GROUP BY substr(created_at, 1, 10)
-                    ORDER BY day ASC
-                )", {{":m", month}});
+                    WHERE status = 'completed'
+                      AND substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) BETWEEN :ps AND :pe
+                    GROUP BY substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10)
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
+
+                std::map<std::string, std::pair<int64_t, double>> dayRevMap;
+                for (const auto& d : dailyRaw) {
+                    dayRevMap[d.value("day", "")] = {getInt(d, "orders", 0), getDouble(d, "revenue", 0.0)};
+                }
+                json dailyRevenue = json::array();
+                for (int d = 1; d <= daysInMonth; ++d) {
+                    char dbuf[16];
+                    std::snprintf(dbuf, sizeof(dbuf), "%04d-%02d-%02d", yr, mo, d);
+                    std::string dKey = dbuf;
+                    auto it = dayRevMap.find(dKey);
+                    dailyRevenue.push_back({
+                        {"day", dKey},
+                        {"orders", it != dayRevMap.end() ? it->second.first : 0},
+                        {"revenue", it != dayRevMap.end() ? it->second.second : 0.0}
+                    });
+                }
 
                 json categoryBreakdown = db.query(R"(
                     SELECT COALESCE(c.name, 'Khác') as category,
@@ -2584,27 +3197,43 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     JOIN orders o ON oi.order_id = o.id
                     LEFT JOIN products p ON oi.product_id = p.id
                     LEFT JOIN categories c ON p.category_id = c.id
-                    WHERE o.status = 'completed' AND substr(o.created_at, 1, 7) = :m
+                    WHERE o.status = 'completed'
+                      AND substr(COALESCE(NULLIF(o.completed_at, ''), o.created_at), 1, 10) BETWEEN :ps AND :pe
                     GROUP BY COALESCE(c.name, 'Khác')
                     ORDER BY revenue DESC
-                )", {{":m", month}});
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
 
                 json paymentBreakdown = db.query(R"(
                     SELECT COALESCE(NULLIF(payment_method, ''), 'cash') as method,
                            COUNT(*) as orders,
                            COALESCE(SUM(total_amount), 0) as revenue
                     FROM orders
-                    WHERE status = 'completed' AND substr(created_at, 1, 7) = :m
+                    WHERE status = 'completed'
+                      AND substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) BETWEEN :ps AND :pe
                     GROUP BY COALESCE(NULLIF(payment_method, ''), 'cash')
                     ORDER BY revenue DESC
-                )", {{":m", month}});
+                )", {{":ps", periodStart}, {":pe", periodEnd}});
 
+                double totalLabor = laborCost + bonusCost;
+                double totalOperatingExpenses = opexExpenses + totalLabor + cashOutCounter + materialLossCost + shortageLoss;
                 double grossProfit = revenue - cogs;
-                double netProfit = grossProfit - totalExpenses;
+                double netProfit = grossProfit - totalOperatingExpenses;
+                double totalCosts = cogs + totalOperatingExpenses;
+
+                double projectedRevenue = (elapsedDays > 0 && elapsedDays < daysInMonth)
+                    ? std::round((revenue / elapsedDays) * daysInMonth)
+                    : revenue;
+                double projectedNetProfit = (elapsedDays > 0 && elapsedDays < daysInMonth)
+                    ? std::round((netProfit / elapsedDays) * daysInMonth)
+                    : netProfit;
 
                 sendJson(res, {
                     {"success", true},
                     {"month", month},
+                    {"period_start", periodStart},
+                    {"period_end", periodEnd},
+                    {"days_in_month", daysInMonth},
+                    {"elapsed_days", elapsedDays},
                     {"summary", {
                         {"order_count", orderCount},
                         {"gross_sales", grossSales},
@@ -2612,16 +3241,162 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                         {"vat_collected", vatCollected},
                         {"vat_input", vatInput},
                         {"revenue", revenue},
+                        {"pending_orders_count", pendingOrdersCount},
+                        {"pending_revenue", pendingRevenue},
                         {"cogs", cogs},
                         {"gross_profit", grossProfit},
-                        {"expenses", totalExpenses},
-                        {"net_profit", netProfit}
+                        {"opex_expenses", opexExpenses},
+                        {"nvl_expenses", nvlExpenses},
+                        {"material_import_cost", materialImportCost},
+                        {"material_loss_cost", materialLossCost},
+                        {"labor_cost", laborCost},
+                        {"labor_hours", laborHours},
+                        {"working_staff_count", workingStaffCount},
+                        {"labor_realtime_accrued", laborRealtimeAccrued},
+                        {"bonus_cost", bonusCost},
+                        {"total_labor", totalLabor},
+                        {"cash_out_counter", cashOutCounter},
+                        {"shift_discrepancy", shiftDiscrepancy},
+                        {"shortage_loss", shortageLoss},
+                        {"expenses", totalOperatingExpenses},
+                        {"total_costs", totalCosts},
+                        {"net_profit", netProfit},
+                        {"receivable_count", receivableCount},
+                        {"receivable_amount", receivableAmount},
+                        {"payable_count", payableCount},
+                        {"payable_debt", payableDebt},
+                        {"projected_revenue", projectedRevenue},
+                        {"projected_net_profit", projectedNetProfit}
                     }},
                     {"expense_groups", expenseGroups},
                     {"daily_revenue", dailyRevenue},
                     {"category_breakdown", categoryBreakdown},
                     {"payment_breakdown", paymentBreakdown}
                 });
+                return;
+            }
+
+            if (action == "get_pnl_comparison") {
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                autoProcessShifts(db);
+                std::string nowTs = getCurrentTimestamp();
+
+                auto calcMonthPnl = [&](int y, int m) -> json {
+                    int dim = mdays[m - 1];
+                    if (m == 2 && ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))) dim = 29;
+                    char ps[16], pe[16], ym[16], lbl[16];
+                    std::snprintf(ps, sizeof(ps), "%04d-%02d-01", y, m);
+                    std::snprintf(pe, sizeof(pe), "%04d-%02d-%02d", y, m, dim);
+                    std::snprintf(ym, sizeof(ym), "%04d-%02d", y, m);
+                    std::snprintf(lbl, sizeof(lbl), "T%02d/%04d", m, y);
+                    std::string pStart = ps, pEnd = pe;
+
+                    json oAgg = db.queryRow(R"(
+                        SELECT COUNT(*) as order_count,
+                               COALESCE(SUM(CASE WHEN subtotal > 0 THEN subtotal ELSE total_amount + COALESCE(discount_amount, 0) - COALESCE(vat_amount, 0) END), 0) as gross_sales,
+                               COALESCE(SUM(COALESCE(discount_amount, 0)), 0) as discounts,
+                               COALESCE(SUM(total_amount), 0) as revenue
+                        FROM orders
+                        WHERE status = 'completed'
+                          AND substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) BETWEEN :ps AND :pe
+                    )", {{":ps", pStart}, {":pe", pEnd}});
+                    int64_t orderCount = getInt(oAgg, "order_count", 0);
+                    double grossSales = getDouble(oAgg, "gross_sales", 0.0);
+                    double discounts = getDouble(oAgg, "discounts", 0.0);
+                    double revenue = getDouble(oAgg, "revenue", 0.0);
+
+                    json cRow = db.queryRow(R"(
+                        SELECT COALESCE(SUM(oi.quantity * COALESCE(p.cost_price, 0)), 0) as direct_cogs,
+                               COALESCE(SUM(CASE WHEN COALESCE(p.cost_price, 0) > 0 THEN oi.subtotal ELSE 0 END), 0) as costed_rev
+                        FROM order_items oi
+                        JOIN orders o ON oi.order_id = o.id
+                        LEFT JOIN products p ON oi.product_id = p.id
+                        WHERE o.status = 'completed'
+                          AND substr(COALESCE(NULLIF(o.completed_at, ''), o.created_at), 1, 10) BETWEEN :ps AND :pe
+                    )", {{":ps", pStart}, {":pe", pEnd}});
+                    double directCogs = getDouble(cRow, "direct_cogs", 0.0);
+                    double costedRev = getDouble(cRow, "costed_rev", 0.0);
+                    double cogs = directCogs;
+                    if (revenue > costedRev && costedRev > 0 && directCogs > 0) {
+                        double ratio = std::max(0.20, std::min(0.65, directCogs / costedRev));
+                        cogs += std::round((revenue - costedRev) * ratio);
+                    } else if (directCogs <= 0 && revenue > 0) {
+                        cogs = std::round(revenue * 0.35);
+                    }
+
+                    json aRows = db.query(
+                        "SELECT check_in_time, work_hours, hourly_rate, total_pay, status FROM attendances WHERE work_date BETWEEN :ps AND :pe",
+                        {{":ps", pStart}, {":pe", pEnd}}
+                    );
+                    double laborCost = 0.0;
+                    for (const auto& a : aRows) {
+                        if (a.value("status", "") == "working") {
+                            laborCost += std::round(calcHoursBetween(a.value("check_in_time", ""), nowTs) * a.value("hourly_rate", 0.0));
+                        } else {
+                            laborCost += a.value("total_pay", 0.0);
+                        }
+                    }
+                    laborCost = std::round(laborCost);
+
+                    json eAgg = db.queryRow(R"(
+                        SELECT COALESCE(SUM(CASE WHEN category NOT IN ('Nguyên Vật Liệu', 'Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
+                               COALESCE(SUM(CASE WHEN category IN ('Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as bonus_expenses
+                        FROM finance_expenses
+                        WHERE substr(expense_date, 1, 10) BETWEEN :ps AND :pe
+                    )", {{":ps", pStart}, {":pe", pEnd}});
+                    double opex = getDouble(eAgg, "opex_expenses", 0.0);
+                    double bonus = getDouble(eAgg, "bonus_expenses", 0.0);
+
+                    double cashOut = db.queryScalar(
+                        "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE trans_type = 'out' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", pStart}, {":pe", pEnd}}
+                    ).get<double>();
+                    double mLoss = db.queryScalar(
+                        "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'loss' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", pStart}, {":pe", pEnd}}
+                    ).get<double>();
+                    double sDisc = db.queryScalar(
+                        "SELECT COALESCE(SUM(discrepancy), 0) FROM pos_shifts WHERE status = 'closed' AND substr(COALESCE(NULLIF(closed_at, ''), opened_at), 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", pStart}, {":pe", pEnd}}
+                    ).get<double>();
+                    double lossShortage = cashOut + mLoss + (sDisc < 0 ? -sDisc : 0.0);
+
+                    double totalLabor = laborCost + bonus;
+                    double totalExpenses = opex + totalLabor + lossShortage;
+                    double grossProfit = revenue - cogs;
+                    double netProfit = grossProfit - totalExpenses;
+                    double grossMargin = (revenue > 0) ? std::round((grossProfit / revenue) * 1000.0) / 10.0 : 0.0;
+                    double netMargin = (revenue > 0) ? std::round((netProfit / revenue) * 1000.0) / 10.0 : 0.0;
+
+                    return {
+                        {"month", std::string(ym)},
+                        {"label", std::string(lbl)},
+                        {"order_count", orderCount},
+                        {"gross_sales", grossSales},
+                        {"discounts", discounts},
+                        {"revenue", revenue},
+                        {"cogs", cogs},
+                        {"gross_profit", grossProfit},
+                        {"gross_margin_pct", grossMargin},
+                        {"total_labor", totalLabor},
+                        {"opex_expenses", opex},
+                        {"loss_shortage", lossShortage},
+                        {"total_expenses", totalExpenses},
+                        {"net_profit", netProfit},
+                        {"net_margin_pct", netMargin}
+                    };
+                };
+
+                json months = json::array();
+                for (int offset = -2; offset <= 0; ++offset) {
+                    int ty = yr;
+                    int tm = mo + offset;
+                    while (tm <= 0) { tm += 12; ty -= 1; }
+                    while (tm > 12) { tm -= 12; ty += 1; }
+                    months.push_back(calcMonthPnl(ty, tm));
+                }
+
+                sendJson(res, {{"success", true}, {"months", months}});
                 return;
             }
 
@@ -2723,6 +3498,8 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 std::string supplier = getString(body, "supplier");
                 double amount = getDouble(body, "amount", 0.0);
                 double vat = getDouble(body, "vat_amount", 0.0);
+                std::string payStatus = getString(body, "payment_status", "paid");
+                if (payStatus != "unpaid") payStatus = "paid";
 
                 if (date.empty()) date = getCurrentDate();
                 if (amount <= 0) {
@@ -2733,22 +3510,30 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 if (id > 0) {
                     db.execute(R"(
                         UPDATE finance_expenses
-                        SET expense_date = :d, category = :c, description = :n, supplier = :s, amount = :a, vat_amount = :v
+                        SET expense_date = :d, category = :c, description = :n, supplier = :s, amount = :a, vat_amount = :v, payment_status = :ps
                         WHERE id = :id
                     )", {
                         {":d", date}, {":c", category}, {":n", desc}, {":s", supplier},
-                        {":a", amount}, {":v", vat}, {":id", id}
+                        {":a", amount}, {":v", vat}, {":ps", payStatus}, {":id", id}
                     });
                 } else {
                     db.execute(R"(
-                        INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, created_by, created_at)
-                        VALUES (:d, :c, :n, :s, :a, :v, 'admin', datetime('now'))
+                        INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, payment_status, created_by, created_at)
+                        VALUES (:d, :c, :n, :s, :a, :v, :ps, 'admin', datetime('now'))
                     )", {
                         {":d", date}, {":c", category}, {":n", desc}, {":s", supplier},
-                        {":a", amount}, {":v", vat}
+                        {":a", amount}, {":v", vat}, {":ps", payStatus}
                     });
                 }
                 sendJson(res, {{"success", true}, {"message", "Đã lưu khoản chi."}});
+                return;
+            }
+
+            if (action == "mark_expense_paid") {
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                int64_t id = getInt(body, "id");
+                db.execute("UPDATE finance_expenses SET payment_status = 'paid' WHERE id = :id", {{":id", id}});
+                sendJson(res, {{"success", true}, {"message", "Đã xác nhận thanh toán công nợ."}});
                 return;
             }
 
@@ -3145,6 +3930,11 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
                 map[k] = v;
             }
             map["has_gemini_key"] = hasGemini;
+            json qSnap;
+            if (fetchMasterAiQuota(qSnap)) {
+                map["ai_quota"] = qSnap.value("ai_quota", json::object());
+                map["master_has_ai_key"] = qSnap.value("master_has_key", false);
+            }
 
             // Detect Local LAN IPs
             auto detected = getDetectedLanIps();
@@ -3430,6 +4220,219 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             sendJson(res, {{"success", true}, {"data", att}});
             return;
         }
+        if (action == "get_realtime_staff") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            autoProcessShifts(db);
+            std::string nowTs = getCurrentTimestamp();
+            std::time_t nowSec = parseTimestampLocal(nowTs);
+            std::string serverTime = (nowTs.size() >= 19) ? nowTs.substr(11, 8) : nowTs;
+
+            json rows = db.query(R"(
+                SELECT a.id AS attendance_id, a.user_id, a.check_in_time, a.device_info,
+                       a.hourly_rate AS att_rate,
+                       u.username, u.fullname, u.user_code, u.role,
+                       u.hourly_rate AS user_rate, u.last_active_at
+                FROM attendances a
+                JOIN users u ON a.user_id = u.id
+                WHERE a.status = 'working'
+                ORDER BY a.check_in_time DESC
+            )");
+
+            int cashier = 0, kitchen = 0, waiter = 0, admin = 0;
+            json staffList = json::array();
+            for (const auto& r : rows) {
+                std::string role = r.value("role", "");
+                if (role == "cashier") cashier++;
+                else if (role == "kitchen") kitchen++;
+                else if (role == "waiter") waiter++;
+                else if (role == "admin") admin++;
+
+                std::string checkIn = r.value("check_in_time", "");
+                std::string checkInDisp = (checkIn.size() >= 16) ? checkIn.substr(11, 5) : checkIn;
+                double attRate = r.value("att_rate", 0.0);
+                double userRate = r.value("user_rate", 0.0);
+                double rate = (attRate > 0.0) ? attRate : userRate;
+
+                std::string lastActive = r.value("last_active_at", "");
+                std::time_t activeSec = parseTimestampLocal(lastActive);
+                bool recentlyActive = (activeSec > 0 && nowSec >= activeSec && (nowSec - activeSec) <= 120);
+
+                staffList.push_back({
+                    {"attendance_id", r.value("attendance_id", int64_t(0))},
+                    {"user_id", r.value("user_id", int64_t(0))},
+                    {"username", r.value("username", "")},
+                    {"fullname", r.value("fullname", "")},
+                    {"user_code", r.value("user_code", "")},
+                    {"role", role},
+                    {"check_in_display", checkInDisp},
+                    {"elapsed_display", formatElapsedHMS(checkIn, nowTs)},
+                    {"hourly_rate", rate},
+                    {"is_recently_active", recentlyActive},
+                    {"device_info", r.value("device_info", "")}
+                });
+            }
+
+            sendJson(res, {
+                {"success", true},
+                {"server_time", serverTime},
+                {"summary", {
+                    {"cashier", cashier},
+                    {"kitchen", kitchen},
+                    {"waiter", waiter},
+                    {"admin", admin},
+                    {"total_working", static_cast<int>(staffList.size())}
+                }},
+                {"staff_list", staffList}
+            });
+            return;
+        }
+        if (action == "get_payroll") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            autoProcessShifts(db);
+            std::string nowTs = getCurrentTimestamp();
+            std::string month = req.has_param("month") ? req.get_param_value("month") : getCurrentDate().substr(0, 7);
+            if (month.empty()) month = getCurrentDate().substr(0, 7);
+            std::string monthPrefix = month + "%";
+
+            json users = db.query("SELECT id, user_code, fullname, username, role, hourly_rate FROM users WHERE status = 'active' ORDER BY id ASC");
+            json monthAtts = db.query(
+                "SELECT id, user_id, work_date, check_in_time, check_out_time, work_hours, hourly_rate, total_pay, status "
+                "FROM attendances WHERE work_date LIKE :mp ORDER BY id DESC",
+                {{":mp", monthPrefix}}
+            );
+
+            struct UserAgg {
+                double totalHours = 0.0;
+                double totalSalary = 0.0;
+                std::map<std::string, int> shiftsPerDay;
+            };
+            std::map<int64_t, UserAgg> aggMap;
+
+            for (const auto& a : monthAtts) {
+                int64_t uid = a.value("user_id", int64_t(0));
+                std::string wdate = a.value("work_date", "");
+                std::string status = a.value("status", "");
+                double hrs = a.value("work_hours", 0.0);
+                double rate = a.value("hourly_rate", 0.0);
+                double pay = a.value("total_pay", 0.0);
+                if (status == "working") {
+                    hrs = calcHoursBetween(a.value("check_in_time", ""), nowTs);
+                    pay = std::round(hrs * rate);
+                }
+                auto& ag = aggMap[uid];
+                ag.totalHours += hrs;
+                ag.totalSalary += pay;
+                if (!wdate.empty()) ag.shiftsPerDay[wdate]++;
+            }
+
+            double totalCompanyHours = 0.0;
+            double totalCompanySalary = 0.0;
+            json payrollSummary = json::array();
+            for (const auto& u : users) {
+                int64_t uid = u.value("id", int64_t(0));
+                std::string fullname = u.value("fullname", "");
+                if (fullname.empty()) fullname = u.value("username", "");
+                double rate = u.value("hourly_rate", 0.0);
+                const auto& ag = aggMap[uid];
+                int totalShifts = 0;
+                for (const auto& kv : ag.shiftsPerDay) {
+                    totalShifts += std::min(kv.second, 2);
+                }
+                double hrsRounded = std::round(ag.totalHours * 100.0) / 100.0;
+                double salRounded = std::round(ag.totalSalary);
+                totalCompanyHours += hrsRounded;
+                totalCompanySalary += salRounded;
+
+                payrollSummary.push_back({
+                    {"user_id", uid},
+                    {"user_code", u.value("user_code", "")},
+                    {"fullname", fullname},
+                    {"role", u.value("role", "")},
+                    {"hourly_rate", rate},
+                    {"total_shifts", totalShifts},
+                    {"total_hours", hrsRounded},
+                    {"total_salary", salRounded}
+                });
+            }
+
+            std::string filterUid = req.has_param("user_id") ? req.get_param_value("user_id") : "";
+            std::string filterSearch = req.has_param("search") ? req.get_param_value("search") : "";
+            std::string filterFrom = req.has_param("from_date") ? req.get_param_value("from_date") : "";
+            std::string filterTo = req.has_param("to_date") ? req.get_param_value("to_date") : "";
+            std::string filterStatus = req.has_param("status") ? req.get_param_value("status") : "";
+
+            std::string whereSql = "WHERE 1=1";
+            std::vector<std::pair<std::string, json>> params;
+            if (!filterFrom.empty() || !filterTo.empty()) {
+                if (!filterFrom.empty()) {
+                    whereSql += " AND work_date >= :from_d";
+                    params.emplace_back(":from_d", filterFrom);
+                }
+                if (!filterTo.empty()) {
+                    whereSql += " AND work_date <= :to_d";
+                    params.emplace_back(":to_d", filterTo);
+                }
+            } else {
+                whereSql += " AND work_date LIKE :mp";
+                params.emplace_back(":mp", monthPrefix);
+            }
+            if (!filterUid.empty() && filterUid != "all") {
+                whereSql += " AND user_id = :fuid";
+                params.emplace_back(":fuid", static_cast<int64_t>(std::stoll(filterUid)));
+            }
+            if (!filterStatus.empty() && filterStatus != "all") {
+                whereSql += " AND status = :fstatus";
+                params.emplace_back(":fstatus", filterStatus);
+            }
+            if (!filterSearch.empty()) {
+                whereSql += " AND (LOWER(user_name) LIKE :fsearch OR LOWER(user_code) LIKE :fsearch)";
+                std::string sLower = filterSearch;
+                std::transform(sLower.begin(), sLower.end(), sLower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                params.emplace_back(":fsearch", "%" + sLower + "%");
+            }
+
+            json records = db.query(
+                "SELECT id, user_id, user_name, user_code, user_role, work_date, check_in_time, check_out_time, "
+                "work_hours, hourly_rate, total_pay, status, device_info, note "
+                "FROM attendances " + whereSql + " ORDER BY id DESC LIMIT 200",
+                params
+            );
+            for (auto& rec : records) {
+                if (rec.value("status", "") == "working") {
+                    double hrs = calcHoursBetween(rec.value("check_in_time", ""), nowTs);
+                    double rate = rec.value("hourly_rate", 0.0);
+                    rec["work_hours"] = hrs;
+                    rec["total_pay"] = std::round(hrs * rate);
+                }
+            }
+
+            sendJson(res, {
+                {"success", true},
+                {"total_company_hours", std::round(totalCompanyHours * 100.0) / 100.0},
+                {"total_company_salary", std::round(totalCompanySalary)},
+                {"payroll_summary", payrollSummary},
+                {"attendance_records", records}
+            });
+            return;
+        }
+        if (action == "get_shift_settings") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ShiftCfg cfg = loadShiftCfg(db);
+            sendJson(res, {
+                {"success", true},
+                {"data", {
+                    {"shift1_name", cfg.s1Name},
+                    {"shift1_start", cfg.s1Start},
+                    {"shift1_end", cfg.s1End},
+                    {"shift2_name", cfg.s2Name},
+                    {"shift2_start", cfg.s2Start},
+                    {"shift2_end", cfg.s2End},
+                    {"shift_grace_minutes", cfg.graceMinutes},
+                    {"shift_autoclose_enabled", cfg.autoClose ? 1 : 0}
+                }}
+            });
+            return;
+        }
     }
 
     if (req.method == "POST") {
@@ -3466,6 +4469,198 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             db.commit();
 
             sendJson(res, {{"success", true}, {"message", "Ghi nhận phiếu kho thành công!"}, {"new_quantity", newQty}});
+            return;
+        }
+        if (action == "manual_checkout") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            int64_t attId = body.value("attendance_id", int64_t(0));
+            int64_t userId = body.value("user_id", int64_t(0));
+            std::string nowTs = getCurrentTimestamp();
+
+            if (attId > 0) {
+                auto row = db.queryRow("SELECT user_id FROM attendances WHERE id = :id", {{":id", attId}});
+                if (!row.is_null() && userId <= 0) {
+                    userId = row.value("user_id", int64_t(0));
+                }
+                closeStaffAttendance(db, attId, nowTs, "Quản lý chốt ca thủ công");
+            } else if (userId > 0) {
+                json openRows = db.query("SELECT id FROM attendances WHERE user_id = :uid AND status = 'working'", {{":uid", userId}});
+                for (const auto& r : openRows) {
+                    closeStaffAttendance(db, r.value("id", int64_t(0)), nowTs, "Quản lý chốt ca thủ công");
+                }
+            } else {
+                sendError(res, "Thiếu thông tin ca làm việc!");
+                return;
+            }
+
+            if (userId > 0) {
+                auto rem = db.queryRow("SELECT COUNT(*) AS cnt FROM attendances WHERE user_id = :uid AND status = 'working'", {{":uid", userId}});
+                if (rem.is_null() || rem.value("cnt", 0) == 0) {
+                    db.execute("UPDATE users SET is_online = 0 WHERE id = :uid", {{":uid", userId}});
+                }
+            }
+            sendJson(res, {{"success", true}, {"message", "Đã chốt ca thành công!"}});
+            return;
+        }
+        if (action == "update_hourly_rate") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            int64_t userId = body.value("user_id", int64_t(0));
+            double rate = body.value("hourly_rate", 0.0);
+            if (userId <= 0 || rate < 0) {
+                sendError(res, "Thông tin mức lương không hợp lệ!");
+                return;
+            }
+            db.execute("UPDATE users SET hourly_rate = :r WHERE id = :uid", {{":r", rate}, {":uid", userId}});
+            db.execute("UPDATE attendances SET hourly_rate = :r WHERE user_id = :uid AND status = 'working'", {{":r", rate}, {":uid", userId}});
+            sendJson(res, {{"success", true}, {"message", "Đã cập nhật mức lương/giờ!"}});
+            return;
+        }
+        if (action == "save_shift_settings") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            auto upsert = [&](const std::string& k, const std::string& v) {
+                db.execute(
+                    "INSERT OR REPLACE INTO store_settings (setting_key, setting_value) VALUES (:k, :v)",
+                    {{":k", k}, {":v", v}}
+                );
+            };
+            db.beginTransaction();
+            upsert("shift1_name", body.value("shift1_name", std::string("Ca 1 (Ca Sáng)")));
+            upsert("shift1_start", body.value("shift1_start", std::string("06:30")));
+            upsert("shift1_end", body.value("shift1_end", std::string("12:30")));
+            upsert("shift2_name", body.value("shift2_name", std::string("Ca 2 (Ca Chiều / Tối)")));
+            upsert("shift2_start", body.value("shift2_start", std::string("12:30")));
+            upsert("shift2_end", body.value("shift2_end", std::string("22:30")));
+            int grace = body.value("shift_grace_minutes", 15);
+            upsert("shift_grace_minutes", std::to_string(std::max(0, grace)));
+            int autoClose = 1;
+            if (body.contains("shift_autoclose_enabled")) {
+                if (body["shift_autoclose_enabled"].is_boolean()) {
+                    autoClose = body["shift_autoclose_enabled"].get<bool>() ? 1 : 0;
+                } else {
+                    autoClose = body.value("shift_autoclose_enabled", 1) ? 1 : 0;
+                }
+            }
+            upsert("shift_autoclose_enabled", std::to_string(autoClose));
+            db.commit();
+            sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình khung giờ ca!"}});
+            return;
+        }
+        if (action == "ai_parse_invoice") {
+            if (!requireModule(res, "ai_invoice_ocr", "AI OCR Hóa Đơn & Giấy Viết Tay")) return;
+            std::string imgB64Raw = body.value("image_base64", "");
+            std::string passedKey = body.value("gemini_api_key", "");
+            if (imgB64Raw.empty()) {
+                sendError(res, "Thiếu dữ liệu ảnh hóa đơn!", 400);
+                return;
+            }
+
+            std::string mime, pureB64;
+            SaleApp::AI::parseDataUriImage(imgB64Raw, mime, pureB64);
+            std::string rawBytes = SaleApp::AI::base64Decode(pureB64);
+            std::string invoiceImageUrl = "";
+            if (!rawBytes.empty()) {
+                std::string ext = (mime.find("png") != std::string::npos) ? ".png" : ".jpg";
+                auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+                std::string saveName = "inv_" + AuthService::sha256(pureB64.substr(0, 64) + std::to_string(nowMs)).substr(0, 20) + ext;
+                namespace fs = std::filesystem;
+                fs::path invDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "invoices";
+                fs::create_directories(invDir);
+                std::ofstream ofs(invDir / saveName, std::ios::binary);
+                if (ofs) {
+                    ofs.write(rawBytes.data(), rawBytes.size());
+                    ofs.close();
+                    invoiceImageUrl = "uploads/invoices/" + saveName;
+                }
+            }
+
+            json parsed;
+            std::string modelUsed, err;
+            std::string localKey = resolveGeminiApiKey(db, passedKey);
+            if (!localKey.empty()) {
+                std::string prompt =
+                    "Bạn là kế toán AI chuyên bóc tách hóa đơn nhập hàng F&B (hóa đơn in nhiệt hoặc giấy viết tay tiếng Việt). "
+                    "Hãy đọc ảnh hóa đơn này và trả về đúng 1 JSON object có cấu trúc sau (không thêm markdown): "
+                    "{\"supplier\": \"Tên nhà cung cấp hoặc chuỗi rỗng\", \"invoice_no\": \"Số hóa đơn hoặc chuỗi rỗng\", "
+                    "\"items\": [{\"raw_name\": \"Tên nguyên liệu\", \"quantity\": 1, \"unit\": \"kg\", \"unit_price\": 0, \"total_cost\": 0}]}. "
+                    "Lưu ý: số tiền bằng VNĐ (số nguyên), nếu thiếu đơn giá hãy tính unit_price = total_cost / quantity.";
+                json contents = json::array({
+                    {{"parts", json::array({
+                        {{"text", prompt}},
+                        {{"inlineData", {{"mimeType", mime}, {"data", pureB64}}}}
+                    })}}
+                });
+                std::string textOut;
+                if (!SaleApp::AI::geminiGenerateContentText(localKey, contents, true, textOut, modelUsed, err)) {
+                    sendError(res, "Lỗi phân tích AI OCR: " + err, 502);
+                    return;
+                }
+                try { parsed = json::parse(textOut); } catch (...) {
+                    sendError(res, "AI trả về định dạng không phải JSON hợp lệ.", 502);
+                    return;
+                }
+            } else {
+                json proxyResp;
+                if (!callMasterAiProxy({{"action", "parse_invoice"}, {"mime_type", mime}, {"image_base64", pureB64}}, proxyResp, err)) {
+                    sendError(res, err, 502);
+                    return;
+                }
+                parsed = proxyResp.value("parsed", json::object());
+                modelUsed = proxyResp.value("ai_engine", "CyberNexus Master AI");
+            }
+
+            json existingMats = db.query("SELECT id, code, name, unit FROM materials WHERE status = 'active'");
+            auto toLower = [](std::string s) {
+                std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                return s;
+            };
+
+            json itemsOut = json::array();
+            if (parsed.contains("items") && parsed["items"].is_array()) {
+                for (const auto& it : parsed["items"]) {
+                    std::string rawName = it.value("raw_name", it.value("name", ""));
+                    double qty = it.value("quantity", 1.0);
+                    std::string unit = it.value("unit", "kg");
+                    double unitPrice = it.value("unit_price", 0.0);
+                    double totalCost = it.value("total_cost", qty * unitPrice);
+                    if (unitPrice <= 0 && qty > 0 && totalCost > 0) unitPrice = std::round(totalCost / qty);
+                    if (totalCost <= 0 && unitPrice > 0) totalCost = std::round(qty * unitPrice);
+
+                    bool matched = false;
+                    int64_t matId = 0;
+                    std::string matCode;
+                    std::string rawLow = toLower(rawName);
+                    for (const auto& m : existingMats) {
+                        std::string mLow = toLower(m.value("name", ""));
+                        if (!mLow.empty() && !rawLow.empty() && (rawLow.find(mLow) != std::string::npos || mLow.find(rawLow) != std::string::npos)) {
+                            matched = true;
+                            matId = m.value("id", int64_t(0));
+                            matCode = m.value("code", "");
+                            if (unit.empty()) unit = m.value("unit", "kg");
+                            break;
+                        }
+                    }
+
+                    itemsOut.push_back({
+                        {"is_new", !matched},
+                        {"material_id", matId},
+                        {"material_code", matCode},
+                        {"raw_name", rawName},
+                        {"quantity", qty},
+                        {"unit", unit},
+                        {"unit_price", unitPrice},
+                        {"total_cost", totalCost}
+                    });
+                }
+            }
+
+            sendJson(res, {
+                {"success", true},
+                {"supplier", parsed.value("supplier", "")},
+                {"invoice_no", parsed.value("invoice_no", "")},
+                {"invoice_image_url", invoiceImageUrl},
+                {"ai_engine", modelUsed},
+                {"items", itemsOut}
+            });
             return;
         }
     }
@@ -3610,6 +4805,81 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
                 }
             }
             sendJson(res, {{"success", false}, {"message", "Không thể lưu tệp tải lên."}}, 400);
+            return;
+        }
+
+        if (action == "ai_generate_slide") {
+            std::string topic = BodyParser::getParam(req, body, "topic");
+            if (topic.empty()) topic = BodyParser::getParam(req, body, "title", "Khuyến mãi đặc biệt hôm nay tại quán cà phê");
+            std::string passedKey = BodyParser::getParam(req, body, "gemini_api_key");
+            std::string localKey = resolveGeminiApiKey(db, passedKey);
+
+            std::string slideTitle, slideDesc, imgB64, mime, engineUsed, err;
+            if (!localKey.empty()) {
+                std::string copyPrompt =
+                    "Bạn là chuyên gia marketing F&B. Hãy viết nội dung cho 1 slide quảng cáo màn hình khách hàng dựa trên chủ đề: \"" + topic + "\". "
+                    "Trả về đúng 1 JSON object: {\"title\": \"Tiêu đề ngắn gọn hấp dẫn tối đa 60 ký tự tiếng Việt\", "
+                    "\"description\": \"Mô tả ngắn gọn 1-2 câu tối đa 160 ký tự tiếng Việt\", "
+                    "\"image_prompt\": \"Detailed English prompt for widescreen 16:9 commercial cafe/food promotional background photography, warm lighting, vibrant, no text, no watermark\"}.";
+                json contents = json::array({{{"parts", json::array({{{"text", copyPrompt}}})}}});
+                std::string textOut, textModel;
+                if (!SaleApp::AI::geminiGenerateContentText(localKey, contents, true, textOut, textModel, err)) {
+                    sendError(res, "Lỗi AI viết nội dung slide: " + err, 502);
+                    return;
+                }
+                json copyJson;
+                try { copyJson = json::parse(textOut); } catch (...) { copyJson = json::object(); }
+                slideTitle = copyJson.value("title", topic);
+                slideDesc = copyJson.value("description", "Ưu đãi hấp dẫn dành riêng cho quý khách hôm nay.");
+                std::string imgPrompt = copyJson.value("image_prompt", "Widescreen 16:9 commercial cafe beverage and pastry promotional photography, warm moody lighting, photorealistic, no text");
+
+                std::string imgModel, imgErr;
+                if (!SaleApp::AI::geminiGenerateImageBase64(localKey, imgPrompt, imgB64, mime, imgModel, imgErr)) {
+                    sendError(res, "AI đã viết nội dung nhưng không thể tạo ảnh slide: " + imgErr, 502);
+                    return;
+                }
+                engineUsed = textModel + " + " + imgModel;
+            } else {
+                json proxyResp;
+                if (!callMasterAiProxy({{"action", "generate_slide"}, {"topic", topic}}, proxyResp, err)) {
+                    sendError(res, err, 502);
+                    return;
+                }
+                slideTitle = proxyResp.value("title", topic);
+                slideDesc = proxyResp.value("description", "Ưu đãi hấp dẫn dành riêng cho quý khách hôm nay.");
+                imgB64 = proxyResp.value("image_base64", "");
+                mime = proxyResp.value("mime_type", "image/png");
+                engineUsed = proxyResp.value("ai_engine", "CyberNexus Master AI");
+            }
+
+            std::string imgBytes = SaleApp::AI::base64Decode(imgB64);
+            if (imgBytes.empty()) {
+                sendError(res, "Dữ liệu ảnh slide không hợp lệ!", 502);
+                return;
+            }
+            std::string ext = (mime.find("jpeg") != std::string::npos || mime.find("jpg") != std::string::npos) ? ".jpg" : ".png";
+            auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+            std::string saveName = "slide_" + AuthService::sha256(topic + std::to_string(nowMs)).substr(0, 20) + ext;
+            namespace fs = std::filesystem;
+            fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "advertisements";
+            fs::create_directories(targetDir);
+            std::ofstream ofs(targetDir / saveName, std::ios::binary);
+            if (!ofs) {
+                sendError(res, "Không thể lưu file ảnh slide!", 500);
+                return;
+            }
+            ofs.write(imgBytes.data(), imgBytes.size());
+            ofs.close();
+
+            sendJson(res, {
+                {"success", true},
+                {"title", slideTitle},
+                {"description", slideDesc},
+                {"media_path", "uploads/advertisements/" + saveName},
+                {"media_type", "image"},
+                {"ai_engine", engineUsed},
+                {"message", "AI đã tạo nội dung và ảnh slide thành công!"}
+            });
             return;
         }
 
@@ -4022,6 +5292,47 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     };
     svr.Get("/api/wan_tunnel", handleWanTunnel);
     svr.Post("/api/wan_tunnel", handleWanTunnel);
+
+    // AI Key Verification & Secure Auto-Save
+    svr.Post("/api/ai/test", [](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới có quyền kiểm tra & lưu API Key!", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string passedKey = body.value("gemini_api_key", "");
+        bool saveOnSuccess = body.value("save_on_success", true);
+        std::string apiKey = resolveGeminiApiKey(db, passedKey);
+        if (apiKey.empty()) {
+            sendError(res, "Vui lòng dán mã Gemini API Key để kiểm tra!", 400);
+            return;
+        }
+        int modelCount = 0;
+        std::vector<std::string> samples;
+        std::string err;
+        if (!SaleApp::AI::geminiVerifyKey(apiKey, modelCount, samples, err)) {
+            sendError(res, "API Key không hợp lệ hoặc bị từ chối: " + err, 400);
+            return;
+        }
+        bool saved = false;
+        if (saveOnSuccess && !passedKey.empty() && passedKey.find("•••") == std::string::npos && passedKey.find("***") == std::string::npos) {
+            db.execute(
+                "INSERT INTO store_settings (setting_key, setting_value) VALUES ('gemini_api_key', :v) "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                {{":v", passedKey}}
+            );
+            saved = true;
+        }
+        sendJson(res, {
+            {"success", true},
+            {"saved", saved},
+            {"model_count", modelCount},
+            {"sample_models", samples},
+            {"message", "Kết nối Gemini thành công (" + std::to_string(modelCount) + " models khả dụng)! Key đã được lưu & ẩn bảo mật."}
+        });
+    });
 
     // Store OTA Update & System Notification Endpoints
     svr.Get("/api/system/updates", [](const httplib::Request&, httplib::Response& res) {

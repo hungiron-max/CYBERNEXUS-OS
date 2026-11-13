@@ -475,16 +475,16 @@ const POS = {
                                 <span class="text-sm font-black text-white px-2.5 py-0.5 rounded-lg bg-slate-800 border border-white/15">${tbl.code}</span>
                                 <span class="text-xs font-semibold text-slate-300 truncate max-w-[110px]">${tbl.name}</span>
                                 ${isPaid ? `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/40">💰 Đã TT</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/40 whitespace-nowrap shrink-0">💰 Đã TT</span>
                                 ` : `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 animate-pulse">🔥 Chờ TT</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 animate-pulse whitespace-nowrap shrink-0">🔥 Chờ TT</span>
                                 `}
                                 ${isReady ? `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse shadow-sm">⚡ Bếp Xong</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse shadow-sm whitespace-nowrap shrink-0">⚡ Bếp Xong</span>
                                 ` : (isServed ? `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Đã bưng</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap shrink-0">Đã bưng</span>
                                 ` : `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Đang làm</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 whitespace-nowrap shrink-0">Đang làm</span>
                                 `)}
                             </div>
                             <div class="text-right">
@@ -1581,13 +1581,13 @@ const POS = {
                 <div class="mb-4">
                     <label class="block text-xs font-semibold text-slate-300 mb-2">Phương thức thanh toán:</label>
                     <div class="grid grid-cols-3 gap-2">
-                        <button type="button" id="paymethod-cash" class="btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('cash', ${total})">
+                        <button type="button" id="paymethod-cash" class="btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('cash', ${total})">
                             <i class="fas fa-money-bill-wave"></i> Tiền mặt
                         </button>
-                        <button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('banking', ${total})">
+                        <button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('banking', ${total})">
                             <i class="fas fa-qrcode"></i> Chuyển khoản QR
                         </button>
-                        <button type="button" id="paymethod-card" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5" onclick="POS.selectPaymentMethod('card', ${total})">
+                        <button type="button" id="paymethod-card" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('card', ${total})">
                             <i class="fas fa-credit-card"></i> Thẻ POS
                         </button>
                     </div>
@@ -2075,22 +2075,26 @@ const POS = {
                 </tr>
             `).join('');
 
+            const openedAtFmt = (typeof window.formatDateTimeDDMMYY === 'function')
+                ? window.formatDateTimeDDMMYY(s.opened_at || '')
+                : String(s.opened_at || '').replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => `${d}/${m}/${y.slice(-2)}`);
+
             modal.innerHTML = `
-                <div class="liquid-glass liquid-modal-content p-5 w-[720px] max-w-[95vw] text-white shadow-2xl border border-amber-500/40 max-h-[92vh] overflow-y-auto">
-                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
-                        <div class="flex items-center gap-2.5">
-                            <span class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                <div class="liquid-glass liquid-modal-content p-5 w-[820px] max-w-[96vw] text-white shadow-2xl border border-amber-500/40 max-h-[92vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10 gap-3">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 shrink-0">
                                 <i class="fas fa-cash-register"></i>
                             </span>
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h3 class="font-extrabold text-sm sm:text-base text-amber-300 uppercase">Quản Lý Ca & Sổ Quỹ (${s.shift_code})</h3>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">ĐANG MỞ CA</span>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="font-extrabold text-sm sm:text-base text-amber-300 uppercase whitespace-nowrap">Quản Lý Ca &amp; Sổ Quỹ (${s.shift_code})</h3>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap shrink-0">ĐANG MỞ CA</span>
                                 </div>
-                                <p class="text-[11px] text-slate-400">Trực ca: <b>${s.user_name}</b> • Mở lúc: <span class="font-mono">${s.opened_at}</span></p>
+                                <p class="text-[11px] text-slate-400">Trực ca: <b>${s.user_name}</b> • Mở lúc: <span class="font-mono whitespace-nowrap">${openedAtFmt}</span></p>
                             </div>
                         </div>
-                        <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">&times;</button>
+                        <button type="button" class="text-slate-400 hover:text-white text-2xl shrink-0" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">&times;</button>
                     </div>
 
                     <!-- KPI Dòng Tiền Trong Ca -->
@@ -2122,12 +2126,12 @@ const POS = {
                                 <i class="fas fa-file-invoice-dollar"></i> Lập Phiếu Thu / Chi Nhanh Tại Quầy
                             </h4>
                             <div class="space-y-2">
-                                <div class="grid grid-cols-2 gap-2">
-                                    <select id="shift-tx-type" class="liquid-input text-xs py-1.5 px-2">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <select id="shift-tx-type" class="liquid-input w-full text-xs py-1.5 px-2">
                                         <option value="out">🔻 Phiếu Chi (Lấy tiền két)</option>
                                         <option value="in">🔺 Phiếu Thu (Nộp thêm tiền lẻ)</option>
                                     </select>
-                                    <select id="shift-tx-cat" class="liquid-input text-xs py-1.5 px-2">
+                                    <select id="shift-tx-cat" class="liquid-input w-full text-xs py-1.5 px-2">
                                         <option value="Nguyên vật liệu">Mua đá / Nguyên liệu gấp</option>
                                         <option value="Vận hành">Chi phí vận hành / Ship</option>
                                         <option value="Tiền lẻ">Bổ sung tiền lẻ đầu ngày</option>
@@ -2766,30 +2770,33 @@ const POS = {
             orders.forEach(o => {
                 const isPaid = (o.status === 'completed');
                 const payMethodLabel = (o.payment_method === 'banking') ? 'VietQR / CK' : ((o.payment_method === 'card') ? 'Thẻ' : 'Tiền mặt');
-                const timeStr = o.completed_at || o.created_at || '';
+                const rawTime = o.completed_at || o.created_at || '';
+                const timeStr = (typeof window.formatDateTimeDDMMYY === 'function')
+                    ? window.formatDateTimeDDMMYY(rawTime)
+                    : rawTime.replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => `${d}/${m}/${y.slice(-2)}`);
                 const itemsCount = o.items_count || 0;
                 const itemsSummary = o.items_summary || 'Chưa có thông tin món';
 
                 html += `
-                    <div class="p-3 mb-2 rounded-xl bg-slate-900/60 border border-white/10 hover:border-sky-500/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div class="p-3 mb-2 rounded-xl bg-slate-900/60 border border-white/10 hover:border-sky-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-start gap-3 min-w-0 flex-1">
                             <div class="w-10 h-10 rounded-xl ${isPaid ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'} flex items-center justify-center shrink-0">
                                 <i class="fas ${isPaid ? 'fa-file-invoice-dollar' : 'fa-clock'} text-base"></i>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-mono font-bold text-sky-400 text-sm">${o.order_code}</span>
-                                    <span class="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold text-xs">${o.table_code || 'MANG VỀ'}</span>
-                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase ${isPaid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
+                                    <span class="font-mono font-bold text-sky-400 text-sm whitespace-nowrap">${o.order_code}</span>
+                                    <span class="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold text-xs whitespace-nowrap">${o.table_code || 'MANG VỀ'}</span>
+                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase whitespace-nowrap ${isPaid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
                                         ${isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
                                     </span>
-                                    <span class="text-[11px] text-slate-400 font-mono"><i class="far fa-clock"></i> ${timeStr}</span>
+                                    <span class="text-[11px] text-slate-400 font-mono whitespace-nowrap"><i class="far fa-clock mr-1"></i>${timeStr}</span>
                                 </div>
                                 <div class="text-xs text-slate-300 mt-1 truncate" title="${itemsSummary}">
                                     <i class="fas fa-utensils text-slate-500 mr-1"></i>
                                     <span class="text-slate-400 font-medium">${itemsCount} món:</span> ${itemsSummary}
                                 </div>
-                                <div class="text-[11px] text-slate-400 mt-0.5">
+                                <div class="text-[11px] text-slate-400 mt-0.5 truncate">
                                     Thu ngân: <span class="text-slate-300 font-medium">${o.user_name || 'Hệ thống'}</span>
                                     ${o.customer_name ? ` • Khách: <span class="text-slate-300">${o.customer_name}</span>` : ''}
                                     • HTTT: <span class="text-slate-300 font-medium">${payMethodLabel}</span>
@@ -2797,16 +2804,16 @@ const POS = {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-white/5">
-                            <div class="text-left md:text-right">
+                        <div class="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5 whitespace-nowrap">
+                            <div class="text-left sm:text-right">
                                 <div class="text-[10px] text-slate-400">Tổng tiền</div>
                                 <div class="text-base font-extrabold font-mono text-emerald-400">${this.formatMoney(o.total_amount)} đ</div>
                             </div>
-                            <div class="flex items-center gap-1.5">
-                                <button type="button" onclick="POS.previewOrderReceipt(${o.id})" class="btn-glass text-xs py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border-white/10 flex items-center gap-1 font-semibold" title="Xem trước hóa đơn nhiệt">
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="POS.previewOrderReceipt(${o.id})" class="btn-glass text-xs py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border-white/10 flex items-center gap-1 font-semibold whitespace-nowrap" title="Xem trước hóa đơn nhiệt">
                                     <i class="fas fa-eye text-xs"></i> <span>Xem</span>
                                 </button>
-                                <button type="button" onclick="POS.reprintOrderReceipt(${o.id})" class="btn-glass-primary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold shadow-md shadow-sky-500/20" title="In lại hóa đơn ngay">
+                                <button type="button" onclick="POS.reprintOrderReceipt(${o.id})" class="btn-glass-primary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold shadow-md shadow-sky-500/20 whitespace-nowrap" title="In lại hóa đơn ngay">
                                     <i class="fas fa-print"></i> <span>In Lại</span>
                                 </button>
                             </div>
@@ -2969,32 +2976,32 @@ const POS = {
                 </div>
 
                 <!-- Payment Methods Breakdown Cards -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10">
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
+                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
                             <i class="fas fa-money-bill-wave text-emerald-400"></i>
                             <span>Tiền Mặt</span>
                         </div>
-                        <div class="font-mono font-bold text-base text-white">${this.formatMoney(d.cash_revenue)} đ</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5">${d.cash_orders} đơn</div>
+                        <div class="font-mono font-bold text-sm sm:text-base text-white whitespace-nowrap">${this.formatMoney(d.cash_revenue)} đ</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">${d.cash_orders} đơn</div>
                     </div>
 
-                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10">
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
+                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
                             <i class="fas fa-qrcode text-sky-400"></i>
                             <span>VietQR / CK</span>
                         </div>
-                        <div class="font-mono font-bold text-base text-white">${this.formatMoney(d.banking_revenue)} đ</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5">${d.banking_orders} đơn</div>
+                        <div class="font-mono font-bold text-sm sm:text-base text-white whitespace-nowrap">${this.formatMoney(d.banking_revenue)} đ</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">${d.banking_orders} đơn</div>
                     </div>
 
-                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 col-span-2 sm:col-span-1">
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
+                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
                             <i class="fas fa-calculator text-amber-400"></i>
                             <span>Trung Bình / Đơn</span>
                         </div>
-                        <div class="font-mono font-bold text-base text-white">${this.formatMoney(d.avg_order_value)} đ</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5">Giảm giá: ${this.formatMoney(d.total_discount)} đ</div>
+                        <div class="font-mono font-bold text-sm sm:text-base text-white whitespace-nowrap">${this.formatMoney(d.avg_order_value)} đ</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">Giảm giá: ${this.formatMoney(d.total_discount)} đ</div>
                     </div>
                 </div>
 
@@ -3010,8 +3017,8 @@ const POS = {
                 </div>
 
                 <div class="text-[11px] text-slate-400 flex items-center justify-between pt-1">
-                    <span>Nhân viên kết ca: <b class="text-slate-200">${d.user_name}</b> (${d.user_role})</span>
-                    <span>Tạo lúc: ${d.generated_at}</span>
+                    <span>Nhân viên kết ca: <b class="text-slate-200">${d.user_name || this.currentUser?.fullname || 'Thu ngân'}</b> (${d.user_role || this.currentUser?.role || 'POS'})</span>
+                    <span>Tạo lúc: ${d.generated_at || new Date().toLocaleString('vi-VN')}</span>
                 </div>
             `;
         } catch (e) {

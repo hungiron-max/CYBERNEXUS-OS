@@ -110,15 +110,15 @@
     <div class="liquid-blob-2"></div>
 
     <!-- Top Mobile Header -->
-    <header class="liquid-header px-4 py-2 flex items-center justify-between z-30 shrink-0 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
-        <div class="flex items-center gap-2.5 min-w-0">
+    <header class="liquid-header px-3 sm:px-4 py-2 flex items-center justify-between gap-2 z-30 shrink-0 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
+        <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 text-white shadow-md shadow-sky-500/20 border border-white/10 flex items-center justify-center shrink-0">
                 <i class="fas fa-clipboard-list text-sm"></i>
             </div>
-            <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-nowrap">
-                    <h1 class="font-black text-sm tracking-wide text-white uppercase whitespace-nowrap">GÓC PHỐ COFFEE & TEA</h1>
-                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/35 whitespace-nowrap shrink-0 shadow-sm">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-nowrap min-w-0">
+                    <h1 class="font-black text-xs sm:text-sm tracking-wide text-white uppercase truncate">GÓC PHỐ COFFEE &amp; TEA</h1>
+                    <span class="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/35 whitespace-nowrap shrink-0 shadow-sm">
                         <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                         Order Phục Vụ
                     </span>
@@ -126,12 +126,12 @@
                 <div class="text-[10px] text-slate-400 flex items-center gap-1.5 whitespace-nowrap truncate">
                     <span>NV: <b class="text-sky-300 font-semibold" id="order-staff-name">Phục vụ</b></span>
                     <span class="text-slate-600">•</span>
-                    <span class="text-slate-400">Gọi món tại bàn</span>
+                    <span class="text-slate-400 truncate">Gọi món tại bàn</span>
                 </div>
             </div>
         </div>
 
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 shrink-0">
             <!-- Sound & Vibration Toggle / Test Button -->
             <button type="button" id="btn-sound-toggle" onclick="testAndToggleSound()" class="w-8 h-8 rounded-lg btn-glass bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 flex items-center justify-center p-0 shrink-0" title="Bật/Tắt chuông và rung (Nhấp để thử chuông)">
                 <i id="sound-toggle-icon" class="fas fa-volume-high text-xs"></i>
@@ -915,9 +915,9 @@
 
                 let badgeHtml = '';
                 if (isCustomerQrPending) {
-                    badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] animate-pulse"><i class="fas fa-qrcode mr-1"></i>KHÁCH ĐẶT MÓN</span>';
+                    badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] animate-pulse whitespace-nowrap shrink-0"><i class="fas fa-qrcode mr-1"></i>KHÁCH ĐẶT MÓN</span>';
                 } else if (isReady) {
-                    badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] animate-bounce">🔔 XONG MÓN</span>';
+                    badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] animate-bounce whitespace-nowrap shrink-0">🔔 XONG MÓN</span>';
                 } else if (isOcc) {
                     if (isPaid) {
                         if (isServed) {

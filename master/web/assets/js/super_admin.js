@@ -59,6 +59,7 @@ const SuperAdmin = {
             this.loadAuditLogs();
         } else if (tabId === 'settings') {
             this.loadSaasSettings();
+            this.loadMasterAiVault();
         } else if (tabId === 'resellers') {
             this.loadResellers();
         }
@@ -2746,6 +2747,173 @@ const SuperAdmin = {
             alert('Lỗi kết nối: ' + e.message);
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        }
+    },
+
+    toggleMasterAiKeyBox(show) {
+        const box = document.getElementById('master-ai-input-box');
+        if (box) box.classList.toggle('hidden', !show);
+    },
+
+    async loadMasterAiVault() {
+        try {
+            const res = await fetch('api/super_admin.php?action=get_ai_vault').then(r => r.json());
+            if (!res || !res.success) return;
+            const hasKey = Boolean(res.has_gemini_key);
+            document.getElementById('master-ai-configured')?.classList.toggle('hidden', !hasKey);
+            document.getElementById('master-ai-unconfigured')?.classList.toggle('hidden', hasKey);
+            document.getElementById('master-ai-input-box')?.classList.toggle('hidden', hasKey);
+            document.getElementById('btn-master-ai-edit')?.classList.toggle('hidden', !hasKey);
+            const updEl = document.getElementById('master-ai-updated-at');
+            if (updEl) updEl.textContent = res.updated_at ? `(Cập nhật: ${res.updated_at})` : '';
+            const totEl = document.getElementById('master-ai-total-calls');
+            if (totEl) totEl.textContent = `${res.total_calls_month || 0} lượt • ${res.total_credits_month || 0} credit`;
+            const listEl = document.getElementById('master-ai-usage-list');
+            if (listEl) {
+                const rows = Array.isArray(res.store_quotas) ? res.store_quotas : (Array.isArray(res.usage_by_store) ? res.usage_by_store : []);
+                listEl.innerHTML = rows.length === 0
+                    ? '<div class="italic text-slate-500">Chưa có quán nào trên hệ thống.</div>'
+                    : rows.map(r => {
+                        const mq = Number(r.ai_monthly_quota ?? 50);
+                        const bonus = Number(r.ai_bonus_credits ?? 0);
+                        const mUsed = Number(r.monthly_used ?? 0);
+                        const totCr = Number(r.total_credits_month ?? 0);
+                        const calls = Number(r.calls_month ?? r.calls ?? 0);
+                        const isUnlim = mq < 0;
+                        const isBlocked = mq === 0 && bonus === 0;
+                        const remMonthly = isUnlim ? Infinity : Math.max(0, mq - mUsed);
+                        const remTotal = isUnlim ? Infinity : (remMonthly + bonus);
+                        const pct = isUnlim ? 15 : (mq > 0 ? Math.min(100, Math.round((mUsed / mq) * 100)) : 100);
+                        const barColor = isUnlim ? 'bg-purple-400' : (remTotal <= 0 ? 'bg-rose-500' : (pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'));
+                        const badgeHtml = isUnlim
+                            ? '<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30 text-[10px]">Không giới hạn</span>'
+                            : (isBlocked
+                                ? '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px]">Đã tắt AI (0)</span>'
+                                : `<span class="px-1.5 py-0.5 rounded ${remTotal <= 0 ? 'bg-rose-500/20 text-rose-300 border-rose-400/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-400/25'} border text-[10px]">Còn ${remTotal} cr</span>`);
+                        const quotaLabel = isUnlim ? `Đã dùng ${totCr} cr (∞)` : `${mUsed}/${mq} cr tháng${bonus > 0 ? ` + ${bonus} bonus` : ''}`;
+                        const tid = Number(r.tenant_id || 0);
+                        return `
+                        <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/10 space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-slate-100 font-semibold truncate">${r.store_name || r.tenant_code}</span>
+                                    <span class="text-[10px] font-mono text-slate-400">(${r.tenant_code})</span>
+                                    ${badgeHtml}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono text-sky-300 text-[11px]">${quotaLabel}</span>
+                                    ${tid > 0 ? `<button type="button" onclick="SuperAdmin.toggleStoreQuotaRow(${tid})" class="px-2 py-0.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 border border-purple-400/30 text-[10px] font-semibold"><i class="fas fa-sliders mr-1"></i>Cấp Quota</button>` : ''}
+                                </div>
+                            </div>
+                            <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div class="h-full ${barColor} transition-all" style="width:${pct}%"></div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between text-[10px] text-slate-400">
+                                <span>Tháng này: ${calls} lượt (OCR ${r.ocr_calls || 0} • Món ${r.dish_calls || 0} • Slide ${r.slide_calls || 0})</span>
+                                <span>${r.last_used_at ? 'Dùng gần nhất: ' + r.last_used_at : 'Chưa dùng tháng này'}</span>
+                            </div>
+                            ${tid > 0 ? `
+                            <div id="quota-editor-${tid}" class="hidden pt-2 mt-1 border-t border-white/10 flex flex-wrap items-end gap-2">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-0.5">Quota tháng (-1 = ∞, 0 = Tắt)</label>
+                                    <input type="number" id="inp-mq-${tid}" value="${mq}" min="-1" class="liquid-input w-28 py-1 px-2 text-xs font-mono text-white" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-0.5">Credit nạp thêm (Bonus)</label>
+                                    <input type="number" id="inp-bc-${tid}" value="${bonus}" min="0" class="liquid-input w-28 py-1 px-2 text-xs font-mono text-emerald-300" />
+                                </div>
+                                <button type="button" onclick="SuperAdmin.saveStoreAiQuota(${tid}, this)" class="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold">Lưu</button>
+                                <button type="button" onclick="SuperAdmin.quickPresetQuota(${tid}, -1)" class="px-2 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 text-[10px]">∞ Không giới hạn</button>
+                                <button type="button" onclick="SuperAdmin.quickAddBonus(${tid}, 50)" class="px-2 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 text-[10px]">+50 Bonus</button>
+                                <button type="button" onclick="SuperAdmin.quickPresetQuota(${tid}, 0)" class="px-2 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 text-[10px]">Tắt (0)</button>
+                            </div>` : ''}
+                        </div>`;
+                    }).join('');
+            }
+        } catch (e) {}
+    },
+
+    toggleStoreQuotaRow(tid) {
+        const el = document.getElementById(`quota-editor-${tid}`);
+        if (el) el.classList.toggle('hidden');
+    },
+
+    quickPresetQuota(tid, val) {
+        const inp = document.getElementById(`inp-mq-${tid}`);
+        if (inp) inp.value = String(val);
+        this.saveStoreAiQuota(tid);
+    },
+
+    quickAddBonus(tid, delta) {
+        const inp = document.getElementById(`inp-bc-${tid}`);
+        if (inp) inp.value = String(Math.max(0, Number(inp.value || 0) + delta));
+        this.saveStoreAiQuota(tid);
+    },
+
+    async saveStoreAiQuota(tid, btn) {
+        const mq = Number(document.getElementById(`inp-mq-${tid}`)?.value ?? 50);
+        const bc = Math.max(0, Number(document.getElementById(`inp-bc-${tid}`)?.value ?? 0));
+        if (btn) btn.disabled = true;
+        try {
+            const res = await fetch('api/super_admin.php?action=update_store_ai_quota', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_id: tid, ai_monthly_quota: mq, ai_bonus_credits: bc })
+            }).then(r => r.json());
+            if (res.success) {
+                await this.loadMasterAiVault();
+            } else {
+                alert(res.message || 'Không thể cập nhật quota!');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async verifyAndSaveMasterGeminiKey(btn) {
+        const inp = document.getElementById('cfg-master-gemini-key');
+        const keyVal = inp ? inp.value.trim() : '';
+        if (!keyVal) {
+            alert('Vui lòng dán mã Gemini API Key trước khi kiểm tra!');
+            return;
+        }
+        const origHtml = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang kiểm tra...'; }
+        try {
+            const res = await fetch('api/super_admin.php?action=verify_save_gemini_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gemini_api_key: keyVal })
+            }).then(r => r.json());
+            if (res.success) {
+                if (inp) inp.value = '';
+                this.toggleMasterAiKeyBox(false);
+                await this.loadMasterAiVault();
+                alert(res.message || 'Xác thực & khóa Key thành công!');
+            } else {
+                alert(res.message || 'Key không hợp lệ!');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        }
+    },
+
+    async deleteMasterGeminiKey() {
+        if (!confirm('Xóa Gemini API Key khỏi Master? Các quán sẽ không thể gọi AI qua Master cho tới khi cấu hình Key mới.')) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=delete_gemini_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            }).then(r => r.json());
+            if (res.success) await this.loadMasterAiVault();
+            else alert(res.message || 'Không thể xóa Key');
+        } catch (e) {
+            alert('Lỗi: ' + e.message);
         }
     }
 };

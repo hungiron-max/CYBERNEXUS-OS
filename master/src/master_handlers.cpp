@@ -3,6 +3,7 @@
 #include "license.hpp"
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
+#include "gemini_client.hpp"
 #include "sqlite3.h"
 #include <iostream>
 #include <fstream>
@@ -13,6 +14,100 @@
 namespace SaleApp::Backend {
 
 namespace fs = std::filesystem;
+
+static int64_t getAiActionCreditCost(const std::string& aiAction) {
+    if (aiAction == "parse_invoice") return 1;
+    if (aiAction == "generate_dish_image") return 2;
+    if (aiAction == "generate_slide") return 3;
+    return 1;
+}
+
+static void ensureMasterAiTables(Database& db) {
+    static bool checked = false;
+    if (checked) return;
+    checked = true;
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS master_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT,
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS ai_usage_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id INTEGER DEFAULT 0,
+            tenant_code TEXT DEFAULT '',
+            store_name TEXT DEFAULT '',
+            action TEXT DEFAULT '',
+            model_used TEXT DEFAULT '',
+            status TEXT DEFAULT 'ok',
+            credits_used INTEGER DEFAULT 1,
+            quota_bucket TEXT DEFAULT 'monthly',
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN credits_used INTEGER DEFAULT 1"); } catch (...) {}
+    try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN quota_bucket TEXT DEFAULT 'monthly'"); } catch (...) {}
+    try { db.execute("ALTER TABLE saas_tenants ADD COLUMN ai_monthly_quota INTEGER DEFAULT 50"); } catch (...) {}
+    try { db.execute("ALTER TABLE saas_tenants ADD COLUMN ai_bonus_credits INTEGER DEFAULT 0"); } catch (...) {}
+}
+
+static json buildTenantAiQuotaSnapshot(Database& db, const json& tenant) {
+    int64_t tid = tenant.contains("id") && tenant["id"].is_number() ? tenant["id"].get<int64_t>() : 0;
+    int64_t monthlyQuota = 50;
+    if (tenant.contains("ai_monthly_quota") && tenant["ai_monthly_quota"].is_number()) {
+        monthlyQuota = tenant["ai_monthly_quota"].get<int64_t>();
+    }
+    int64_t bonusCredits = 0;
+    if (tenant.contains("ai_bonus_credits") && tenant["ai_bonus_credits"].is_number()) {
+        bonusCredits = std::max<int64_t>(0, tenant["ai_bonus_credits"].get<int64_t>());
+    }
+    int64_t monthlyUsed = db.queryScalar(
+        "SELECT COALESCE(SUM(credits_used), 0) FROM ai_usage_logs "
+        "WHERE tenant_id = :tid AND status = 'ok' AND COALESCE(quota_bucket, 'monthly') = 'monthly' "
+        "AND substr(created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')",
+        {{":tid", tid}}
+    ).get<int64_t>();
+    int64_t totalCreditsMonth = db.queryScalar(
+        "SELECT COALESCE(SUM(credits_used), 0) FROM ai_usage_logs "
+        "WHERE tenant_id = :tid AND status = 'ok' "
+        "AND substr(created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')",
+        {{":tid", tid}}
+    ).get<int64_t>();
+    bool unlimited = (monthlyQuota < 0);
+    int64_t remainingMonthly = unlimited ? -1 : std::max<int64_t>(0, monthlyQuota - monthlyUsed);
+    int64_t remainingTotal = unlimited ? -1 : (remainingMonthly + bonusCredits);
+    return {
+        {"unlimited", unlimited},
+        {"monthly_quota", monthlyQuota},
+        {"monthly_used", monthlyUsed},
+        {"bonus_credits", bonusCredits},
+        {"remaining_monthly", remainingMonthly},
+        {"remaining_total", remainingTotal},
+        {"total_credits_month", totalCreditsMonth}
+    };
+}
+
+static bool checkTenantModuleAllowed(const json& tenant, const std::string& modCode) {
+    auto parseArr = [](const std::string& raw) -> std::vector<std::string> {
+        std::vector<std::string> out;
+        try {
+            json j = json::parse(raw.empty() ? "[]" : raw);
+            if (j.is_array()) {
+                for (const auto& it : j) {
+                    if (it.is_string()) out.push_back(it.get<std::string>());
+                }
+            }
+        } catch (...) {}
+        return out;
+    };
+    std::vector<std::string> blocked = parseArr(tenant.value("blocked_modules", "[]"));
+    if (std::find(blocked.begin(), blocked.end(), modCode) != blocked.end()) return false;
+    std::vector<std::string> enabled = parseArr(tenant.value("enabled_modules", "[]"));
+    if (enabled.empty()) return true; // Enterprise/all if empty or check explicit
+    return std::find(enabled.begin(), enabled.end(), modCode) != enabled.end();
+}
 
 static void syncLocalSlaveLicenseCache(const std::string& enabledModsStr, const std::string& blockedModsStr, double cardFeePct) {
     fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir(); // master dir
@@ -1993,6 +2088,132 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             }
         }
 
+        if (action == "get_ai_vault") {
+            ensureMasterAiTables(db);
+            auto kRow = db.queryRow("SELECT setting_value, updated_at FROM master_settings WHERE setting_key = 'gemini_api_key'");
+            bool hasKey = (!kRow.is_null() && !kRow.value("setting_value", "").empty());
+            std::string updatedAt = (!kRow.is_null()) ? kRow.value("updated_at", "") : "";
+            int64_t totalMonth = db.queryScalar(
+                "SELECT COUNT(*) FROM ai_usage_logs WHERE status = 'ok' AND substr(created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')"
+            ).get<int64_t>();
+            int64_t totalCreditsMonth = db.queryScalar(
+                "SELECT COALESCE(SUM(credits_used), 0) FROM ai_usage_logs WHERE status = 'ok' AND substr(created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')"
+            ).get<int64_t>();
+            json byStore = db.query(R"(
+                SELECT tenant_code, store_name, COUNT(*) as calls,
+                       COALESCE(SUM(credits_used), 0) as credits_used,
+                       SUM(CASE WHEN action = 'parse_invoice' THEN 1 ELSE 0 END) as ocr_calls,
+                       SUM(CASE WHEN action = 'generate_dish_image' THEN 1 ELSE 0 END) as dish_calls,
+                       SUM(CASE WHEN action = 'generate_slide' THEN 1 ELSE 0 END) as slide_calls,
+                       MAX(created_at) as last_used_at
+                FROM ai_usage_logs
+                WHERE status = 'ok' AND substr(created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')
+                GROUP BY tenant_code, store_name
+                ORDER BY credits_used DESC, calls DESC
+            )");
+            json storeQuotas = db.query(R"(
+                SELECT t.id as tenant_id, t.tenant_code, t.store_name, t.subscription_status,
+                       COALESCE(t.ai_monthly_quota, 50) as ai_monthly_quota,
+                       COALESCE(t.ai_bonus_credits, 0) as ai_bonus_credits,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND COALESCE(l.quota_bucket, 'monthly') = 'monthly' THEN l.credits_used ELSE 0 END), 0) as monthly_used,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' THEN l.credits_used ELSE 0 END), 0) as total_credits_month,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' THEN 1 ELSE 0 END), 0) as calls_month,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND l.action = 'parse_invoice' THEN 1 ELSE 0 END), 0) as ocr_calls,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND l.action = 'generate_dish_image' THEN 1 ELSE 0 END), 0) as dish_calls,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND l.action = 'generate_slide' THEN 1 ELSE 0 END), 0) as slide_calls,
+                       MAX(CASE WHEN l.status = 'ok' THEN l.created_at ELSE NULL END) as last_used_at
+                FROM saas_tenants t
+                LEFT JOIN ai_usage_logs l
+                  ON l.tenant_id = t.id
+                 AND substr(l.created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')
+                GROUP BY t.id
+                ORDER BY total_credits_month DESC, t.id ASC
+            )");
+            sendJson(res, {
+                {"success", true},
+                {"has_gemini_key", hasKey},
+                {"updated_at", updatedAt},
+                {"total_calls_month", totalMonth},
+                {"total_credits_month", totalCreditsMonth},
+                {"credit_costs", {{"parse_invoice", 1}, {"generate_dish_image", 2}, {"generate_slide", 3}}},
+                {"usage_by_store", byStore},
+                {"store_quotas", storeQuotas}
+            });
+            return;
+        }
+
+        if (action == "update_store_ai_quota") {
+            ensureMasterAiTables(db);
+            int64_t tid = getInt(body, "tenant_id", 0);
+            if (tid <= 0) {
+                sendError(res, "Thiếu tenant_id hợp lệ!", 400);
+                return;
+            }
+            auto tenant = db.queryRow("SELECT id, tenant_code, store_name, COALESCE(ai_monthly_quota, 50) as ai_monthly_quota, COALESCE(ai_bonus_credits, 0) as ai_bonus_credits FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+            if (tenant.is_null()) {
+                sendError(res, "Không tìm thấy quán trên Master!", 404);
+                return;
+            }
+            int64_t monthlyQuota = body.contains("ai_monthly_quota") && body["ai_monthly_quota"].is_number()
+                ? body["ai_monthly_quota"].get<int64_t>()
+                : getInt(tenant, "ai_monthly_quota", 50);
+            if (monthlyQuota < -1) monthlyQuota = -1;
+
+            int64_t bonusCredits = getInt(tenant, "ai_bonus_credits", 0);
+            if (body.contains("ai_bonus_credits") && body["ai_bonus_credits"].is_number()) {
+                bonusCredits = std::max<int64_t>(0, body["ai_bonus_credits"].get<int64_t>());
+            } else if (body.contains("add_bonus_credits") && body["add_bonus_credits"].is_number()) {
+                bonusCredits = std::max<int64_t>(0, bonusCredits + body["add_bonus_credits"].get<int64_t>());
+            }
+
+            db.execute(
+                "UPDATE saas_tenants SET ai_monthly_quota = :mq, ai_bonus_credits = :bc WHERE id = :id",
+                {{":mq", monthlyQuota}, {":bc", bonusCredits}, {":id", tid}}
+            );
+            auto updatedTenant = db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+            sendJson(res, {
+                {"success", true},
+                {"message", "Đã cập nhật hạn mức AI Credit cho quán " + getString(tenant, "store_name", getString(tenant, "tenant_code")) + "!"},
+                {"ai_quota", buildTenantAiQuotaSnapshot(db, updatedTenant)}
+            });
+            return;
+        }
+
+        if (action == "verify_save_gemini_key") {
+            ensureMasterAiTables(db);
+            std::string apiKey = getString(body, "gemini_api_key");
+            if (apiKey.empty() || apiKey.find("•••") != std::string::npos || apiKey.find("***") != std::string::npos) {
+                sendError(res, "Vui lòng dán mã Gemini API Key hợp lệ!", 400);
+                return;
+            }
+            int modelCount = 0;
+            std::vector<std::string> samples;
+            std::string err;
+            if (!SaleApp::AI::geminiVerifyKey(apiKey, modelCount, samples, err)) {
+                sendError(res, "Key không hợp lệ hoặc bị Google từ chối: " + err, 400);
+                return;
+            }
+            db.execute(
+                "INSERT INTO master_settings (setting_key, setting_value, updated_at) VALUES ('gemini_api_key', :v, datetime('now', 'localtime')) "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v, updated_at = datetime('now', 'localtime')",
+                {{":v", apiKey}}
+            );
+            sendJson(res, {
+                {"success", true},
+                {"model_count", modelCount},
+                {"sample_models", samples},
+                {"message", "Xác thực Gemini thành công (" + std::to_string(modelCount) + " models)! Key đã được khóa bảo mật trên Master."}
+            });
+            return;
+        }
+
+        if (action == "delete_gemini_key") {
+            ensureMasterAiTables(db);
+            db.execute("DELETE FROM master_settings WHERE setting_key = 'gemini_api_key'");
+            sendJson(res, {{"success", true}, {"message", "Đã xóa Gemini API Key khỏi Master Vault."}});
+            return;
+        }
+
         sendError(res, "Invalid super_admin request", 400);
     } catch (const std::exception& e) {
         sendJson(res, {{"success", false}, {"message", std::string("Lỗi super_admin: ") + e.what()}}, 500);
@@ -2276,6 +2497,272 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
     svr.Get("/api/license/ping", handleLicenseVerification);
     svr.Post("/api/license/poll", handleLicensePoll);
     svr.Post("/api/license/ack", handleLicenseAck);
+
+    // Authenticated Store AI Proxy (Master holds Gemini API Key exclusively)
+    svr.Post("/api/ai/proxy", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto& db = Database::instance();
+            ensureMasterAiTables(db);
+            json body = parseBody(req);
+            std::string licKey = getString(body, "license_key");
+            std::string machineId = getString(body, "machine_id");
+            std::string aiAction = getString(body, "action");
+
+            if (licKey.empty() || aiAction.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Thiếu license_key hoặc action AI!"}}, 400);
+                return;
+            }
+
+            auto tenant = db.queryRow("SELECT * FROM saas_tenants WHERE license_key = :lk LIMIT 1", {{":lk", licKey}});
+            if (tenant.is_null()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "License key không hợp lệ trên Master!"}}, 403);
+                return;
+            }
+            if (getString(tenant, "subscription_status", "active") != "active") {
+                replyTunnelJson(res, {{"success", false}, {"message", "Gói bản quyền của quán đang tạm khóa!"}}, 403);
+                return;
+            }
+            std::string boundMid = getString(tenant, "machine_id", "");
+            if (!boundMid.empty() && !machineId.empty() && boundMid != machineId) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Machine ID không khớp với bản quyền đã kích hoạt!"}}, 403);
+                return;
+            }
+
+            std::string reqModule;
+            if (aiAction == "parse_invoice") reqModule = "ai_invoice_ocr";
+            else if (aiAction == "generate_dish_image") reqModule = "ai_dish_studio";
+            else if (aiAction == "generate_slide") reqModule = "advertising_promotions";
+            else {
+                replyTunnelJson(res, {{"success", false}, {"message", "Action AI không hỗ trợ: " + aiAction}}, 400);
+                return;
+            }
+
+            if (!checkTenantModuleAllowed(tenant, reqModule)) {
+                replyTunnelJson(res, {{"success", false}, {"locked", true}, {"message", "Quán chưa được cấp phép module [" + reqModule + "] trên Master!"}}, 403);
+                return;
+            }
+
+            auto kRow = db.queryRow("SELECT setting_value FROM master_settings WHERE setting_key = 'gemini_api_key'");
+            std::string apiKey = (!kRow.is_null()) ? kRow.value("setting_value", "") : "";
+            if (apiKey.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Master Server chưa cấu hình Gemini API Key! Vui lòng vào Super Admin -> Cài Đặt SaaS để nhập Key."}}, 503);
+                return;
+            }
+
+            int64_t tid = getInt(tenant, "id", 0);
+            std::string tCode = getString(tenant, "tenant_code", "");
+            std::string sName = getString(tenant, "store_name", "");
+            int64_t actionCost = getAiActionCreditCost(aiAction);
+            json quotaSnap = buildTenantAiQuotaSnapshot(db, tenant);
+            bool isUnlimited = quotaSnap.value("unlimited", false);
+            int64_t remMonthly = quotaSnap.value("remaining_monthly", int64_t(0));
+            int64_t bonusCreds = quotaSnap.value("bonus_credits", int64_t(0));
+            int64_t remTotal = quotaSnap.value("remaining_total", int64_t(0));
+
+            if (!isUnlimited && remTotal < actionCost) {
+                std::string qMsg = "Quán đã hết hạn mức AI Credit (cần " + std::to_string(actionCost) +
+                    " credit, còn " + std::to_string(remTotal) + " credit). "
+                    "Vui lòng liên hệ nhà cung cấp để cấp thêm quota hoặc dùng Gemini API Key dự phòng của quán.";
+                replyTunnelJson(res, {
+                    {"success", false},
+                    {"quota_exceeded", true},
+                    {"required_cost", actionCost},
+                    {"ai_quota", quotaSnap},
+                    {"message", qMsg}
+                }, 402);
+                return;
+            }
+
+            auto logUsage = [&](const std::string& modelUsed, const std::string& st) -> json {
+                if (st != "ok") {
+                    db.execute(
+                        "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
+                        "VALUES (:tid, :tc, :sn, :act, :mdl, :st, 0, 'error')",
+                        {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":st", st}}
+                    );
+                    return quotaSnap;
+                }
+                if (isUnlimited) {
+                    db.execute(
+                        "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
+                        "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'unlimited')",
+                        {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", actionCost}}
+                    );
+                } else {
+                    int64_t fromMonthly = std::min<int64_t>(remMonthly, actionCost);
+                    int64_t fromBonus = actionCost - fromMonthly;
+                    if (fromMonthly > 0) {
+                        db.execute(
+                            "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
+                            "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'monthly')",
+                            {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", fromMonthly}}
+                        );
+                    }
+                    if (fromBonus > 0) {
+                        db.execute(
+                            "UPDATE saas_tenants SET ai_bonus_credits = MAX(0, COALESCE(ai_bonus_credits, 0) - :fb) WHERE id = :tid",
+                            {{":fb", fromBonus}, {":tid", tid}}
+                        );
+                        db.execute(
+                            "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
+                            "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'bonus')",
+                            {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", fromBonus}}
+                        );
+                    }
+                }
+                auto freshTenant = db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                return freshTenant.is_null() ? quotaSnap : buildTenantAiQuotaSnapshot(db, freshTenant);
+            };
+
+            if (aiAction == "parse_invoice") {
+                std::string mime = getString(body, "mime_type", "image/jpeg");
+                std::string pureB64 = getString(body, "image_base64");
+                if (pureB64.rfind("data:", 0) == 0) {
+                    SaleApp::AI::parseDataUriImage(pureB64, mime, pureB64);
+                }
+                if (pureB64.empty()) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Thiếu dữ liệu ảnh hóa đơn!"}}, 400);
+                    return;
+                }
+                std::string prompt =
+                    "Bạn là kế toán AI chuyên bóc tách hóa đơn nhập hàng F&B (hóa đơn in nhiệt hoặc giấy viết tay tiếng Việt). "
+                    "Hãy đọc ảnh hóa đơn này và trả về đúng 1 JSON object có cấu trúc sau (không thêm markdown): "
+                    "{\"supplier\": \"Tên nhà cung cấp hoặc chuỗi rỗng\", \"invoice_no\": \"Số hóa đơn hoặc chuỗi rỗng\", "
+                    "\"items\": [{\"raw_name\": \"Tên nguyên liệu\", \"quantity\": 1, \"unit\": \"kg\", \"unit_price\": 0, \"total_cost\": 0}]}. "
+                    "Lưu ý: số tiền bằng VNĐ (số nguyên), nếu thiếu đơn giá hãy tính unit_price = total_cost / quantity.";
+                json contents = json::array({{{"parts", json::array({
+                    {{"text", prompt}},
+                    {{"inlineData", {{"mimeType", mime}, {"data", pureB64}}}}
+                })}}});
+                std::string textOut, modelUsed, err;
+                if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, true, textOut, modelUsed, err)) {
+                    logUsage(modelUsed, "error");
+                    replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI OCR: " + err}}, 502);
+                    return;
+                }
+                json parsed;
+                try { parsed = json::parse(textOut); } catch (...) {
+                    logUsage(modelUsed, "error");
+                    replyTunnelJson(res, {{"success", false}, {"message", "AI trả về định dạng không phải JSON hợp lệ."}}, 502);
+                    return;
+                }
+                json updatedQuota = logUsage(modelUsed, "ok");
+                replyTunnelJson(res, {
+                    {"success", true},
+                    {"ai_engine", modelUsed},
+                    {"credits_charged", actionCost},
+                    {"ai_quota", updatedQuota},
+                    {"parsed", parsed}
+                });
+                return;
+            }
+
+            if (aiAction == "generate_dish_image") {
+                std::string name = getString(body, "name");
+                std::string catName = getString(body, "category_name");
+                if (name.empty()) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Thiếu tên món ăn!"}}, 400);
+                    return;
+                }
+                std::string prompt = "Professional commercial food and beverage studio photography of Vietnamese cafe/restaurant dish: \"" + name + "\"";
+                if (!catName.empty()) prompt += " (Category: " + catName + ")";
+                prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
+
+                std::string imgB64, mime, modelUsed, err;
+                if (!SaleApp::AI::geminiGenerateImageBase64(apiKey, prompt, imgB64, mime, modelUsed, err)) {
+                    logUsage(modelUsed, "error");
+                    replyTunnelJson(res, {{"success", false}, {"message", "Không thể tạo ảnh AI: " + err}}, 502);
+                    return;
+                }
+                json updatedQuota = logUsage(modelUsed, "ok");
+                replyTunnelJson(res, {
+                    {"success", true},
+                    {"image_base64", imgB64},
+                    {"mime_type", mime},
+                    {"ai_engine", modelUsed},
+                    {"credits_charged", actionCost},
+                    {"ai_quota", updatedQuota}
+                });
+                return;
+            }
+
+            if (aiAction == "generate_slide") {
+                std::string topic = getString(body, "topic", "Khuyến mãi đặc biệt hôm nay tại quán cà phê");
+                std::string copyPrompt =
+                    "Bạn là chuyên gia marketing F&B. Hãy viết nội dung cho 1 slide quảng cáo màn hình khách hàng dựa trên chủ đề: \"" + topic + "\". "
+                    "Trả về đúng 1 JSON object: {\"title\": \"Tiêu đề ngắn gọn hấp dẫn tối đa 60 ký tự tiếng Việt\", "
+                    "\"description\": \"Mô tả ngắn gọn 1-2 câu tối đa 160 ký tự tiếng Việt\", "
+                    "\"image_prompt\": \"Detailed English prompt for widescreen 16:9 commercial cafe/food promotional background photography, warm lighting, vibrant, no text, no watermark\"}.";
+                json contents = json::array({{{"parts", json::array({{{"text", copyPrompt}}})}}});
+                std::string textOut, textModel, err;
+                if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, true, textOut, textModel, err)) {
+                    logUsage(textModel, "error");
+                    replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI viết nội dung slide: " + err}}, 502);
+                    return;
+                }
+                json copyJson;
+                try { copyJson = json::parse(textOut); } catch (...) { copyJson = json::object(); }
+                std::string slideTitle = copyJson.value("title", topic);
+                std::string slideDesc = copyJson.value("description", "Ưu đãi hấp dẫn dành riêng cho quý khách hôm nay.");
+                std::string imgPrompt = copyJson.value("image_prompt", "Widescreen 16:9 commercial cafe beverage and pastry promotional photography, warm moody lighting, photorealistic, no text");
+
+                std::string imgB64, mime, imgModel, imgErr;
+                if (!SaleApp::AI::geminiGenerateImageBase64(apiKey, imgPrompt, imgB64, mime, imgModel, imgErr)) {
+                    logUsage(textModel, "error");
+                    replyTunnelJson(res, {{"success", false}, {"message", "Không thể tạo ảnh slide: " + imgErr}}, 502);
+                    return;
+                }
+                json updatedQuota = logUsage(textModel + "+" + imgModel, "ok");
+                replyTunnelJson(res, {
+                    {"success", true},
+                    {"title", slideTitle},
+                    {"description", slideDesc},
+                    {"image_base64", imgB64},
+                    {"mime_type", mime},
+                    {"ai_engine", textModel + " + " + imgModel},
+                    {"credits_charged", actionCost},
+                    {"ai_quota", updatedQuota}
+                });
+                return;
+            }
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", std::string("Master AI Proxy error: ") + e.what()}}, 500);
+        }
+    });
+
+    svr.Post("/api/ai/quota", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto& db = Database::instance();
+            ensureMasterAiTables(db);
+            json body = parseBody(req);
+            std::string licKey = getString(body, "license_key");
+            std::string machineId = getString(body, "machine_id");
+            if (licKey.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Thiếu license_key!"}}, 400);
+                return;
+            }
+            auto tenant = db.queryRow("SELECT * FROM saas_tenants WHERE license_key = :lk LIMIT 1", {{":lk", licKey}});
+            if (tenant.is_null()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "License key không hợp lệ!"}}, 403);
+                return;
+            }
+            std::string boundMid = getString(tenant, "machine_id", "");
+            if (!boundMid.empty() && !machineId.empty() && boundMid != machineId) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Machine ID không khớp!"}}, 403);
+                return;
+            }
+            auto kRow = db.queryRow("SELECT setting_value FROM master_settings WHERE setting_key = 'gemini_api_key'");
+            bool masterHasKey = (!kRow.is_null() && !kRow.value("setting_value", "").empty());
+            replyTunnelJson(res, {
+                {"success", true},
+                {"master_has_key", masterHasKey},
+                {"credit_costs", {{"parse_invoice", 1}, {"generate_dish_image", 2}, {"generate_slide", 3}}},
+                {"ai_quota", buildTenantAiQuotaSnapshot(db, tenant)}
+            });
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", std::string("Master AI Quota error: ") + e.what()}}, 500);
+        }
+    });
 
     // Store OTA Patch & Manifest Endpoints
     svr.Get("/api/updates/latest", [](const httplib::Request&, httplib::Response& res) {

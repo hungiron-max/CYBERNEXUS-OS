@@ -1594,7 +1594,7 @@
                 <!-- Subheading row -->
                 <div class="flex items-center justify-between pb-0.5 shrink-0">
                     <span class="font-bold text-xs text-amber-300" id="cart-sheet-subheading">Món Mới Gọi Thêm (0 món)</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold animate-pulse flex items-center gap-1">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold animate-pulse flex items-center gap-1 whitespace-nowrap shrink-0">
                         <i class="fas fa-sparkles text-[9px]"></i> Chờ gửi bếp
                     </span>
                 </div>
@@ -2578,17 +2578,33 @@
             window.location.replace('/');
         }
 
-        function initHeroCustomerQr() {
-            var container = document.getElementById('hero-customer-qr-canvas');
-            if (!container) return;
-            container.innerHTML = '';
+        async function getCustomerMenuShareUrl() {
             var origin = window.location.origin;
             if (!origin || origin === 'null') {
                 origin = window.location.protocol + '//' + window.location.host;
             }
-            var path = window.location.pathname;
-            var dir = path.substring(0, path.lastIndexOf('/'));
-            var url = origin + (dir ? dir + '/' : '/');
+            var host = window.location.hostname;
+            if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+                try {
+                    var res = await fetch('api/settings.php');
+                    var json = await res.json();
+                    var d = (json && json.data) ? json.data : {};
+                    var lanIp = d.server_ip || d.primary_lan_ip || '';
+                    if (lanIp && lanIp !== '127.0.0.1' && lanIp !== 'localhost') {
+                        var port = window.location.port ? (':' + window.location.port) : '';
+                        origin = window.location.protocol + '//' + lanIp + port;
+                    }
+                } catch (e) {}
+            }
+            return origin + '/customer.html' + (window.location.search || '');
+        }
+
+        async function initHeroCustomerQr() {
+            var container = document.getElementById('hero-customer-qr-canvas');
+            if (!container) return;
+            container.innerHTML = '';
+            var url = await getCustomerMenuShareUrl();
+            window._cachedCustomerQrUrl = url;
             if (typeof QRCode !== 'undefined') {
                 try {
                     new QRCode(container, {
@@ -2608,14 +2624,8 @@
             }
         }
 
-        function copyCustomerDirectUrl() {
-            var origin = window.location.origin;
-            if (!origin || origin === 'null') {
-                origin = window.location.protocol + '//' + window.location.host;
-            }
-            var path = window.location.pathname;
-            var dir = path.substring(0, path.lastIndexOf('/'));
-            var url = origin + (dir ? dir + '/' : '/');
+        async function copyCustomerDirectUrl() {
+            var url = window._cachedCustomerQrUrl || await getCustomerMenuShareUrl();
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(url).then(function() {
                     alert('Đã sao chép link gọi món:\n' + url);
@@ -2974,7 +2984,7 @@
                                 <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]"><i class="fas fa-chair"></i></span>
                                 <span>Quý khách đang gọi món tại <strong class="underline font-mono">${tableCode} - ${tableName || 'Bàn'}</strong></span>
                             </div>
-                            <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Phục vụ tại bàn</span>
+                            <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">Phục vụ tại bàn</span>
                         `;
                         header.parentNode.insertBefore(banner, header.nextSibling);
                     }

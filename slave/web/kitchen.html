@@ -135,7 +135,7 @@
             <button type="button" onclick="openLockedDishesModal()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 flex items-center gap-1 font-bold shadow-md shadow-rose-500/10" title="Quản lý món tạm khóa / hết hàng">
                 <i class="fas fa-ban text-rose-400"></i>
                 <span class="hidden md:inline">Món Khóa</span>
-                <span id="count-locked-dishes" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono text-[10px] font-black">0</span>
+                <span id="count-locked-dishes" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
             </button>
 
             <!-- Reload -->
@@ -159,22 +159,22 @@
         <button type="button" id="tab-filter-active" onclick="switchFilter('active')" class="flex-1 py-1.5 px-2 sm:px-3 rounded-lg font-bold transition-all bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap">
             <i class="fas fa-fire text-amber-400"></i>
             <span>Chờ Làm</span>
-            <span id="count-tab-active" class="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-mono text-[10px] font-black">0</span>
+            <span id="count-tab-active" class="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
         <button type="button" id="tab-filter-served" onclick="switchFilter('served')" class="flex-1 py-1.5 px-2 sm:px-3 rounded-lg font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap">
             <i class="fas fa-check-circle text-emerald-400"></i>
             <span>Đã Bưng</span>
-            <span id="count-tab-served" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] font-black">0</span>
+            <span id="count-tab-served" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
         <button type="button" id="tab-filter-history" onclick="switchFilter('history')" class="flex-1 py-1.5 px-2 sm:px-3 rounded-lg font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap">
             <i class="fas fa-history text-purple-400"></i>
             <span>Lịch Sử</span>
-            <span id="count-tab-history" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-purple-400 font-mono text-[10px] font-black">0</span>
+            <span id="count-tab-history" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-purple-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
         <button type="button" id="tab-filter-all" onclick="switchFilter('all')" class="flex-1 py-1.5 px-2 sm:px-3 rounded-lg font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap">
             <i class="fas fa-list text-sky-400"></i>
             <span>Tất Cả Đang Mở</span>
-            <span id="count-tab-all" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-sky-400 font-mono text-[10px] font-black">0</span>
+            <span id="count-tab-all" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-sky-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
     </div>
 

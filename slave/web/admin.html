@@ -535,9 +535,13 @@
                         <span class="text-amber-400 font-black">GÓC PHỐ</span>
                         <span class="text-white font-extrabold">COFFEE &amp; TEA</span>
                     </h1>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/35 shrink-0 shadow-sm">
+                    <button type="button" id="admin-update-badge" onclick="Admin.handleAdminBadgeUpdateClick(this)" title="Chủ Quán (Admin) • Bấm để kiểm tra / cập nhật hệ thống" class="relative inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 shrink-0 shadow-sm cursor-pointer transition whitespace-nowrap">
                         <i class="fas fa-crown text-[10px] text-amber-400"></i> Chủ Quán (Admin)
-                    </span>
+                        <span id="admin-update-dot" class="hidden" style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;" title="Có bản cập nhật mới từ Master — bấm để cập nhật ngay!">
+                            <span class="animate-ping" style="position:absolute;inset:0;border-radius:9999px;background-color:#f87171;opacity:0.85;"></span>
+                            <span style="position:relative;width:12px;height:12px;border-radius:9999px;background-color:#ef4444;border:2px solid #020617;box-shadow:0 0 8px rgba(239,68,68,0.85);display:inline-block;"></span>
+                        </span>
+                    </button>
                     <span class="hidden md:inline-flex text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0 items-center gap-1">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> C++ Native (Port 8500)
                     </span>
@@ -812,15 +816,15 @@
                 </div>
 
                 <!-- Top Selling Products -->
-                <div class="liquid-glass p-5 rounded-2xl border border-white/10 flex flex-col justify-between">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="liquid-glass p-5 rounded-2xl border border-white/10 flex flex-col">
+                    <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-white/10 shrink-0">
                         <div class="flex items-center gap-2">
                             <i class="fas fa-crown text-amber-400"></i>
                             <h3 class="font-bold text-sm text-slate-100 uppercase tracking-wide">Món Bán Chạy Nhất</h3>
                         </div>
-                        <span class="text-xs text-slate-400 font-mono">Top Món</span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25 font-mono font-semibold">Top 6 Món</span>
                     </div>
-                    <div id="top-selling-list" class="space-y-2 overflow-y-auto max-h-72 pr-1">
+                    <div id="top-selling-list" class="space-y-2 flex-1 overflow-y-auto max-h-[340px] pr-1">
                         <!-- Loaded dynamically -->
                     </div>
                 </div>
@@ -1775,13 +1779,16 @@
         
         <section id="tab-finance" class="admin-section hidden flex-1 overflow-y-auto space-y-4">
             <div class="p-3 bg-slate-900/60 rounded-xl border border-white/10 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2.5">
                     <i class="fas fa-file-invoice-dollar text-teal-400 text-sm"></i>
                     <span class="text-xs font-bold text-slate-300">Kỳ báo cáo:</span>
                     <input type="month" id="fin-month-input" onchange="Admin.loadFinance()" class="liquid-input py-1 px-2.5 text-xs font-mono font-bold text-teal-300 bg-slate-900" />
+                    <span id="fin-cycle-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/25">Chu kỳ: 01 – Cuối tháng</span>
+                    <span id="fin-realtime-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fas fa-circle text-[7px] mr-1 animate-pulse"></i>Realtime P&amp;L</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 text-xs">
-                    <button type="button" onclick="Admin.openFinExpenseModal()" class="btn-glass text-xs py-1.5 px-3 bg-teal-500/20 hover:bg-teal-500/40 text-teal-300 border-teal-500/30 font-bold"><i class="fas fa-plus mr-1"></i> Thêm chi phí</button>
+                    <button type="button" onclick="Admin.loadFinance()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-semibold"><i class="fas fa-sync-alt mr-1"></i> Cập nhật</button>
+                    <button type="button" onclick="Admin.openFinExpenseModal()" class="btn-glass text-xs py-1.5 px-3 bg-teal-500/20 hover:bg-teal-500/40 text-teal-300 border-teal-500/30 font-bold"><i class="fas fa-plus mr-1"></i> Thêm chi phí / Công nợ</button>
                     <button type="button" onclick="Admin.openFinTaxModal()" class="btn-glass text-xs py-1.5 px-3 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/30 font-bold"><i class="fas fa-percent mr-1"></i> Cấu hình thuế</button>
                     <button type="button" onclick="Admin.exportFinanceCsv()" class="btn-glass text-xs py-1.5 px-3 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 font-bold"><i class="fas fa-file-csv mr-1"></i> Xuất CSV</button>
                 </div>
@@ -1868,8 +1875,8 @@
                     <div class="h-72"><canvas id="fin-daily-chart"></canvas></div>
                 </div>
                 <div class="liquid-glass rounded-xl border border-white/10 p-4">
-                    <div class="font-bold text-sm text-teal-300 mb-2">Kết quả kinh doanh</div>
-                    <table class="w-full text-xs" id="fin-pnl"></table>
+                    <div class="font-bold text-sm text-teal-300 mb-2">Kết quả kinh doanh (P&amp;L)</div>
+                    <div class="overflow-x-auto"><table class="w-full text-xs" id="fin-pnl"></table></div>
                 </div>
             </div>
 
@@ -1885,6 +1892,27 @@
                 <div class="liquid-glass rounded-xl border border-white/10 p-4">
                     <div class="font-bold text-sm text-emerald-300 mb-2">Doanh thu theo nhóm hàng & thanh toán</div>
                     <div id="fin-breakdown" class="space-y-1.5 text-xs"></div>
+                </div>
+            </div>
+
+            <div class="saas-table-card max-w-6xl mx-auto my-2">
+                <div class="px-4 py-2.5 border-b border-white/10 font-bold text-sm text-sky-300 flex flex-wrap items-center justify-between gap-2 bg-slate-900/60">
+                    <span><i class="fas fa-scale-balanced mr-1.5 text-sky-400"></i>Bảng So Sánh P&amp;L Nhiều Tháng (Profit &amp; Loss Statement)</span>
+                    <span class="text-[11px] font-normal text-slate-400">Chu kỳ 01 → cuối tháng • So sánh 3 tháng liên tiếp (MoM)</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="saas-table">
+                        <thead id="fin-pnl-compare-thead">
+                            <tr>
+                                <th>Chỉ tiêu P&amp;L</th>
+                                <th class="col-right">Tháng T-2</th>
+                                <th class="col-right">Tháng T-1</th>
+                                <th class="col-right">Tháng hiện tại</th>
+                                <th class="col-right">Biến động (MoM)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fin-pnl-compare-tbody"></tbody>
+                    </table>
                 </div>
             </div>
 
@@ -2086,7 +2114,7 @@
                             
                                 <select name="customer_table_order_enabled" class="liquid-input bg-slate-900 text-xs"><option value="1" >Bật</option><option value="0" >Tắt</option></select>
                             
-                                <span class="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-200">Chưa cấp phép</span>
+                                <span class="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-200 whitespace-nowrap shrink-0">Chưa cấp phép</span>
                             
                         </div>
                     </div>
@@ -2115,10 +2143,10 @@
                                 <a href="customer.html" target="_blank" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all" title="Mở trang menu khách hàng trong tab mới">
                                     <i class="fas fa-arrow-up-right-from-square text-xs"></i> <span>Mở Trang Khách</span>
                                 </a>
-                                <span id="ad-slide-count-badge" class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">
+                                <span id="ad-slide-count-badge" class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 whitespace-nowrap shrink-0">
                                     3 / 12 Slide
                                 </span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 whitespace-nowrap shrink-0">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Tự Động Chiếu
                                 </span>
                             </div>
@@ -2235,14 +2263,18 @@
                                 </div>
 
                                 <!-- Action Buttons: Preview & Add / Update -->
-                                <div class="grid grid-cols-2 gap-2 pt-1">
-                                    <button type="button" onclick="previewCurrentDraftSlide()" class="rounded-xl border border-sky-400/30 bg-sky-500/15 hover:bg-sky-500/30 py-2 px-3 text-xs font-bold text-sky-200 flex items-center justify-center gap-1.5 shadow-sm transition-all" title="Xem trước toàn bộ trình chiếu có kèm slide này">
+                                <div class="grid grid-cols-3 gap-2 pt-1">
+                                    <button type="button" onclick="aiGenerateAdvertisingSlide(this)" class="rounded-xl border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/30 py-2 px-2.5 text-xs font-bold text-amber-200 flex items-center justify-center gap-1 shadow-sm transition-all" title="Dùng Gemini AI tự viết tiêu đề, mô tả và vẽ ảnh nền slide">
+                                        <i class="fas fa-wand-magic-sparkles text-amber-300"></i>
+                                        <span>AI Tạo Slide</span>
+                                    </button>
+                                    <button type="button" onclick="previewCurrentDraftSlide()" class="rounded-xl border border-sky-400/30 bg-sky-500/15 hover:bg-sky-500/30 py-2 px-2.5 text-xs font-bold text-sky-200 flex items-center justify-center gap-1 shadow-sm transition-all" title="Xem trước toàn bộ trình chiếu có kèm slide này">
                                         <i class="fas fa-eye text-sky-400"></i>
                                         <span>Xem Trước</span>
                                     </button>
-                                    <button type="button" id="ad-slide-add-button" onclick="uploadAndAddAdSlide()" class="rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5">
+                                    <button type="button" id="ad-slide-add-button" onclick="uploadAndAddAdSlide()" class="rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-2.5 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1">
                                         <i class="fas fa-plus"></i>
-                                        <span>Thêm Vào Deck</span>
+                                        <span>Thêm Deck</span>
                                     </button>
                                 </div>
                                 <button type="button" id="ad-slide-cancel-edit-btn" onclick="cancelEditAdvertisingSlide()" class="hidden w-full py-1.5 text-center text-[11px] font-semibold text-slate-400 hover:text-white transition rounded-lg hover:bg-white/5 border border-white/5">
@@ -2286,7 +2318,7 @@
                             </button>
                         </div>
                         
-                        <div class="grid grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block text-[11px] text-slate-300">Mã Ngân Hàng (BIN):</label>
@@ -2538,14 +2570,20 @@
                             </button>
                         </div>
 
-                        <!-- Khung thông báo khi chưa thiết lập -->
-                        <div id="gemini-status-unconfigured" class=" text-xs text-amber-300 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
-                            <i class="fas fa-circle-exclamation text-amber-400"></i>
-                            <span>Chưa thiết lập API Key. Vui lòng nhập mã key bên dưới để kích hoạt nhận diện hóa đơn & chữ viết tay AI.</span>
+                        <!-- Khung thông báo chế độ Master AI Proxy -->
+                        <div id="gemini-status-unconfigured" class="text-xs text-sky-200 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/25 flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <i class="fas fa-cloud-shield text-sky-400"></i>
+                                <span>Mặc định chạy qua <b>CyberNexus Master AI Proxy</b> (Key bảo mật trên Master, không lưu ở quán).</span>
+                                <span id="slave-ai-quota-badge" class="text-[11px] font-mono text-emerald-300"></span>
+                            </div>
+                            <button type="button" onclick="document.getElementById('gemini-key-input-box')?.classList.toggle('hidden')" class="text-[11px] text-purple-300 hover:text-purple-200 underline shrink-0">
+                                + Dùng Key dự phòng riêng
+                            </button>
                         </div>
 
-                        <!-- Khung nhập / cập nhật API Key mới: Chỉ mở ra khi cần nhập, sau khi lưu sẽ ẩn hoàn toàn -->
-                        <div id="gemini-key-input-box" class=" space-y-2 pt-1">
+                        <!-- Khung nhập / cập nhật API Key dự phòng: Mặc định ẩn, sau khi kiểm & lưu cũng ẩn hoàn toàn -->
+                        <div id="gemini-key-input-box" class="hidden space-y-2 pt-1">
                             <div class="flex items-center justify-between">
                                 <label class="block text-[11px] font-semibold text-slate-200">Nhập API Key Google Gemini mới:</label>
                                 
@@ -2554,15 +2592,20 @@
                                     </button>
                                 
                             </div>
-                            <div class="relative flex items-center">
-                                <input type="password" name="gemini_api_key" id="setting-gemini-api-key" value="" placeholder="Dán mã API Key mới tại đây..." class="liquid-input w-full text-xs font-mono text-purple-200 pr-10" autocomplete="off" />
-                                <button type="button" onclick="Admin.togglePasswordView('setting-gemini-api-key', this)" class="absolute right-2 text-slate-400 hover:text-white p-1 text-xs" title="Ẩn/Hiện ký tự đang nhập">
-                                    <i class="fas fa-eye"></i>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="relative flex-1 min-w-[200px] flex items-center">
+                                    <input type="password" name="gemini_api_key" id="setting-gemini-api-key" value="" placeholder="Dán mã API Key mới tại đây..." class="liquid-input w-full text-xs font-mono text-purple-200 pr-10" autocomplete="off" />
+                                    <button type="button" onclick="Admin.togglePasswordView('setting-gemini-api-key', this)" class="absolute right-2 text-slate-400 hover:text-white p-1 text-xs" title="Ẩn/Hiện ký tự đang nhập">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <button type="button" onclick="Admin.verifyAndSaveGeminiKey(this)" class="btn-glass text-xs py-2 px-3 bg-purple-500/25 hover:bg-purple-500/40 text-purple-200 border-purple-400/40 font-bold whitespace-nowrap">
+                                    <i class="fas fa-wand-magic-sparkles mr-1"></i> Kiểm tra &amp; Lưu (Tự ẩn)
                                 </button>
                             </div>
                             <p class="text-[11px] text-slate-400">
                                 <i class="fas fa-circle-info text-sky-400 mr-1"></i>
-                                Bạn có thể bấm icon con mắt <i class="fas fa-eye"></i> để kiểm tra mã trong lúc nhập. Sau khi bấm <b>"Lưu Cấu Hình"</b>, mã sẽ được chuyển vào máy chủ và <b>ẩn hoàn toàn</b>.
+                                Dán mã key rồi bấm <b>"Kiểm tra &amp; Lưu (Tự ẩn)"</b> — hệ thống sẽ test kết nối Google Gemini, lưu vào máy chủ và <b>ẩn khung nhập ngay</b>.
                             </p>
                         </div>
                     </div>
@@ -3144,7 +3187,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                         <label class="block font-semibold text-slate-300 mb-1">Đơn vị tính:</label>
                         <input type="text" id="modal-prod-unit" value="ly" placeholder="ly, lon, cái..." class="liquid-input w-full" />
@@ -3597,7 +3640,7 @@
                         <label class="block font-semibold text-slate-300 mb-1">Tên nguyên vật liệu <span class="text-rose-400">*</span>:</label>
                         <input type="text" id="modal-mat-name" placeholder="Ví dụ: Hạt Cà Phê Robusta..." class="liquid-input w-full font-bold text-sm text-slate-100" required />
                     </div>
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block font-semibold text-slate-300 mb-1">Đơn vị tính:</label>
                             <input type="text" id="modal-mat-unit" placeholder="kg, lít, hộp, gói..." value="kg" class="liquid-input w-full" required />
@@ -4529,7 +4572,7 @@
             </div>
 
             <!-- Tracks Table -->
-            <div class="flex-1 overflow-y-auto media-custom-scroll rounded-xl border border-white/10">
+            <div class="flex-1 overflow-auto media-custom-scroll rounded-xl border border-white/10">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="sticky top-0 bg-slate-900/95 backdrop-blur-md text-slate-400 uppercase tracking-wider text-[10px] border-b border-white/10 z-10">
                         <tr>
@@ -4717,7 +4760,7 @@
             </div>
 
             <!-- File Queue Preview List -->
-            <div class="flex-1 overflow-y-auto media-custom-scroll rounded-xl border border-white/10 p-1 mb-3">
+            <div class="flex-1 overflow-auto media-custom-scroll rounded-xl border border-white/10 p-1 mb-3">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="sticky top-0 bg-slate-900/95 backdrop-blur-md text-slate-400 uppercase tracking-wider text-[10px] border-b border-white/10 z-10">
                         <tr>
@@ -4893,7 +4936,7 @@
     <script src="assets/js/image_processor.js?v=1"></script>
     <script src="assets/js/jukebox-engine.js?v=2"></script>
     <script src="assets/js/date_format_ddmmyy.js?v=1"></script>
-    <script src="assets/js/admin.js?v=39"></script>
+    <script src="assets/js/admin.js?v=41"></script>
     <script>
         // Master list of Vietnamese banks supported by VietQR / NAPAS 247
         const VIETQR_BANKS = [
@@ -5730,6 +5773,39 @@
             schedulePreviewNext();
         }
 
+        async function aiGenerateAdvertisingSlide(btn) {
+            const titleInput = document.getElementById('ad-slide-title');
+            const descInput = document.getElementById('ad-slide-description');
+            const topic = prompt('Nhập chủ đề / món cần AI thiết kế Slide (hoặc để trống để dùng tiêu đề hiện tại):', titleInput ? titleInput.value.trim() : '');
+            if (topic === null) return;
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...'; }
+            try {
+                const res = await fetch('api/advertising.php?action=ai_generate_slide', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: topic.trim() || (titleInput ? titleInput.value.trim() : 'Khuyến mãi đồ uống đặc biệt') })
+                });
+                const data = await res.json();
+                if (data.success && data.media_path) {
+                    if (titleInput && data.title) titleInput.value = data.title;
+                    if (descInput && data.description) descInput.value = data.description;
+                    const mediaInput = document.getElementById('ad-slide-media-url');
+                    if (mediaInput) mediaInput.value = data.media_path;
+                    if (typeof setAdSlidePreviewMedia === 'function') {
+                        setAdSlidePreviewMedia(data.media_path, 'image');
+                    }
+                    alert(data.message || 'AI đã tạo nội dung và ảnh slide thành công! Bấm "Thêm Deck" hoặc "Xem Trước".');
+                } else {
+                    alert(data.message || 'Không thể tạo slide bằng AI!');
+                }
+            } catch (e) {
+                alert('Lỗi kết nối AI: ' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+            }
+        }
+
         function renderBanks(list) {
             const container = document.getElementById('bank-list-container');
             if (!container) return;
@@ -5902,6 +5978,21 @@
 
                 if (d.server_base_url) {
                     localStorage.setItem('server_lan_base_url', d.server_base_url);
+                }
+
+                const qBadge = document.getElementById('slave-ai-quota-badge');
+                if (qBadge && d.ai_quota) {
+                    const q = d.ai_quota;
+                    if (q.unlimited) {
+                        qBadge.textContent = '• Quota: Không giới hạn';
+                        qBadge.className = 'text-[11px] font-mono text-purple-300';
+                    } else {
+                        const rem = Number(q.remaining_total ?? 0);
+                        const mq = Number(q.monthly_quota ?? 0);
+                        const bonus = Number(q.bonus_credits ?? 0);
+                        qBadge.textContent = `• Còn ${rem} credit (${q.monthly_used || 0}/${mq} tháng${bonus > 0 ? ` + ${bonus} bonus` : ''})`;
+                        qBadge.className = rem <= 0 ? 'text-[11px] font-mono text-rose-300 font-semibold' : 'text-[11px] font-mono text-emerald-300';
+                    }
                 }
             } catch (e) {
                 console.error('Error loading store settings:', e);
