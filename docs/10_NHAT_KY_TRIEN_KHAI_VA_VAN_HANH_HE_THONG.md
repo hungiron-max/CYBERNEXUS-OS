@@ -502,3 +502,95 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
   - `GET /api/media/stream-yt?id=26` với header `Range: bytes=0-8191` proxy trực tiếp từ YouTube CDN qua WinHTTP, trả về `HTTP 206 Partial Content` (`8192 bytes`, `audio/mp4`).
 - [x] **Kiểm thử giao diện Playwright (`admin.html`):**
   - Xác nhận nút `YouTube Audio`, modal `#youtube-import-modal`, badge `YT Offline` / `YT Stream` và nút `Lưu Offline` hiển thị đầy đủ (`admin_youtube_hybrid_verified.png`).
+
+---
+
+## 16. Nâng Cấp UI/UX Studio Âm Thanh, Bảng Cuộn Tự Động (>10 Dòng) & Đồng Bộ Jukebox (12–13/11/2026)
+
+### 16.1. Nâng cấp Studio EQ & Kho Nhạc (`admin.html`, `theme.css`, `customer.html`)
+- **Duy trì Dark Studio Theme cho `.eq-studio-rack`:** Khóa nền tối và thanh trượt `input[type="range"]` cho bộ EQ kể cả khi toàn trang chuyển sang chế độ Sáng (`data-theme="light"`).
+- **Cân chỉnh bố cục FluidEQ & Đáy 2 cột (`diff: 0px`):** Bổ sung thanh đo mức `OUT L/R`, dải quick-preset `Bass + / Vocal + / Air +`, căn lề trục tần số `31Hz..16kHz`, và khóa chiều cao cột phải bằng `.media-right-col` (`height: 0; min-height: 100%`) kết hợp `.media-catalog-card` (`flex: 1 1 0%; min-height: 0`) để danh sách bài hát cuộn độc lập bên trong card **Kho Nhạc**.
+- **Đặt tên `.mp3` theo tên bài hát & Sửa metadata (`POST /api/media/youtube/edit`):** File tải offline từ YouTube được lưu theo tên bài hát đã biên tập và tự động đổi tên file vật lý khi chỉnh sửa thông tin; `customer.html` tự động đồng bộ danh sách bài mới mỗi 10 giây và khi mở modal.
+
+### 16.2. Tự động Cuộn Nội Bộ & Sticky Header cho Toàn Bộ Bảng Dữ Liệu
+- Áp dụng CSS `.overflow-x-auto:has(> table)` đồng bộ trên cả `admin.html` (Store) và `super_admin.html` (Master):
+  - Bảng ≤ 10 dòng giữ nguyên chiều cao tự nhiên; bảng **> 10 dòng** tự động giới hạn `max-height: 460px` (`480px` trên Master) và bật thanh cuộn mảnh bên trong.
+  - Ghim cố định tiêu đề cột (`thead th { position: sticky; top: 0; }`) tương thích cả Dark Mode và Light Mode.
+
+---
+
+## 17. Giám Sát Store Diện Rộng (WAN Reverse Long-Polling), Định Vị IP/Google Maps & Đóng Gói 2 Phiên Bản (13/11/2026)
+
+### 17.1. Kiến trúc Reverse Long-Polling Xuyên NAT/WAN
+- **Master (`master/src/master_tunnel.h`, `main_master.cpp`, `master_handlers.cpp`):**
+  - Nâng `httplib::ThreadPool` lên `128` worker threads để phục vụ nhiều Store giữ kết nối Long-Polling đồng thời mà không nghẽn API/Web.
+  - `StoreTunnelManager` quản lý kênh kết nối theo `tenant_id` (RAII `active_polls` counter, `AckWaiter` map, `requestShutdown()` thoát êm khi dừng server).
+  - Bổ sung `POST /api/license/poll` (giữ kết nối `25s` an toàn dưới timeout Proxy/NAT) và `POST /api/license/ack` (nhận phản hồi `PING` tức thì).
+  - Bổ sung `action=check_store_online` cho phép kiểm tra trạng thái Online/Offline và độ trễ (`ms`) của từng quán hoặc toàn bộ chuỗi ngay lập tức trong khi vẫn giữ chu kỳ Heartbeat License `30 phút/lần`.
+- **Store (`slave/src/slave_tunnel.h`, `main_slave.cpp`, `slave_handlers.cpp`, `ConfigManager.hpp`):**
+  - Chạy luồng nền Reverse Long-Polling kết nối ra Master (xuyên Router/NAT/4G không cần mở port tại quán), dự phòng mất mạng bằng **Exponential Backoff + Random Jitter (`0..3s`)** tránh dồn tải khi Master khởi động lại.
+  - Tự động nhận cấu hình WAN động từ Master và cung cấp API `/api/wan_tunnel` cho phép Admin đổi `master_server_url` trực tiếp trên Web (lưu xuống `config.json`).
+
+### 17.2. Định Vị IP LAN / WAN, Google Maps & Giao Diện Giám Sát (`super_admin.html`, `admin.html`)
+- **Dò IP & Vị trí (`slave/src/slave_net_info.h`):** Tự động lấy **IP LAN** qua `GetAdaptersAddresses`, **IP WAN & GeoIP** qua `ip-api.com`, hỗ trợ **Ghim Tọa Độ Google Maps Chính Xác (`GPS`)** từ thiết bị hoặc link Google Maps (`savePinnedLocation` / `update_store_location`), bảo vệ tọa độ `GPS` không bị GeoIP ghi đè.
+- **Bảng Quản Lý Quán trên Master (`super_admin.html`, `super_admin.js?v=2.3.2`):**
+  - Hiển thị **chấm xanh (Online • XXms)** / **chấm xám (Offline • lần cuối)** kèm nút kiểm tra từng quán và nút **Kiểm Tra Tất Cả Store**.
+  - Thêm cột **Mạng & Vị Trí (LAN / WAN / Map)** hiển thị badge `LAN`, `WAN` (có nút copy 1-click), link mở thẳng **Google Maps** với nhãn `GPS`/`IP` và nút ghim tọa độ trực tiếp.
+- **Form cấu hình WAN:** Bổ sung trên cả Master (*Cài đặt SaaS* -> `wan_tunnel_enabled`, `wan_poll_timeout_sec`, `wan_check_timeout_ms`, `wan_heartbeat_interval_sec`, `wan_retry_base_sec`, `wan_retry_max_sec`) và Store (*Cài đặt Quán* -> `admin.html` / `admin.js?v=31`).
+
+### 17.3. Dọn Dẹp, Dữ Liệu Giả Lập & Đóng Gói Phát Hành
+- **Dọn file rác:** Xóa `slave/pos_local.db` (0 byte), `master/packages/ST780/release/staging_temp`, `verify_lan_and_mobile.js`; thêm `release/` vào `.gitignore`; chạy `PRAGMA wal_checkpoint(TRUNCATE)` cho cả 2 database.
+- **Nạp dữ liệu giả lập (`2026-08-01` → `2026-11-13`) vào `store_local.db`:** Bổ sung `2.397` đơn hàng & ca làm việc, `51` khoản chi phí (`finance_expenses`), `210` phiếu nhập/xuất kho (`material_transactions`), `376` bản ghi chấm công/lương (`attendances`) trên nền data test và giữ nguyên toàn bộ nhạc mẫu `.mp3`.
+- **Kết quả đóng gói 2 phiên bản tại `release/`:**
+  - `release/master.zip` (`8.74 MB`): Bản Master Server độc lập.
+  - `release/cybernexus-store.zip` (`354.19 MB`): Bản Store (POS/KDS/Jukebox/Tools/Nhạc mẫu/DB đầy đủ) triển khai độc lập tại quán.
+
+---
+
+## 18. Hệ Thống Cập Nhật OTA, Chuẩn Hóa Báo Cáo & Kiểm Toán 17 Module (13/11/2026)
+
+### 18.1. Sửa Lỗi Vận Hành, Báo Cáo Tài Chính & Dữ Liệu Store
+- **Sửa lỗi khởi động `slave/RUN_SLAVE.bat`:** Thay ký tự `&` chưa escape (`processes & sessions...`) thành `and` để không báo lỗi `'sessions...' is not recognized`.
+- **Hoàn thiện 4 card Báo cáo Tài chính P&L (`slave_handlers.cpp` + `admin.js?v=32+`):** Bổ sung `daily_revenue`, `category_breakdown`, `payment_breakdown`, `cogs`, `vat_collected`, `vat_input` vào `api/finance.php?action=get_report` và render Chart.js + bảng Kết quả kinh doanh + Thuế & điểm hòa vốn + Doanh thu theo nhóm hàng & thanh toán.
+- **Sửa bộ lọc Lịch sử Hóa đơn (`action=history`):** Bỏ hardcode `DATE(created_at) = today`, hỗ trợ lọc theo `date_from`, `date_to`, `status` (`LIMIT 500`).
+- **Bổ sung `action=pos_shift_report`:** Sửa lỗi modal *"Thống kê doanh thu thu ngân"* trên POS (`pos.js`).
+- **Cân chỉnh `store_local.db`:** Xóa 3 dòng `order_items` mồ côi (`order_id = -1`), cân chỉnh chi phí `finance_expenses` theo tỷ lệ thực tế ngành F&B (tách `Nguyên Vật Liệu` khỏi OPEX trong P&L để không trùng `COGS`, đảm bảo cả 4 tháng 08–11/2026 đều có lãi ròng ~11%–14%).
+
+### 18.2. Hệ Thống Đẩy Update OTA & Thông Báo Store, Chuẩn Hóa Ngày `dd/mm/yy`
+- **Cập nhật OTA & Thông báo (`master_tunnel.h`, `master_handlers.cpp`, `slave_updater.h`, `main_slave.cpp`, `super_admin.html`, `admin.html`):**
+  - Master phục vụ gói vá tại `/api/updates/latest`, `/api/updates/download` và nút **Đẩy Update / Thông Báo** (`action=push_store_update`) qua Long-Polling (`OTA_UPDATE` / `STORE_NOTIFY`).
+  - Slave tự nhận thông báo, lưu `app_notifications`, hiển thị banner trên `admin.html` và tự tải/giải nén/chép đè (kèm `apply_exe_update.bat` khi có `cybernexus_slave.exe` mới).
+  - Đã phát hành các bản vá gọn nhẹ tại `master/updates/patch_latest.zip` & `release/store_patch_update.zip` (tới **`v2026.11.13.5`**).
+- **Chuẩn hóa định dạng ngày `dd/mm/yy` (`date_format_ddmmyy.js`):** Tự động phủ hiển thị `dd/mm/yy` cho toàn bộ `<input type="date">` và định dạng `dd/mm/yy` / `dd/mm/yy HH:mm` trên bảng dữ liệu Store.
+- **Giao diện Master & Store:** Nới rộng sidebar `super_admin.html` lên `w-64` (`256px`) chống xuống dòng; thêm nút lối tắt **Chấm Công & Tiền Lương** và **KPI & Thưởng** ngay trong tab **Nhân Sự & Bếp** của `admin.html`.
+
+### 18.3. Kiểm Toán Toàn Bộ 17 Module & Cơ Chế Cấp Phép ON/OFF/BLOCK
+- **Cơ chế đồng bộ tức thì (`v2026.11.13.4`):**
+  - Master đính kèm `enabled_modules`, `blocked_modules`, `subscription_status`, `expire_date`, `card_fee_percent` vào mọi phản hồi `/api/license/poll` và đẩy `SYNC_LICENSE` khi gạt ON/OFF/BLOCK.
+  - Slave cập nhật `local_license_cache` tức thì qua tunnel + `sync_now` khi mở `admin.html`, lọc `blocked_modules` trong `isModuleEnabled()` và `getLicenseStatus()`, đồng thời `admin.js` (`enforceModuleLicenses`) khóa/mở khóa các tab tương ứng theo chu kỳ 15s.
+- **Cập nhật hoàn thiện siết quyền (`v2026.11.13.6`):**
+  - Bổ sung helper `requireModule(...)` trong `slave/src/slave_handlers.cpp` trả HTTP `403` cho các API thuộc `vietqr_payment`, `kitchen_kds`, `advanced_reports`, `finance_reports`, `inventory_recipes`, `staff_shifts`, `advertising_promotions` khi bị OFF/BLOCK.
+  - Cập nhật `admin.js?v=36` map đúng `finance_reports`, `staff_kpi`, `kitchen_kds`, `qr_customer_order` khi khóa/mở khóa giao diện.
+
+---
+
+## 19. Rà Soát Toàn Diện & Test Tự Động 17 Module Qua 4 Trạng Thái (13/11/2026)
+
+### 19.1. Các lỗ hổng đã phát hiện & khắc phục triệt để
+1. **Điều hướng & Khóa giao diện `staff_kpi`, `staff_shifts`, `inventory_recipes` (`slave/web/assets/js/admin.js?v=39`, `admin.html`):**
+   - `openHrSubtab()` trước đây dùng sai selector `.admin-group-btn`, khiến nhóm **Thực Đơn & Kho** vẫn giữ highlight khi bấm **Chấm Công & Tiền Lương** hoặc **KPI & Thưởng**. Đã sửa highlight đúng `grp-btn-hr`.
+   - `switchOpsSubtab()` thiếu `'kpi'` trong mảng subtab khiến `#ops-subview-kpi` bị trắng trang; đã bổ sung `'kpi'` và kiểm tra quyền `isModuleAllowed()` trước khi nạp dữ liệu.
+   - Bổ sung `applySubviewLicenseLock()` và gắn icon ổ khóa (`fa-lock`) + làm mờ (`opacity-40`) lên cả nút thanh **Nhân Sự & Bếp** (`[data-hr-subtab="kpi"]`, `[data-hr-subtab="payroll"]`), **Thực Đơn & Kho** (`[data-tab="operations"]`), nút AI OCR (`#btn-trigger-ai-scan`), Cloud Sync (`openCloudSyncModal`) và Quảng cáo (`#ad-save-btn`).
+2. **Siết backend C++ còn thiếu (`slave/src/slave_handlers.cpp`):**
+   - `handleMediaTracks` (`/api/media/tracks*`): Bổ sung `requireModule(res, "mod_media_stream", ...)` (trả HTTP `403` khi OFF/BLOCK).
+   - `handleOrders` (`action == "customer_order"`): Bổ sung `requireModule(res, "qr_customer_order", ...)` và `requireModule(res, "qr_table_order", ...)` khi `table_id > 0`.
+3. **Siết VietQR trên POS (`slave/web/assets/js/pos.js`):**
+   - Bổ sung `checkVietQrLicense()` trong `openPaymentModal()` để khóa nút `#paymethod-banking` và ẩn mã QR tĩnh `img.vietqr.io` khi `vietqr_payment` chưa cấp phép hoặc bị Master khóa.
+
+### 19.2. Kết quả chạy test tự động 17 module qua 4 trạng thái
+- Kịch bản test chạy trên bản build `cybernexus_slave.exe` mới nhất (môi trường DB cô lập) kiểm tra cả `/api/license.php?action=status` và HTTP status từ các endpoint được bảo vệ:
+  1. **Chưa cấp phép (`1_Unlicensed` - chỉ có `pos_core`):** `pos_core` = `True`; toàn bộ 16 module còn lại = `False`; toàn bộ endpoint được bảo vệ trả `HTTP 403`.
+  2. **Đã cấp phép (`2_Licensed` - bật đủ 17 module):** Toàn bộ 17/17 module = `True`; toàn bộ endpoint vượt qua `requireModule` (`HTTP 200`, riêng `customer_order` rỗng trả `400` validation).
+  3. **Khóa module (`3_Blocked` - khóa 16 module trong `blocked_modules`):** `pos_core` giữ `True` (core); toàn bộ 16 module còn lại = `False`; toàn bộ endpoint được bảo vệ trả `HTTP 403`.
+  4. **Mở module (`4_Reopened` - gỡ khỏi `blocked_modules`):** Toàn bộ 17/17 module khôi phục `True`; toàn bộ endpoint hoạt động bình thường trở lại.
+- Đã kiểm tra cú pháp `node --check` cho `admin.js` và `pos.js` (`exit code 0`), biên dịch thành công `cybernexus_slave.exe` (`exit code 0`), đóng gói sẵn bản vá chờ phát hành tại `master/updates/patch_latest.zip` & `release/store_patch_update.zip` (`v2026.11.13.9`).

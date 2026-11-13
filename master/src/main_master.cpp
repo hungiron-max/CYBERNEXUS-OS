@@ -6,6 +6,7 @@
 #include "db.hpp"
 #include "license.hpp"
 #include "master_handlers.hpp"
+#include "master_tunnel.h"
 #include "ConfigManager.hpp"
 
 namespace fs = std::filesystem;
@@ -16,6 +17,7 @@ static httplib::Server* g_server = nullptr;
 
 void signalHandler(int signum) {
     std::cout << "\n[Master] Nhan tin hieu dung (" << signum << "), dang dong may chu an toan..." << std::endl;
+    StoreTunnelManager::instance().requestShutdown();
     if (g_server) g_server->stop();
     Database::instance().close();
     std::cout << "[Master] May chu Master da dung hoan toan." << std::endl;
@@ -86,6 +88,12 @@ int main(int argc, char* argv[]) {
         try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN price_charged REAL DEFAULT 0.0"); } catch (...) {}
         try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
         try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN lan_ip TEXT DEFAULT ''"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN wan_ip TEXT DEFAULT ''"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_lat REAL DEFAULT 0"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_lng REAL DEFAULT 0"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_label TEXT DEFAULT ''"); } catch (...) {}
+        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_source TEXT DEFAULT 'ip'"); } catch (...) {}
 
         // Đảm bảo cửa hàng mặc định GP001 (id=1) có kích hoạt sẵn mod_card_payment nếu chưa có trong enabled_modules / blocked_modules
         try {
@@ -106,8 +114,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "[DB Master Init Resellers Warning] " << e.what() << std::endl;
     }
 
-    // 4. Khoi tao HTTP Server
+    // 4. Khoi tao HTTP Server (ThreadPool 128 workers cho Reverse Long-Polling dien rong WAN)
     httplib::Server svr;
+    svr.new_task_queue = [] { return new httplib::ThreadPool(128); };
     g_server = &svr;
 
     // Static files mount

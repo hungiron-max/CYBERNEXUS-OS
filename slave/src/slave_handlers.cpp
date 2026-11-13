@@ -1,4 +1,7 @@
 #include "handlers.hpp"
+#include "slave_tunnel.h"
+#include "slave_net_info.h"
+#include "slave_updater.h"
 #include "db.hpp"
 #include "auth.hpp"
 #include "body_parser.hpp"
@@ -33,6 +36,17 @@ void ApiHandlers::sendError(httplib::Response& res, const std::string& message, 
         {"message", message}
     };
     sendJson(res, err, statusCode);
+}
+
+static bool requireModule(httplib::Response& res, const std::string& modCode, const std::string& label) {
+    if (LicenseService::instance().isModuleEnabled(modCode)) return true;
+    ApiHandlers::sendJson(res, {
+        {"success", false},
+        {"locked", true},
+        {"module_code", modCode},
+        {"message", "Module [" + label + "] chưa được cấp phép hoặc đã bị Master tắt/khóa!"}
+    }, 403);
+    return false;
 }
 
 json ApiHandlers::parseBody(const httplib::Request& req) {
@@ -1151,6 +1165,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
         // VietQR (Bước 3.4) - Hỗ trợ cả GET và POST
         if (action == "vietqr") {
+            if (!requireModule(res, "vietqr_payment", "Thanh Toán VietQR Tự Động")) return;
             int64_t orderId = 0, tableId = 0;
             try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
             try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
@@ -1211,6 +1226,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         if (req.method == "GET") {
             // Step 3.2: Kitchen Tickets (Đơn chế biến màn hình Bếp KDS)
             if (action == "kitchen_tickets") {
+                if (!requireModule(res, "kitchen_kds", "Màn Hình Bếp & Pha Chế (KDS)")) return;
                 std::string filterStatus = BodyParser::getParam(req, body, "status", "active");
                 std::string todayDate = getCurrentDate();
 
@@ -1363,8 +1379,31 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
             // History
             if (action == "history") {
                 std::string today = getCurrentDate();
-                std::string sql = "SELECT * FROM orders WHERE DATE(created_at) = '" + today + "' ORDER BY id DESC LIMIT 100";
-                sendJson(res, {{"success", true}, {"data", db.query(sql)}});
+                std::string dateFrom = BodyParser::getParam(req, body, "date_from", "");
+                std::string dateTo = BodyParser::getParam(req, body, "date_to", "");
+                std::string statusFilter = BodyParser::getParam(req, body, "status", "");
+
+                if (dateFrom.empty() && dateTo.empty()) {
+                    dateFrom = today;
+                    dateTo = today;
+                }
+
+                std::string sql = "SELECT * FROM orders WHERE 1=1";
+                std::vector<std::pair<std::string, json>> params;
+                if (!dateFrom.empty()) {
+                    sql += " AND substr(created_at, 1, 10) >= :df";
+                    params.emplace_back(":df", dateFrom);
+                }
+                if (!dateTo.empty()) {
+                    sql += " AND substr(created_at, 1, 10) <= :dt";
+                    params.emplace_back(":dt", dateTo);
+                }
+                if (!statusFilter.empty() && statusFilter != "all") {
+                    sql += " AND status = :st";
+                    params.emplace_back(":st", statusFilter);
+                }
+                sql += " ORDER BY id DESC LIMIT 500";
+                sendJson(res, {{"success", true}, {"data", db.query(sql, params)}});
                 return;
             }
 
@@ -1420,8 +1459,14 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         if (req.method == "POST") {
             // Step 3.1: Save / Update Draft Order (Tạo đơn bán / cập nhật giỏ hàng / đặt hàng online)
             if (action == "save_order" || action == "save" || action == "customer_order") {
+                if (action == "customer_order") {
+                    if (!requireModule(res, "qr_customer_order", "Thực Đơn QR Khách Hàng")) return;
+                }
                 int64_t tableId = 0;
                 try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
+                if (action == "customer_order" && tableId > 0) {
+                    if (!requireModule(res, "qr_table_order", "Đặt Món QR Theo Bàn")) return;
+                }
                 std::string tableCode = BodyParser::getParam(req, body, "table_code", "MANG VỀ");
                 std::string customerName = BodyParser::getParam(req, body, "customer_name", "Khách vãng lai");
                 std::string customerPhone = BodyParser::getParam(req, body, "customer_phone");
@@ -2185,6 +2230,10 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
         std::string action = getAction(req, body);
         if (action.empty()) action = "summary";
 
+        if (action == "summary" || action == "chart" || action == "top_selling" || action == "payment_methods" || action == "service_performance") {
+            if (!requireModule(res, "advanced_reports", "Báo Cáo Doanh Thu Chuyên Sâu")) return;
+        }
+
         if (action == "summary") {
             auto todayRow = db.queryRow(R"(
                 SELECT 
@@ -2380,6 +2429,64 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
             return;
         }
 
+        if (action == "pos_shift_report") {
+            std::string today = getCurrentDate();
+            std::string dateFrom = BodyParser::getParam(req, body, "date_from", today);
+            std::string dateTo = BodyParser::getParam(req, body, "date_to", today);
+            std::vector<std::pair<std::string, json>> p = {{":df", dateFrom}, {":dt", dateTo}};
+
+            json agg = db.queryRow(R"(
+                SELECT COUNT(*) as total_orders,
+                       COALESCE(SUM(total_amount), 0) as total_revenue,
+                       COALESCE(SUM(discount_amount), 0) as total_discount,
+                       COALESCE(SUM(CASE WHEN COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' THEN total_amount ELSE 0 END), 0) as cash_revenue,
+                       COALESCE(SUM(CASE WHEN COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' THEN 1 ELSE 0 END), 0) as cash_orders,
+                       COALESCE(SUM(CASE WHEN payment_method IN ('banking', 'transfer', 'qr') THEN total_amount ELSE 0 END), 0) as banking_revenue,
+                       COALESCE(SUM(CASE WHEN payment_method IN ('banking', 'transfer', 'qr') THEN 1 ELSE 0 END), 0) as banking_orders
+                FROM orders
+                WHERE status = 'completed'
+                  AND substr(created_at, 1, 10) >= :df
+                  AND substr(created_at, 1, 10) <= :dt
+            )", p);
+
+            int64_t totalOrders = getInt(agg, "total_orders", 0);
+            double totalRevenue = getDouble(agg, "total_revenue", 0.0);
+            double avgOrderValue = totalOrders > 0 ? (totalRevenue / static_cast<double>(totalOrders)) : 0.0;
+
+            json topProducts = db.query(R"(
+                SELECT oi.product_name,
+                       COALESCE(MAX(oi.unit), 'phần') as unit,
+                       COALESCE(SUM(oi.quantity), 0) as qty,
+                       COALESCE(SUM(oi.subtotal), 0) as revenue
+                FROM order_items oi
+                JOIN orders o ON oi.order_id = o.id
+                WHERE o.status = 'completed'
+                  AND substr(o.created_at, 1, 10) >= :df
+                  AND substr(o.created_at, 1, 10) <= :dt
+                GROUP BY oi.product_name
+                ORDER BY revenue DESC
+                LIMIT 5
+            )", p);
+
+            sendJson(res, {
+                {"success", true},
+                {"data", {
+                    {"date_from", dateFrom},
+                    {"date_to", dateTo},
+                    {"total_orders", totalOrders},
+                    {"total_revenue", totalRevenue},
+                    {"cash_revenue", getDouble(agg, "cash_revenue", 0.0)},
+                    {"cash_orders", getInt(agg, "cash_orders", 0)},
+                    {"banking_revenue", getDouble(agg, "banking_revenue", 0.0)},
+                    {"banking_orders", getInt(agg, "banking_orders", 0)},
+                    {"avg_order_value", avgOrderValue},
+                    {"total_discount", getDouble(agg, "total_discount", 0.0)},
+                    {"top_products", topProducts}
+                }}
+            });
+            return;
+        }
+
         sendError(res, "Invalid report action: " + action, 400);
     } catch (const std::exception& e) {
         sendJson(res, {{"success", false}, {"message", std::string("Lỗi báo cáo: ") + e.what()}}, 500);
@@ -2405,6 +2512,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
             }
 
             if (action == "list_expenses" || action.empty()) {
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
                 json list = db.query(
                     "SELECT * FROM finance_expenses WHERE substr(expense_date, 1, 7) = :m ORDER BY expense_date DESC, id DESC",
                     {{":m", month}}
@@ -2414,15 +2522,41 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
             }
 
             if (action == "get_report") {
-                double revenue = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND substr(created_at, 1, 7) = :m",
-                    {{":m", month}}
-                ).get<double>();
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                json orderAgg = db.queryRow(R"(
+                    SELECT COUNT(*) as order_count,
+                           COALESCE(SUM(subtotal), 0) as gross_sales,
+                           COALESCE(SUM(discount_amount), 0) as discounts,
+                           COALESCE(SUM(vat_amount), 0) as vat_collected,
+                           COALESCE(SUM(total_amount), 0) as revenue
+                    FROM orders
+                    WHERE status = 'completed' AND substr(created_at, 1, 7) = :m
+                )", {{":m", month}});
 
-                double totalExpenses = db.queryScalar(
-                    "SELECT COALESCE(SUM(amount), 0) FROM finance_expenses WHERE substr(expense_date, 1, 7) = :m",
-                    {{":m", month}}
-                ).get<double>();
+                int64_t orderCount = getInt(orderAgg, "order_count", 0);
+                double grossSales = getDouble(orderAgg, "gross_sales", 0.0);
+                double discounts = getDouble(orderAgg, "discounts", 0.0);
+                double vatCollected = getDouble(orderAgg, "vat_collected", 0.0);
+                double revenue = getDouble(orderAgg, "revenue", 0.0);
+
+                double cogs = db.queryScalar(R"(
+                    SELECT COALESCE(SUM(oi.quantity * COALESCE(p.cost_price, 0)), 0)
+                    FROM order_items oi
+                    JOIN orders o ON oi.order_id = o.id
+                    LEFT JOIN products p ON oi.product_id = p.id
+                    WHERE o.status = 'completed' AND substr(o.created_at, 1, 7) = :m
+                )", {{":m", month}}).get<double>();
+
+                json expAgg = db.queryRow(R"(
+                    SELECT COALESCE(SUM(CASE WHEN category != 'Nguyên Vật Liệu' THEN amount ELSE 0 END), 0) as opex_expenses,
+                           COALESCE(SUM(amount), 0) as total_expenses,
+                           COALESCE(SUM(vat_amount), 0) as vat_input
+                    FROM finance_expenses
+                    WHERE substr(expense_date, 1, 7) = :m
+                )", {{":m", month}});
+
+                double totalExpenses = getDouble(expAgg, "opex_expenses", 0.0);
+                double vatInput = getDouble(expAgg, "vat_input", 0.0);
 
                 json expenseGroups = db.query(R"(
                     SELECT category, SUM(amount) as amount, SUM(vat_amount) as vat, COUNT(*) as count
@@ -2432,15 +2566,61 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     ORDER BY amount DESC
                 )", {{":m", month}});
 
+                json dailyRevenue = db.query(R"(
+                    SELECT substr(created_at, 1, 10) as day,
+                           COUNT(*) as orders,
+                           COALESCE(SUM(total_amount), 0) as revenue
+                    FROM orders
+                    WHERE status = 'completed' AND substr(created_at, 1, 7) = :m
+                    GROUP BY substr(created_at, 1, 10)
+                    ORDER BY day ASC
+                )", {{":m", month}});
+
+                json categoryBreakdown = db.query(R"(
+                    SELECT COALESCE(c.name, 'Khác') as category,
+                           COALESCE(SUM(oi.quantity), 0) as qty,
+                           COALESCE(SUM(oi.subtotal), 0) as revenue
+                    FROM order_items oi
+                    JOIN orders o ON oi.order_id = o.id
+                    LEFT JOIN products p ON oi.product_id = p.id
+                    LEFT JOIN categories c ON p.category_id = c.id
+                    WHERE o.status = 'completed' AND substr(o.created_at, 1, 7) = :m
+                    GROUP BY COALESCE(c.name, 'Khác')
+                    ORDER BY revenue DESC
+                )", {{":m", month}});
+
+                json paymentBreakdown = db.query(R"(
+                    SELECT COALESCE(NULLIF(payment_method, ''), 'cash') as method,
+                           COUNT(*) as orders,
+                           COALESCE(SUM(total_amount), 0) as revenue
+                    FROM orders
+                    WHERE status = 'completed' AND substr(created_at, 1, 7) = :m
+                    GROUP BY COALESCE(NULLIF(payment_method, ''), 'cash')
+                    ORDER BY revenue DESC
+                )", {{":m", month}});
+
+                double grossProfit = revenue - cogs;
+                double netProfit = grossProfit - totalExpenses;
+
                 sendJson(res, {
                     {"success", true},
                     {"month", month},
                     {"summary", {
+                        {"order_count", orderCount},
+                        {"gross_sales", grossSales},
+                        {"discounts", discounts},
+                        {"vat_collected", vatCollected},
+                        {"vat_input", vatInput},
                         {"revenue", revenue},
+                        {"cogs", cogs},
+                        {"gross_profit", grossProfit},
                         {"expenses", totalExpenses},
-                        {"net_profit", revenue - totalExpenses}
+                        {"net_profit", netProfit}
                     }},
-                    {"expense_groups", expenseGroups}
+                    {"expense_groups", expenseGroups},
+                    {"daily_revenue", dailyRevenue},
+                    {"category_breakdown", categoryBreakdown},
+                    {"payment_breakdown", paymentBreakdown}
                 });
                 return;
             }
@@ -2535,6 +2715,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
         if (req.method == "POST") {
             if (action == "save_expense") {
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
                 int64_t id = getInt(body, "id");
                 std::string date = getString(body, "expense_date");
                 std::string category = getString(body, "category", "Khác");
@@ -2572,6 +2753,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
             }
 
             if (action == "delete_expense") {
+                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
                 int64_t id = getInt(body, "id");
                 db.execute("DELETE FROM finance_expenses WHERE id = :id", {{":id", id}});
                 sendJson(res, {{"success", true}, {"message", "Đã xóa khoản chi."}});
@@ -3231,16 +3413,19 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
 
     if (req.method == "GET") {
         if (action == "materials" || action.empty()) {
+            if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
             json mats = db.query("SELECT * FROM materials WHERE status = 'active' ORDER BY id ASC");
             sendJson(res, {{"success", true}, {"data", mats}});
             return;
         }
         if (action == "transactions") {
+            if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
             json tx = db.query("SELECT * FROM material_transactions ORDER BY id DESC LIMIT 50");
             sendJson(res, {{"success", true}, {"data", tx}});
             return;
         }
         if (action == "attendances") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
             json att = db.query("SELECT * FROM attendances ORDER BY id DESC LIMIT 50");
             sendJson(res, {{"success", true}, {"data", att}});
             return;
@@ -3249,6 +3434,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
 
     if (req.method == "POST") {
         if (action == "add_transaction") {
+            if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
             int64_t matId = body.value("material_id", 0);
             std::string type = body.value("trans_type", "in"); // in, out, loss
             double qty = body.value("quantity", 0.0);
@@ -3338,13 +3524,20 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
         }
 
         if (action == "sync_now" || action == "sync_if_due") {
+            auto& db = Database::instance();
+            auto row = db.queryRow("SELECT license_key FROM local_license_cache WHERE id = 1");
+            std::string key = (!row.is_null() && row.contains("license_key") && row["license_key"].is_string())
+                ? row["license_key"].get<std::string>() : "";
+            if (!key.empty()) {
+                LicenseService::instance().verifyLicenseOnline(key, LicenseService::instance().getMachineId());
+            }
             json st = LicenseService::instance().getLicenseStatus();
             sendJson(res, {
                 {"success", true},
                 {"synced", true},
                 {"state", "valid"},
                 {"rights_revision", 1},
-                {"message", "Đã đồng bộ giấy phép bản quyền thành công!"},
+                {"message", "Đã đồng bộ giấy phép bản quyền từ Master thành công!"},
                 {"data", st.value("data", json::object())}
             });
             return;
@@ -3373,6 +3566,10 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
         auto& db = Database::instance();
         json body = parseBody(req);
         std::string action = getAction(req, body);
+
+        if (req.method == "POST") {
+            if (!requireModule(res, "advertising_promotions", "Quảng Cáo & Khuyến Mãi")) return;
+        }
 
         // Upload media (image or video)
         if (action == "upload_media" || req.has_file("media")) {
@@ -3461,6 +3658,7 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
 // ==========================================
 void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Response& res) {
     try {
+        if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
         auto& db = Database::instance();
         std::string action = "";
         if (req.has_param("action")) {
@@ -3769,6 +3967,95 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     svr.Post("/api/advertising", handleAdvertising);
     svr.Get("/api/advertising.php", handleAdvertising);
     svr.Post("/api/advertising.php", handleAdvertising);
+
+    // WAN Reverse Long-Polling Tunnel Status & Configuration
+    auto handleWanTunnel = [](const httplib::Request& req, httplib::Response& res) {
+        auto& auth = AuthService::instance();
+        auto userOpt = auth.authenticate(req);
+        if (!userOpt.has_value() || userOpt->role != "admin") {
+            sendJson(res, {{"success", false}, {"message", "Chỉ Chủ quán (Admin) mới có quyền cấu hình kết nối Master!"}}, 403);
+            return;
+        }
+        if (req.method == "GET") {
+            std::string url = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+            json d = SlaveTunnelStatus::instance().toJson(url);
+            d["net_geo"] = SlaveNetInfoService::instance().toJson();
+            sendJson(res, {{"success", true}, {"data", d}});
+            return;
+        }
+        json body = parseBody(req);
+        std::string action = body.value("action", "save");
+        if (action == "save_location") {
+            double lat = body.value("geo_lat", 0.0);
+            double lng = body.value("geo_lng", 0.0);
+            std::string lbl = body.value("geo_label", "");
+            if (lat == 0.0 || lng == 0.0) {
+                sendJson(res, {{"success", false}, {"message", "Tọa độ Google Maps không hợp lệ!"}}, 400);
+                return;
+            }
+            SlaveNetInfoService::instance().savePinnedLocation(lat, lng, lbl, "gps");
+            SlaveTunnelStatus::instance().requestReconnect();
+            std::string url = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+            json d = SlaveTunnelStatus::instance().toJson(url);
+            d["net_geo"] = SlaveNetInfoService::instance().toJson();
+            sendJson(res, {{"success", true}, {"message", "Đã ghim tọa độ Google Maps chính xác và gửi lên Master!"}, {"data", d}});
+            return;
+        }
+        if (action == "reconnect") {
+            SlaveTunnelStatus::instance().requestReconnect();
+            std::string url = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+            json d = SlaveTunnelStatus::instance().toJson(url);
+            d["net_geo"] = SlaveNetInfoService::instance().toJson();
+            sendJson(res, {{"success", true}, {"message", "Đã gửi yêu cầu kết nối lại kênh Master!"}, {"data", d}});
+            return;
+        }
+        std::string newUrl = body.value("master_server_url", "");
+        bool enabled = body.value("enabled", true);
+        if (!newUrl.empty()) {
+            while (!newUrl.empty() && newUrl.back() == '/') newUrl.pop_back();
+            SaleApp::Config::AppConfig::instance().persistMasterServerUrl(newUrl);
+        }
+        SlaveTunnelStatus::instance().setEnabled(enabled);
+        SlaveTunnelStatus::instance().requestReconnect();
+        std::string url = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+        sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình kết nối Master và kết nối lại!"}, {"data", SlaveTunnelStatus::instance().toJson(url)}});
+    };
+    svr.Get("/api/wan_tunnel", handleWanTunnel);
+    svr.Post("/api/wan_tunnel", handleWanTunnel);
+
+    // Store OTA Update & System Notification Endpoints
+    svr.Get("/api/system/updates", [](const httplib::Request&, httplib::Response& res) {
+        sendJson(res, SlaveUpdateManager::instance().getStatus());
+    });
+    svr.Post("/api/system/updates", [](const httplib::Request& req, httplib::Response& res) {
+        json body = parseBody(req);
+        std::string action = getAction(req, body);
+        std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+        if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
+
+        if (action == "check") {
+            sendJson(res, SlaveUpdateManager::instance().checkMasterPatch(masterUrl));
+            return;
+        }
+        if (action == "apply") {
+            std::string dlPath = getString(body, "download_path", "/api/updates/download");
+            sendJson(res, SlaveUpdateManager::instance().applyPatchFromMaster(masterUrl, dlPath));
+            return;
+        }
+        if (action == "dismiss") {
+            int64_t nid = 0;
+            try { nid = body.value("id", 0LL); } catch (...) {}
+            auto& db = Database::instance();
+            if (nid > 0) {
+                db.execute("UPDATE app_notifications SET is_read_cashier = 1 WHERE id = :id", {{":id", nid}});
+            } else {
+                db.execute("UPDATE app_notifications SET is_read_cashier = 1 WHERE type IN ('SYSTEM_NOTIFY', 'SYSTEM_UPDATE')");
+            }
+            sendJson(res, {{"success", true}});
+            return;
+        }
+        sendError(res, "Invalid update action", 400);
+    });
 }
 
 } // namespace SaleApp::Backend

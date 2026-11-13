@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <mutex>
 #include "nlohmann/json.hpp"
 
 #ifdef _WIN32
@@ -68,7 +69,34 @@ public:
     const fs::path& getWebDir() const { return m_webDir; }
     const fs::path& getUploadsDir() const { return m_uploadsDir; }
     const fs::path& getDatabasePath() const { return m_dbPath; }
-    const std::string& getMasterServerUrl() const { return m_masterServerUrl; }
+    std::string getMasterServerUrl() const {
+        std::lock_guard<std::mutex> lk(m_cfgMutex);
+        return m_masterServerUrl;
+    }
+    void setMasterServerUrl(const std::string& url) {
+        std::lock_guard<std::mutex> lk(m_cfgMutex);
+        m_masterServerUrl = url;
+    }
+    bool persistMasterServerUrl(const std::string& url) {
+        setMasterServerUrl(url);
+        fs::path cfgPath = m_baseDir / "config.json";
+        try {
+            nlohmann::json j = nlohmann::json::object();
+            if (fs::exists(cfgPath)) {
+                std::ifstream in(cfgPath);
+                if (in.is_open()) {
+                    try { in >> j; } catch (...) { j = nlohmann::json::object(); }
+                }
+            }
+            j["master_server_url"] = url;
+            std::ofstream out(cfgPath);
+            if (!out.is_open()) return false;
+            out << j.dump(2) << std::endl;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
     const std::string& getTenantCode() const { return m_tenantCode; }
 
     void printBanner() const {
@@ -242,6 +270,7 @@ private:
     std::string m_customDbPath;
     std::string m_masterServerUrl;
     std::string m_tenantCode;
+    mutable std::mutex m_cfgMutex;
 };
 
 } // namespace SaleApp::Config

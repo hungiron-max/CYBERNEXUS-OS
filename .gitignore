@@ -1,6 +1,7 @@
-# Build outputs
+# Build outputs & Release packages
 build/
 bin/
+release/
 *.exe
 *.dll
 *.obj

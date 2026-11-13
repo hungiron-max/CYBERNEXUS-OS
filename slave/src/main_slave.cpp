@@ -10,8 +10,12 @@
 #include "license.hpp"
 #include "auth.hpp"
 #include "slave_handlers.hpp"
+#include "slave_tunnel.h"
+#include "slave_net_info.h"
+#include "slave_updater.h"
 #include "ConfigManager.hpp"
 #include "PluginManager.hpp"
+#include <random>
 
 namespace fs = std::filesystem;
 using namespace SaleApp::Backend;
@@ -342,12 +346,188 @@ int main(int argc, char* argv[]) {
                 }
             } catch (...) {}
 
-            for (int i = 0; i < 1800 && s_heartbeatRunning; ++i) {
+            int hbSec = SlaveTunnelStatus::instance().getHeartbeatIntervalSec();
+            if (hbSec < 60) hbSec = 1800;
+            for (int i = 0; i < hbSec && s_heartbeatRunning; ++i) {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }
     });
     heartbeatThread.detach();
+
+    // 7. Reverse Long-Polling Worker Thread (Xuyên NAT/WAN để Master kiểm tra Online & đẩy lệnh tức thì)
+    SlaveTunnelStatus::instance().setStartTimeNow();
+    std::thread tunnelThread([]() {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)));
+        int retryCount = 0;
+        int retryBaseSec = 5;
+        int retryMaxSec = 60;
+        int pollTimeoutSec = 25;
+
+        while (s_heartbeatRunning) {
+            if (!SlaveTunnelStatus::instance().isEnabled()) {
+                SlaveTunnelStatus::instance().markDisconnected("Đã tắt kênh WAN từ cấu hình", 0);
+                for (int i = 0; i < 3 && s_heartbeatRunning && !SlaveTunnelStatus::instance().consumeReconnectRequest(); ++i) {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                continue;
+            }
+
+            std::string key;
+            int activeOrders = 0;
+            try {
+                auto& db = Database::instance();
+                auto row = db.queryRow("SELECT license_key FROM local_license_cache WHERE id = 1");
+                if (!row.is_null() && row.contains("license_key") && !row["license_key"].is_null()) {
+                    key = row["license_key"].get<std::string>();
+                }
+                auto cntRow = db.queryRow("SELECT COUNT(*) as c FROM orders WHERE status IN ('pending','preparing','ready')");
+                if (!cntRow.is_null() && cntRow.contains("c") && cntRow["c"].is_number()) {
+                    activeOrders = cntRow["c"].get<int>();
+                }
+            } catch (...) {}
+
+            if (key.empty() || key.find("UNLICENSED") != std::string::npos) {
+                SlaveTunnelStatus::instance().markDisconnected("Chưa kích hoạt License Key", 0);
+                for (int i = 0; i < 10 && s_heartbeatRunning && !SlaveTunnelStatus::instance().consumeReconnectRequest(); ++i) {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                continue;
+            }
+
+            std::string masterUrl = AppConfig::instance().getMasterServerUrl();
+            if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
+            std::string mid = LicenseService::instance().getMachineId();
+
+            try {
+                httplib::Client cli(masterUrl);
+                cli.set_connection_timeout(5, 0);
+                cli.set_read_timeout(pollTimeoutSec + 15, 0);
+
+                json netGeo = SlaveNetInfoService::instance().toJson();
+                json runtime = {
+                    {"uptime_sec", SlaveTunnelStatus::instance().getUptimeSec()},
+                    {"active_orders", activeOrders},
+                    {"db_ok", true},
+                    {"app_version", "2.1.8"},
+                    {"lan_ip", netGeo.value("lan_ip", "")},
+                    {"wan_ip", netGeo.value("wan_ip", "")},
+                    {"geo_lat", netGeo.value("geo_lat", 0.0)},
+                    {"geo_lng", netGeo.value("geo_lng", 0.0)},
+                    {"geo_label", netGeo.value("geo_label", "")},
+                    {"geo_source", netGeo.value("geo_source", "ip")}
+                };
+                json pollReq = {
+                    {"license_key", key},
+                    {"machine_id", mid},
+                    {"app_version", "2.1.8"},
+                    {"port", AppConfig::instance().getBindPort()},
+                    {"net_geo", netGeo},
+                    {"runtime", runtime}
+                };
+
+                auto res = cli.Post("/api/license/poll", pollReq.dump(), "application/json");
+                if (res && res->status == 200) {
+                    json resp = json::parse(res->body, nullptr, false);
+                    if (resp.is_object() && resp.value("success", false)) {
+                        retryCount = 0;
+                        int nextHb = 1800;
+                        if (resp.contains("config") && resp["config"].is_object()) {
+                            auto& cfg = resp["config"];
+                            pollTimeoutSec = std::max(10, std::min(55, cfg.value("poll_timeout_sec", 25)));
+                            retryBaseSec = std::max(2, std::min(60, cfg.value("retry_base_sec", 5)));
+                            retryMaxSec = std::max(10, std::min(300, cfg.value("retry_max_sec", 60)));
+                            nextHb = std::max(60, cfg.value("heartbeat_interval_sec", 1800));
+                        }
+                        SlaveTunnelStatus::instance().markConnected(pollTimeoutSec, nextHb);
+
+                        if (resp.contains("license") && resp["license"].is_object()) {
+                            try {
+                                auto& lic = resp["license"];
+                                std::string em = lic.value("enabled_modules", "");
+                                std::string bm = lic.value("blocked_modules", "[]");
+                                std::string st = lic.value("subscription_status", "active");
+                                std::string ex = lic.value("expire_date", "2028-12-31");
+                                double cfp = lic.value("card_fee_percent", 0.0);
+                                if (!em.empty()) {
+                                    Database::instance().execute(
+                                        "UPDATE local_license_cache SET enabled_modules = :em, blocked_modules = :bm, "
+                                        "subscription_status = :st, expire_date = :ex, card_fee_percent = :cfp, "
+                                        "last_sync_at = datetime('now'), last_sync_status = 'online_ok' WHERE id = 1",
+                                        {{":em", em}, {":bm", bm}, {":st", st}, {":ex", ex}, {":cfp", cfp}}
+                                    );
+                                }
+                            } catch (...) {}
+                        }
+
+                        if (resp.contains("commands") && resp["commands"].is_array()) {
+                            for (const auto& cmd : resp["commands"]) {
+                                std::string cmdId = cmd.value("cmd_id", "");
+                                std::string cmdType = cmd.value("type", "");
+                                if (cmdType == "PING" && !cmdId.empty()) {
+                                    json ackReq = {
+                                        {"license_key", key},
+                                        {"machine_id", mid},
+                                        {"cmd_id", cmdId},
+                                        {"ok", true},
+                                        {"runtime", runtime}
+                                    };
+                                    httplib::Client ackCli(masterUrl);
+                                    ackCli.set_connection_timeout(4, 0);
+                                    ackCli.set_read_timeout(5, 0);
+                                    ackCli.Post("/api/license/ack", ackReq.dump(), "application/json");
+                                    SlaveTunnelStatus::instance().markAckSent();
+                                } else if (cmdType == "SYNC_LICENSE") {
+                                    LicenseService::instance().verifyLicenseOnline(key, mid);
+                                } else if (cmdType == "STORE_NOTIFY" || cmdType == "OTA_UPDATE") {
+                                    json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
+                                    std::string nTitle = payload.value("title", cmdType == "OTA_UPDATE" ? "Có bản cập nhật mới từ Master" : "Thông báo từ Hệ thống");
+                                    std::string nMsg = payload.value("message", "");
+                                    std::string nVer = payload.value("version", "");
+                                    bool autoApply = payload.value("auto_apply", false);
+                                    std::string dlPath = payload.value("download_path", "/api/updates/download");
+
+                                    SlaveUpdateManager::instance().recordNotification(
+                                        cmdType == "OTA_UPDATE" ? "SYSTEM_UPDATE" : "SYSTEM_NOTIFY",
+                                        nTitle, nMsg, nVer
+                                    );
+                                    if (cmdType == "OTA_UPDATE" && autoApply) {
+                                        std::thread([masterUrl, dlPath]() {
+                                            SlaveUpdateManager::instance().applyPatchFromMaster(masterUrl, dlPath);
+                                        }).detach();
+                                    }
+                                }
+                            }
+                        }
+                        if (SlaveTunnelStatus::instance().consumeReconnectRequest()) {
+                            continue;
+                        }
+                        continue; // Immediately open next Long-Poll cycle
+                    }
+                }
+                std::string errMsg = res ? ("HTTP " + std::to_string(res->status)) : "Không kết nối được tới Master";
+                retryCount++;
+                SlaveTunnelStatus::instance().markDisconnected(errMsg, retryCount);
+            } catch (const std::exception& e) {
+                retryCount++;
+                SlaveTunnelStatus::instance().markDisconnected(e.what(), retryCount);
+            } catch (...) {
+                retryCount++;
+                SlaveTunnelStatus::instance().markDisconnected("Lỗi kết nối Master", retryCount);
+            }
+
+            // Exponential backoff + random jitter (0..3s) to prevent Thundering Herd on WAN
+            int shift = std::min(retryCount - 1, 5);
+            int delay = std::min(retryMaxSec, retryBaseSec * (1 << std::max(0, shift)));
+            int jitter = std::uniform_int_distribution<int>(0, 3)(rng);
+            int totalWait = delay + jitter;
+            for (int i = 0; i < totalWait && s_heartbeatRunning && !SlaveTunnelStatus::instance().consumeReconnectRequest(); ++i) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+    });
+    tunnelThread.detach();
 
     // Health check
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) {

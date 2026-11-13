@@ -291,6 +291,23 @@ bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
     if (stripped.rfind("mod_", 0) == 0) stripped = stripped.substr(4);
     if (stripped == "pos_core") return true;
 
+    auto& db = Database::instance();
+    auto row = db.queryRow("SELECT blocked_modules FROM local_license_cache WHERE id = 1");
+    if (!row.is_null() && row.contains("blocked_modules") && row["blocked_modules"].is_string()) {
+        try {
+            json bArr = json::parse(row["blocked_modules"].get<std::string>(), nullptr, false);
+            if (bArr.is_array()) {
+                for (const auto& item : bArr) {
+                    if (!item.is_string()) continue;
+                    std::string b = item.get<std::string>();
+                    if (b == moduleCode || b == stripped || ("mod_" + b) == moduleCode) {
+                        return false;
+                    }
+                }
+            }
+        } catch (...) {}
+    }
+
     auto enabled = getEnabledModules();
     for (const auto& m : enabled) {
         if (m == moduleCode || m == stripped || ("mod_" + m) == moduleCode) return true;
@@ -467,7 +484,22 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
         msg = "Bản quyền sắp hết hạn trong " + std::to_string(daysLeft) + " ngày.";
     }
 
-    auto enabled = getEnabledModules();
+    auto enabledRaw = getEnabledModules();
+    json blockedArr = json::array();
+    if (t.contains("blocked_modules") && t["blocked_modules"].is_string()) {
+        try {
+            json parsedB = json::parse(t["blocked_modules"].get<std::string>(), nullptr, false);
+            if (parsedB.is_array()) blockedArr = parsedB;
+        } catch (...) {}
+    }
+    std::vector<std::string> enabled;
+    for (const auto& m : enabledRaw) {
+        bool isBlk = false;
+        for (const auto& b : blockedArr) {
+            if (b.is_string() && b.get<std::string>() == m) { isBlk = true; break; }
+        }
+        if (!isBlk) enabled.push_back(m);
+    }
 
     std::string maskedKey = "";
     if (key.length() >= 9) {
@@ -494,6 +526,7 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
             {"machine_matched", (boundMid.empty() || boundMid == machineId)},
             {"license_key_masked", maskedKey},
             {"modules", enabled},
+            {"blocked_modules", blockedArr},
             {"active_module_count", enabled.size()},
             {"total_catalog_count", m_catalog.size()},
             {"last_sync_at", t.value("last_sync_at", "")},

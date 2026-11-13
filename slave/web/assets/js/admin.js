@@ -368,6 +368,10 @@ const Admin = {
         await this.loadProducts();
         await this.loadTables();
         this.initDishImageDrop();
+        this.loadSystemUpdates();
+        setInterval(() => this.loadSystemUpdates(), 30000);
+        this.enforceModuleLicenses(true);
+        setInterval(() => this.enforceModuleLicenses(false), 15000);
 
         // Warm up and cache server LAN base URL from backend settings
         try {
@@ -542,6 +546,46 @@ const Admin = {
         }
     },
 
+    openHrSubtab(subtab) {
+        this.currentOpsSubtab = subtab;
+        this.switchTab('operations');
+        this.currentGroup = 'hr';
+        const groupStyles = {
+            ops: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10',
+            menu: 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/10',
+            hr: 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sky-500/10',
+            sys: 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-purple-500/10'
+        };
+        ['ops', 'menu', 'hr', 'sys'].forEach(g => {
+            const btn = document.getElementById(`grp-btn-${g}`);
+            if (!btn) return;
+            if (g === 'hr') {
+                btn.className = `group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 border ${groupStyles[g]}`;
+            } else {
+                btn.className = 'group-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 text-slate-400 hover:text-white hover:bg-white/5 border border-transparent';
+            }
+        });
+        document.querySelectorAll('.subnav-group').forEach(el => {
+            el.classList.toggle('hidden', el.id !== 'subnav-hr');
+        });
+        document.querySelectorAll('#subnav-hr .admin-sub-btn').forEach(b => {
+            const match = b.dataset.hrSubtab === subtab;
+            b.classList.toggle('bg-sky-500/25', match);
+            b.classList.toggle('text-sky-300', match);
+            b.classList.toggle('border-sky-500/40', match);
+            b.classList.toggle('shadow-sm', match);
+        });
+        const titleEl = document.getElementById('active-tab-title');
+        if (titleEl) {
+            titleEl.innerHTML = subtab === 'kpi'
+                ? '<i class="fas fa-bullseye text-fuchsia-400 mr-1.5"></i>KPI & Thưởng Nhân Viên'
+                : '<i class="fas fa-money-check-dollar text-emerald-400 mr-1.5"></i>Chấm Công & Tiền Lương';
+        }
+        if (typeof this.switchOpsSubtab === 'function') {
+            this.switchOpsSubtab(subtab);
+        }
+    },
+
     switchTab(tab) {
         this.currentTab = tab;
 
@@ -614,6 +658,7 @@ const Admin = {
         if (tab === 'settings') {
             if (typeof loadStoreSettings === 'function') loadStoreSettings();
             this.loadCardTerminalAdmin();
+            this.loadWanTunnelStatus();
         }
         if (tab === 'media') {
             this.loadMediaTab();
@@ -1961,7 +2006,7 @@ const Admin = {
                     <tr class="hover:bg-sky-500/[0.04] transition-colors">
                         <td><span class="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">${o.order_code || ('#' + o.id)}</span></td>
                         <td><span class="font-bold text-white text-xs">${o.table_code || o.table_name || 'Mang về'}</span></td>
-                        <td><span class="text-xs text-slate-400 font-mono">${o.created_at || '-'}</span></td>
+                        <td><span class="text-xs text-slate-400 font-mono">${o.created_at ? window.formatDateDDMMYY(o.created_at, true) : '-'}</span></td>
                         <td><span class="text-xs text-slate-300 font-medium">${o.user_name || 'Thu ngân'}</span></td>
                         <td class="col-money"><span class="font-mono font-bold text-emerald-400 text-xs">${this.formatMoney(o.total_amount)} đ</span></td>
                         <td class="col-center">${statusBadge}</td>
@@ -2016,7 +2061,7 @@ const Admin = {
                     </div>
                     <div class="text-xs text-slate-300 space-y-1 mb-4">
                         <div>Bàn: <b class="text-white">${o.table_code}</b> | Thu ngân: <b class="text-white">${o.user_name}</b></div>
-                        <div>Thời gian: ${o.created_at}</div>
+                        <div>Thời gian: ${window.formatDateDDMMYY(o.created_at, true)}</div>
                     </div>
                     <div class="max-h-60 overflow-y-auto mb-4 pr-1">
                         ${itemsHtml}
@@ -2101,7 +2146,7 @@ const Admin = {
                     <div style="font-size: 15px; font-weight: bold;">PHIẾU THANH TOÁN</div>
                     <div style="font-size: 12px; font-weight: bold; margin-top: 2px;">Số HĐ: ${o.order_code}</div>
                     <div style="font-size: 11px; color: #444;">Bàn: <b>${o.table_code}</b> | Thu ngân: <b>${o.user_name || 'Thu ngân'}</b></div>
-                    <div style="font-size: 11px; color: #444;">Thời gian: ${o.completed_at || o.created_at || ''}</div>
+                    <div style="font-size: 11px; color: #444;">Thời gian: ${o.completed_at || o.created_at ? window.formatDateDDMMYY(o.completed_at || o.created_at, true) : ''}</div>
                 </div>
                 
                 <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
@@ -2668,6 +2713,10 @@ const Admin = {
     // CLOUD SYNC (MYSQL) MANAGEMENT
     // ==========================================
     async openCloudSyncModal() {
+        if (!this.isModuleAllowed('cloud_sync_backup')) {
+            alert('Module [cloud_sync_backup] chưa được cấp phép hoặc đã bị Master tắt/khóa!');
+            return;
+        }
         const modal = document.getElementById('cloud-sync-modal');
         if (!modal) return;
 
@@ -2913,6 +2962,100 @@ const Admin = {
     },
 
     // ========================================================
+    async loadWanTunnelStatus() {
+        const badge = document.getElementById('wan-tunnel-status-badge');
+        const meta = document.getElementById('wan-tunnel-meta');
+        const urlEl = document.getElementById('wan-master-url');
+        const enEl = document.getElementById('wan-tunnel-enabled');
+        if (!badge) return;
+        try {
+            const res = await fetch('api/wan_tunnel', { credentials: 'same-origin' });
+            const json = await res.json();
+            if (!json.success || !json.data) return;
+            const d = json.data;
+            if (urlEl && !urlEl.matches(':focus')) urlEl.value = d.master_url || '';
+            if (enEl) enEl.checked = !!d.enabled;
+            if (d.connected) {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Đang Online (Master OK)';
+            } else {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 border border-white/10';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span> Offline / Đang thử lại';
+            }
+            if (meta) {
+                meta.textContent = `Chu kỳ Poll: ${d.poll_timeout_sec || 25}s | Heartbeat: ${d.heartbeat_interval_sec || 1800}s | PING ACK: ${d.ping_count || 0} lần (${d.last_ping_ack_at || 'chưa có'}) | Lần cuối nối: ${d.last_seen_at || 'chưa có'}${d.last_error ? ' | Lỗi: ' + d.last_error : ''}`;
+            }
+            const geoEl = document.getElementById('wan-net-geo-meta');
+            if (geoEl && d.net_geo) {
+                const ng = d.net_geo;
+                const hasGeo = Number(ng.geo_lat) !== 0 && Number(ng.geo_lng) !== 0;
+                const mapHref = hasGeo ? `https://www.google.com/maps?q=${ng.geo_lat},${ng.geo_lng}` : '#';
+                geoEl.innerHTML = `
+                    <span>LAN: <b class="text-sky-300">${ng.lan_ip || '—'}</b> &bull; WAN: <b class="text-purple-300">${ng.wan_ip || '—'}</b> &bull; Vị trí: <b class="text-emerald-300">${ng.geo_label || 'Chưa định vị'}</b> (${ng.geo_source === 'gps' ? 'GPS Chính xác' : 'Ước lượng IP'})</span>
+                    ${hasGeo ? `<a href="${mapHref}" target="_blank" rel="noopener" class="text-rose-300 hover:underline font-bold"><i class="fas fa-map-location-dot mr-1"></i>Xem trên Google Maps</a>` : ''}
+                `;
+            }
+        } catch (e) {
+            if (meta) meta.textContent = 'Không lấy được trạng thái kênh WAN: ' + e.message;
+        }
+    },
+
+    async pinStoreGpsLocation() {
+        const saveCoords = async (lat, lng, label) => {
+            const res = await fetch('api/wan_tunnel', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_location', geo_lat: lat, geo_lng: lng, geo_label: label })
+            });
+            const json = await res.json();
+            alert(json.message || 'Đã ghim vị trí!');
+            this.loadWanTunnelStatus();
+        };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const lat = Number(pos.coords.latitude.toFixed(6));
+                    const lng = Number(pos.coords.longitude.toFixed(6));
+                    const label = prompt(`Đã lấy tọa độ GPS thiết bị: ${lat}, ${lng}\nNhập tên địa chỉ hiển thị ngắn (VD: Thủ Đức, TP.HCM):`, '');
+                    if (label !== null) await saveCoords(lat, lng, label.trim());
+                },
+                async () => {
+                    const input = prompt('Trình duyệt không cấp quyền GPS.\nHãy dán link Google Maps (có @lat,lng) hoặc nhập tọa độ (VD: 10.85063, 106.77191):', '');
+                    if (!input) return;
+                    const m = input.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+                    if (!m) { alert('Tọa độ không hợp lệ!'); return; }
+                    const label = prompt('Tên địa điểm ngắn gọn:', '') || '';
+                    await saveCoords(parseFloat(m[1]), parseFloat(m[2]), label.trim());
+                },
+                { enableHighAccuracy: true, timeout: 6000 }
+            );
+        }
+    },
+
+    async saveWanTunnelConfig() {
+        const url = (document.getElementById('wan-master-url')?.value || '').trim();
+        const enabled = !!document.getElementById('wan-tunnel-enabled')?.checked;
+        if (!url) {
+            alert('Vui lòng nhập địa chỉ Master Server URL!');
+            return;
+        }
+        try {
+            const res = await fetch('api/wan_tunnel', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save', master_server_url: url, enabled })
+            });
+            const json = await res.json();
+            alert(json.message || 'Đã cập nhật cấu hình kết nối Master!');
+            setTimeout(() => this.loadWanTunnelStatus(), 1200);
+        } catch (e) {
+            alert('Lỗi lưu cấu hình WAN: ' + e.message);
+        }
+    },
+
     // 8. OPERATIONS: KHO, CHI PHÍ VẬT LIỆU, TIỀN LƯƠNG & REALTIME STAFF
     // ========================================================
     currentOpsSubtab: 'realtime',
@@ -2935,7 +3078,7 @@ const Admin = {
         this.currentOpsSubtab = subtab;
 
         // Update sub-tab buttons
-        ['realtime', 'inventory', 'payroll'].forEach(s => {
+        ['realtime', 'inventory', 'payroll', 'kpi'].forEach(s => {
             const btn = document.getElementById(`ops-subtab-${s}`);
             const view = document.getElementById(`ops-subview-${s}`);
             if (btn) {
@@ -2955,8 +3098,18 @@ const Admin = {
         });
 
         if (subtab === 'realtime') this.loadRealtimeStaff();
+        const subviewReqMod = {
+            inventory: 'inventory_recipes',
+            payroll: 'staff_shifts',
+            kpi: 'staff_kpi'
+        }[subtab];
+        if (subviewReqMod && !this.isModuleAllowed(subviewReqMod)) {
+            this.applySubviewLicenseLock(subtab, subviewReqMod, false);
+            return;
+        }
         if (subtab === 'inventory') this.loadMaterials();
         if (subtab === 'payroll') this.loadPayroll();
+        if (subtab === 'kpi' && typeof this.loadKpi === 'function') this.loadKpi();
     },
 
     // 8.1 Realtime Staff
@@ -3774,6 +3927,10 @@ const Admin = {
 
     // --- KÍCH HOẠT PHÂN TÍCH AI & OCR (HỖ TRỢ NHIỀU ẢNH / FOLDER) ---
     async runAiInvoiceScan() {
+        if (!this.isModuleAllowed('ai_invoice_ocr')) {
+            alert('Module [ai_invoice_ocr] chưa được cấp phép hoặc đã bị Master tắt/khóa!');
+            return;
+        }
         const total = this.importState.images.length;
         if (total === 0) {
             alert('Vui lòng chọn hoặc kéo thả ít nhất 1 ảnh hóa đơn / giấy viết tay!');
@@ -4345,7 +4502,7 @@ const Admin = {
 
             tbody.innerHTML = data.transactions.map(t => `
                 <tr class="hover:bg-white/5 transition-colors">
-                    <td class="py-3 px-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">${t.created_at}</td>
+                    <td class="py-3 px-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">${window.formatDateDDMMYY(t.created_at, true)}</td>
                     <td class="py-3 px-3 font-mono text-sky-300 font-bold whitespace-nowrap">${t.trans_code}</td>
                     <td class="py-3 px-3 whitespace-nowrap text-center">${typeBadges[t.trans_type] || t.trans_type}</td>
                     <td class="py-3 px-3 font-bold text-slate-200 min-w-[200px]">${t.material_name}</td>
@@ -4434,7 +4591,7 @@ const Admin = {
 
                     return `
                         <tr class="hover:bg-white/5 transition-colors">
-                            <td class="py-2 px-3 font-mono text-slate-300">${r.work_date}</td>
+                            <td class="py-2 px-3 font-mono text-slate-300">${window.formatDateDDMMYY(r.work_date, false)}</td>
                             <td class="py-2 px-3 font-bold text-slate-200">${r.user_name}</td>
                             <td class="py-2 px-3 font-mono text-sky-400"><i class="fas fa-arrow-right-to-bracket text-[10px] mr-1"></i>${inTime}</td>
                             <td class="py-2 px-3 font-mono text-amber-300">${outTime ? `<i class="fas fa-arrow-right-from-bracket text-[10px] mr-1"></i>${outTime}` : '---'}</td>
@@ -6199,7 +6356,7 @@ const Admin = {
                                 : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">ℹ️ INFO</span>');
                         return `
                             <tr class="hover:bg-white/[0.03] transition-colors">
-                                <td><span class="font-mono text-[11px] text-slate-400 whitespace-nowrap">${l.created_at || '-'}</span></td>
+                                <td><span class="font-mono text-[11px] text-slate-400 whitespace-nowrap">${l.created_at ? window.formatDateDDMMYY(l.created_at, true) : '-'}</span></td>
                                 <td>${sevBadge}</td>
                                 <td><span class="text-xs font-bold text-white">${l.action_label || l.action_code}</span></td>
                                 <td><span class="font-mono text-xs text-sky-300">${l.table_code || '-'} ${l.order_code ? '(' + l.order_code + ')' : ''}</span></td>
@@ -6230,8 +6387,8 @@ const Admin = {
                                 <td><span class="font-mono font-bold text-xs text-amber-300">${s.shift_code}</span></td>
                                 <td><span class="text-xs text-white font-semibold">${s.user_name || 'Thu ngân'}</span></td>
                                 <td>
-                                    <div class="font-mono text-[10px] text-slate-300">Mở: ${s.opened_at || '-'}</div>
-                                    <div class="font-mono text-[10px] text-slate-400">Kết: ${s.closed_at || 'Đang trực ca'}</div>
+                                    <div class="font-mono text-[10px] text-slate-300">Mở: ${s.opened_at ? window.formatDateDDMMYY(s.opened_at, true) : '-'}</div>
+                                    <div class="font-mono text-[10px] text-slate-400">Kết: ${s.closed_at ? window.formatDateDDMMYY(s.closed_at, true) : 'Đang trực ca'}</div>
                                 </td>
                                 <td class="col-right font-mono text-xs text-slate-300">${this.formatMoney(s.opening_cash)} đ</td>
                                 <td class="col-right font-mono text-xs text-emerald-400">+${this.formatMoney(s.cash_sales)} đ</td>
@@ -6294,7 +6451,7 @@ const Admin = {
                     list.forEach(item => {
                         html += `
                             <tr class="hover:bg-sky-500/[0.04] transition-colors">
-                                <td><span class="font-mono text-xs text-slate-300 whitespace-nowrap">${item.expense_date || '-'}</span></td>
+                                <td><span class="font-mono text-xs text-slate-300 whitespace-nowrap">${item.expense_date ? window.formatDateDDMMYY(item.expense_date, false) : '-'}</span></td>
                                 <td><span class="saas-badge bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">${item.category || 'Khác'}</span></td>
                                 <td class="col-name"><span class="text-xs font-medium text-white whitespace-nowrap">${item.description || '-'}</span></td>
                                 <td><span class="text-xs text-slate-400 whitespace-nowrap">${item.supplier || '-'}</span></td>
@@ -6330,9 +6487,392 @@ const Admin = {
                     expGroups.innerHTML = gHtml;
                 }
             }
+
+            // 1. Doanh thu theo ngày (Chart.js)
+            const dailyCanvas = document.getElementById('fin-daily-chart');
+            if (dailyCanvas && typeof Chart !== 'undefined') {
+                const dailyList = (repRes && Array.isArray(repRes.daily_revenue)) ? repRes.daily_revenue : [];
+                if (this.finDailyChart) {
+                    this.finDailyChart.destroy();
+                    this.finDailyChart = null;
+                }
+                const labels = dailyList.map(d => window.formatDateDDMMYY(d.day, false));
+                const values = dailyList.map(d => Number(d.revenue) || 0);
+                const ordersCnt = dailyList.map(d => Number(d.orders) || 0);
+                this.finDailyChart = new Chart(dailyCanvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels.length ? labels : ['Chưa có dữ liệu'],
+                        datasets: [{
+                            label: 'Doanh thu (đ)',
+                            data: values.length ? values : [0],
+                            backgroundColor: 'rgba(20, 184, 166, 0.55)',
+                            borderColor: '#2dd4bf',
+                            borderWidth: 1.5,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => {
+                                        const idx = ctx.dataIndex;
+                                        const ord = ordersCnt[idx] || 0;
+                                        return `${this.formatMoney(ctx.parsed.y)} đ (${ord} đơn)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#94a3b8',
+                                    font: { size: 10 },
+                                    callback: (v) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'tr' : this.formatMoney(v)
+                                },
+                                grid: { color: 'rgba(255,255,255,0.06)' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 2. Kết quả kinh doanh (P&L)
+            const pnlEl = document.getElementById('fin-pnl');
+            if (pnlEl) {
+                const grossSales = Number(summary.gross_sales) || Number(summary.revenue) || 0;
+                const discounts = Number(summary.discounts) || 0;
+                const revenue = Number(summary.revenue) || 0;
+                const cogs = Number(summary.cogs) || 0;
+                const grossProfit = summary.gross_profit !== undefined ? Number(summary.gross_profit) : (revenue - cogs);
+                const expenses = Number(summary.expenses) || 0;
+                const netProfit = Number(summary.net_profit) || 0;
+                const orderCount = Number(summary.order_count) || 0;
+                const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100).toFixed(1) : '0.0';
+                const netMargin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
+
+                pnlEl.innerHTML = `
+                    <tbody class="divide-y divide-white/5">
+                        <tr><td class="py-1.5 text-slate-300">Doanh thu gộp (${orderCount} đơn)</td><td class="py-1.5 text-right font-mono text-slate-200">${this.formatMoney(grossSales)} đ</td></tr>
+                        <tr><td class="py-1.5 text-slate-400">Giảm giá / Chiết khấu</td><td class="py-1.5 text-right font-mono text-rose-400">-${this.formatMoney(discounts)} đ</td></tr>
+                        <tr class="font-semibold"><td class="py-1.5 text-emerald-300">Doanh thu thuần</td><td class="py-1.5 text-right font-mono text-emerald-400">${this.formatMoney(revenue)} đ</td></tr>
+                        <tr><td class="py-1.5 text-slate-400">Giá vốn hàng bán (COGS)</td><td class="py-1.5 text-right font-mono text-amber-300">-${this.formatMoney(cogs)} đ</td></tr>
+                        <tr class="font-semibold"><td class="py-1.5 text-sky-300">Lợi nhuận gộp (${grossMargin}%)</td><td class="py-1.5 text-right font-mono text-sky-400">${this.formatMoney(grossProfit)} đ</td></tr>
+                        <tr><td class="py-1.5 text-slate-400">Chi phí vận hành</td><td class="py-1.5 text-right font-mono text-amber-400">-${this.formatMoney(expenses)} đ</td></tr>
+                        <tr class="border-t border-white/15 font-bold text-sm">
+                            <td class="pt-2.5 text-white">Lợi nhuận ròng (${netMargin}%)</td>
+                            <td class="pt-2.5 text-right font-mono ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${this.formatMoney(netProfit)} đ</td>
+                        </tr>
+                    </tbody>
+                `;
+            }
+
+            // 3. Thuế & điểm hòa vốn
+            const taxEl = document.getElementById('fin-tax');
+            if (taxEl) {
+                const revenue = Number(summary.revenue) || 0;
+                const cogs = Number(summary.cogs) || 0;
+                const expenses = Number(summary.expenses) || 0;
+                const vatOut = Number(summary.vat_collected) || 0;
+                const vatIn = Number(summary.vat_input) || 0;
+                const vatPayable = Math.max(0, vatOut - vatIn);
+                const grossRatio = revenue > 0 ? Math.max(0.05, (revenue - cogs) / revenue) : 0.65;
+                const breakeven = expenses > 0 ? Math.round(expenses / grossRatio) : 0;
+                const progress = breakeven > 0 ? Math.min(100, Math.round((revenue / breakeven) * 100)) : (revenue > 0 ? 100 : 0);
+                const passed = revenue >= breakeven;
+
+                taxEl.innerHTML = `
+                    <div class="flex items-center justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-300">VAT đầu ra (hóa đơn)</span>
+                        <span class="font-mono text-sky-300">${this.formatMoney(vatOut)} đ</span>
+                    </div>
+                    <div class="flex items-center justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-300">VAT đầu vào (phiếu chi)</span>
+                        <span class="font-mono text-emerald-300">${this.formatMoney(vatIn)} đ</span>
+                    </div>
+                    <div class="flex items-center justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-300 font-semibold">VAT dự kiến phải nộp</span>
+                        <span class="font-mono font-bold text-amber-300">${this.formatMoney(vatPayable)} đ</span>
+                    </div>
+                    <div class="pt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-slate-300">Điểm hòa vốn tháng</span>
+                            <span class="font-mono font-bold text-white">${this.formatMoney(breakeven)} đ</span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                            <div class="h-full ${passed ? 'bg-emerald-400' : 'bg-sky-400'}" style="width:${progress}%"></div>
+                        </div>
+                        <div class="flex items-center justify-between mt-1 text-[11px]">
+                            <span class="${passed ? 'text-emerald-400 font-semibold' : 'text-amber-300'}">${passed ? 'Đã vượt điểm hòa vốn' : 'Chưa đạt điểm hòa vốn'}</span>
+                            <span class="font-mono text-slate-400">${progress}%</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 4. Doanh thu theo nhóm hàng & thanh toán
+            const brEl = document.getElementById('fin-breakdown');
+            if (brEl) {
+                const cats = (repRes && Array.isArray(repRes.category_breakdown)) ? repRes.category_breakdown : [];
+                const pays = (repRes && Array.isArray(repRes.payment_breakdown)) ? repRes.payment_breakdown : [];
+                const totalRev = Number(summary.revenue) || cats.reduce((s, c) => s + (Number(c.revenue) || 0), 0);
+                const payLabels = { cash: 'Tiền mặt', transfer: 'Chuyển khoản / QR', qr: 'VietQR', card: 'Thẻ POS', momo: 'Ví MoMo' };
+
+                let html = '';
+                if (cats.length === 0 && pays.length === 0) {
+                    html = '<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có doanh thu phát sinh trong tháng này</div>';
+                } else {
+                    if (cats.length > 0) {
+                        html += '<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Theo nhóm hàng</div>';
+                        cats.slice(0, 6).forEach(c => {
+                            const rev = Number(c.revenue) || 0;
+                            const pct = totalRev > 0 ? Math.round((rev / totalRev) * 100) : 0;
+                            html += `
+                                <div class="py-1 border-b border-white/5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-200">${c.category} <span class="text-slate-500">(${c.qty} món)</span></span>
+                                        <span class="font-mono font-bold text-emerald-400">${this.formatMoney(rev)} đ <span class="text-[10px] text-slate-400">(${pct}%)</span></span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    if (pays.length > 0) {
+                        html += '<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-2.5 mb-1">Theo thanh toán</div>';
+                        pays.forEach(p => {
+                            const mName = payLabels[(p.method || '').toLowerCase()] || p.method || 'Khác';
+                            html += `
+                                <div class="flex items-center justify-between py-1 border-b border-white/5">
+                                    <span class="text-slate-300">${mName} (${p.orders} đơn)</span>
+                                    <span class="font-mono font-bold text-sky-300">${this.formatMoney(p.revenue)} đ</span>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+                brEl.innerHTML = html;
+            }
         } catch (e) {
             console.error('Error loading finance:', e);
         }
+    },
+
+    async loadSystemUpdates() {
+        try {
+            const res = await fetch('/api/system/updates');
+            const data = await res.json();
+            if (!data.success) return;
+            const banner = document.getElementById('system-update-banner');
+            const titleEl = document.getElementById('sys-upd-title');
+            const msgEl = document.getElementById('sys-upd-msg');
+            const applyBtn = document.getElementById('sys-upd-apply-btn');
+            if (!banner) return;
+
+            const unread = Array.isArray(data.notifications)
+                ? data.notifications.find(n => Number(n.is_read) === 0)
+                : null;
+
+            if (data.has_update || unread) {
+                banner.classList.remove('hidden');
+                if (titleEl) {
+                    titleEl.textContent = (unread && unread.title) || data.update_title || 'Có bản cập nhật mới từ Master';
+                }
+                if (msgEl) {
+                    const ver = (unread && unread.version) || data.latest_version;
+                    const body = (unread && unread.message) || data.update_message || '';
+                    msgEl.textContent = (ver ? `[v${ver}] ` : '') + body;
+                }
+                if (applyBtn) {
+                    const isOta = data.has_update || (unread && unread.type === 'SYSTEM_UPDATE');
+                    applyBtn.classList.toggle('hidden', !isOta);
+                }
+            } else {
+                banner.classList.add('hidden');
+            }
+        } catch (e) {}
+    },
+
+    async applySystemUpdate(btn) {
+        if (!confirm('Tải bản vá mới từ Master và chép đè lên hệ thống Store hiện tại?')) return;
+        const orig = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang cập nhật...'; }
+        try {
+            const res = await fetch('/api/system/updates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'apply' })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? 'Cập nhật thành công!' : 'Cập nhật thất bại!'));
+            if (data.success) {
+                await this.dismissSystemUpdate();
+                if (data.restarting) {
+                    setTimeout(() => window.location.reload(), 4500);
+                } else {
+                    window.location.reload();
+                }
+            }
+        } catch (e) {
+            alert('Lỗi cập nhật: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        }
+    },
+
+    async dismissSystemUpdate() {
+        try {
+            await fetch('/api/system/updates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'dismiss' })
+            });
+            const banner = document.getElementById('system-update-banner');
+            if (banner) banner.classList.add('hidden');
+        } catch (e) {}
+    },
+
+    _licensedModules: null,
+    _blockedModules: [],
+
+    isModuleAllowed(modCode) {
+        if (!this._licensedModules) return true;
+        if (this._blockedModules.includes(modCode)) return false;
+        const stripped = modCode.startsWith('mod_') ? modCode.slice(4) : modCode;
+        return this._licensedModules.includes(modCode) || this._licensedModules.includes(stripped) || this._licensedModules.includes('mod_' + stripped);
+    },
+
+    applySubviewLicenseLock(subtab, modCode, allowed) {
+        const subview = document.getElementById(`ops-subview-${subtab}`);
+        if (!subview) return;
+        let lockOverlay = subview.querySelector('.cn-module-lock-screen');
+        if (!allowed) {
+            if (!lockOverlay) {
+                lockOverlay = document.createElement('div');
+                lockOverlay.className = 'cn-module-lock-screen p-10 text-center rounded-2xl border border-rose-500/30 bg-rose-950/20 my-4';
+                lockOverlay.innerHTML = `
+                    <i class="fas fa-lock text-4xl text-rose-400 mb-3"></i>
+                    <div class="text-base font-bold text-white">Module chưa được cấp phép hoặc đã bị Master tắt/khóa</div>
+                    <div class="text-xs text-slate-400 mt-1">Mã module: <span class="font-mono text-rose-300">${modCode}</span> • Vui lòng bật lại trên Máy chủ Master SaaS.</div>
+                `;
+                subview.prepend(lockOverlay);
+            }
+            Array.from(subview.children).forEach(ch => {
+                if (!ch.classList.contains('cn-module-lock-screen')) ch.classList.add('hidden');
+            });
+        } else {
+            if (lockOverlay) lockOverlay.remove();
+            Array.from(subview.children).forEach(ch => ch.classList.remove('hidden'));
+        }
+    },
+
+    async enforceModuleLicenses(forceSync = false) {
+        try {
+            if (forceSync) {
+                await fetch('/api/license_client.php?action=sync_now').catch(() => {});
+            }
+            const res = await fetch('/api/license.php?action=status');
+            const json = await res.json();
+            if (!json.success || !json.data) return;
+            this._licensedModules = Array.isArray(json.data.modules) ? json.data.modules : [];
+            this._blockedModules = Array.isArray(json.data.blocked_modules) ? json.data.blocked_modules : [];
+
+            const tabModuleMap = {
+                media: 'mod_media_stream',
+                users: 'staff_shifts',
+                analytics: 'advanced_reports',
+                finance: 'finance_reports'
+            };
+
+            // Lock/unlock sub-tabs, HR/Menu nav buttons, subviews & header links
+            const subTabMap = [
+                { sel: '#ops-subtab-inventory', code: 'inventory_recipes', allowClickForLockScreen: true },
+                { sel: '.admin-sub-btn[data-tab="operations"]', code: 'inventory_recipes', allowClickForLockScreen: true },
+                { sel: '#ops-subtab-payroll', code: 'staff_shifts', allowClickForLockScreen: true },
+                { sel: '#subnav-hr .admin-sub-btn[data-hr-subtab="payroll"]', code: 'staff_shifts', allowClickForLockScreen: true },
+                { sel: '#ops-subtab-kpi', code: 'staff_kpi', allowClickForLockScreen: true },
+                { sel: '#subnav-hr .admin-sub-btn[data-hr-subtab="kpi"]', code: 'staff_kpi', allowClickForLockScreen: true },
+                { sel: 'a[href*="kitchen.html"]', code: 'kitchen_kds', allowClickForLockScreen: false },
+                { sel: 'a[href*="customer.html"]', code: 'qr_customer_order', allowClickForLockScreen: false },
+                { sel: '#btn-trigger-ai-scan', code: 'ai_invoice_ocr', allowClickForLockScreen: false },
+                { sel: '[onclick*="openCloudSyncModal"]', code: 'cloud_sync_backup', allowClickForLockScreen: false },
+                { sel: '#ad-save-btn, [onclick*="saveAdvertising"]', code: 'advertising_promotions', allowClickForLockScreen: false }
+            ];
+            subTabMap.forEach(({ sel, code, allowClickForLockScreen }) => {
+                const allowed = this.isModuleAllowed(code);
+                document.querySelectorAll(sel).forEach(el => {
+                    el.classList.toggle('opacity-40', !allowed);
+                    if (!allowClickForLockScreen) {
+                        el.classList.toggle('pointer-events-none', !allowed);
+                    } else {
+                        el.classList.remove('pointer-events-none');
+                    }
+                    el.title = allowed ? '' : `Module [${code}] chưa được cấp phép hoặc đã bị Master tắt/khóa`;
+                    let lockIcon = el.querySelector('.cn-mod-lock');
+                    if (!allowed && !lockIcon) {
+                        lockIcon = document.createElement('i');
+                        lockIcon.className = 'fas fa-lock text-rose-400 text-[10px] cn-mod-lock ml-1';
+                        el.appendChild(lockIcon);
+                    } else if (allowed && lockIcon) {
+                        lockIcon.remove();
+                    }
+                });
+            });
+
+            this.applySubviewLicenseLock('inventory', 'inventory_recipes', this.isModuleAllowed('inventory_recipes'));
+            this.applySubviewLicenseLock('payroll', 'staff_shifts', this.isModuleAllowed('staff_shifts'));
+            this.applySubviewLicenseLock('kpi', 'staff_kpi', this.isModuleAllowed('staff_kpi'));
+
+            Object.entries(tabModuleMap).forEach(([tab, modCode]) => {
+                const allowed = this.isModuleAllowed(modCode);
+                const btn = document.querySelector(`.admin-sub-btn[data-tab="${tab}"]`);
+                if (btn) {
+                    btn.classList.toggle('opacity-40', !allowed);
+                    let lockIcon = btn.querySelector('.cn-mod-lock');
+                    if (!allowed && !lockIcon) {
+                        lockIcon = document.createElement('i');
+                        lockIcon.className = 'fas fa-lock text-rose-400 text-[10px] cn-mod-lock ml-1';
+                        btn.appendChild(lockIcon);
+                    } else if (allowed && lockIcon) {
+                        lockIcon.remove();
+                    }
+                }
+                const section = document.getElementById(`tab-${tab}`);
+                if (section) {
+                    let lockOverlay = section.querySelector('.cn-module-lock-screen');
+                    if (!allowed) {
+                        if (!lockOverlay) {
+                            lockOverlay = document.createElement('div');
+                            lockOverlay.className = 'cn-module-lock-screen p-10 text-center rounded-2xl border border-rose-500/30 bg-rose-950/20 my-4';
+                            lockOverlay.innerHTML = `
+                                <i class="fas fa-lock text-4xl text-rose-400 mb-3"></i>
+                                <div class="text-base font-bold text-white">Module chưa được cấp phép hoặc đã bị Master tắt/khóa</div>
+                                <div class="text-xs text-slate-400 mt-1">Mã module: <span class="font-mono text-rose-300">${modCode}</span> • Vui lòng bật lại trên Máy chủ Master SaaS.</div>
+                            `;
+                            section.prepend(lockOverlay);
+                        }
+                        Array.from(section.children).forEach(ch => {
+                            if (!ch.classList.contains('cn-module-lock-screen')) ch.classList.add('hidden');
+                        });
+                    } else {
+                        if (lockOverlay) lockOverlay.remove();
+                        Array.from(section.children).forEach(ch => ch.classList.remove('hidden'));
+                    }
+                }
+            });
+
+            const mediaAllowed = this.isModuleAllowed('mod_media_stream');
+            const jukePill = document.getElementById('admin-jukebox-pill');
+            if (jukePill) jukePill.classList.toggle('hidden', !mediaAllowed);
+            if (!mediaAllowed && typeof JukeboxPlayer !== 'undefined' && JukeboxPlayer.audio && !JukeboxPlayer.audio.paused) {
+                JukeboxPlayer.audio.pause();
+            }
+        } catch (e) {}
     },
 
     async deleteFinanceExpense(id) {

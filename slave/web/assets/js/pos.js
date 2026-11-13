@@ -1651,6 +1651,36 @@ const POS = {
         modal.classList.add('open');
         this.selectedPaymentMethod = 'cash';
         this.loadCardModuleStatus(total);
+        this.checkVietQrLicense(total);
+    },
+
+    async checkVietQrLicense(total) {
+        try {
+            const res = await fetch('/api/license.php?action=status');
+            const json = await res.json();
+            const d = json && json.data ? json.data : {};
+            const mods = Array.isArray(d.modules) ? d.modules : [];
+            const blocked = Array.isArray(d.blocked_modules) ? d.blocked_modules : [];
+            const allowed = !blocked.includes('vietqr_payment') && (mods.includes('vietqr_payment') || mods.includes('mod_vietqr_payment'));
+            const btnBank = document.getElementById('paymethod-banking');
+            const secBank = document.getElementById('payment-banking-section');
+            if (!allowed) {
+                if (btnBank) {
+                    btnBank.innerHTML = `<i class="fas fa-lock text-rose-400"></i> Chuyển khoản QR <span class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">LOCK</span>`;
+                }
+                if (secBank) {
+                    secBank.innerHTML = `
+                        <div class="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-xs space-y-2 text-left">
+                            <div class="flex items-center gap-2 font-bold text-sm text-rose-400">
+                                <i class="fas fa-lock"></i>
+                                <span>MODULE VIETQR TỰ ĐỘNG ĐÃ BỊ KHÓA / CHƯA CẤP PHÉP</span>
+                            </div>
+                            <p class="leading-relaxed text-[11px]">Mã module: <span class="font-mono text-rose-300">vietqr_payment</span> • Vui lòng bật lại trên Máy chủ Master SaaS.</p>
+                        </div>
+                    `;
+                }
+            }
+        } catch (e) {}
     },
 
     cardModuleStatus: null,

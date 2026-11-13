@@ -259,7 +259,7 @@ const SuperAdmin = {
         if (!tbody) return;
 
         if (tenants.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">Không tìm thấy cửa hàng nào phù hợp!</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">Không tìm thấy cửa hàng nào phù hợp!</td></tr>`;
             return;
         }
 
@@ -267,6 +267,18 @@ const SuperAdmin = {
             const isSuspended = t.subscription_status === 'suspended';
             const expireDateFormatted = new Date(t.expire_date).toLocaleDateString('vi-VN');
             const logoPath = this.tenantLogoPath(t.logo_path);
+            const lanIp = t.lan_ip || '—';
+            const wanIp = t.wan_ip || t.last_check_ip || '—';
+            const latNum = parseFloat(t.geo_lat);
+            const lngNum = parseFloat(t.geo_lng);
+            const hasGeo = Number.isFinite(latNum) && Number.isFinite(lngNum) && latNum !== 0 && lngNum !== 0;
+            const geoLat = hasGeo ? latNum.toFixed(5) : '';
+            const geoLng = hasGeo ? lngNum.toFixed(5) : '';
+            const mapUrl = hasGeo ? `https://www.google.com/maps?q=${latNum},${lngNum}` : '';
+            const isGps = (t.geo_source || 'ip') === 'gps';
+            const geoText = hasGeo
+                ? (t.geo_label ? t.geo_label : `${geoLat}, ${geoLng}`)
+                : 'Chưa định vị';
 
             return `
                 <tr class="hover:bg-white/5 transition-all">
@@ -277,8 +289,15 @@ const SuperAdmin = {
                                 ${logoPath ? `<img src="${logoPath}" alt="" class="h-full w-full object-contain">` : '<i class="fas fa-store text-xs text-slate-400"></i>'}
                             </span>
                             <div class="min-w-0">
-                                <div class="font-bold text-white text-xs truncate max-w-[170px]" title="${t.store_name}">${t.store_name}</div>
-                                <div class="text-[10px] text-slate-400 truncate max-w-[160px]" title="${t.address || ''}">${t.address || 'Chưa cập nhật'}</div>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="tenant-dot-${t.id}" class="inline-block w-2.5 h-2.5 rounded-full shrink-0 ${t.is_tunnel_online ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.85)] animate-pulse' : 'bg-slate-500'}" title="${t.is_tunnel_online ? 'Đang Online qua kênh WAN' : 'Offline / Chưa kết nối'}"></span>
+                                    <span class="font-bold text-white text-xs truncate max-w-[155px]" title="${t.store_name}">${t.store_name}</span>
+                                </div>
+                                <div id="tenant-presence-${t.id}" class="text-[10px] ${t.is_tunnel_online ? 'text-emerald-300' : 'text-slate-400'} truncate max-w-[165px]" title="IP: ${t.last_check_ip || 'N/A'} | Lần cuối: ${t.last_check_at || 'Chưa có'}">
+                                    ${t.is_tunnel_online
+                                        ? `Online${t.last_ping_latency_ms > 0 ? ` • ${t.last_ping_latency_ms}ms` : ''}`
+                                        : (t.last_check_at ? `Offline • ${t.last_check_at}` : 'Offline • Chưa kết nối')}
+                                </div>
                                 <div class="mt-0.5 flex items-center gap-1 flex-wrap">
                                     ${t.machine_id 
                                         ? `<span class="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono" title="Đã khóa phần cứng: ${t.machine_name || t.machine_id}"><i class="fas fa-desktop text-[8px]"></i> Đã Khóa Máy</span>` 
@@ -291,6 +310,33 @@ const SuperAdmin = {
                     <td class="py-2 px-2.5">
                         <div class="text-slate-200 font-semibold text-xs">${t.owner_name}</div>
                         <div class="text-[10px] text-sky-400 font-mono">${t.phone}</div>
+                    </td>
+                    <td class="py-2 px-2.5">
+                        <div class="space-y-1 text-[10px]">
+                            <div class="flex items-center gap-1.5 font-mono">
+                                <span class="px-1 py-0.2 rounded bg-sky-500/15 text-sky-300 border border-sky-500/25 font-bold text-[9px] shrink-0">LAN</span>
+                                <span id="tenant-lan-${t.id}" class="text-slate-200 truncate max-w-[120px]" title="IP Nội bộ LAN: ${lanIp}">${lanIp}</span>
+                                ${lanIp !== '—' ? `<button type="button" onclick="SuperAdmin.copyIpText('${lanIp}', this)" class="text-slate-400 hover:text-sky-300 transition" title="Sao chép IP LAN"><i class="far fa-copy text-[9px]"></i></button>` : ''}
+                            </div>
+                            <div class="flex items-center gap-1.5 font-mono">
+                                <span class="px-1 py-0.2 rounded bg-purple-500/15 text-purple-300 border border-purple-500/25 font-bold text-[9px] shrink-0">WAN</span>
+                                <span id="tenant-wan-${t.id}" class="text-slate-300 truncate max-w-[120px]" title="IP Public WAN: ${wanIp}">${wanIp}</span>
+                                ${wanIp !== '—' ? `<button type="button" onclick="SuperAdmin.copyIpText('${wanIp}', this)" class="text-slate-400 hover:text-purple-300 transition" title="Sao chép IP WAN"><i class="far fa-copy text-[9px]"></i></button>` : ''}
+                            </div>
+                            <div class="flex items-center gap-1">
+                                ${hasGeo
+                                    ? `<a href="${mapUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200 hover:underline truncate max-w-[155px]" title="Mở Google Maps (${geoLat}, ${geoLng}) • Nguồn: ${isGps ? 'GPS Chính Xác' : 'Ước lượng IP'}">
+                                        <i class="fas fa-location-dot text-rose-400 text-[10px] shrink-0"></i>
+                                        <span class="truncate">${geoText}</span>
+                                       </a>
+                                       <span class="px-1 py-0.2 rounded text-[8px] font-bold ${isGps ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/25'} shrink-0">${isGps ? 'GPS' : 'IP'}</span>`
+                                    : `<span class="text-slate-500 inline-flex items-center gap-1"><i class="fas fa-location-dot text-[9px]"></i> Chưa có vị trí</span>`
+                                }
+                                <button type="button" onclick="SuperAdmin.promptStoreLocation(${t.id}, '${t.store_name.replace(/'/g, "\\'")}', '${geoLat}', '${geoLng}')" class="text-slate-400 hover:text-amber-300 ml-0.5 transition shrink-0" title="Ghim tọa độ Google Maps chính xác">
+                                    <i class="fas fa-map-pin text-[9px]"></i>
+                                </button>
+                            </div>
+                        </div>
                     </td>
                     <td class="py-2 px-2.5">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 truncate inline-block max-w-[110px]" title="${t.plan_name}">
@@ -316,6 +362,9 @@ const SuperAdmin = {
                     </td>
                     <td class="py-2 px-2.5 text-right whitespace-nowrap">
                         <div class="inline-flex items-center gap-1 justify-end">
+                            <button type="button" onclick="SuperAdmin.checkStoreOnline(${t.id}, this)" class="w-7 h-7 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-[11px] transition" title="Gọi kiểm tra Store Online ngay">
+                                <i class="fas fa-satellite-dish text-[10px]"></i>
+                            </button>
                             <button type="button" onclick="SuperAdmin.openPackagesModal(${t.id})" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition shadow-sm" title="Quản lý Hồ sơ, Hợp đồng & Đóng gói">
                                 <i class="fas fa-box-archive text-[10px]"></i>
                                 <span>Gói</span>
@@ -340,6 +389,135 @@ const SuperAdmin = {
                 </tr>
             `;
         }).join('');
+    },
+
+    copyIpText(text, btn) {
+        navigator.clipboard?.writeText(text).then(() => {
+            if (btn) {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check text-emerald-400 text-[9px]"></i>';
+                setTimeout(() => { btn.innerHTML = orig; }, 1200);
+            }
+        });
+    },
+
+    async promptStoreLocation(tenantId, storeName, curLat, curLng) {
+        const defVal = (curLat && curLng) ? `${curLat}, ${curLng}` : '';
+        const input = prompt(
+            `Ghim vị trí Google Maps chính xác cho "${storeName}":\n` +
+            `- Nhập tọa độ dạng: 10.85063, 106.77191\n` +
+            `- Hoặc dán trực tiếp link Google Maps (có chứa @lat,lng):`,
+            defVal
+        );
+        if (!input || !input.trim()) return;
+        let lat = 0, lng = 0;
+        const atMatch = input.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+        const qMatch = input.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+        if (atMatch) {
+            lat = parseFloat(atMatch[1]);
+            lng = parseFloat(atMatch[2]);
+        } else if (qMatch) {
+            lat = parseFloat(qMatch[1]);
+            lng = parseFloat(qMatch[2]);
+        }
+        if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+            alert('Không nhận diện được tọa độ (lat, lng). Ví dụ đúng: 10.85063, 106.77191');
+            return;
+        }
+        const label = prompt('Tên địa điểm hiển thị ngắn gọn (VD: Thủ Đức, TP.HCM):', '') || '';
+        try {
+            const res = await fetch('api/super_admin.php?action=update_store_location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_id: tenantId, geo_lat: lat, geo_lng: lng, geo_label: label.trim() })
+            });
+            const data = await res.json();
+            alert(data.message || 'Đã cập nhật vị trí!');
+            await this.loadTenants();
+        } catch (e) {
+            alert('Lỗi cập nhật vị trí: ' + e.message);
+        }
+    },
+
+    async checkStoreOnline(tenantId, btnEl) {
+        const origHtml = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i>';
+        }
+        try {
+            const res = await fetch(`api/super_admin.php?action=check_store_online&tenant_id=${tenantId}`);
+            const data = await res.json();
+            const dot = document.getElementById(`tenant-dot-${tenantId}`);
+            const info = document.getElementById(`tenant-presence-${tenantId}`);
+            if (dot && info) {
+                if (data.online) {
+                    dot.className = 'inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.85)] animate-pulse';
+                    const rt = data.runtime || {};
+                    const extra = rt.active_orders !== undefined ? ` • ${rt.active_orders} đơn` : '';
+                    info.className = 'text-[10px] text-emerald-300 truncate max-w-[165px]';
+                    info.textContent = `Online • ${data.latency_ms}ms${extra}`;
+                    info.title = `IP: ${data.last_check_ip || 'N/A'} | Phản hồi: ${data.latency_ms}ms | Check: ${data.last_check_at || 'vừa xong'}`;
+                } else {
+                    dot.className = 'inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-slate-500';
+                    info.className = 'text-[10px] text-slate-400 truncate max-w-[165px]';
+                    info.textContent = data.last_check_at ? `Offline • ${data.last_check_at}` : 'Offline • Không phản hồi';
+                    info.title = data.reason || 'Store đang tắt hoặc mất mạng';
+                }
+            }
+            const t = this.tenants.find(x => x.id === tenantId);
+            if (t) {
+                t.is_tunnel_online = !!data.online;
+                t.last_ping_latency_ms = data.latency_ms || -1;
+                if (data.last_check_at) t.last_check_at = data.last_check_at;
+            }
+        } catch (err) {
+            alert('Lỗi kiểm tra Store: ' + err.message);
+        } finally {
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origHtml;
+            }
+        }
+    },
+
+    async checkAllStoresOnline(btnEl) {
+        const origHtml = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Đang kiểm tra...</span>';
+        }
+        try {
+            const res = await fetch('api/super_admin.php?action=check_store_online');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.results)) {
+                let onCount = 0;
+                data.results.forEach(r => {
+                    if (r.online) onCount++;
+                    const dot = document.getElementById(`tenant-dot-${r.tenant_id}`);
+                    const info = document.getElementById(`tenant-presence-${r.tenant_id}`);
+                    if (dot && info) {
+                        if (r.online) {
+                            dot.className = 'inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.85)] animate-pulse';
+                            info.className = 'text-[10px] text-emerald-300 truncate max-w-[165px]';
+                            info.textContent = `Online • ${r.latency_ms}ms`;
+                        } else {
+                            dot.className = 'inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-slate-500';
+                            info.className = 'text-[10px] text-slate-400 truncate max-w-[165px]';
+                            info.textContent = r.last_check_at ? `Offline • ${r.last_check_at}` : 'Offline';
+                        }
+                    }
+                });
+                alert(`Hoàn tất kiểm tra ${data.results.length} cửa hàng: ${onCount} Online / ${data.results.length - onCount} Offline.`);
+            }
+        } catch (err) {
+            alert('Lỗi kiểm tra toàn bộ Store: ' + err.message);
+        } finally {
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origHtml;
+            }
+        }
     },
 
     async retryStorePackage(tenantId) {
@@ -494,6 +672,7 @@ const SuperAdmin = {
                 throw new Error(data.message || 'Không thể cập nhật trạng thái BLOCK module.');
             }
             this.setModuleToggleState(moduleCode, false, nextState === 'BLOCKED');
+            this.loadTenants();
         } catch (err) {
             alert(err.message || 'Lỗi kết nối máy chủ khi khóa module.');
         }
@@ -539,6 +718,7 @@ const SuperAdmin = {
             if (!res.ok || !data.success) {
                 throw new Error(data.message || 'Không thể cập nhật quyền module.');
             }
+            this.loadTenants();
         } catch (err) {
             console.error('toggleSingleModule error:', err);
             if (switchInput) switchInput.checked = !isChecked;
@@ -1156,6 +1336,24 @@ const SuperAdmin = {
                 if (s.saas_bank_account_name) document.getElementById('cfg-saas-bank-name').value = s.saas_bank_account_name;
                 if (s.saas_warning_days) document.getElementById('cfg-saas-warning-days').value = s.saas_warning_days;
                 if (s.saas_grace_period_days) document.getElementById('cfg-saas-grace-days').value = s.saas_grace_period_days;
+                if (document.getElementById('cfg-wan-tunnel-enabled')) {
+                    document.getElementById('cfg-wan-tunnel-enabled').checked = String(s.wan_tunnel_enabled ?? '1') !== '0';
+                }
+                if (s.wan_poll_timeout_sec && document.getElementById('cfg-wan-poll-timeout')) {
+                    document.getElementById('cfg-wan-poll-timeout').value = s.wan_poll_timeout_sec;
+                }
+                if (s.wan_check_timeout_ms && document.getElementById('cfg-wan-check-timeout')) {
+                    document.getElementById('cfg-wan-check-timeout').value = s.wan_check_timeout_ms;
+                }
+                if (s.wan_heartbeat_interval_sec && document.getElementById('cfg-wan-heartbeat-sec')) {
+                    document.getElementById('cfg-wan-heartbeat-sec').value = s.wan_heartbeat_interval_sec;
+                }
+                if (s.wan_retry_base_sec && document.getElementById('cfg-wan-retry-base')) {
+                    document.getElementById('cfg-wan-retry-base').value = s.wan_retry_base_sec;
+                }
+                if (s.wan_retry_max_sec && document.getElementById('cfg-wan-retry-max')) {
+                    document.getElementById('cfg-wan-retry-max').value = s.wan_retry_max_sec;
+                }
                 this.updateSaasQrPreview();
             } else {
                 this.showSaasSettingsMessage(data.message || 'Không tải được cấu hình SaaS.', false);
@@ -1291,7 +1489,13 @@ const SuperAdmin = {
             saas_bank_account_no: document.getElementById('cfg-saas-bank-acc').value.trim(),
             saas_bank_account_name: document.getElementById('cfg-saas-bank-name').value.trim().toUpperCase(),
             saas_warning_days: parseInt(document.getElementById('cfg-saas-warning-days').value || 7),
-            saas_grace_period_days: parseInt(document.getElementById('cfg-saas-grace-days').value || 3)
+            saas_grace_period_days: parseInt(document.getElementById('cfg-saas-grace-days').value || 3),
+            wan_tunnel_enabled: document.getElementById('cfg-wan-tunnel-enabled')?.checked ? 1 : 0,
+            wan_poll_timeout_sec: parseInt(document.getElementById('cfg-wan-poll-timeout')?.value || 25),
+            wan_check_timeout_ms: parseInt(document.getElementById('cfg-wan-check-timeout')?.value || 4000),
+            wan_heartbeat_interval_sec: parseInt(document.getElementById('cfg-wan-heartbeat-sec')?.value || 1800),
+            wan_retry_base_sec: parseInt(document.getElementById('cfg-wan-retry-base')?.value || 5),
+            wan_retry_max_sec: parseInt(document.getElementById('cfg-wan-retry-max')?.value || 60)
         };
 
         try {
@@ -2483,6 +2687,66 @@ const SuperAdmin = {
     closeModal(modalId) {
         const m = document.getElementById(modalId);
         if (m) m.classList.remove('open');
+    },
+
+    async openPushUpdateModal(targetCode = 'ALL') {
+        const modal = document.getElementById('modal-push-update');
+        if (!modal) return;
+        const targetInput = document.getElementById('push-target-code');
+        const infoEl = document.getElementById('push-patch-info');
+        if (targetInput) targetInput.value = targetCode || 'ALL';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        if (infoEl) {
+            infoEl.textContent = 'Đang kiểm tra gói patch trên Master...';
+            try {
+                const res = await fetch('/api/updates/latest');
+                const data = await res.json();
+                if (data.success && data.has_patch && data.manifest) {
+                    const files = Array.isArray(data.manifest.files) ? data.manifest.files.join(', ') : '';
+                    const kb = data.zip_size_bytes ? (data.zip_size_bytes / 1024).toFixed(1) + ' KB' : '';
+                    infoEl.textContent = `Gói patch sẵn sàng: v${data.manifest.version || 'latest'} (${kb}) • Files: ${files}`;
+                } else {
+                    infoEl.textContent = 'Chưa có file patch_latest.zip trên Master (chỉ có thể gửi thông báo văn bản).';
+                }
+            } catch (e) {
+                infoEl.textContent = 'Không kiểm tra được gói patch: ' + e.message;
+            }
+        }
+    },
+
+    async submitPushUpdate(btn) {
+        const targetCode = (document.getElementById('push-target-code')?.value || 'ALL').trim();
+        const mode = document.getElementById('push-mode')?.value || 'notify';
+        const title = (document.getElementById('push-title')?.value || '').trim();
+        const message = (document.getElementById('push-message')?.value || '').trim();
+        const autoApply = Boolean(document.getElementById('push-auto-apply')?.checked);
+
+        if (!title) {
+            alert('Vui lòng nhập tiêu đề thông báo!');
+            return;
+        }
+        const origHtml = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
+        try {
+            const res = await fetch('/api/super_admin?action=push_store_update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_code: targetCode, mode, title, message, auto_apply: autoApply })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã gửi thành công!');
+                const modal = document.getElementById('modal-push-update');
+                if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            } else {
+                alert('Lỗi: ' + (data.message || 'Không thể gửi'));
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        }
     }
 };
 

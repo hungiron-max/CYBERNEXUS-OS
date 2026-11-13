@@ -1,4 +1,5 @@
 #include "master_handlers.hpp"
+#include "master_tunnel.h"
 #include "license.hpp"
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
@@ -173,6 +174,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     SELECT id, tenant_code, store_name, owner_name, phone, email, address,
                            plan_id, plan_name, billing_cycle, subscription_status, start_date, expire_date,
                            enabled_modules, license_key, machine_id, machine_name, logo_path, created_at, updated_at,
+                           last_check_at, last_check_ip, lan_ip, wan_ip, geo_lat, geo_lng, geo_label, geo_source,
                            CAST((julianday(expire_date) - julianday('now')) AS INTEGER) as days_left
                     FROM saas_tenants
                     WHERE subscription_status != 'deleted'
@@ -216,8 +218,98 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         t["badge_color"] = "emerald";
                         t["badge_status"] = "Hoạt Động";
                     }
+
+                    int64_t tid = 0;
+                    if (t.contains("id") && t["id"].is_number()) tid = t["id"].get<int64_t>();
+                    t["is_tunnel_online"] = StoreTunnelManager::instance().isStoreOnline(tid);
+                    t["last_ping_latency_ms"] = StoreTunnelManager::instance().getLastLatencyMs(tid);
+                    t["last_runtime"] = StoreTunnelManager::instance().getLastRuntime(tid);
                 }
                 sendJson(res, {{"success", true}, {"data", tenants}});
+                return;
+            }
+
+            if (action == "update_store_location") {
+                int64_t tid = body.value("tenant_id", int64_t(0));
+                if (tid <= 0 && req.has_param("tenant_id")) {
+                    try { tid = std::stoll(req.get_param_value("tenant_id")); } catch (...) {}
+                }
+                double lat = body.value("geo_lat", 0.0);
+                double lng = body.value("geo_lng", 0.0);
+                std::string label = body.value("geo_label", "");
+                if (tid <= 0 || lat == 0.0 || lng == 0.0) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập đầy đủ tọa độ Google Maps hợp lệ!"}}, 400);
+                    return;
+                }
+                db.execute(
+                    "UPDATE saas_tenants SET geo_lat = :lat, geo_lng = :lng, geo_label = :lbl, geo_source = 'gps' WHERE id = :id",
+                    {{":lat", lat}, {":lng", lng}, {":lbl", label}, {":id", tid}}
+                );
+                sendJson(res, {{"success", true}, {"message", "Đã cập nhật vị trí Google Maps chính xác cho cửa hàng!"}});
+                return;
+            }
+
+            if (action == "check_store_online") {
+                int checkTimeoutMs = 4000;
+                try {
+                    auto cfgRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'wan_check_timeout_ms' LIMIT 1");
+                    if (!cfgRow.is_null()) {
+                        checkTimeoutMs = std::max(1000, std::min(15000, std::stoi(cfgRow.value("setting_value", "4000"))));
+                    }
+                } catch (...) {}
+
+                int64_t tid = 0;
+                if (req.has_param("tenant_id")) {
+                    try { tid = std::stoll(req.get_param_value("tenant_id")); } catch (...) {}
+                } else if (body.contains("tenant_id") && body["tenant_id"].is_number()) {
+                    tid = body["tenant_id"].get<int64_t>();
+                }
+
+                if (tid > 0) {
+                    auto pr = StoreTunnelManager::instance().pingStore(tid, checkTimeoutMs);
+                    if (pr.online) {
+                        db.execute("UPDATE saas_tenants SET last_check_at = datetime('now') WHERE id = :id", {{":id", tid}});
+                    }
+                    auto updated = db.queryRow("SELECT last_check_at, last_check_ip FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                    sendJson(res, {
+                        {"success", true},
+                        {"tenant_id", tid},
+                        {"online", pr.online},
+                        {"latency_ms", pr.latency_ms},
+                        {"reason", pr.reason},
+                        {"runtime", pr.runtime},
+                        {"last_check_at", getString(updated, "last_check_at")},
+                        {"last_check_ip", getString(updated, "last_check_ip")}
+                    });
+                    return;
+                }
+
+                // Check all tenants
+                json rows = db.query("SELECT id, tenant_code, store_name, last_check_at, last_check_ip FROM saas_tenants ORDER BY id ASC");
+                json results = json::array();
+                for (const auto& r : rows) {
+                    int64_t id = r.contains("id") && r["id"].is_number() ? r["id"].get<int64_t>() : 0;
+                    if (id <= 0) continue;
+                    // Only wait full timeout if store currently has an active poll channel
+                    auto pr = StoreTunnelManager::instance().pingStore(id, checkTimeoutMs);
+                    std::string lastAt = getString(r, "last_check_at");
+                    if (pr.online) {
+                        db.execute("UPDATE saas_tenants SET last_check_at = datetime('now') WHERE id = :id", {{":id", id}});
+                        auto u = db.queryRow("SELECT last_check_at FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", id}});
+                        lastAt = getString(u, "last_check_at", lastAt);
+                    }
+                    results.push_back({
+                        {"tenant_id", id},
+                        {"tenant_code", getString(r, "tenant_code")},
+                        {"online", pr.online},
+                        {"latency_ms", pr.latency_ms},
+                        {"reason", pr.reason},
+                        {"runtime", pr.runtime},
+                        {"last_check_at", lastAt},
+                        {"last_check_ip", getString(r, "last_check_ip")}
+                    });
+                }
+                sendJson(res, {{"success", true}, {"results", results}});
                 return;
             }
 
@@ -763,6 +855,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     recordAuditLog(db, 0, "SuperAdmin", "super_admin", "TOGGLE_MODULE", std::to_string(tid),
                         std::string(blocked ? "BLOCK khóa module: " : (enabled ? "Cấp phép (ON) module: " : "Thu hồi (OFF) module: ")) + modCode + " cho cửa hàng ID " + std::to_string(tid),
                         result.dump(), req.remote_addr);
+                    StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
                 }
                 sendJson(res, result, result.value("success", false) ? 200 : 400);
                 return;
@@ -885,6 +978,9 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 int64_t tid = getInt(body, "tenant_id");
                 std::string mode = getString(body, "mode", "all");
                 json result = LicenseService::instance().setAllModules(tid, mode);
+                if (result.value("success", false)) {
+                    StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
+                }
                 sendJson(res, result, result.value("success", false) ? 200 : 400);
                 return;
             }
@@ -1838,6 +1934,63 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 });
                 return;
             }
+            if (action == "push_store_update") {
+                std::string targetCode = getString(body, "tenant_code", "ALL");
+                std::string mode = getString(body, "mode", "notify"); // "notify" | "ota_update"
+                std::string title = getString(body, "title", "Thông báo từ Hệ thống CyberNexus");
+                std::string message = getString(body, "message", "");
+                bool autoApply = body.value("auto_apply", false);
+
+                json manifest = json::object();
+                fs::path manifestPath = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates" / "manifest.json";
+                if (fs::exists(manifestPath)) {
+                    try {
+                        std::ifstream mf(manifestPath.string());
+                        mf >> manifest;
+                    } catch (...) {}
+                }
+
+                std::string cmdType = (mode == "ota_update") ? "OTA_UPDATE" : "STORE_NOTIFY";
+                json payload = {
+                    {"mode", mode},
+                    {"title", title},
+                    {"message", message},
+                    {"auto_apply", autoApply},
+                    {"version", manifest.value("version", "2026.11.13")},
+                    {"download_path", "/api/updates/download"},
+                    {"files", manifest.value("files", json::array())},
+                    {"pushed_at", StoreTunnelManager::nowMs()}
+                };
+
+                json targets;
+                if (targetCode.empty() || targetCode == "ALL") {
+                    targets = db.query("SELECT id, tenant_code, store_name FROM saas_tenants WHERE subscription_status != 'deleted'");
+                } else {
+                    targets = db.query("SELECT id, tenant_code, store_name FROM saas_tenants WHERE tenant_code = :tc AND subscription_status != 'deleted'", {{":tc", targetCode}});
+                }
+
+                int totalTargets = 0;
+                int onlineDelivered = 0;
+                int queuedOffline = 0;
+                for (const auto& t : targets) {
+                    int64_t tid = getInt(t, "id", 0);
+                    if (tid <= 0) continue;
+                    totalTargets++;
+                    bool isOnline = StoreTunnelManager::instance().enqueueCommand(tid, cmdType, payload, true);
+                    if (isOnline) onlineDelivered++;
+                    else queuedOffline++;
+                }
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", "Đã đẩy " + std::string(mode == "ota_update" ? "bản cập nhật OTA" : "thông báo") + " tới " + std::to_string(totalTargets) + " cửa hàng (" + std::to_string(onlineDelivered) + " Online tức thì, " + std::to_string(queuedOffline) + " chờ kết nối)."},
+                    {"total_targets", totalTargets},
+                    {"online_delivered", onlineDelivered},
+                    {"queued_offline", queuedOffline},
+                    {"payload", payload}
+                });
+                return;
+            }
         }
 
         sendError(res, "Invalid super_admin request", 400);
@@ -1931,6 +2084,180 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
     }
 }
 
+static json readWanConfigFromDb(Database& db) {
+    auto getIntSetting = [&](const char* key, int defVal, int minVal, int maxVal) -> int {
+        try {
+            auto r = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = :k LIMIT 1", {{":k", key}});
+            if (!r.is_null()) {
+                int v = std::stoi(r.value("setting_value", std::to_string(defVal)));
+                return std::max(minVal, std::min(maxVal, v));
+            }
+        } catch (...) {}
+        return defVal;
+    };
+    return {
+        {"tunnel_enabled", getIntSetting("wan_tunnel_enabled", 1, 0, 1) == 1},
+        {"poll_timeout_sec", getIntSetting("wan_poll_timeout_sec", 25, 10, 55)},
+        {"check_timeout_ms", getIntSetting("wan_check_timeout_ms", 4000, 1000, 15000)},
+        {"heartbeat_interval_sec", getIntSetting("wan_heartbeat_interval_sec", 1800, 60, 86400)},
+        {"retry_base_sec", getIntSetting("wan_retry_base_sec", 5, 2, 60)},
+        {"retry_max_sec", getIntSetting("wan_retry_max_sec", 60, 10, 300)}
+    };
+}
+
+static void replyTunnelJson(httplib::Response& res, const json& j, int status = 200) {
+    res.status = status;
+    res.set_content(j.dump(), "application/json; charset=utf-8");
+}
+
+static std::string extractClientWanIp(const httplib::Request& req) {
+    if (req.has_header("X-Forwarded-For")) {
+        std::string xff = req.get_header_value("X-Forwarded-For");
+        auto comma = xff.find(',');
+        std::string first = (comma == std::string::npos) ? xff : xff.substr(0, comma);
+        while (!first.empty() && first.front() == ' ') first.erase(first.begin());
+        while (!first.empty() && first.back() == ' ') first.pop_back();
+        if (!first.empty()) return first;
+    }
+    if (req.has_header("X-Real-IP")) {
+        std::string xr = req.get_header_value("X-Real-IP");
+        if (!xr.empty()) return xr;
+    }
+    return req.remote_addr;
+}
+
+static void saveTenantNetGeo(Database& db, int64_t tid, const std::string& clientIp, const json& netGeo, const json& runtime) {
+    std::string lanIp = netGeo.value("lan_ip", runtime.value("lan_ip", ""));
+    std::string wanIp = netGeo.value("wan_ip", runtime.value("wan_ip", ""));
+    if (wanIp.empty()) wanIp = clientIp;
+
+    double lat = netGeo.value("geo_lat", runtime.value("geo_lat", 0.0));
+    double lng = netGeo.value("geo_lng", runtime.value("geo_lng", 0.0));
+    std::string geoLabel = netGeo.value("geo_label", runtime.value("geo_label", ""));
+    std::string geoSource = netGeo.value("geo_source", runtime.value("geo_source", "ip"));
+
+    if (!lanIp.empty()) {
+        db.execute("UPDATE saas_tenants SET lan_ip = :lip WHERE id = :id", {{":lip", lanIp}, {":id", tid}});
+    }
+    if (!wanIp.empty()) {
+        db.execute("UPDATE saas_tenants SET wan_ip = :wip WHERE id = :id", {{":wip", wanIp}, {":id", tid}});
+    }
+    if (lat != 0.0 && lng != 0.0) {
+        auto cur = db.queryRow("SELECT geo_source, geo_lat, geo_lng FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+        std::string curSrc = (!cur.is_null() && cur.contains("geo_source") && cur["geo_source"].is_string())
+            ? cur["geo_source"].get<std::string>() : "ip";
+        double curLat = 0.0;
+        try { if (!cur.is_null() && cur.contains("geo_lat") && cur["geo_lat"].is_number()) curLat = cur["geo_lat"].get<double>(); } catch (...) {}
+        // Do not overwrite pinned GPS on Master with coarse IP geo
+        if (geoSource == "gps" || curSrc != "gps" || curLat == 0.0) {
+            db.execute(
+                "UPDATE saas_tenants SET geo_lat = :lat, geo_lng = :lng, geo_label = :lbl, geo_source = :src WHERE id = :id",
+                {{":lat", lat}, {":lng", lng}, {":lbl", geoLabel}, {":src", geoSource}, {":id", tid}}
+            );
+        }
+    }
+}
+
+static void handleLicensePoll(const httplib::Request& req, httplib::Response& res) {
+    try {
+        json body = json::object();
+        if (!req.body.empty()) {
+            try { body = json::parse(req.body); } catch (...) {}
+        }
+        std::string key = body.value("license_key", "");
+        if (key.empty()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Missing license_key"}}, 400);
+            return;
+        }
+
+        auto& db = Database::instance();
+        auto tenant = db.queryRow("SELECT id, machine_id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
+        if (tenant.is_null()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Invalid license_key"}}, 404);
+            return;
+        }
+
+        int64_t tid = tenant["id"].get<int64_t>();
+        std::string clientIp = extractClientWanIp(req);
+        std::string appVersion = body.value("app_version", "2.1.8");
+        int storePort = body.value("port", 8501);
+        json runtime = body.contains("runtime") && body["runtime"].is_object() ? body["runtime"] : json::object();
+        json netGeo = body.contains("net_geo") && body["net_geo"].is_object() ? body["net_geo"] : json::object();
+
+        json wanCfg = readWanConfigFromDb(db);
+        int pollSec = wanCfg.value("poll_timeout_sec", 25);
+
+        db.execute(
+            "UPDATE saas_tenants SET last_check_ip = :ip, last_app_version = :ver WHERE id = :id",
+            {{":ip", clientIp}, {":ver", appVersion}, {":id", tid}}
+        );
+        saveTenantNetGeo(db, tid, clientIp, netGeo, runtime);
+
+        if (!wanCfg.value("tunnel_enabled", true)) {
+            replyTunnelJson(res, {{"success", true}, {"commands", json::array()}, {"config", wanCfg}});
+            return;
+        }
+
+        auto cmds = StoreTunnelManager::instance().waitForCommands(tid, clientIp, appVersion, storePort, runtime, pollSec);
+        json cmdArr = json::array();
+        for (const auto& c : cmds) {
+            cmdArr.push_back({{"cmd_id", c.cmd_id}, {"type", c.type}, {"created_ms", c.created_ms}, {"payload", c.payload}});
+        }
+
+        // Refresh config and latest license rights after wait so Slave always stays in sync
+        wanCfg = readWanConfigFromDb(db);
+        auto licRow = db.queryRow(
+            "SELECT enabled_modules, blocked_modules, subscription_status, expire_date, card_fee_percent FROM saas_tenants WHERE id = :id LIMIT 1",
+            {{":id", tid}}
+        );
+        json licSnapshot = json::object();
+        if (!licRow.is_null()) {
+            licSnapshot["enabled_modules"] = licRow.value("enabled_modules", "[]");
+            licSnapshot["blocked_modules"] = licRow.value("blocked_modules", "[]");
+            licSnapshot["subscription_status"] = licRow.value("subscription_status", "active");
+            licSnapshot["expire_date"] = licRow.value("expire_date", "2028-12-31");
+            double cfp = 0.0;
+            try {
+                if (licRow.contains("card_fee_percent") && licRow["card_fee_percent"].is_number()) cfp = licRow["card_fee_percent"].get<double>();
+            } catch (...) {}
+            licSnapshot["card_fee_percent"] = cfp;
+        }
+        replyTunnelJson(res, {{"success", true}, {"commands", cmdArr}, {"config", wanCfg}, {"license", licSnapshot}});
+    } catch (const std::exception& e) {
+        replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+    }
+}
+
+static void handleLicenseAck(const httplib::Request& req, httplib::Response& res) {
+    try {
+        json body = json::object();
+        if (!req.body.empty()) {
+            try { body = json::parse(req.body); } catch (...) {}
+        }
+        std::string key = body.value("license_key", "");
+        std::string cmdId = body.value("cmd_id", "");
+        bool ok = body.value("ok", true);
+        json runtime = body.contains("runtime") && body["runtime"].is_object() ? body["runtime"] : json::object();
+
+        auto& db = Database::instance();
+        std::string clientIp = extractClientWanIp(req);
+        if (!key.empty()) {
+            db.execute(
+                "UPDATE saas_tenants SET last_check_at = datetime('now'), last_check_ip = :ip WHERE license_key = :k",
+                {{":ip", clientIp}, {":k", key}}
+            );
+            auto tRow = db.queryRow("SELECT id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
+            if (!tRow.is_null() && tRow.contains("id") && tRow["id"].is_number()) {
+                saveTenantNetGeo(db, tRow["id"].get<int64_t>(), clientIp, json::object(), runtime);
+            }
+        }
+        bool matched = !cmdId.empty() && StoreTunnelManager::instance().completeAck(cmdId, ok, runtime);
+        replyTunnelJson(res, {{"success", true}, {"matched", matched}});
+    } catch (const std::exception& e) {
+        replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+    }
+}
+
 void MasterHandlers::registerRoutes(httplib::Server& svr) {
     svr.Get("/api/super_admin", handleSuperAdmin);
     svr.Post("/api/super_admin", handleSuperAdmin);
@@ -1944,9 +2271,49 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
     svr.Get("/api/master.php", handleSuperAdmin);
     svr.Post("/api/master.php", handleSuperAdmin);
 
-    // Remote Verification Endpoint for Slaves
+    // Remote Verification & Reverse Long-Polling Endpoints for Slaves (WAN)
     svr.Post("/api/license/verify", handleLicenseVerification);
     svr.Get("/api/license/ping", handleLicenseVerification);
+    svr.Post("/api/license/poll", handleLicensePoll);
+    svr.Post("/api/license/ack", handleLicenseAck);
+
+    // Store OTA Patch & Manifest Endpoints
+    svr.Get("/api/updates/latest", [](const httplib::Request&, httplib::Response& res) {
+        fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+        fs::path manifestPath = updatesDir / "manifest.json";
+        fs::path zipPath = updatesDir / "patch_latest.zip";
+        if (!fs::exists(manifestPath) || !fs::exists(zipPath)) {
+            replyTunnelJson(res, {{"success", true}, {"has_patch", false}, {"manifest", json::object()}});
+            return;
+        }
+        try {
+            json manifest;
+            std::ifstream mf(manifestPath.string());
+            mf >> manifest;
+            replyTunnelJson(res, {
+                {"success", true},
+                {"has_patch", true},
+                {"download_path", "/api/updates/download"},
+                {"zip_size_bytes", fs::file_size(zipPath)},
+                {"manifest", manifest}
+            });
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
+    });
+
+    svr.Get("/api/updates/download", [](const httplib::Request&, httplib::Response& res) {
+        fs::path zipPath = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates" / "patch_latest.zip";
+        if (!fs::exists(zipPath)) {
+            res.status = 404;
+            res.set_content("No patch_latest.zip available", "text/plain");
+            return;
+        }
+        std::ifstream ifs(zipPath.string(), std::ios::binary);
+        std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        res.set_header("Content-Disposition", "attachment; filename=\"patch_latest.zip\"");
+        res.set_content(content, "application/zip");
+    });
 }
 
 } // namespace SaleApp::Backend

@@ -614,6 +614,7 @@ const Admin = {
         if (tab === 'settings') {
             if (typeof loadStoreSettings === 'function') loadStoreSettings();
             this.loadCardTerminalAdmin();
+            this.loadWanTunnelStatus();
         }
         if (tab === 'media') {
             this.loadMediaTab();
@@ -2913,6 +2914,100 @@ const Admin = {
     },
 
     // ========================================================
+    async loadWanTunnelStatus() {
+        const badge = document.getElementById('wan-tunnel-status-badge');
+        const meta = document.getElementById('wan-tunnel-meta');
+        const urlEl = document.getElementById('wan-master-url');
+        const enEl = document.getElementById('wan-tunnel-enabled');
+        if (!badge) return;
+        try {
+            const res = await fetch('api/wan_tunnel', { credentials: 'same-origin' });
+            const json = await res.json();
+            if (!json.success || !json.data) return;
+            const d = json.data;
+            if (urlEl && !urlEl.matches(':focus')) urlEl.value = d.master_url || '';
+            if (enEl) enEl.checked = !!d.enabled;
+            if (d.connected) {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Đang Online (Master OK)';
+            } else {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 border border-white/10';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span> Offline / Đang thử lại';
+            }
+            if (meta) {
+                meta.textContent = `Chu kỳ Poll: ${d.poll_timeout_sec || 25}s | Heartbeat: ${d.heartbeat_interval_sec || 1800}s | PING ACK: ${d.ping_count || 0} lần (${d.last_ping_ack_at || 'chưa có'}) | Lần cuối nối: ${d.last_seen_at || 'chưa có'}${d.last_error ? ' | Lỗi: ' + d.last_error : ''}`;
+            }
+            const geoEl = document.getElementById('wan-net-geo-meta');
+            if (geoEl && d.net_geo) {
+                const ng = d.net_geo;
+                const hasGeo = Number(ng.geo_lat) !== 0 && Number(ng.geo_lng) !== 0;
+                const mapHref = hasGeo ? `https://www.google.com/maps?q=${ng.geo_lat},${ng.geo_lng}` : '#';
+                geoEl.innerHTML = `
+                    <span>LAN: <b class="text-sky-300">${ng.lan_ip || '—'}</b> &bull; WAN: <b class="text-purple-300">${ng.wan_ip || '—'}</b> &bull; Vị trí: <b class="text-emerald-300">${ng.geo_label || 'Chưa định vị'}</b> (${ng.geo_source === 'gps' ? 'GPS Chính xác' : 'Ước lượng IP'})</span>
+                    ${hasGeo ? `<a href="${mapHref}" target="_blank" rel="noopener" class="text-rose-300 hover:underline font-bold"><i class="fas fa-map-location-dot mr-1"></i>Xem trên Google Maps</a>` : ''}
+                `;
+            }
+        } catch (e) {
+            if (meta) meta.textContent = 'Không lấy được trạng thái kênh WAN: ' + e.message;
+        }
+    },
+
+    async pinStoreGpsLocation() {
+        const saveCoords = async (lat, lng, label) => {
+            const res = await fetch('api/wan_tunnel', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_location', geo_lat: lat, geo_lng: lng, geo_label: label })
+            });
+            const json = await res.json();
+            alert(json.message || 'Đã ghim vị trí!');
+            this.loadWanTunnelStatus();
+        };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const lat = Number(pos.coords.latitude.toFixed(6));
+                    const lng = Number(pos.coords.longitude.toFixed(6));
+                    const label = prompt(`Đã lấy tọa độ GPS thiết bị: ${lat}, ${lng}\nNhập tên địa chỉ hiển thị ngắn (VD: Thủ Đức, TP.HCM):`, '');
+                    if (label !== null) await saveCoords(lat, lng, label.trim());
+                },
+                async () => {
+                    const input = prompt('Trình duyệt không cấp quyền GPS.\nHãy dán link Google Maps (có @lat,lng) hoặc nhập tọa độ (VD: 10.85063, 106.77191):', '');
+                    if (!input) return;
+                    const m = input.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+                    if (!m) { alert('Tọa độ không hợp lệ!'); return; }
+                    const label = prompt('Tên địa điểm ngắn gọn:', '') || '';
+                    await saveCoords(parseFloat(m[1]), parseFloat(m[2]), label.trim());
+                },
+                { enableHighAccuracy: true, timeout: 6000 }
+            );
+        }
+    },
+
+    async saveWanTunnelConfig() {
+        const url = (document.getElementById('wan-master-url')?.value || '').trim();
+        const enabled = !!document.getElementById('wan-tunnel-enabled')?.checked;
+        if (!url) {
+            alert('Vui lòng nhập địa chỉ Master Server URL!');
+            return;
+        }
+        try {
+            const res = await fetch('api/wan_tunnel', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save', master_server_url: url, enabled })
+            });
+            const json = await res.json();
+            alert(json.message || 'Đã cập nhật cấu hình kết nối Master!');
+            setTimeout(() => this.loadWanTunnelStatus(), 1200);
+        } catch (e) {
+            alert('Lỗi lưu cấu hình WAN: ' + e.message);
+        }
+    },
+
     // 8. OPERATIONS: KHO, CHI PHÍ VẬT LIỆU, TIỀN LƯƠNG & REALTIME STAFF
     // ========================================================
     currentOpsSubtab: 'realtime',
