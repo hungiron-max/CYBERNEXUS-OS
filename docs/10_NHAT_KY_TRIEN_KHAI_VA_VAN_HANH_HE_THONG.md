@@ -594,3 +594,28 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
   3. **Khóa module (`3_Blocked` - khóa 16 module trong `blocked_modules`):** `pos_core` giữ `True` (core); toàn bộ 16 module còn lại = `False`; toàn bộ endpoint được bảo vệ trả `HTTP 403`.
   4. **Mở module (`4_Reopened` - gỡ khỏi `blocked_modules`):** Toàn bộ 17/17 module khôi phục `True`; toàn bộ endpoint hoạt động bình thường trở lại.
 - Đã kiểm tra cú pháp `node --check` cho `admin.js` và `pos.js` (`exit code 0`), biên dịch thành công `cybernexus_slave.exe` (`exit code 0`), đóng gói sẵn bản vá chờ phát hành tại `master/updates/patch_latest.zip` & `release/store_patch_update.zip` (`v2026.11.13.9`).
+
+---
+
+## 20. Báo Cáo P&L Chu Kỳ Tháng, Zero-Exposure Master AI Vault & Cấp Quota AI Credit (`v2026.11.13.14` - 13/11/2026)
+
+### 20.1. Báo Cáo Tài Chính & P&L Chu Kỳ `01` → Cuối Tháng
+- **Hoàn thiện dữ liệu & giao diện P&L (`slave/src/slave_handlers.cpp`, `slave/web/admin.html`, `slave/web/assets/js/admin.js`):**
+  - Chu kỳ tính toán mặc định từ ngày `01` đến ngày cuối cùng của tháng theo thời gian thực (doanh thu thuần, COGS, lương thưởng, chi phí vận hành, công nợ phải thu/phải trả, VAT & điểm hòa vốn).
+  - Bổ sung bảng **So sánh P&L 3 tháng**, nút đánh dấu thanh toán công nợ (`mark_expense_paid`), cài đặt thuế (`get_tax_settings`) và xuất CSV (`exportFinanceCsv`).
+- **Sửa lỗi Biểu Đồ Doanh Thu 7 ngày (`action == "chart"`):** Chuẩn hóa phản hồi JSON từ `slave_handlers.cpp` dùng `WITH RECURSIVE` điền đủ các ngày trong kỳ (`today`, `7d`, `14d`, `30d`, `month`, `last_month`, khoảng ngày tùy chọn), trả về đúng mảng `data` và `summary` mà `admin.js` mong đợi.
+- **Cân đối card Món Bán Chạy Nhất (`admin.html`, `admin.js`):** Bỏ `justify-between` gây khoảng trống thừa giữa header và danh sách, thêm badge `Top 6 Món`, tô màu huy hiệu `#1`–`#3`, và sửa `${it.unit}` bị `undefined` thành `${it.unit || 'phần'}`.
+
+### 20.2. Kiến Trúc Zero-Exposure Master AI Vault & Cấp Quota AI Credit Từng Quán
+- **Client Gemini dùng chung (`shared/include/gemini_client.hpp`, `CMakeLists.txt`):** Dùng WinHTTP + Base64 gọi trực tiếp Google Gemini REST API (`geminiVerifyKey`, `geminiGenerateContentText`, `geminiGenerateImageBase64` với fallback `gemini-2.5-flash-image`, `gemini-2.0-flash-exp-image-generation`, `imagen-4.0-generate-001`, `imagen-3.0-generate-002`).
+- **Master AI Vault & Proxy (`master/src/master_handlers.cpp`, `super_admin.html`, `super_admin.js`):**
+  - Lưu duy nhất `gemini_api_key` trong bảng `master_settings` trên Master; form nhập trong **Super Admin → Cài Đặt SaaS & VietQR** tự động kiểm tra, xóa trắng ô nhập và **ẩn ngay sau khi lưu**.
+  - Quán gọi AI (Tạo ảnh món ăn, Tạo slide quảng cáo, OCR hóa đơn) qua `POST /api/ai/proxy` (xác thực `license_key`, `machine_id`, quyền module) và ghi log vào `ai_usage_logs`.
+  - **Hệ thống Cấp Quota & AI Credit (`getAiActionCreditCost`, `POST /api/ai/quota`, `update_store_ai_quota`):** Quy đổi `OCR = 1 credit`, `Ảnh món = 2 credit`, `Tạo slide = 3 credit` (chỉ trừ khi `status = 'ok'`). Mỗi quán có `ai_monthly_quota` (mặc định `50`, `-1` = không giới hạn, `0` = tắt AI) và `ai_bonus_credits` (credit nạp thêm). Hết hạn mức Master trả HTTP `402` (`quota_exceeded: true`); Store Admin xem số dư trực tiếp qua badge `#slave-ai-quota-badge`.
+  - Slave (`slave_handlers.cpp`, `admin.html`, `admin.js`) mặc định chạy qua Master AI Proxy và vẫn hỗ trợ nhập Key dự phòng cục bộ (tự ẩn sau khi lưu) nếu quán muốn tự gánh chi phí khi mất kết nối Master.
+
+### 20.3. Biên Dịch, Đóng Gói Phát Hành & Đồng Bộ Git
+- Biên dịch thành công `cybernexus_master.exe` và `cybernexus_slave.exe` (`exit code 0`).
+- Phát hành bản vá OTA **`v2026.11.13.14`** tại `master/updates/manifest.json` và `master/updates/patch_latest.zip` (`2,136,169` bytes).
+- Đóng gói đầy đủ tại `release/master.zip` (`8,308,284` bytes), `release/cybernexus-store.zip` (`176,800,725` bytes) và `release/store_patch_update.zip` (`2,136,169` bytes).
+- Đã commit (`41d36b3`) và push đồng bộ lên `origin/main` (`https://github.com/hungiron-max/CYBERNEXUS-OS.git`).
