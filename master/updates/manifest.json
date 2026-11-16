@@ -1,8 +1,8 @@
 {
-    "version": "2026.11.16.15",
-    "title": "Giai đoạn 1 hoàn chỉnh: Ký số .sig, Tự gia hạn & AI Credit VietQR, Phân loại nhạc theo giờ & AI Copilot API",
-    "notes": "Bổ sung xác thực chữ ký số DLL (.sig), modal Tự gia hạn gói & Nạp AI Credit qua VietQR trên Quản trị Quán, Tự phân loại thể loại nhạc + Lịch phát nhạc theo khung giờ, AI Copilot Q&A và lọc nội dung Jukebox.",
-    "created_at": "2026-11-16 14:18:55",
+    "version": "2026.11.16.16",
+    "title": "Giai đoạn 2: AI Copilot (1 Credit/lượt), Telegram Bot Cảnh báo & Jukebox Auto Theo Giờ",
+    "notes": "Bổ sung khung Hỏi AI Copilot trên Tổng quan Quản trị Quán (tính 1 AI Credit qua Master Proxy, miễn phí khi offline), Telegram Bot cảnh báo & tra cứu từ xa (/doanhthu, /tonkho, /audit, /kpi), và tự động chọn thể loại nhạc theo khung giờ trên POS Jukebox (gộp gói mod_media_stream).",
+    "created_at": "2026-11-16 14:33:08",
     "files": [
         "cybernexus_slave.exe",
         "RUN_SLAVE.bat",

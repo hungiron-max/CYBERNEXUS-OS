@@ -24,6 +24,9 @@ jobs:
     - name: Build Host Core & Modules
       run: cmake --build build --config Release
 
+    - name: Run Regression Checks
+      run: python tests/verify_regression_v1.py
+
   build-linux:
     name: Build Linux (GCC/Clang)
     runs-on: ubuntu-latest
@@ -42,3 +45,6 @@ jobs:
 
     - name: Build Host Core & Modules
       run: cmake --build build --config Release
+
+    - name: Run Regression Checks
+      run: python tests/verify_regression_v1.py
