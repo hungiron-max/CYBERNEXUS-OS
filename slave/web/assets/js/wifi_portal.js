@@ -17,14 +17,10 @@ function switchWifiTab(mode) {
     if (panelVip) panelVip.classList.toggle('hidden', isFree);
 
     if (tabFree) {
-        tabFree.className = isFree
-            ? 'py-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 font-black shadow-lg shadow-sky-500/25 transition-all'
-            : 'py-3 rounded-xl text-slate-300 hover:text-white transition-all';
+        tabFree.className = isFree ? 'wifi-tab-btn wifi-tab-active-free' : 'wifi-tab-btn';
     }
     if (tabVip) {
-        tabVip.className = !isFree
-            ? 'py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black shadow-lg shadow-amber-500/25 transition-all'
-            : 'py-3 rounded-xl text-slate-300 hover:text-white transition-all';
+        tabVip.className = !isFree ? 'wifi-tab-btn wifi-tab-active-vip' : 'wifi-tab-btn';
     }
 
     if (portalCard) {

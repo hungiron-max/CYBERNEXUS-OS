@@ -1,4 +1,4 @@
-/* CyberNexus OS — Luxury WiFi Marketing Portal Styles & Effects */
+/* CyberNexus OS — Luxury Mobile-First WiFi Marketing Portal Styles */
 
 :root {
     --wifi-cyan: #38bdf8;
@@ -7,22 +7,33 @@
     --wifi-violet: #a855f7;
 }
 
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 body {
+    margin: 0;
     min-height: 100dvh;
-    padding-top: max(1rem, env(safe-area-inset-top));
-    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    padding: max(16px, env(safe-area-inset-top)) 14px max(24px, env(safe-area-inset-bottom));
+    background: #020617;
+    color: #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
 }
 
-/* Tránh iOS Safari tự zoom khi bấm vào ô nhập liệu trên di động */
-@media (max-width: 640px) {
-    .liquid-input {
-        font-size: 16px !important;
-        min-height: 46px;
-    }
-    .wifi-btn-shimmer {
-        min-height: 48px;
-    }
+.wifi-shell {
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+    z-index: 10;
 }
 
 .wifi-bg-canvas {
@@ -30,41 +41,42 @@ body {
     inset: 0;
     z-index: 0;
     overflow: hidden;
-    background: radial-gradient(circle at 15% 15%, #0f172a 0%, #020617 55%, #050816 100%);
+    background: radial-gradient(circle at 15% 15%, #0f172a 0%, #020617 58%, #050816 100%);
+    pointer-events: none;
 }
 
 .wifi-aurora {
     position: absolute;
     border-radius: 9999px;
     filter: blur(72px);
-    opacity: 0.42;
+    opacity: 0.48;
     pointer-events: none;
     animation: auroraDrift 14s ease-in-out infinite alternate;
 }
 
 .wifi-aurora-1 {
-    width: 340px;
-    height: 340px;
-    top: -90px;
-    left: -80px;
-    background: radial-gradient(circle, rgba(14, 165, 233, 0.75), rgba(56, 189, 248, 0.1));
+    width: 320px;
+    height: 320px;
+    top: -80px;
+    left: -70px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.78), rgba(56, 189, 248, 0.08));
 }
 
 .wifi-aurora-2 {
-    width: 360px;
-    height: 360px;
-    bottom: -110px;
-    right: -90px;
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.65), rgba(168, 85, 247, 0.15));
+    width: 340px;
+    height: 340px;
+    bottom: -100px;
+    right: -80px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.68), rgba(168, 85, 247, 0.14));
     animation-delay: -5s;
 }
 
 .wifi-aurora-3 {
     width: 240px;
     height: 240px;
-    top: 42%;
-    left: 55%;
-    background: radial-gradient(circle, rgba(251, 191, 36, 0.25), rgba(139, 92, 246, 0.12));
+    top: 40%;
+    left: 50%;
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.26), rgba(139, 92, 246, 0.12));
     animation-delay: -9s;
 }
 
@@ -72,8 +84,8 @@ body {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+        linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
     background-size: 28px 28px;
     mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
 }
@@ -81,43 +93,72 @@ body {
 /* Floating Sparkles */
 .wifi-sparkle {
     position: absolute;
-    width: 4px;
-    height: 4px;
+    width: 5px;
+    height: 5px;
     border-radius: 9999px;
     background: #e0f2fe;
-    box-shadow: 0 0 10px 2px rgba(56, 189, 248, 0.8);
-    animation: sparkleFloat 7s ease-in-out infinite;
+    box-shadow: 0 0 12px 3px rgba(56, 189, 248, 0.85);
+    animation: sparkleFloat 6.5s ease-in-out infinite;
     opacity: 0;
 }
 
-/* Glass Card Upgrade */
+/* Glass Card */
 .wifi-card {
-    background: linear-gradient(145deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.52));
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.84), rgba(15, 23, 42, 0.58));
     backdrop-filter: blur(22px) saturate(160%);
     -webkit-backdrop-filter: blur(22px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 24px;
     box-shadow:
-        0 20px 50px -12px rgba(0, 0, 0, 0.7),
+        0 20px 50px -12px rgba(0, 0, 0, 0.72),
         inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .wifi-card-vip {
-    border-color: rgba(251, 191, 36, 0.4) !important;
+    border-color: rgba(251, 191, 36, 0.5) !important;
     box-shadow:
-        0 20px 50px -12px rgba(245, 158, 11, 0.22),
-        inset 0 1px 0 rgba(253, 230, 138, 0.2);
+        0 20px 50px -12px rgba(245, 158, 11, 0.28),
+        inset 0 1px 0 rgba(253, 230, 138, 0.22);
 }
 
-/* Radar Pulse Rings around WiFi Logo */
+/* Hero Banner */
+.wifi-ad-box {
+    min-height: 205px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    padding: 20px;
+    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 52%, #083344 100%);
+}
+
+/* Radar Pulse Rings */
 .wifi-radar-wrap {
     position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.wifi-logo-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #22d3ee 50%, #10b981 100%);
+    color: #020617;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 24px -4px rgba(14, 165, 233, 0.5);
+    position: relative;
+    z-index: 2;
 }
 
 .wifi-radar-ring {
     position: absolute;
     inset: -4px;
-    border-radius: 1rem;
-    border: 1.5px solid rgba(56, 189, 248, 0.55);
+    border-radius: 18px;
+    border: 1.5px solid rgba(56, 189, 248, 0.6);
     animation: radarPulse 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
     pointer-events: none;
 }
@@ -126,11 +167,103 @@ body {
     animation-delay: 1.2s;
 }
 
-/* Shimmer Sweep CTA */
+/* Inputs with non-overlapping left icons */
+.wifi-input-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.wifi-input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.wifi-input {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 14px 11px 42px !important;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: #f8fafc;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wifi-input::placeholder {
+    color: #64748b;
+}
+
+.wifi-input:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.wifi-input-vip:focus {
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
+}
+
+/* Tab Switcher */
+.wifi-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 16px;
+    background: rgba(2, 6, 23, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wifi-tab-btn {
+    min-height: 42px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    color: #cbd5e1;
+    background: transparent;
+}
+
+.wifi-tab-active-free {
+    background: linear-gradient(90deg, #0ea5e9 0%, #22d3ee 100%) !important;
+    color: #020617 !important;
+    box-shadow: 0 6px 18px -4px rgba(34, 211, 238, 0.5);
+}
+
+.wifi-tab-active-vip {
+    background: linear-gradient(90deg, #fbbf24 0%, #f97316 100%) !important;
+    color: #020617 !important;
+    box-shadow: 0 6px 18px -4px rgba(251, 191, 36, 0.5);
+}
+
+/* Vivid Shimmer CTA Buttons */
 .wifi-btn-shimmer {
     position: relative;
     overflow: hidden;
-    transition: transform 0.18s ease, box-shadow 0.25s ease;
+    width: 100%;
+    min-height: 48px;
+    border: none;
+    border-radius: 16px;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.16s ease, filter 0.2s ease;
 }
 
 .wifi-btn-shimmer:active {
@@ -142,17 +275,37 @@ body {
     position: absolute;
     top: -50%;
     left: -60%;
-    width: 45%;
+    width: 42%;
     height: 200%;
     background: linear-gradient(
         115deg,
         transparent 0%,
-        rgba(255, 255, 255, 0.38) 50%,
+        rgba(255, 255, 255, 0.42) 50%,
         transparent 100%
     );
     transform: rotate(18deg);
-    animation: shimmerSweep 3.4s ease-in-out infinite;
+    animation: shimmerSweep 3.2s ease-in-out infinite;
     pointer-events: none;
+}
+
+.wifi-cta-free {
+    background: linear-gradient(90deg, #38bdf8 0%, #22d3ee 50%, #34d399 100%);
+    color: #020617;
+    box-shadow: 0 12px 28px -6px rgba(34, 211, 238, 0.45);
+}
+
+.wifi-cta-vip {
+    background: linear-gradient(90deg, #fde047 0%, #fbbf24 50%, #f97316 100%);
+    color: #020617;
+    box-shadow: 0 12px 28px -6px rgba(251, 191, 36, 0.45);
+}
+
+.wifi-cta-menu {
+    background: linear-gradient(90deg, #34d399 0%, #2dd4bf 50%, #38bdf8 100%);
+    color: #020617;
+    font-size: 14px;
+    min-height: 52px;
+    box-shadow: 0 14px 30px -6px rgba(16, 185, 129, 0.42);
 }
 
 /* Ken Burns Banner Zoom */
@@ -189,6 +342,12 @@ body {
     -webkit-text-fill-color: transparent;
 }
 
+@media (max-width: 640px) {
+    .wifi-input {
+        font-size: 16px;
+    }
+}
+
 @keyframes auroraDrift {
     0% { transform: translate(0, 0) scale(1); }
     100% { transform: translate(28px, -22px) scale(1.12); }
@@ -196,7 +355,7 @@ body {
 
 @keyframes sparkleFloat {
     0%, 100% { transform: translateY(10px) scale(0.5); opacity: 0; }
-    35%, 65% { opacity: 0.9; transform: translateY(-18px) scale(1.1); }
+    35%, 65% { opacity: 0.95; transform: translateY(-18px) scale(1.15); }
 }
 
 @keyframes radarPulse {
