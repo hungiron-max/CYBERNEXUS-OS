@@ -1,6 +1,6 @@
 {
   "file": "libmod_pos_core.dll",
-  "sha256": "3293d440ff0713c9bba2ae5dbf8920abfcb25c06e36a8ee58e066a28a75e05c4",
-  "sig": "ecc4a1deb3ec171b2e820311a7fec1a1c57f9b18e3b33c4e8441299bf2e07e33",
+  "sha256": "00b1830110935960a1d8190f9f8ea0e6e357e4522df569cd51f566e6793c6787",
+  "sig": "17e291dee621d1d126d169e54144f124f88ba08b54bc8619293ccb1c9daf2348",
   "signed_by": "CyberNexus-SuperAdmin"
 }

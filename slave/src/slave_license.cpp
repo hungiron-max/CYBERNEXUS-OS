@@ -291,10 +291,11 @@ std::vector<std::string> LicenseService::getEnabledModules(int64_t tenantId) {
 }
 
 bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
-    if (moduleCode == "pos_core" || moduleCode == "mod_pos_core") return true;
+    if (moduleCode == "pos_core" || moduleCode == "mod_pos_core" ||
+        moduleCode == "finance_admin" || moduleCode == "mod_finance_admin") return true;
     std::string stripped = moduleCode;
     if (stripped.rfind("mod_", 0) == 0) stripped = stripped.substr(4);
-    if (stripped == "pos_core") return true;
+    if (stripped == "pos_core" || stripped == "finance_admin") return true;
 
     auto& db = Database::instance();
     auto row = db.queryRow("SELECT blocked_modules FROM local_license_cache WHERE id = 1");
