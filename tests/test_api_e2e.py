@@ -18,12 +18,17 @@ def get_free_port():
         return s.getsockname()[1]
 
 def find_slave_binary():
-    candidates = [
-        os.path.join(ROOT, "slave", "cybernexus_slave.exe"),
-        os.path.join(ROOT, "build", "cybernexus_slave.exe"),
-        os.path.join(ROOT, "build", "Release", "cybernexus_slave.exe"),
-        os.path.join(ROOT, "build", "cybernexus_slave"),
-    ]
+    if sys.platform == "win32":
+        candidates = [
+            os.path.join(ROOT, "build", "Release", "cybernexus_slave.exe"),
+            os.path.join(ROOT, "build", "cybernexus_slave.exe"),
+            os.path.join(ROOT, "slave", "cybernexus_slave.exe"),
+        ]
+    else:
+        candidates = [
+            os.path.join(ROOT, "build", "cybernexus_slave"),
+            os.path.join(ROOT, "build", "Release", "cybernexus_slave"),
+        ]
     for c in candidates:
         if os.path.isfile(c):
             return c

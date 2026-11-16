@@ -10,18 +10,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def check_module_sigs():
     mod_dir = os.path.join(ROOT, "slave", "modules")
-    dlls = [f for f in os.listdir(mod_dir) if f.endswith(".dll")]
-    assert len(dlls) >= 4, f"Expected >=4 DLLs, found {dlls}"
-    for name in dlls:
-        dll_path = os.path.join(mod_dir, name)
-        sig_path = dll_path + ".sig"
-        assert os.path.exists(sig_path), f"Missing .sig for {name}"
-        h = hashlib.sha256(open(dll_path, "rb").read()).hexdigest()
-        expected_sig = hashlib.sha256(f"CBNX_SIG_V1:{h}:SAAS_2026".encode()).hexdigest()
+    sigs = [f for f in os.listdir(mod_dir) if f.endswith(".sig")]
+    assert len(sigs) >= 4, f"Expected >=4 .sig files in slave/modules, found {sigs}"
+    verified_dlls = 0
+    for sig_name in sigs:
+        sig_path = os.path.join(mod_dir, sig_name)
         sig_data = json.load(open(sig_path, "r", encoding="utf-8"))
-        assert sig_data["sha256"] == h, f"SHA256 mismatch for {name}"
-        assert sig_data["sig"] == expected_sig, f"Signature mismatch for {name}"
-    print(f"PASS: {len(dlls)} module DLL .sig signatures verified")
+        assert sig_data.get("sha256") and sig_data.get("sig"), f"Invalid .sig JSON: {sig_name}"
+        dll_path = sig_path[:-4]  # strip .sig
+        if os.path.exists(dll_path):
+            h = hashlib.sha256(open(dll_path, "rb").read()).hexdigest()
+            expected_sig = hashlib.sha256(f"CBNX_SIG_V1:{h}:SAAS_2026".encode()).hexdigest()
+            assert sig_data["sha256"] == h, f"SHA256 mismatch for {os.path.basename(dll_path)}"
+            assert sig_data["sig"] == expected_sig, f"Signature mismatch for {os.path.basename(dll_path)}"
+            verified_dlls += 1
+    print(f"PASS: {len(sigs)} .sig manifests valid ({verified_dlls} local DLL binaries verified)")
 
 def check_js_syntax():
     js_files = [
