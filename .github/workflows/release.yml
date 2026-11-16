@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release-windows:
     name: Build & Package Windows Release
@@ -33,7 +36,7 @@ jobs:
         Compress-Archive -Path release_pkg\* -DestinationPath CYBERNEXUS-OS-Windows.zip
 
     - name: Upload Release Asset
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: CYBERNEXUS-OS-Windows.zip
       env:
