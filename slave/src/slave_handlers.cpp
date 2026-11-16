@@ -6190,6 +6190,76 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
             return;
         }
 
+        if (action == "create_billing_order") {
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được tạo đơn gia hạn / nạp AI Credit!", 403);
+                return;
+            }
+            auto& db = Database::instance();
+            auto row = db.queryRow("SELECT license_key FROM local_license_cache WHERE id = 1");
+            std::string key = (!row.is_null() && row.contains("license_key") && row["license_key"].is_string())
+                ? row["license_key"].get<std::string>() : "";
+            std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+            if (masterUrl.empty() || key.empty()) {
+                sendError(res, "Quán chưa cấu hình kết nối Master hoặc License Key!", 400);
+                return;
+            }
+            json payload = {
+                {"license_key", key},
+                {"billing_type", getString(body, "billing_type", "renew_plan")},
+                {"quantity", body.value("quantity", 1)}
+            };
+            httplib::Client cli(masterUrl.c_str());
+            cli.set_connection_timeout(5, 0);
+            cli.set_read_timeout(10, 0);
+            auto mRes = cli.Post("/api/billing/create_order", payload.dump(), "application/json");
+            if (!mRes) {
+                sendError(res, "Không thể kết nối tới Master Server (" + masterUrl + ")!", 502);
+                return;
+            }
+            try {
+                sendJson(res, json::parse(mRes->body), mRes->status);
+            } catch (...) {
+                sendError(res, "Phản hồi không hợp lệ từ Master", 502);
+            }
+            return;
+        }
+
+        if (action == "check_billing_order") {
+            std::string orderCode = BodyParser::getParam(req, body, "order_code", "");
+            if (orderCode.empty() && req.has_param("order_code")) orderCode = req.get_param_value("order_code");
+            std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+            if (masterUrl.empty() || orderCode.empty()) {
+                sendError(res, "Thiếu order_code hoặc Master URL!", 400);
+                return;
+            }
+            httplib::Client cli(masterUrl.c_str());
+            cli.set_connection_timeout(5, 0);
+            cli.set_read_timeout(10, 0);
+            auto mRes = cli.Get(("/api/billing/status?order_code=" + httplib::detail::encode_url(orderCode)).c_str());
+            if (!mRes) {
+                sendError(res, "Không thể kết nối tới Master Server!", 502);
+                return;
+            }
+            try {
+                json resp = json::parse(mRes->body);
+                if (resp.value("success", false) && resp.contains("order") && resp["order"].value("status", "") == "paid") {
+                    auto& db = Database::instance();
+                    auto row = db.queryRow("SELECT license_key FROM local_license_cache WHERE id = 1");
+                    std::string key = (!row.is_null() && row.contains("license_key") && row["license_key"].is_string())
+                        ? row["license_key"].get<std::string>() : "";
+                    if (!key.empty()) {
+                        LicenseService::instance().verifyLicenseOnline(key, LicenseService::instance().getMachineId());
+                    }
+                }
+                sendJson(res, resp, mRes->status);
+            } catch (...) {
+                sendError(res, "Phản hồi không hợp lệ từ Master", 502);
+            }
+            return;
+        }
+
         sendError(res, "Invalid license client request", 400);
     } catch (const std::exception& e) {
         sendJson(res, {{"success", false}, {"message", std::string("Lỗi client license: ") + e.what()}}, 500);
@@ -7031,6 +7101,87 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             {"sample_models", samples},
             {"message", "Kết nối Gemini thành công (" + std::to_string(modelCount) + " models khả dụng)! Key đã được lưu & ẩn bảo mật."}
         });
+    });
+
+    // AI Copilot Q&A (Hỏi đáp vận hành & doanh thu theo thời gian thực + fallback offline)
+    svr.Post("/api/ai/copilot", [](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được sử dụng AI Copilot!", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string question = getString(body, "question", "Tóm tắt tình hình kinh doanh hôm nay");
+        std::string today = getCurrentDate();
+
+        auto revRow = db.queryRow("SELECT COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as rev FROM orders WHERE status = 'completed' AND date(created_at) = :d", {{":d", today}});
+        int64_t ordCnt = revRow.is_null() ? 0 : revRow.value("cnt", int64_t(0));
+        double rev = revRow.is_null() ? 0.0 : revRow.value("rev", 0.0);
+        json topDishes = db.query(
+            "SELECT oi.product_name, SUM(oi.quantity) as qty FROM order_items oi "
+            "JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND date(o.created_at) = :d "
+            "GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5", {{":d", today}}
+        );
+        auto lowMats = db.query("SELECT name, stock_qty, unit FROM materials WHERE stock_qty <= min_stock_qty LIMIT 5");
+        auto voidRow = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'cancelled' AND date(created_at) = :d", {{":d", today}});
+        int64_t voidCnt = voidRow.is_number() ? voidRow.get<int64_t>() : 0;
+
+        std::ostringstream ctxSs;
+        ctxSs << "Ngay " << today << ": Doanh thu=" << static_cast<int64_t>(rev) << " VND, Don hoan tat=" << ordCnt
+              << ", Don huy=" << voidCnt << ". Top mon=" << topDishes.dump() << ". Nguyen lieu sap het=" << lowMats.dump();
+
+        std::string apiKey = resolveGeminiApiKey(db, "");
+        std::string answer;
+        std::string engine = "offline_analytics";
+        if (!apiKey.empty()) {
+            std::string prompt = "Bạn là CyberNexus AI Copilot trợ lý chủ quán F&B. Dựa vào dữ liệu thật sau: " + ctxSs.str()
+                + "\nHãy trả lời ngắn gọn, súc tích bằng tiếng Việt cho câu hỏi: " + question;
+            json contents = json::array({{{"parts", json::array({{{"text", prompt}}})}}});
+            std::string modelUsed, err;
+            if (SaleApp::AI::geminiGenerateContentText(apiKey, contents, false, answer, modelUsed, err) && !answer.empty()) {
+                engine = "gemini_copilot";
+            }
+        }
+        if (answer.empty()) {
+            std::ostringstream off;
+            off << "📊 Báo cáo nhanh hôm nay (" << today << "):\n"
+                << "• Doanh thu: " << static_cast<int64_t>(rev) << " đ (" << ordCnt << " đơn hoàn tất)\n"
+                << "• Đơn hủy: " << voidCnt << " đơn\n";
+            if (!topDishes.empty()) {
+                off << "• Món bán chạy: " << topDishes[0].value("product_name", "") << " (" << topDishes[0].value("qty", 0) << ")\n";
+            }
+            if (!lowMats.empty()) {
+                off << "⚠️ Nguyên liệu sắp hết: " << lowMats.size() << " mặt hàng cần nhập thêm.";
+            } else {
+                off << "✅ Tồn kho nguyên liệu đang ổn định.";
+            }
+            answer = off.str();
+        }
+        sendJson(res, {{"success", true}, {"engine", engine}, {"answer", answer}, {"snapshot", {{"revenue", rev}, {"orders", ordCnt}, {"voids", voidCnt}}}});
+    });
+
+    // AI Smart Ambient & Jukebox Lyric Moderation
+    svr.Post("/api/media/moderate_song", [](const httplib::Request& req, httplib::Response& res) {
+        json body = parseBody(req);
+        std::string title = getString(body, "title", "");
+        std::string artist = getString(body, "artist", "");
+        std::string combined = title + " " + artist;
+        std::string lower = combined;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+        static const std::vector<std::string> blocked = {"xxx", "porn", "sex", "chửi thề", "bạo lực", "ma túy"};
+        for (const auto& kw : blocked) {
+            if (lower.find(kw) != std::string::npos) {
+                sendJson(res, {{"success", false}, {"allowed", false}, {"reason", "Nội dung bài hát không phù hợp không gian quán."}}, 400);
+                return;
+            }
+        }
+        std::string nowTs = getCurrentTimestamp();
+        int hour = 12;
+        try { if (nowTs.size() >= 13) hour = std::stoi(nowTs.substr(11, 2)); } catch (...) {}
+        std::string recommendedPreset = (hour < 11) ? "Morning Acoustic" : (hour < 18 ? "Lunch Lounge" : "Cyber Night Bass");
+        sendJson(res, {{"success", true}, {"allowed", true}, {"recommended_eq_preset", recommendedPreset}});
     });
 
     // Store OTA Update & System Notification Endpoints

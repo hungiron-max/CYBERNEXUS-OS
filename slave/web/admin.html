@@ -2782,9 +2782,14 @@
                                 <span>Mặc định chạy qua <b>CyberNexus Master AI Proxy</b> (Key bảo mật trên Master, không lưu ở quán).</span>
                                 <span id="slave-ai-quota-badge" class="text-[11px] font-mono text-emerald-300"></span>
                             </div>
-                            <button type="button" onclick="document.getElementById('gemini-key-input-box')?.classList.toggle('hidden')" class="text-[11px] text-purple-300 hover:text-purple-200 underline shrink-0">
-                                + Dùng Key dự phòng riêng
-                            </button>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <button type="button" onclick="Admin.openBillingModal()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 font-bold text-[11px] flex items-center gap-1">
+                                    <i class="fas fa-qrcode"></i> Gia hạn / Nạp AI Credit
+                                </button>
+                                <button type="button" onclick="document.getElementById('gemini-key-input-box')?.classList.toggle('hidden')" class="text-[11px] text-purple-300 hover:text-purple-200 underline">
+                                    + Dùng Key dự phòng riêng
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Khung nhập / cập nhật API Key dự phòng: Mặc định ẩn, sau khi kiểm & lưu cũng ẩn hoàn toàn -->
@@ -6320,5 +6325,40 @@
             <span class="text-[10px] font-bold mt-0.5">Tài Chính</span>
         </button>
     </nav>
+    <!-- Modal: Gia hạn Gói & Nạp AI Credit qua VietQR -->
+    <div id="modal-store-billing" class="fixed inset-0 z-[80] hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="liquid-glass rounded-2xl border border-amber-400/40 w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+                <h3 class="text-sm font-black text-amber-300 uppercase flex items-center gap-2"><i class="fas fa-crown"></i> Gia Hạn Gói &amp; Nạp AI Credit</h3>
+                <button type="button" onclick="Admin.closeBillingModal()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                    <label class="block text-[11px] text-slate-400 mb-1">Loại dịch vụ</label>
+                    <select id="billing-type-select" onchange="Admin.onBillingTypeChange()" class="liquid-input w-full py-2 px-2.5 text-xs bg-slate-900">
+                        <option value="renew_plan">Gia hạn Gói Phần Mềm</option>
+                        <option value="buy_ai_credits">Mua thêm AI Credit</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] text-slate-400 mb-1">Gói lựa chọn</label>
+                    <select id="billing-qty-select" class="liquid-input w-full py-2 px-2.5 text-xs bg-slate-900"></select>
+                </div>
+            </div>
+            <button type="button" onclick="Admin.createStoreBillingOrder()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg">
+                <i class="fas fa-qrcode mr-1"></i> Tạo Mã VietQR Thanh Toán
+            </button>
+            <div id="billing-qr-result" class="hidden space-y-2.5 text-center pt-2 border-t border-white/10">
+                <img id="billing-qr-img" src="" alt="VietQR" class="w-52 h-52 mx-auto rounded-xl bg-white p-1.5 shadow-lg" />
+                <div class="text-xs text-slate-300 space-y-0.5 font-mono">
+                    <div>Số tiền: <b id="billing-qr-amount" class="text-emerald-400 text-sm"></b></div>
+                    <div>Nội dung CK: <b id="billing-qr-note" class="text-amber-300"></b></div>
+                </div>
+                <div id="billing-qr-status" class="text-xs font-bold text-sky-300 p-2 rounded-lg bg-sky-500/10 border border-sky-500/30">
+                    ⏳ Đang chờ xác nhận thanh toán từ Master...
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

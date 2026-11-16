@@ -3126,6 +3126,81 @@ const Admin = {
         if (panel) panel.classList.toggle('hidden');
     },
 
+    openBillingModal() {
+        const m = document.getElementById('modal-store-billing');
+        if (m) m.classList.remove('hidden');
+        document.getElementById('billing-qr-result')?.classList.add('hidden');
+        this.onBillingTypeChange();
+    },
+
+    closeBillingModal() {
+        if (this._billingPollTimer) {
+            clearInterval(this._billingPollTimer);
+            this._billingPollTimer = null;
+        }
+        document.getElementById('modal-store-billing')?.classList.add('hidden');
+    },
+
+    onBillingTypeChange() {
+        const t = document.getElementById('billing-type-select')?.value || 'renew_plan';
+        const q = document.getElementById('billing-qty-select');
+        if (!q) return;
+        q.innerHTML = t === 'buy_ai_credits'
+            ? `<option value="100">+100 Credits (100.000đ)</option>
+               <option value="300">+300 Credits (300.000đ)</option>
+               <option value="500">+500 Credits (450.000đ)</option>
+               <option value="1000">+1.000 Credits (800.000đ)</option>`
+            : `<option value="1">1 Tháng (299.000đ)</option>
+               <option value="3">3 Tháng (897.000đ)</option>
+               <option value="6">6 Tháng - Giảm 10% (1.614.600đ)</option>
+               <option value="12">12 Tháng - Giảm 15% (3.049.800đ)</option>`;
+    },
+
+    async createStoreBillingOrder() {
+        const billing_type = document.getElementById('billing-type-select')?.value || 'renew_plan';
+        const quantity = Number(document.getElementById('billing-qty-select')?.value || 1);
+        try {
+            const res = await fetch('api/license_client?action=create_billing_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ billing_type, quantity })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Không tạo được mã thanh toán');
+            document.getElementById('billing-qr-img').src = data.vietqr_url;
+            document.getElementById('billing-qr-amount').textContent = this.formatMoney(data.amount_vnd) + ' đ';
+            document.getElementById('billing-qr-note').textContent = data.bank_info?.note || data.order_code;
+            const stEl = document.getElementById('billing-qr-status');
+            if (stEl) {
+                stEl.textContent = `⏳ Đang chờ xác nhận thanh toán (${data.order_code})...`;
+                stEl.className = 'text-xs font-bold text-sky-300 p-2 rounded-lg bg-sky-500/10 border border-sky-500/30';
+            }
+            document.getElementById('billing-qr-result')?.classList.remove('hidden');
+            if (this._billingPollTimer) clearInterval(this._billingPollTimer);
+            this._billingPollTimer = setInterval(() => this.pollStoreBillingOrder(data.order_code), 3500);
+        } catch (e) {
+            alert(e.message || 'Lỗi tạo đơn VietQR');
+        }
+    },
+
+    async pollStoreBillingOrder(orderCode) {
+        if (!orderCode) return;
+        try {
+            const res = await fetch(`api/license_client?action=check_billing_order&order_code=${encodeURIComponent(orderCode)}`);
+            const data = await res.json();
+            if (data.success && data.order && data.order.status === 'paid') {
+                clearInterval(this._billingPollTimer);
+                this._billingPollTimer = null;
+                const stEl = document.getElementById('billing-qr-status');
+                if (stEl) {
+                    stEl.textContent = '✅ Thanh toán thành công! Đã tự động gia hạn / cộng AI Credit.';
+                    stEl.className = 'text-xs font-bold text-emerald-300 p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30';
+                }
+                if (typeof this.loadSettings === 'function') this.loadSettings();
+            }
+        } catch (e) {}
+    },
+
     async loadKpi() {
         const monthInput = document.getElementById('kpi-month-input');
         if (monthInput && !monthInput.value) {

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <chrono>
 #include <algorithm>
+#include <cmath>
 
 namespace SaleApp::Backend {
 
@@ -2937,6 +2938,214 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
         res.set_header("Content-Disposition", "attachment; filename=\"" + filename + "\"");
         res.set_content(content, "application/zip");
+    });
+
+    // Self-Service Store Billing (Gia hạn gói & Mua thêm AI Credit qua VietQR)
+    auto ensureBillingSchema = [](Database& db) {
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS saas_billing_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_code TEXT UNIQUE NOT NULL,
+                tenant_id INTEGER NOT NULL,
+                tenant_code TEXT DEFAULT '',
+                store_name TEXT DEFAULT '',
+                billing_type TEXT DEFAULT 'renew_plan',
+                quantity INTEGER DEFAULT 1,
+                amount_vnd REAL DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                payment_ref TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                paid_at TEXT DEFAULT ''
+            )
+        )");
+    };
+
+    auto applyBillingPaid = [](Database& db, const json& ord, const std::string& payRef) {
+        int64_t ordId = ord.value("id", int64_t(0));
+        int64_t tid = ord.value("tenant_id", int64_t(0));
+        std::string bType = ord.value("billing_type", "renew_plan");
+        int qty = std::max(1, ord.value("quantity", 1));
+
+        db.beginTransaction();
+        db.execute("UPDATE saas_billing_orders SET status = 'paid', payment_ref = :pref, paid_at = datetime('now', 'localtime') WHERE id = :id",
+            {{":pref", payRef}, {":id", ordId}});
+        if (bType == "buy_ai_credits") {
+            db.execute("UPDATE saas_tenants SET ai_bonus_credits = COALESCE(ai_bonus_credits, 0) + :q WHERE id = :tid",
+                {{":q", qty}, {":tid", tid}});
+        } else {
+            db.execute(
+                "UPDATE saas_tenants SET "
+                "expire_date = date(CASE WHEN expire_date IS NOT NULL AND expire_date > date('now', 'localtime') THEN expire_date ELSE date('now', 'localtime') END, '+' || :m || ' months'), "
+                "subscription_status = 'active' "
+                "WHERE id = :tid",
+                {{":m", qty}, {":tid", tid}}
+            );
+        }
+        db.commit();
+    };
+
+    svr.Post("/api/billing/create_order", [ensureBillingSchema](const httplib::Request& req, httplib::Response& res) {
+        try {
+            json body = json::parse(req.body);
+            std::string licKey = body.value("license_key", "");
+            std::string bType = body.value("billing_type", "renew_plan");
+            int qty = std::max(1, body.value("quantity", 1));
+            if (licKey.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Thiếu license_key!"}}, 400);
+                return;
+            }
+            auto& db = Database::instance();
+            ensureBillingSchema(db);
+            auto tenant = db.queryRow("SELECT * FROM saas_tenants WHERE license_key = :lk LIMIT 1", {{":lk", licKey}});
+            if (tenant.is_null()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Không tìm thấy hồ sơ cửa hàng!"}}, 404);
+                return;
+            }
+            int64_t tid = tenant.value("id", int64_t(0));
+            std::string tCode = tenant.value("tenant_code", "");
+            std::string sName = tenant.value("store_name", "");
+
+            double amount = 0.0;
+            if (bType == "buy_ai_credits") {
+                if (qty >= 1000) amount = qty * 800.0;
+                else if (qty >= 500) amount = qty * 900.0;
+                else amount = qty * 1000.0;
+            } else {
+                bType = "renew_plan";
+                double monthly = 299000.0;
+                if (qty >= 12) amount = std::round(monthly * qty * 0.85);
+                else if (qty >= 6) amount = std::round(monthly * qty * 0.90);
+                else amount = monthly * qty;
+            }
+
+            std::time_t tNow = std::time(nullptr);
+            std::tm tmBuf{};
+#ifdef _WIN32
+            localtime_s(&tmBuf, &tNow);
+#else
+            localtime_r(&tNow, &tmBuf);
+#endif
+            char compact[16]{};
+            std::strftime(compact, sizeof(compact), "%y%m%d", &tmBuf);
+            std::string compactStr(compact);
+            auto seqVal = db.queryScalar("SELECT COUNT(*) FROM saas_billing_orders WHERE order_code LIKE 'SAAS" + compactStr + "%'");
+            int64_t seq = (seqVal.is_number() ? seqVal.get<int64_t>() : 0) + 1;
+            std::ostringstream oss;
+            oss << "SAAS" << compactStr << std::setw(4) << std::setfill('0') << seq;
+            std::string orderCode = oss.str();
+
+            db.execute(
+                "INSERT INTO saas_billing_orders (order_code, tenant_id, tenant_code, store_name, billing_type, quantity, amount_vnd, status, created_at) "
+                "VALUES (:oc, :tid, :tc, :sn, :bt, :q, :amt, 'pending', datetime('now', 'localtime'))",
+                {{":oc", orderCode}, {":tid", tid}, {":tc", tCode}, {":sn", sName}, {":bt", bType}, {":q", qty}, {":amt", amount}}
+            );
+
+            auto getSetting = [&](const std::string& k, const std::string& def) -> std::string {
+                auto r = db.queryRow("SELECT setting_value FROM master_settings WHERE setting_key = :k", {{":k", k}});
+                if (!r.is_null() && !r.value("setting_value", "").empty()) return r.value("setting_value", "");
+                return def;
+            };
+            std::string bankId = getSetting("saas_bank_id", "OCB");
+            std::string bankAcc = getSetting("saas_bank_account", "0918608073");
+            std::string bankName = getSetting("saas_bank_name", "NGUYEN CHI HUNG");
+            std::string note = orderCode + " " + tCode;
+            std::string vietqrUrl = "https://img.vietqr.io/image/" + bankId + "-" + bankAcc + "-compact2.png?amount="
+                + std::to_string(static_cast<int64_t>(amount)) + "&addInfo=" + httplib::detail::encode_url(note)
+                + "&accountName=" + httplib::detail::encode_url(bankName);
+
+            replyTunnelJson(res, {
+                {"success", true},
+                {"order_code", orderCode},
+                {"billing_type", bType},
+                {"quantity", qty},
+                {"amount_vnd", amount},
+                {"vietqr_url", vietqrUrl},
+                {"bank_info", {{"bank_id", bankId}, {"account_no", bankAcc}, {"account_name", bankName}, {"note", note}}}
+            });
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
+    });
+
+    svr.Get("/api/billing/status", [ensureBillingSchema](const httplib::Request& req, httplib::Response& res) {
+        std::string orderCode = req.has_param("order_code") ? req.get_param_value("order_code") : "";
+        if (orderCode.empty()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Thiếu order_code"}}, 400);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureBillingSchema(db);
+        auto ord = db.queryRow("SELECT * FROM saas_billing_orders WHERE order_code = :oc LIMIT 1", {{":oc", orderCode}});
+        if (ord.is_null()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Không tìm thấy đơn thanh toán"}}, 404);
+            return;
+        }
+        replyTunnelJson(res, {{"success", true}, {"order", ord}});
+    });
+
+    svr.Post("/api/billing/webhook", [ensureBillingSchema, applyBillingPaid](const httplib::Request& req, httplib::Response& res) {
+        try {
+            json body = json::parse(req.body);
+            std::string orderCode = body.value("order_code", "");
+            std::string payRef = body.value("payment_ref", "AUTO_WEBHOOK");
+            double amt = body.value("amount", 0.0);
+            auto& db = Database::instance();
+            ensureBillingSchema(db);
+            auto ord = db.queryRow("SELECT * FROM saas_billing_orders WHERE order_code = :oc LIMIT 1", {{":oc", orderCode}});
+            if (ord.is_null()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Không tìm thấy order_code"}}, 404);
+                return;
+            }
+            if (ord.value("status", "") == "paid") {
+                replyTunnelJson(res, {{"success", true}, {"message", "Đơn đã được thanh toán trước đó."}});
+                return;
+            }
+            if (amt > 0 && amt + 1.0 < ord.value("amount_vnd", 0.0)) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Số tiền thanh toán chưa đủ!"}}, 400);
+                return;
+            }
+            applyBillingPaid(db, ord, payRef);
+            replyTunnelJson(res, {{"success", true}, {"message", "Đã kích hoạt gia hạn / nạp AI Credit thành công!"}});
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
+    });
+
+    svr.Get("/api/billing/orders", [ensureBillingSchema](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || !userOpt->is_super_admin) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Unauthorized"}}, 403);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureBillingSchema(db);
+        json rows = db.query("SELECT * FROM saas_billing_orders ORDER BY id DESC LIMIT 50");
+        replyTunnelJson(res, {{"success", true}, {"data", rows}});
+    });
+
+    svr.Post("/api/billing/confirm", [ensureBillingSchema, applyBillingPaid](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || !userOpt->is_super_admin) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Unauthorized"}}, 403);
+            return;
+        }
+        try {
+            json body = json::parse(req.body);
+            std::string orderCode = body.value("order_code", "");
+            auto& db = Database::instance();
+            ensureBillingSchema(db);
+            auto ord = db.queryRow("SELECT * FROM saas_billing_orders WHERE order_code = :oc LIMIT 1", {{":oc", orderCode}});
+            if (ord.is_null()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Không tìm thấy đơn"}}, 404);
+                return;
+            }
+            if (ord.value("status", "") != "paid") {
+                applyBillingPaid(db, ord, "SUPERADMIN_MANUAL");
+            }
+            replyTunnelJson(res, {{"success", true}, {"message", "Đã duyệt thanh toán & cộng hạn/credit cho quán!"}});
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
     });
 }
 
