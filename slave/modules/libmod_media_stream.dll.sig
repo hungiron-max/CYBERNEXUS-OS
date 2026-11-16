@@ -1,6 +1,6 @@
 {
   "file": "libmod_media_stream.dll",
-  "sha256": "a0455b3c6b63100ffb607ea4f83dbc67ee1203a635c1f017b034e525bb506881",
-  "sig": "59de9d84b5c90086d26c85bda4ce21b77de8dc1b6eb46b4eeb25d1f24a39e586",
+  "sha256": "05dc835a3d80cb52f8b8990f1ac5eb6c1bdbe158c4c493ec56ae1aafffa08dc0",
+  "sig": "3882776d64ef226f30b1dc77bde5eedb2267ad79ef58f94f92ba72aa1077eeaa",
   "signed_by": "CyberNexus-SuperAdmin"
 }

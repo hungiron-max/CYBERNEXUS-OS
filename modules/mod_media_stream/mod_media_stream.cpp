@@ -111,8 +111,20 @@ private:
                 is_priority INTEGER DEFAULT 0,
                 vote_count INTEGER DEFAULT 1,
                 status TEXT DEFAULT 'pending',
+                requester_ip TEXT DEFAULT '',
                 requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 played_at DATETIME
+            );
+        )");
+        execSql("ALTER TABLE media_jukebox_queue ADD COLUMN requester_ip TEXT DEFAULT ''");
+
+        execSql(R"(
+            CREATE TABLE IF NOT EXISTS media_jukebox_votes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                queue_id INTEGER NOT NULL,
+                voter_key TEXT NOT NULL,
+                voted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(queue_id, voter_key)
             );
         )");
 
@@ -336,16 +348,30 @@ public:
                     return;
                 }
 
-                // 2. Chống SPAM: Cooldown bàn (15 phút nếu không phải VIP)
-                if (isPriority == 0 && tableId > 0) {
-                    json recentReq = queryOne(
-                        "SELECT id FROM media_jukebox_queue WHERE table_id = " + std::to_string(tableId) + 
-                        " AND requested_at >= datetime('now', '-15 minutes') LIMIT 1"
-                    );
-                    if (!recentReq.is_null()) {
-                        res.set_content("{\"success\":false,\"message\":\"Bàn của bạn vừa yêu cầu bài hát. Vui lòng đợi 15 phút trước khi chọn bài tiếp theo!\"}", "application/json; charset=utf-8");
-                        return;
+                auto sanitize = [](std::string s) {
+                    size_t pos = 0;
+                    while ((pos = s.find("'", pos)) != std::string::npos) {
+                        s.replace(pos, 1, "''");
+                        pos += 2;
                     }
+                    return s;
+                };
+
+                std::string clientIp = req.get_header_value("X-Forwarded-For");
+                if (clientIp.empty()) clientIp = req.remote_addr;
+                size_t commaPos = clientIp.find(',');
+                if (commaPos != std::string::npos) clientIp = clientIp.substr(0, commaPos);
+                if (clientIp.empty()) clientIp = body.value("device_id", "unknown_client");
+
+                // 2. Giới hạn mỗi IP/thiết bị/khách chỉ được yêu cầu tối đa 5 bài hát đang chờ trong hàng đợi
+                json activeReq = queryOne(
+                    "SELECT COUNT(*) as c FROM media_jukebox_queue WHERE requester_ip = '" + sanitize(clientIp) +
+                    "' AND status = 'pending'"
+                );
+                int pendingByClient = activeReq.is_object() ? activeReq.value("c", 0) : 0;
+                if (pendingByClient >= 5) {
+                    res.set_content("{\"success\":false,\"limit_reached\":true,\"message\":\"Mỗi thiết bị/khách chỉ được yêu cầu tối đa 5 bài hát đang chờ trong hàng đợi! Vui lòng đợi các bài trước phát xong.\"}", "application/json; charset=utf-8");
+                    return;
                 }
 
                 // 3. Chống Duplicate: Bài đang phát hoặc có trong hàng đợi
@@ -363,19 +389,9 @@ public:
                 std::string artist = track.value("artist", "Ca sĩ");
                 int duration = track.value("duration_sec", 180);
 
-                // Escape single quote
-                auto sanitize = [](std::string s) {
-                    size_t pos = 0;
-                    while ((pos = s.find("'", pos)) != std::string::npos) {
-                        s.replace(pos, 1, "''");
-                        pos += 2;
-                    }
-                    return s;
-                };
-
-                std::string insertSql = "INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_id, table_name, customer_phone, is_priority, status) VALUES (" +
+                std::string insertSql = "INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_id, table_name, customer_phone, is_priority, status, requester_ip) VALUES (" +
                     std::to_string(trackId) + ", '" + sanitize(title) + "', '" + sanitize(artist) + "', " + std::to_string(duration) + ", " +
-                    std::to_string(tableId) + ", '" + sanitize(tableName) + "', '" + sanitize(phone) + "', " + std::to_string(isPriority) + ", 'pending')";
+                    std::to_string(tableId) + ", '" + sanitize(tableName) + "', '" + sanitize(phone) + "', " + std::to_string(isPriority) + ", 'pending', '" + sanitize(clientIp) + "')";
 
                 if (execSql(insertSql)) {
                     // Cập nhật play_count
@@ -401,7 +417,7 @@ public:
         });
 
         // ==========================================
-        // 4. POST /api/media/jukebox/vote - Bầu chọn (Vote up) bài hát
+        // 4. POST /api/media/jukebox/vote - Bầu chọn (Vote up) bài hát (mỗi IP/khách chỉ vote 1 lần / bài)
         // ==========================================
         svr.Post("/api/media/jukebox/vote", [this](const httplib::Request& req, httplib::Response& res) {
             try {
@@ -412,12 +428,51 @@ public:
                     return;
                 }
 
+                json qItem = queryOne("SELECT id, status, vote_count FROM media_jukebox_queue WHERE id = " + std::to_string(queueId));
+                if (qItem.is_null() || qItem.value("status", "") != "pending") {
+                    res.set_content("{\"success\":false,\"message\":\"Bài hát không còn nằm trong hàng đợi để bình chọn!\"}", "application/json; charset=utf-8");
+                    return;
+                }
+
+                auto sanitize = [](std::string s) {
+                    size_t pos = 0;
+                    while ((pos = s.find("'", pos)) != std::string::npos) {
+                        s.replace(pos, 1, "''");
+                        pos += 2;
+                    }
+                    return s;
+                };
+
+                std::string voterKey = req.get_header_value("X-Forwarded-For");
+                if (voterKey.empty()) voterKey = req.remote_addr;
+                size_t commaPos = voterKey.find(',');
+                if (commaPos != std::string::npos) voterKey = voterKey.substr(0, commaPos);
+                if (voterKey.empty()) voterKey = body.value("device_id", "unknown_voter");
+
+                json already = queryOne(
+                    "SELECT id FROM media_jukebox_votes WHERE queue_id = " + std::to_string(queueId) +
+                    " AND voter_key = '" + sanitize(voterKey) + "' LIMIT 1"
+                );
+                if (!already.is_null()) {
+                    int currentVotes = qItem.value("vote_count", 1);
+                    json out = {
+                        {"success", false},
+                        {"already_voted", true},
+                        {"message", "Bạn đã bình chọn bài hát này rồi! Mỗi thiết bị chỉ được vote 1 lần cho 1 bài trong hàng chờ."},
+                        {"votes", currentVotes}
+                    };
+                    res.set_content(out.dump(), "application/json; charset=utf-8");
+                    return;
+                }
+
+                execSql("INSERT INTO media_jukebox_votes (queue_id, voter_key) VALUES (" + std::to_string(queueId) + ", '" + sanitize(voterKey) + "')");
                 execSql("UPDATE media_jukebox_queue SET vote_count = vote_count + 1 WHERE id = " + std::to_string(queueId));
                 json updated = queryOne("SELECT vote_count FROM media_jukebox_queue WHERE id = " + std::to_string(queueId));
                 int votes = updated.is_object() ? updated.value("vote_count", 1) : 1;
 
                 json out = {
                     {"success", true},
+                    {"voted", true},
                     {"message", "Đã bầu chọn bài hát! Điểm số tăng lên #" + std::to_string(votes)},
                     {"votes", votes}
                 };
