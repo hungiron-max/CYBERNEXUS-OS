@@ -109,7 +109,7 @@ static std::string sanitizeText(const std::string& s, size_t maxLen = 180) {
     return out;
 }
 
-static int runProcessHidden(const std::string& cmdLine, std::string& outStdout, DWORD timeoutMs = 30000) {
+static int runProcessHidden(const std::string& cmdLine, std::string& outStdout, uint32_t timeoutMs = 30000) {
     outStdout.clear();
 #ifdef _WIN32
     SECURITY_ATTRIBUTES sa{};

@@ -4,6 +4,11 @@ project(CYBERNEXUS_OS LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+if(NOT WIN32)
+    find_package(Threads REQUIRED)
+endif()
 
 # Include Directories
 include_directories(
@@ -51,6 +56,8 @@ if(WIN32)
     if(MINGW)
         target_link_options(cybernexus_master PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
+else()
+    target_link_libraries(cybernexus_master PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 endif()
 
 # ========================================================
@@ -73,6 +80,8 @@ if(WIN32)
     if(MINGW)
         target_link_options(cybernexus_slave PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
+else()
+    target_link_libraries(cybernexus_slave PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 endif()
 
 # ========================================================
