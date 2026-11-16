@@ -127,6 +127,8 @@ def run_e2e():
 
         uploads_dir = os.path.join(tmpdir, "uploads")
         web_dir = os.path.join(ROOT, "slave", "web")
+        log_path = os.path.join(tmpdir, "slave_e2e.log")
+        log_fp = open(log_path, "w", encoding="utf-8")
         proc = subprocess.Popen(
             [
                 bin_path,
@@ -137,9 +139,8 @@ def run_e2e():
                 "--uploads", uploads_dir,
             ],
             cwd=tmpdir,
-            stdout=subprocess.PIPE,
+            stdout=log_fp,
             stderr=subprocess.STDOUT,
-            text=True,
         )
         try:
             # Wait for server ready
@@ -153,6 +154,9 @@ def run_e2e():
                 except Exception:
                     pass
                 time.sleep(0.25)
+            if not ready:
+                log_fp.flush()
+                print("--- SLAVE LOG ---\n" + open(log_path, "r", encoding="utf-8", errors="replace").read())
             assert ready, "cybernexus_slave failed to start in time"
 
             # 1. Login as seeded superadmin
@@ -235,6 +239,10 @@ def run_e2e():
                 proc.wait(timeout=5)
             except Exception:
                 proc.kill()
+            try:
+                log_fp.close()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     run_e2e()
