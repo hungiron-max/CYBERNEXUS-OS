@@ -680,3 +680,24 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
 - **Master Server:** `master/cybernexus_master.exe` (biên dịch tĩnh MinGW, hỗ trợ SaaS Licensing 18 modules, Đại lý, AI Vault & Quota, Quản lý & Đẩy OTA chọn phiên bản).
 - **Slave Store Server:** `slave/cybernexus_slave.exe` (`v2026.11.16.14`, gói OTA `master/updates/patch_latest.zip` & `release/store_patch_update.zip`, `2,955,158` bytes).
 - **GitHub Tag phát hành chính thức:** `v1.0.0` trên nhánh `main` (`https://github.com/hungiron-max/CYBERNEXUS-OS.git`).
+
+---
+
+## 23. Hoàn Thiện Giai Đoạn 1–3, Ký Số DLL, Tự Gia Hạn VietQR, AI Copilot, Lịch Nhạc & Router QoS (`v1.1.0` / `2026.11.16.17`)
+
+### 23.1. Giai đoạn 1 — Khóa Chặt Nền Tảng & Thương Mại Hóa
+- **Xanh 100% Build Linux (`GCC/Clang`) trên GitHub Actions:** Khắc phục `DWORD` trong `modules/mod_media_stream/yt_audio_helper.cpp`, bổ sung `-fPIC` và liên kết `Threads::Threads ${CMAKE_DL_LIBS}` trong `CMakeLists.txt`.
+- **Ký số `.sig` cho Module DLL (`shared/src/PluginManager.cpp`, `tools/sign_modules.py`):** Cài đặt SHA-256 thuần C++ xác thực chữ ký `.sig` (chặn nạp DLL nếu bị chỉnh sửa trái phép), ký đầy đủ 4/4 DLL tại `slave/modules/`.
+- **Tự gia hạn gói & Nạp AI Credit qua VietQR (`admin.html` ↔ Master):** Bổ sung `saas_billing_orders` cùng `/api/billing/create_order`, `/api/billing/status`, `/api/billing/webhook`, `/api/billing/orders`, `/api/billing/confirm` trên Master; modal `#modal-store-billing` trên Quản trị Quán và bảng duyệt 1 chạm trên Super Admin.
+
+### 23.2. Giai đoạn 2 — AI Copilot Tính Phí, Telegram Bot & Lịch Phát Nhạc Thông Minh
+- **AI Copilot (`1 AI Credit / lượt Gemini`, Offline miễn phí):** Hỗ trợ `copilot_chat` trên Master AI Proxy (`master_handlers.cpp`), khung hỏi đáp nhanh trên Tổng quan `admin.html` và Telegram Bot (`/api/telegram/test`, `/api/telegram/webhook` hỗ trợ `/doanhthu`, `/tonkho`, `/audit`, `/kpi`).
+- **Tự phân loại nhạc & Lịch phát nhạc theo khung giờ (gộp gói `mod_media_stream`):** Tự nhận diện 4 nhóm (`Êm dịu / Acoustic`, `Ballad`, `Pop`, `Sôi động / EDM`) qua `classifyMusicGenre`, nạp 5 khung giờ mặc định (`media_time_schedules`) và tự động chọn thể loại theo giờ trên `pos-jukebox.js`.
+
+### 23.3. Giai đoạn 3 — Router QoS Thật, Tách Module & Test E2E Trong CI
+- **MikroTik REST API & EdgeRouter SSH (`modules/mod_network_qos/mod_network_qos.cpp`):** Quản lý cấu hình `config/router_qos.json`, đọc DHCP Leases, cấp băng thông VIP/Cơ bản/Chặn, phát sự kiện `ORDER_PAID` từ `checkout` & `confirm_payment` (`slave_handlers.cpp`) và giao diện quản trị Router trên `admin.html`.
+- **Tách module & Tự động hóa kiểm thử CI:** Tách `handleLicense`/`handleLicenseClient` sang `slave/src/slave_license_handlers.cpp`; bổ sung `tests/verify_regression_v1.py` (tĩnh/chữ ký/OTA) và `tests/test_api_e2e.py` (HTTP E2E thật trên `cybernexus_slave` với DB cô lập) vào cả `build-windows` và `build-linux` trong `.github/workflows/build-test.yml`.
+
+### 23.4. Phát Hành `v1.1.0` & OTA `2026.11.16.17`
+- **Slave OTA:** `2026.11.16.17` (bao gồm `cybernexus_slave.exe`, `libmod_network_qos.dll`, 4 file `.sig` và toàn bộ giao diện web mới).
+- **GitHub Release Tag:** `v1.1.0` trên `origin/main`.
