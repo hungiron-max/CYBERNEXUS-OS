@@ -3126,6 +3126,48 @@ const Admin = {
         if (panel) panel.classList.toggle('hidden');
     },
 
+    async askAiCopilot(presetQuestion = '') {
+        const inp = document.getElementById('ai-copilot-input');
+        const out = document.getElementById('ai-copilot-answer');
+        const q = (presetQuestion || inp?.value || '').trim() || 'Tóm tắt tình hình kinh doanh hôm nay';
+        if (inp && presetQuestion) inp.value = presetQuestion;
+        if (!out) return;
+        out.classList.remove('hidden');
+        out.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5 text-purple-300"></i> Đang phân tích dữ liệu quán...';
+        try {
+            const res = await fetch('/api/ai/copilot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: q, use_ai: true })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi AI Copilot');
+            const meta = data.credits_charged > 0
+                ? `<div class="mt-2 pt-1.5 border-t border-white/10 text-[10px] text-purple-300 font-mono">⚡ ${data.engine} · Đã dùng ${data.credits_charged} AI Credit</div>`
+                : `<div class="mt-2 pt-1.5 border-t border-white/10 text-[10px] text-emerald-300 font-mono">⚡ ${data.engine} · Miễn phí (Offline)</div>`;
+            out.innerHTML = `<div>${(data.answer || '').replace(/</g, '&lt;')}</div>${meta}`;
+        } catch (e) {
+            out.innerHTML = `<span class="text-rose-300">${e.message || 'Không thể kết nối AI Copilot'}</span>`;
+        }
+    },
+
+    async testAndSaveTelegramBot() {
+        const telegram_bot_token = (document.getElementById('setting-tg-token')?.value || '').trim();
+        const telegram_chat_id = (document.getElementById('setting-tg-chat-id')?.value || '').trim();
+        try {
+            const res = await fetch('/api/telegram/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telegram_bot_token, telegram_chat_id })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi gửi Telegram');
+            this.showToast(data.message || 'Đã gửi tin nhắn thử Telegram!', 'success');
+        } catch (e) {
+            alert(e.message || 'Lỗi cấu hình Telegram Bot');
+        }
+    },
+
     openBillingModal() {
         const m = document.getElementById('modal-store-billing');
         if (m) m.classList.remove('hidden');

@@ -725,6 +725,29 @@
         <!-- ========================================== -->
         <section id="tab-dashboard" class="admin-section flex-1 overflow-y-auto space-y-4">
             
+            <!-- Trợ Lý Chủ Quán AI Copilot (Tính phí 1 AI Credit/lượt Gemini; miễn phí khi phân tích offline) -->
+            <div class="liquid-glass p-3.5 rounded-2xl border border-purple-500/30 space-y-2.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center"><i class="fas fa-robot"></i></span>
+                        <div>
+                            <h4 class="text-xs font-black text-purple-300 uppercase">Trợ Lý Chủ Quán AI Copilot</h4>
+                            <p class="text-[10px] text-slate-400">Hỏi đáp doanh thu, món bán chạy/ế, tồn kho &amp; cảnh báo bất thường (1 AI Credit/lượt Gemini • Offline miễn phí)</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 text-[10px]">
+                        <button type="button" onclick="Admin.askAiCopilot('Tóm tắt doanh thu, đơn hủy và tình hình hôm nay')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-purple-500/25 text-slate-200 border border-white/10 font-semibold">📊 Tóm tắt hôm nay</button>
+                        <button type="button" onclick="Admin.askAiCopilot('Món nào bán chạy và nguyên liệu nào cần nhập gấp?')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-purple-500/25 text-slate-200 border border-white/10 font-semibold">📦 Gợi ý nhập kho</button>
+                        <button type="button" onclick="Admin.askAiCopilot('Kiểm tra tình trạng hủy đơn, hối bếp và KPI hôm nay')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-purple-500/25 text-slate-200 border border-white/10 font-semibold">🛡️ Kiểm tra bất thường</button>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="ai-copilot-input" placeholder="Đặt câu hỏi cho AI Copilot (VD: Doanh thu hôm nay thế nào?)..." class="liquid-input flex-1 py-1.5 px-3 text-xs" onkeydown="if(event.key==='Enter'){event.preventDefault();Admin.askAiCopilot();}" />
+                    <button type="button" onclick="Admin.askAiCopilot()" class="btn-glass px-3.5 py-1.5 text-xs font-bold bg-purple-500/25 hover:bg-purple-500/40 text-purple-200 border-purple-400/40 shrink-0"><i class="fas fa-paper-plane mr-1"></i> Hỏi AI</button>
+                </div>
+                <div id="ai-copilot-answer" class="hidden p-3 rounded-xl bg-slate-950/70 border border-purple-500/25 text-xs text-slate-200 whitespace-pre-line leading-relaxed"></div>
+            </div>
+
             <!-- KPI Cards Grid -->
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div class="liquid-glass-card p-3.5 border-l-4 border-emerald-400">
@@ -2817,6 +2840,21 @@
                                 <i class="fas fa-circle-info text-sky-400 mr-1"></i>
                                 Dán mã key rồi bấm <b>"Kiểm tra &amp; Lưu (Tự ẩn)"</b> — hệ thống sẽ test kết nối Google Gemini, lưu vào máy chủ và <b>ẩn khung nhập ngay</b>.
                             </p>
+                        </div>
+
+                        <!-- Telegram Bot Cảnh báo & Tra cứu từ xa cho Chủ quán -->
+                        <div class="pt-3 border-t border-white/10 space-y-2">
+                            <div class="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                                <i class="fab fa-telegram text-sky-400"></i>
+                                <span>Telegram Bot Cảnh Báo &amp; Hỏi Đáp Từ Xa (AI Copilot)</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input type="password" id="setting-tg-token" placeholder="Telegram Bot Token (từ @BotFather)" class="liquid-input py-1.5 px-2.5 text-xs font-mono" autocomplete="off" />
+                                <input type="text" id="setting-tg-chat-id" placeholder="Chat ID Chủ quán" class="liquid-input py-1.5 px-2.5 text-xs font-mono" />
+                                <button type="button" onclick="Admin.testAndSaveTelegramBot()" class="btn-glass text-xs py-1.5 px-3 bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border-sky-400/40 font-bold">
+                                    <i class="fab fa-telegram-plane mr-1"></i> Lưu &amp; Gửi Test Telegram
+                                </button>
+                            </div>
                         </div>
                     </div>
 

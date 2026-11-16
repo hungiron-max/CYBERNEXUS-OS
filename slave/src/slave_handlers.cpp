@@ -6908,8 +6908,9 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     svr.Post("/api/media/tracks/upload", handleMediaTracks);
     svr.Post("/api/media/tracks/auto_classify", handleMediaTracks);
 
-    // Media Time-Slot Schedules (Tự động chọn thể loại nhạc theo khung giờ)
+    // Media Time-Slot Schedules (Tự động chọn thể loại nhạc theo khung giờ - Gộp chung gói mod_media_stream)
     svr.Get("/api/media/schedules", [](const httplib::Request&, httplib::Response& res) {
+        if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
         auto& db = Database::instance();
         ensureMediaScheduleSchema(db);
         json schedules = db.query("SELECT * FROM media_time_schedules ORDER BY start_time ASC, id ASC");
@@ -6936,6 +6937,7 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     });
 
     svr.Post("/api/media/schedules/save", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
             sendError(res, "Chỉ Chủ quán (Admin) mới được thiết lập khung giờ phát nhạc!", 403);
@@ -6973,6 +6975,7 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     });
 
     svr.Post("/api/media/schedules/delete", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
         auto userOpt = AuthService::instance().authenticate(req);
         if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
             sendError(res, "Chỉ Chủ quán (Admin) mới được xóa khung giờ phát nhạc!", 403);
@@ -7266,18 +7269,9 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         });
     });
 
-    // AI Copilot Q&A (Hỏi đáp vận hành & doanh thu theo thời gian thực + fallback offline)
-    svr.Post("/api/ai/copilot", [](const httplib::Request& req, httplib::Response& res) {
-        auto userOpt = AuthService::instance().authenticate(req);
-        if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
-            sendError(res, "Chỉ Chủ quán (Admin) mới được sử dụng AI Copilot!", 403);
-            return;
-        }
-        auto& db = Database::instance();
-        json body = parseBody(req);
-        std::string question = getString(body, "question", "Tóm tắt tình hình kinh doanh hôm nay");
+    // AI Copilot Q&A (Tính phí AI Credit qua Master Proxy khi dùng Gemini; fallback offline miễn phí)
+    auto buildCopilotSummary = [](Database& db, const std::string& question, bool allowPaidAi) -> json {
         std::string today = getCurrentDate();
-
         auto revRow = db.queryRow("SELECT COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as rev FROM orders WHERE status = 'completed' AND date(created_at) = :d", {{":d", today}});
         int64_t ordCnt = revRow.is_null() ? 0 : revRow.value("cnt", int64_t(0));
         double rev = revRow.is_null() ? 0.0 : revRow.value("rev", 0.0);
@@ -7286,46 +7280,155 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             "JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND date(o.created_at) = :d "
             "GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5", {{":d", today}}
         );
-        auto lowMats = db.query("SELECT name, stock_qty, unit FROM materials WHERE stock_qty <= min_stock_qty LIMIT 5");
+        auto lowMats = db.query("SELECT name, stock_qty, min_stock_qty, unit FROM materials WHERE stock_qty <= min_stock_qty LIMIT 5");
         auto voidRow = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'cancelled' AND date(created_at) = :d", {{":d", today}});
         int64_t voidCnt = voidRow.is_number() ? voidRow.get<int64_t>() : 0;
+        auto rushRow = db.queryScalar("SELECT COALESCE(SUM(rush_count), 0) FROM orders WHERE date(created_at) = :d", {{":d", today}});
+        int64_t rushCnt = rushRow.is_number() ? rushRow.get<int64_t>() : 0;
 
         std::ostringstream ctxSs;
         ctxSs << "Ngay " << today << ": Doanh thu=" << static_cast<int64_t>(rev) << " VND, Don hoan tat=" << ordCnt
-              << ", Don huy=" << voidCnt << ". Top mon=" << topDishes.dump() << ". Nguyen lieu sap het=" << lowMats.dump();
+              << ", Don huy=" << voidCnt << ", Luot hoi Bep=" << rushCnt
+              << ". Top mon=" << topDishes.dump() << ". Nguyen lieu sap het=" << lowMats.dump();
 
-        std::string apiKey = resolveGeminiApiKey(db, "");
         std::string answer;
         std::string engine = "offline_analytics";
-        if (!apiKey.empty()) {
+        int64_t creditsCharged = 0;
+        json aiQuota = nullptr;
+
+        if (allowPaidAi) {
             std::string prompt = "Bạn là CyberNexus AI Copilot trợ lý chủ quán F&B. Dựa vào dữ liệu thật sau: " + ctxSs.str()
                 + "\nHãy trả lời ngắn gọn, súc tích bằng tiếng Việt cho câu hỏi: " + question;
-            json contents = json::array({{{"parts", json::array({{{"text", prompt}}})}}});
-            std::string modelUsed, err;
-            if (SaleApp::AI::geminiGenerateContentText(apiKey, contents, false, answer, modelUsed, err) && !answer.empty()) {
-                engine = "gemini_copilot";
+            std::string apiKey = resolveGeminiApiKey(db, "");
+            if (!apiKey.empty()) {
+                json contents = json::array({{{"parts", json::array({{{"text", prompt}}})}}});
+                std::string modelUsed, err;
+                if (SaleApp::AI::geminiGenerateContentText(apiKey, contents, false, answer, modelUsed, err) && !answer.empty()) {
+                    engine = "local_gemini (" + modelUsed + ")";
+                }
+            } else {
+                json proxyResp;
+                std::string pErr;
+                if (callMasterAiProxy({{"action", "copilot_chat"}, {"prompt", prompt}}, proxyResp, pErr) && proxyResp.value("success", false)) {
+                    answer = proxyResp.value("answer", "");
+                    engine = "master_ai_proxy (" + proxyResp.value("ai_engine", "gemini") + ")";
+                    creditsCharged = proxyResp.value("credits_charged", int64_t(1));
+                    if (proxyResp.contains("ai_quota")) aiQuota = proxyResp["ai_quota"];
+                }
             }
         }
+
         if (answer.empty()) {
             std::ostringstream off;
             off << "📊 Báo cáo nhanh hôm nay (" << today << "):\n"
                 << "• Doanh thu: " << static_cast<int64_t>(rev) << " đ (" << ordCnt << " đơn hoàn tất)\n"
-                << "• Đơn hủy: " << voidCnt << " đơn\n";
+                << "• Đơn hủy: " << voidCnt << " | Lượt hối Bếp: " << rushCnt << "\n";
             if (!topDishes.empty()) {
                 off << "• Món bán chạy: " << topDishes[0].value("product_name", "") << " (" << topDishes[0].value("qty", 0) << ")\n";
             }
             if (!lowMats.empty()) {
-                off << "⚠️ Nguyên liệu sắp hết: " << lowMats.size() << " mặt hàng cần nhập thêm.";
+                off << "⚠️ Nguyên liệu sắp hết (" << lowMats.size() << "): ";
+                for (size_t i = 0; i < lowMats.size(); ++i) {
+                    if (i > 0) off << ", ";
+                    off << lowMats[i].value("name", "") << " (" << lowMats[i].value("stock_qty", 0.0) << " " << lowMats[i].value("unit", "") << ")";
+                }
             } else {
                 off << "✅ Tồn kho nguyên liệu đang ổn định.";
             }
             answer = off.str();
         }
-        sendJson(res, {{"success", true}, {"engine", engine}, {"answer", answer}, {"snapshot", {{"revenue", rev}, {"orders", ordCnt}, {"voids", voidCnt}}}});
+        return {
+            {"success", true},
+            {"engine", engine},
+            {"credits_charged", creditsCharged},
+            {"ai_quota", aiQuota},
+            {"answer", answer},
+            {"snapshot", {{"revenue", rev}, {"orders", ordCnt}, {"voids", voidCnt}, {"rushes", rushCnt}}}
+        };
+    };
+
+    svr.Post("/api/ai/copilot", [buildCopilotSummary](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được sử dụng AI Copilot!", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string question = getString(body, "question", "Tóm tắt tình hình kinh doanh hôm nay");
+        bool useAi = body.value("use_ai", true);
+        sendJson(res, buildCopilotSummary(db, question, useAi));
     });
 
-    // AI Smart Ambient & Jukebox Lyric Moderation
+    // Telegram Bot Test & Webhook (Cảnh báo & Hỏi đáp nhanh cho Chủ quán)
+    auto sendTelegramText = [](const std::string& botToken, const std::string& chatId, const std::string& text, std::string& errOut) -> bool {
+        if (botToken.empty() || chatId.empty()) { errOut = "Thiếu Telegram Bot Token hoặc Chat ID"; return false; }
+        std::string url = "https://api.telegram.org/bot" + botToken + "/sendMessage";
+        json payload = {{"chat_id", chatId}, {"text", text}};
+        int st = 0;
+        std::string rawResp;
+        return SaleApp::AI::winHttpUrlPostJson(url, payload.dump(), st, rawResp, errOut) && st >= 200 && st < 300;
+    };
+
+    svr.Post("/api/telegram/test", [sendTelegramText, buildCopilotSummary](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được cấu hình Telegram Bot!", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string token = getString(body, "telegram_bot_token");
+        std::string chatId = getString(body, "telegram_chat_id");
+        if (!token.empty()) {
+            db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('telegram_bot_token', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v", {{":v", token}});
+        } else {
+            auto r = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'telegram_bot_token'");
+            if (!r.is_null()) token = r.value("setting_value", "");
+        }
+        if (!chatId.empty()) {
+            db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('telegram_chat_id', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v", {{":v", chatId}});
+        } else {
+            auto r = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'telegram_chat_id'");
+            if (!r.is_null()) chatId = r.value("setting_value", "");
+        }
+        json snap = buildCopilotSummary(db, "Tóm tắt hôm nay", false);
+        std::string err;
+        if (!sendTelegramText(token, chatId, "🤖 [CyberNexus AI Copilot]\nKết nối Telegram thành công!\n\n" + snap.value("answer", ""), err)) {
+            sendError(res, "Không gửi được tin nhắn Telegram: " + err, 400);
+            return;
+        }
+        sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình và gửi báo cáo thử qua Telegram thành công!"}});
+    });
+
+    svr.Post("/api/telegram/webhook", [sendTelegramText, buildCopilotSummary](const httplib::Request& req, httplib::Response& res) {
+        try {
+            json body = parseBody(req);
+            if (!body.contains("message")) { sendJson(res, {{"ok", true}}); return; }
+            std::string text = body["message"].value("text", "");
+            int64_t chatIdNum = body["message"]["chat"].value("id", int64_t(0));
+            std::string chatId = std::to_string(chatIdNum);
+            auto& db = Database::instance();
+            auto tkRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'telegram_bot_token'");
+            std::string token = tkRow.is_null() ? "" : tkRow.value("setting_value", "");
+            if (token.empty() || text.empty()) { sendJson(res, {{"ok", true}}); return; }
+
+            bool usePaidAi = !(text == "/doanhthu" || text == "/tonkho" || text == "/audit" || text == "/kpi");
+            std::string q = (text == "/doanhthu") ? "Tóm tắt doanh thu hôm nay"
+                : ((text == "/tonkho") ? "Kiểm tra nguyên liệu sắp hết"
+                : ((text == "/audit" || text == "/kpi") ? "Tóm tắt đơn hủy và lượt hối bếp hôm nay" : text));
+            json ans = buildCopilotSummary(db, q, usePaidAi);
+            std::string err;
+            sendTelegramText(token, chatId, ans.value("answer", ""), err);
+            sendJson(res, {{"ok", true}});
+        } catch (...) {
+            sendJson(res, {{"ok", true}});
+        }
+    });
+
+    // AI Smart Ambient & Jukebox Lyric Moderation (Gộp chung gói mod_media_stream)
     svr.Post("/api/media/moderate_song", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
         json body = parseBody(req);
         std::string title = getString(body, "title", "");
         std::string artist = getString(body, "artist", "");

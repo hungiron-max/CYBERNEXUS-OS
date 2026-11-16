@@ -18,6 +18,7 @@ namespace fs = std::filesystem;
 
 static int64_t getAiActionCreditCost(const std::string& aiAction) {
     if (aiAction == "parse_invoice") return 1;
+    if (aiAction == "copilot_chat") return 1;
     if (aiAction == "generate_dish_image") return 2;
     if (aiAction == "generate_slide") return 3;
     return 1;
@@ -2658,6 +2659,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             if (aiAction == "parse_invoice") reqModule = "ai_invoice_ocr";
             else if (aiAction == "generate_dish_image") reqModule = "ai_dish_studio";
             else if (aiAction == "generate_slide") reqModule = "advertising_promotions";
+            else if (aiAction == "copilot_chat") reqModule = "pos_core";
             else {
                 replyTunnelJson(res, {{"success", false}, {"message", "Action AI không hỗ trợ: " + aiAction}}, 400);
                 return;
@@ -2846,6 +2848,30 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                     {"image_base64", imgB64},
                     {"mime_type", mime},
                     {"ai_engine", textModel + " + " + imgModel},
+                    {"credits_charged", actionCost},
+                    {"ai_quota", updatedQuota}
+                });
+                return;
+            }
+
+            if (aiAction == "copilot_chat") {
+                std::string prompt = getString(body, "prompt");
+                if (prompt.empty()) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Thiếu nội dung câu hỏi!"}}, 400);
+                    return;
+                }
+                json contents = json::array({{{"parts", json::array({{{"text", prompt}}})}}});
+                std::string textOut, modelUsed, err;
+                if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, false, textOut, modelUsed, err)) {
+                    logUsage(modelUsed, "error");
+                    replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI Copilot: " + err}}, 502);
+                    return;
+                }
+                json updatedQuota = logUsage(modelUsed, "ok");
+                replyTunnelJson(res, {
+                    {"success", true},
+                    {"answer", textOut},
+                    {"ai_engine", modelUsed},
                     {"credits_charged", actionCost},
                     {"ai_quota", updatedQuota}
                 });

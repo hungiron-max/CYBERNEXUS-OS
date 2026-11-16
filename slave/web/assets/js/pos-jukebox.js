@@ -612,6 +612,10 @@
                     if (badge) badge.textContent = this.catalog.length;
                     this.renderGenrePills();
                     this.filterCatalog();
+                    if (!this._scheduleAppliedOnce) {
+                        this._scheduleAppliedOnce = true;
+                        this.applyScheduleGenre(true);
+                    }
                 }
             } catch (err) {
                 console.error('[POSJukebox] Lỗi tải kho bài hát:', err);
@@ -634,14 +638,16 @@
             `).join('');
         },
 
-        async applyScheduleGenre() {
+        async applyScheduleGenre(silent = false) {
             try {
                 const res = await fetch('/api/media/schedules');
                 const data = await res.json();
                 if (data.success && data.active_genre) {
                     const hasGenre = this.catalog.some(t => (t.genre || '') === data.active_genre);
                     this.onSelectGenre(hasGenre ? data.active_genre : 'ALL');
-                    this.showToast(`🕒 Khung giờ hiện tại: ${data.active_schedule?.name || ''} → ${data.active_genre}`);
+                    if (!silent) {
+                        this.showToast(`🕒 Khung giờ hiện tại: ${data.active_schedule?.name || ''} → ${data.active_genre}`);
+                    }
                 }
             } catch (e) {}
         },
