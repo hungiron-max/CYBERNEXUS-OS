@@ -640,6 +640,33 @@
                     </div>
                 </div>
 
+                <div class="liquid-glass rounded-2xl border border-amber-400/25 overflow-hidden shadow-xl">
+                    <div class="px-4 py-3 bg-slate-900/70 border-b border-white/10 flex items-center justify-between">
+                        <div class="text-xs font-black text-amber-300 uppercase flex items-center gap-2">
+                            <i class="fas fa-qrcode"></i> Đơn Tự Gia Hạn Gói &amp; Nạp AI Credit Từ Quán (VietQR)
+                        </div>
+                        <button type="button" onclick="SuperAdmin.loadBilling()" class="btn-glass text-[11px] py-1 px-2.5 text-slate-300 hover:text-white"><i class="fas fa-sync-alt mr-1"></i> Làm mới</button>
+                    </div>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-slate-900/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/10">
+                                <tr>
+                                    <th class="py-2.5 px-4">Mã Đơn</th>
+                                    <th class="py-2.5 px-4">Quán</th>
+                                    <th class="py-2.5 px-4">Dịch Vụ</th>
+                                    <th class="py-2.5 px-4">Số Tiền</th>
+                                    <th class="py-2.5 px-4">Ngày Tạo</th>
+                                    <th class="py-2.5 px-4 text-center">Trạng Thái</th>
+                                    <th class="py-2.5 px-4 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="self-billing-orders-tbody" class="divide-y divide-white/5">
+                                <tr><td colspan="7" class="text-center py-5 text-slate-400">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="liquid-glass rounded-2xl border border-white/10 overflow-hidden shadow-xl">
                     <div class="overflow-x-auto custom-scrollbar">
                         <table class="w-full text-left text-xs whitespace-nowrap">

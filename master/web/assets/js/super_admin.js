@@ -1232,6 +1232,42 @@ const SuperAdmin = {
 
     // --- 7. BILLING & INVOICES ---
     async loadBilling() {
+        const selfTbody = document.getElementById('self-billing-orders-tbody');
+        if (selfTbody) {
+            try {
+                const bRes = await fetch('/api/billing/orders');
+                const bData = await bRes.json();
+                if (bData.success) {
+                    const rows = bData.data || [];
+                    selfTbody.innerHTML = rows.length === 0
+                        ? `<tr><td colspan="7" class="text-center py-5 text-slate-500">Chưa có đơn tự gia hạn / mua AI Credit nào.</td></tr>`
+                        : rows.map(r => {
+                            const isPaid = r.status === 'paid';
+                            const svc = r.billing_type === 'buy_ai_credits' ? `+${r.quantity} AI Credits` : `Gia hạn ${r.quantity} tháng`;
+                            return `
+                                <tr class="hover:bg-white/5">
+                                    <td class="py-2.5 px-4 font-mono font-bold text-amber-300">${r.order_code}</td>
+                                    <td class="py-2.5 px-4 font-bold text-white">${r.store_name || r.tenant_code} <span class="text-[10px] font-mono text-slate-400">(${r.tenant_code})</span></td>
+                                    <td class="py-2.5 px-4 text-sky-300 font-semibold">${svc}</td>
+                                    <td class="py-2.5 px-4 font-mono font-bold text-emerald-400">${(Number(r.amount_vnd) || 0).toLocaleString('vi-VN')} đ</td>
+                                    <td class="py-2.5 px-4 font-mono text-[11px] text-slate-400">${r.created_at || ''}</td>
+                                    <td class="py-2.5 px-4 text-center">
+                                        ${isPaid
+                                            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Đã Duyệt</span>`
+                                            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">Chờ CK</span>`}
+                                    </td>
+                                    <td class="py-2.5 px-4 text-right">
+                                        ${isPaid
+                                            ? `<span class="text-[11px] text-slate-500 font-mono">${r.paid_at || ''}</span>`
+                                            : `<button type="button" onclick="SuperAdmin.confirmSelfBillingOrder('${r.order_code}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">Duyệt Đã Nhận Tiền</button>`}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+                }
+            } catch (e) {}
+        }
+
         const tbody = document.getElementById('invoices-table-body');
         if (!tbody) return;
 
@@ -1274,6 +1310,24 @@ const SuperAdmin = {
             }
         } catch (err) {
             console.error('loadBilling error:', err);
+        }
+    },
+
+    async confirmSelfBillingOrder(orderCode) {
+        if (!confirm(`Xác nhận đã nhận tiền đơn ${orderCode} và tự động gia hạn / cộng AI Credit cho quán?`)) return;
+        try {
+            const res = await fetch('/api/billing/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_code: orderCode })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi duyệt đơn');
+            this.showToast(data.message || 'Đã duyệt thành công!', 'success');
+            this.loadBilling();
+            if (typeof this.loadDashboard === 'function') this.loadDashboard();
+        } catch (e) {
+            alert(e.message || 'Lỗi duyệt đơn');
         }
     },
 
