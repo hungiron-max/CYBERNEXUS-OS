@@ -29,8 +29,15 @@ def check_module_sigs():
 def check_js_syntax():
     js_files = [
         "slave/web/assets/js/admin.js",
+        "slave/web/assets/js/admin_inline_ext.js",
         "slave/web/assets/js/pos.js",
+        "slave/web/assets/js/pos-jukebox.js",
         "slave/web/assets/js/online_orders.js",
+        "slave/web/assets/js/online_orders_page.js",
+        "slave/web/assets/js/customer_app.js",
+        "slave/web/assets/js/order_waiter.js",
+        "slave/web/assets/js/kitchen_kds.js",
+        "slave/web/assets/js/wifi_portal.js",
         "master/web/assets/js/super_admin.js",
     ]
     for rel in js_files:

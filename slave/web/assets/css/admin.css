@@ -1,0 +1,431 @@
+/* Slide & Carousel Styling - Cinematic Liquid Glass */
+.customer-ad-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .7s cubic-bezier(0.4, 0, 0.2, 1), transform .7s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: scale(1.02);
+}
+.customer-ad-slide.is-active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+.customer-store-backdrop {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(4, 7, 20, 0.94) 0%, rgba(4, 7, 20, 0.72) 40%, rgba(4, 7, 20, 0.15) 75%, transparent 100%),
+                linear-gradient(0deg, rgba(4, 7, 20, 0.7) 0%, transparent 45%);
+    pointer-events: none;
+}
+.customer-store-glow {
+    position: absolute;
+    width: 16rem;
+    height: 16rem;
+    border-radius: 9999px;
+    filter: blur(55px);
+    opacity: .35;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: screen;
+}
+.customer-store-glow-gold {
+    left: -2rem;
+    top: -2rem;
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.45) 0%, rgba(244, 63, 94, 0.2) 60%, transparent 80%);
+}
+.customer-store-glow-accent {
+    right: 20%;
+    bottom: -3rem;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.35) 0%, rgba(139, 92, 246, 0.15) 60%, transparent 80%);
+}
+/* Hiệu ứng cầu vồng rực rỡ & chữ sắc nét cho Slide Quảng Cáo (Khớp 100% trang Khách) */
+.slide-title-rainbow {
+    background-image: linear-gradient(135deg, #fef08a 0%, #fb923c 22%, #f43f5e 45%, #ec4899 65%, #a855f7 82%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 4px 12px rgba(0,0,0,0.85));
+    font-weight: 900;
+    letter-spacing: -0.02em;
+}
+.slide-desc-crisp {
+    color: #f8fafc;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+.preview-slide-fade {
+    animation: previewSlideIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes previewSlideIn {
+    0% { opacity: 0; transform: scale(1.03); }
+    100% { opacity: 1; transform: scale(1); }
+}
+/* ============================================================ */
+/* AUTO SCROLL (>10 ROWS) & STICKY HEADER FOR ALL DATA TABLES   */
+/* ============================================================ */
+.overflow-x-auto:has(> table) {
+    max-height: 460px;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(56, 189, 248, 0.35) rgba(15, 23, 42, 0.35);
+}
+.overflow-x-auto:has(> table)::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.overflow-x-auto:has(> table)::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.35);
+    border-radius: 9999px;
+}
+.overflow-x-auto:has(> table)::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.35);
+    border-radius: 9999px;
+}
+.overflow-x-auto:has(> table)::-webkit-scrollbar-thumb:hover {
+    background: rgba(56, 189, 248, 0.6);
+}
+.overflow-x-auto:has(> table) > table > thead th {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+html[data-theme="light"] .overflow-x-auto:has(> table) > table > thead th {
+    background: rgba(248, 250, 252, 0.97);
+    box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.1);
+}
+/* ============================================================ */
+/* PRO AUDIO 10-BAND DSP EQUALIZER & STUDIO MIXER STYLES        */
+/* ============================================================ */
+.eq-studio-rack {
+    background: radial-gradient(circle at 50% 0%, #0c1527 0%, #030712 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.2) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+/* Giữ nguyên diện mạo Studio Rack tối chuyên nghiệp kể cả khi toàn trang chuyển Light Mode */
+html[data-theme="light"] .eq-studio-rack {
+    background: radial-gradient(circle at 50% 0%, #0c1527 0%, #030712 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.28) !important;
+    box-shadow: 0 12px 32px -6px rgba(15, 23, 42, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+html[data-theme="light"] .eq-studio-rack .text-white { color: #ffffff !important; }
+html[data-theme="light"] .eq-studio-rack .text-slate-300 { color: #cbd5e1 !important; }
+html[data-theme="light"] .eq-studio-rack .text-slate-400 { color: #94a3b8 !important; }
+html[data-theme="light"] .eq-studio-rack .text-sky-300 { color: #7dd3fc !important; }
+html[data-theme="light"] .eq-studio-rack .text-sky-400 { color: #38bdf8 !important; }
+html[data-theme="light"] .eq-studio-rack .text-emerald-400 { color: #34d399 !important; }
+html[data-theme="light"] .eq-studio-rack .text-amber-300 { color: #fcd34d !important; }
+html[data-theme="light"] .eq-studio-rack .text-amber-400 { color: #fbbf24 !important; }
+html[data-theme="light"] .eq-studio-rack .border-white\/10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+html[data-theme="light"] .eq-studio-rack #eq-preset-select {
+    background: #0f172a !important;
+    color: #7dd3fc !important;
+    border-color: rgba(14, 165, 233, 0.35) !important;
+}
+html[data-theme="light"] .eq-studio-rack button.bg-slate-800\/90 {
+    background-color: rgba(30, 41, 59, 0.9) !important;
+    color: #cbd5e1 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+html[data-theme="light"] .eq-studio-rack :is(.bg-slate-900, .bg-slate-900\/80, .bg-slate-950\/60) {
+    background-color: rgba(15, 23, 42, 0.9) !important;
+}
+.eq-faders-grid {
+    display: grid !important;
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    align-items: stretch !important;
+}
+@media (max-width: 768px) {
+    .eq-faders-grid {
+        gap: 4px !important;
+    }
+}
+@media (min-width: 1024px) {
+    .media-right-col {
+        height: 0;
+        min-height: 100%;
+    }
+    .media-catalog-card {
+        flex: 1 1 0%;
+        min-height: 0;
+    }
+}
+@media (max-width: 1023px) {
+    .media-catalog-card {
+        height: 320px;
+    }
+}
+.eq-channel-strip {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: 248px !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(2, 6, 23, 0.9) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 10px 2px !important;
+    position: relative !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.eq-channel-strip:hover {
+    border-color: rgba(56, 189, 248, 0.45) !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 1) 100%) !important;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.2) !important;
+    transform: translateY(-2px) !important;
+}
+.eq-val-badge {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    padding: 3px 4px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    min-width: 32px !important;
+    text-align: center !important;
+    transition: all 0.2s ease !important;
+}
+.eq-val-boost {
+    color: #34d399 !important;
+    background: rgba(16, 185, 129, 0.15) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.3) !important;
+}
+.eq-val-flat {
+    color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.12) !important;
+    border-color: rgba(56, 189, 248, 0.25) !important;
+}
+.eq-val-cut {
+    color: #fb7185 !important;
+    background: rgba(244, 63, 94, 0.15) !important;
+    border-color: rgba(244, 63, 94, 0.35) !important;
+    box-shadow: 0 0 8px rgba(244, 63, 94, 0.3) !important;
+}
+.eq-fader-slot {
+    position: relative !important;
+    width: 28px !important;
+    height: 148px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.eq-slot-groove {
+    position: absolute !important;
+    width: 5px !important;
+    height: 134px !important;
+    background: #050811 !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9) !important;
+}
+.eq-zero-line {
+    position: absolute !important;
+    width: 16px !important;
+    height: 2px !important;
+    background: #38bdf8 !important;
+    box-shadow: 0 0 6px #38bdf8 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+}
+.eq-slider-input {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    position: absolute !important;
+    width: 134px !important;
+    height: 28px !important;
+    background: transparent !important;
+    transform: rotate(-90deg) !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    outline: none !important;
+    z-index: 5 !important;
+}
+.eq-slider-input::-webkit-slider-runnable-track {
+    width: 100% !important;
+    height: 4px !important;
+    background: transparent !important;
+}
+.eq-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 26px !important;
+    height: 14px !important;
+    border-radius: 3px !important;
+    background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 45%, #475569 50%, #1e293b 100%) !important;
+    border: 1px solid #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 10px rgba(56, 189, 248, 0.7) !important;
+    cursor: grab !important;
+    position: relative !important;
+    transition: all 0.15s ease !important;
+}
+.eq-slider-input::-webkit-slider-thumb:hover {
+    transform: scale(1.12) !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,1), 0 0 14px #38bdf8 !important;
+    background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 45%, #0284c7 50%, #0369a1 100%) !important;
+}
+.eq-freq-badge {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #e2e8f0 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1 !important;
+}
+.eq-band-role {
+    font-size: 8px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-top: 3px !important;
+}
+.vinyl-record {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #0f172a 22%, #020617 23%, #1e293b 25%, #020617 38%, #1e293b 40%, #020617 54%, #1e293b 56%, #020617 70%, #1e293b 72%, #020617 100%);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255,255,255,0.15);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: spin 6s linear infinite;
+}
+.vinyl-center {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0284c7, #a855f7);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);
+}
+@keyframes soundBars {
+    0%, 100% { height: 4px; }
+    50% { height: 18px; }
+}
+.sound-bar-1 { animation: soundBars 0.7s ease-in-out infinite; }
+.sound-bar-2 { animation: soundBars 0.5s ease-in-out infinite 0.15s; }
+.sound-bar-3 { animation: soundBars 0.8s ease-in-out infinite 0.3s; }
+.sound-bar-4 { animation: soundBars 0.6s ease-in-out infinite 0.1s; }
+.sound-bar-5 { animation: soundBars 0.9s ease-in-out infinite 0.25s; }
+/* Legacy vertical slider fallback */
+.eq-vertical-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 96px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    outline: none;
+    transform: rotate(-90deg);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+.eq-vertical-slider:hover {
+    background: rgba(56, 189, 248, 0.25);
+}
+.eq-vertical-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    transition: transform 0.1s, box-shadow 0.2s;
+}
+.eq-vertical-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.18);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 1);
+}
+.eq-vertical-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    cursor: pointer;
+    border: 2px solid #ffffff;
+}
+/* Custom Smooth Scrollbar */
+.media-custom-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.media-custom-scroll::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 8px;
+}
+.media-custom-scroll::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.45);
+    border-radius: 8px;
+}
+.media-custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(56, 189, 248, 0.85);
+}
+/* Standee Print Stylesheet */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    #print-container-zone, #print-container-zone * {
+        visibility: visible !important;
+    }
+    #print-container-zone {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 10mm !important;
+        margin: 0 !important;
+        display: block !important;
+        z-index: 99999 !important;
+    }
+    .print-table-card {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        border: 2px dashed #0284c7 !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        border-radius: 12px !important;
+        margin-bottom: 8mm !important;
+        padding: 6mm !important;
+    }
+}
+/* Strict Square QR Code Dimensions - Exact 1:1 Aspect Ratio Matching Cashier POS */
+#admin-table-qr-code,
+[id^="table-qr-"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+/* KHÔNG ép display: qrcode.js tự ẩn canvas hoặc img */
+#admin-table-qr-code canvas,
+#admin-table-qr-code img {
+    width: 190px !important;
+    height: 190px !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+}
+[id^="table-qr-"] canvas,
+[id^="table-qr-"] img {
+    width: 96px !important;
+    height: 96px !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+}

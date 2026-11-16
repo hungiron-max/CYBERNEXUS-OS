@@ -94,126 +94,7 @@
             });
         }
     </script>
-    <style>
-        .online-payment-modal {
-            position: fixed;
-            inset: 0;
-            z-index: 50;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-            background: rgba(2, 6, 23, .82);
-            backdrop-filter: blur(10px);
-        }
-        .online-payment-modal.is-open { display: flex; }
-        .online-payment-dialog {
-            width: min(100%, 460px);
-            max-height: min(90vh, 760px);
-            overflow-y: auto;
-            padding: 20px;
-            border: 1px solid rgba(56, 189, 248, .3);
-            border-radius: 22px;
-            background: linear-gradient(145deg, rgba(15, 23, 42, .99), rgba(8, 15, 34, .99));
-            box-shadow: 0 24px 70px rgba(2, 6, 23, .72), 0 0 30px rgba(34, 211, 238, .1);
-        }
-        .online-payment-method {
-            display: flex;
-            min-height: 64px;
-            width: 100%;
-            align-items: center;
-            gap: 12px;
-            padding: 11px 13px;
-            border: 1px solid rgba(148, 163, 184, .17);
-            border-radius: 13px;
-            background: rgba(15, 23, 42, .7);
-            color: #cbd5e1;
-            text-align: left;
-            transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
-        }
-        .online-payment-method:hover { border-color: rgba(56, 189, 248, .42); }
-        .online-payment-method.is-selected {
-            border-color: rgba(34, 211, 238, .72);
-            background: linear-gradient(105deg, rgba(8, 145, 178, .2), rgba(37, 99, 235, .16));
-            box-shadow: 0 0 0 2px rgba(34, 211, 238, .08);
-            color: #f8fafc;
-        }
-        .online-payment-confirm:disabled {
-            cursor: not-allowed;
-            opacity: .42;
-            filter: grayscale(.3);
-        }
-        .online-order-action {
-            position: relative;
-            overflow: hidden;
-            padding: 9px 10px;
-            border: 1px solid transparent;
-            border-radius: 13px;
-            background:
-                linear-gradient(145deg, rgba(15, 23, 42, .97), rgba(8, 15, 34, .94)) padding-box,
-                linear-gradient(120deg, var(--action-color), rgba(99, 102, 241, .24)) border-box;
-            box-shadow: 0 0 15px var(--action-glow), inset 0 0 12px rgba(255, 255, 255, .015);
-        }
-        .online-order-action-payment {
-            --action-color: rgba(52, 211, 153, .58);
-            --action-glow: rgba(16, 185, 129, .08);
-        }
-        .online-order-action-delivery {
-            --action-color: rgba(56, 189, 248, .58);
-            --action-glow: rgba(56, 189, 248, .09);
-        }
-        .online-order-action-main {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .online-order-action-button {
-            display: inline-flex;
-            min-height: 32px;
-            flex: 0 0 auto;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 0 10px;
-            border: 1px solid var(--action-color);
-            border-radius: 9px;
-            background: linear-gradient(110deg, rgba(15, 23, 42, .72), rgba(15, 23, 42, .94));
-            box-shadow: 0 0 11px var(--action-glow), inset 0 0 8px rgba(255, 255, 255, .025);
-            color: #ecfeff;
-            font-size: 10px;
-            font-weight: 850;
-            transition: box-shadow .16s ease, transform .16s ease, filter .16s ease;
-        }
-        .online-order-action-button:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.12);
-            box-shadow: 0 0 16px var(--action-glow);
-        }
-        .online-order-action-hint {
-            margin-top: 5px;
-            color: #94a3b8;
-            font-size: 9px;
-            line-height: 1.35;
-        }
-        .online-order-state {
-            display: flex;
-            min-height: 30px;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding: 5px 9px;
-            border: 1px solid rgba(148, 163, 184, .12);
-            border-radius: 9px;
-            background: rgba(2, 6, 23, .42);
-        }
-        .online-order-state-paid { border-color: rgba(52, 211, 153, .22); box-shadow: 0 0 10px rgba(16, 185, 129, .06); }
-        .online-order-state-unpaid { border-color: rgba(251, 191, 36, .2); box-shadow: 0 0 10px rgba(245, 158, 11, .05); }
-        @media (max-width: 420px) {
-            .online-order-action { padding: 8px; }
-            .online-order-action-button { padding: 0 8px; font-size: 9px; }
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/online_orders.css?v=20261116">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
 </head>
@@ -333,30 +214,7 @@
             </div>
         </section>
     </div>
-    <script>
-        window.onlineOrderPermissions = { payment: true, delivery: true };
-        async function handleOnlineLogout() {
-            if (!confirm('Bạn có chắc muốn đăng xuất khỏi hệ thống?')) return;
-            try { await fetch('api/auth.php?action=logout'); } catch (e) {}
-            localStorage.removeItem('pos_user');
-            localStorage.removeItem('pos_token');
-            sessionStorage.clear();
-            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-            window.location.replace('login.html?logout=1');
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-            var zone = document.getElementById('online-admin-badge-zone');
-            var u = window.currentUser;
-            if (zone && u && (u.role === 'admin' || u.is_super_admin === true)) {
-                zone.innerHTML = '<a href="admin.html" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">'
-                    + '<i class="fas fa-crown text-amber-400 text-xs"></i>'
-                    + '<span class="hidden sm:inline font-bold text-amber-200">' + (u.fullname || u.username) + '</span>'
-                    + '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">ADMIN</span>'
-                    + '</a>';
-            }
-        });
-    </script>
+    <script src="assets/js/online_orders_page.js?v=20261116"></script>
     <script src="assets/js/online_orders.js?v=4"></script>
 </body>
 </html>
