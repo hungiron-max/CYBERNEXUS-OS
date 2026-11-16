@@ -3334,6 +3334,52 @@
                 </div>
 
             </div>
+
+            <!-- Lịch Phát Nhạc Thông Minh Theo Khung Giờ & Thể Loại -->
+            <div class="liquid-glass p-4 rounded-2xl border border-fuchsia-500/30 space-y-3 shrink-0">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 flex items-center justify-center"><i class="fas fa-calendar-clock"></i></span>
+                        <div>
+                            <h4 class="text-xs font-black uppercase text-fuchsia-300">Phân Loại Thể Loại &amp; Lịch Phát Nhạc Theo Khung Giờ</h4>
+                            <p class="text-[11px] text-slate-400">Tự động phân loại nhạc (Êm dịu / Acoustic, Ballad, Pop, Sôi động / EDM) và chọn thể loại phù hợp từng khung giờ</p>
+                        </div>
+                        <span id="media-active-schedule-badge" class="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[11px] font-bold">Đang tải...</span>
+                    </div>
+                    <button type="button" onclick="Admin.autoClassifyMediaTracks()" class="btn-glass text-xs py-1.5 px-3 bg-fuchsia-500/20 hover:bg-fuchsia-500/35 text-fuchsia-200 border-fuchsia-500/40 font-bold flex items-center gap-1.5">
+                        <i class="fas fa-wand-magic-sparkles"></i> Tự Phân Loại Kho Nhạc
+                    </button>
+                </div>
+
+                <div id="media-schedules-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-2 border-t border-white/10 items-end text-xs">
+                    <div class="sm:col-span-2">
+                        <label class="block text-[10px] text-slate-400 mb-1">Tên khung giờ</label>
+                        <input type="text" id="ms-name" placeholder="VD: Chiều Trà Chiều" class="liquid-input w-full py-1.5 px-2.5 text-xs" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Từ giờ</label>
+                        <input type="time" id="ms-start" value="14:00" class="liquid-input w-full py-1.5 px-2 text-xs font-mono" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Đến giờ</label>
+                        <input type="time" id="ms-end" value="17:30" class="liquid-input w-full py-1.5 px-2 text-xs font-mono" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Thể loại nhạc</label>
+                        <select id="ms-genre" class="liquid-input w-full py-1.5 px-2 text-xs bg-slate-900">
+                            <option value="Êm dịu / Acoustic">Êm dịu / Acoustic</option>
+                            <option value="Ballad">Ballad</option>
+                            <option value="Pop">Pop</option>
+                            <option value="Sôi động / EDM">Sôi động / EDM</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="button" onclick="Admin.addMediaSchedule()" class="btn-glass w-full text-xs py-1.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-500/30 font-bold"><i class="fas fa-plus mr-1"></i> Thêm Khung Giờ</button>
+                    </div>
+                </div>
+            </div>
         </section>
     </main>
 

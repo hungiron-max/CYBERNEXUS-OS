@@ -6591,6 +6591,65 @@ void ApiHandlers::handlePromotions(const httplib::Request& req, httplib::Respons
 // ==========================================
 // MEDIA TRACKS & JUKEBOX LIBRARY HANDLER
 // ==========================================
+static std::string classifyMusicGenre(const std::string& title, const std::string& artist, const std::string& filePath) {
+    std::string combined = title + " " + artist + " " + filePath;
+    std::string lower = combined;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+    auto hasAny = [&](const std::vector<std::string>& kws) {
+        for (const auto& k : kws) {
+            if (lower.find(k) != std::string::npos) return true;
+        }
+        return false;
+    };
+
+    if (hasAny({"edm", "remix", "vinahouse", "club", "dance", "house", "bass", "dj", "party", "nonstop", "trap", "hiphop", "rap", "rock", "soi dong", "sôi động", "night"})) {
+        return "Sôi động / EDM";
+    }
+    if (hasAny({"lofi", "chill", "acoustic", "piano", "guitar", "jazz", "relax", "cafe", "morning", "instrumental", "ambient", "smooth", "em diu", "êm dịu", "nhe nhang", "nhẹ nhàng"})) {
+        return "Êm dịu / Acoustic";
+    }
+    if (hasAny({"ballad", "bolero", "tru tinh", "trữ tình", "slow", "buon", "buồn", "tinh", "tình", "mua", "mưa", "thuong", "thương", "nho", "nhớ", "trinh", "trịnh", "my tam", "mỹ tâm", "ha anh tuan", "hà anh tuấn"})) {
+        return "Ballad";
+    }
+    if (hasAny({"pop", "vpop", "kpop", "usuk", "hit", "top", "son tung", "sơn tùng", "mono", "erik", "amee", "hieuthuhai", "hoang thuy linh"})) {
+        return "Pop";
+    }
+    if (hasAny({"beat", "cover", "coffee", "tea"})) {
+        return "Êm dịu / Acoustic";
+    }
+    return "Pop";
+}
+
+static void ensureMediaScheduleSchema(Database& db) {
+    static bool schedMigrated = false;
+    if (schedMigrated) return;
+    schedMigrated = true;
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS media_time_schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            genre TEXT NOT NULL,
+            eq_preset_name TEXT DEFAULT '',
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    try {
+        auto cnt = db.queryScalar("SELECT COUNT(*) FROM media_time_schedules");
+        if (cnt.is_number() && cnt.get<int64_t>() == 0) {
+            db.execute("INSERT INTO media_time_schedules (name, start_time, end_time, genre, eq_preset_name, is_active) VALUES ('Sáng Thư Giãn', '06:00', '10:30', 'Êm dịu / Acoustic', 'Morning Acoustic', 1)");
+            db.execute("INSERT INTO media_time_schedules (name, start_time, end_time, genre, eq_preset_name, is_active) VALUES ('Trưa Cân Bằng', '10:31', '14:00', 'Pop', 'Lunch Lounge', 1)");
+            db.execute("INSERT INTO media_time_schedules (name, start_time, end_time, genre, eq_preset_name, is_active) VALUES ('Chiều Sâu Lắng', '14:01', '18:00', 'Ballad', 'Vocal Focus', 1)");
+            db.execute("INSERT INTO media_time_schedules (name, start_time, end_time, genre, eq_preset_name, is_active) VALUES ('Tối Sôi Động', '18:01', '22:00', 'Sôi động / EDM', 'Cyber Night Club', 1)");
+            db.execute("INSERT INTO media_time_schedules (name, start_time, end_time, genre, eq_preset_name, is_active) VALUES ('Đêm Muộn Êm Ái', '22:01', '05:59', 'Êm dịu / Acoustic', 'Morning Acoustic', 1)");
+        }
+    } catch (...) {}
+}
+
 void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Response& res) {
     try {
         if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
@@ -6771,10 +6830,11 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
                             std::string relPath = "assets/media/" + entry.path().filename().string();
                             auto existing = db.queryRow("SELECT id FROM media_tracks WHERE file_path = :fp LIMIT 1", {{":fp", relPath}});
                             if (existing.is_null()) {
+                                std::string autoGenre = classifyMusicGenre(stem, "", relPath);
                                 db.execute(R"(
                                     INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path, bitrate, is_active, created_at)
-                                    VALUES (:ti, 'CyberNexus Artist', 'Local Media Store', 'Lossless', 210, :fp, 320, 1, datetime('now'))
-                                )", {{":ti", stem}, {":fp", relPath}});
+                                    VALUES (:ti, 'CyberNexus Artist', 'Local Media Store', :ge, 210, :fp, 320, 1, datetime('now'))
+                                )", {{":ti", stem}, {":ge", autoGenre}, {":fp", relPath}});
                                 countAdded++;
                             }
                         }
@@ -6786,6 +6846,25 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
                 {"message", "Đã quét xong thư mục nhạc! Đã nạp thêm " + std::to_string(countAdded) + " bài hát."},
                 {"added_count", countAdded}
             });
+            return;
+        }
+
+        // 4.5. Auto-classify genres for all tracks
+        if (action == "auto_classify" || req.path == "/api/media/tracks/auto_classify") {
+            bool overwrite = (BodyParser::getParam(req, body, "overwrite", "1") != "0");
+            json allTracks = db.query("SELECT id, title, artist, file_path, genre FROM media_tracks");
+            int updated = 0;
+            for (const auto& t : allTracks) {
+                int64_t tid = t.value("id", int64_t(0));
+                std::string curG = t.value("genre", "");
+                if (!overwrite && !curG.empty() && curG != "Lossless" && curG != "Khác") continue;
+                std::string newG = classifyMusicGenre(t.value("title", ""), t.value("artist", ""), t.value("file_path", ""));
+                if (newG != curG) {
+                    db.execute("UPDATE media_tracks SET genre = :g WHERE id = :id", {{":g", newG}, {":id", tid}});
+                    updated++;
+                }
+            }
+            sendJson(res, {{"success", true}, {"updated_count", updated}, {"message", "Đã tự động phân loại " + std::to_string(updated) + " bài hát theo thể loại!"}});
             return;
         }
 
@@ -6827,6 +6906,90 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     svr.Post("/api/media/tracks/delete", handleMediaTracks);
     svr.Post("/api/media/tracks/rescan", handleMediaTracks);
     svr.Post("/api/media/tracks/upload", handleMediaTracks);
+    svr.Post("/api/media/tracks/auto_classify", handleMediaTracks);
+
+    // Media Time-Slot Schedules (Tự động chọn thể loại nhạc theo khung giờ)
+    svr.Get("/api/media/schedules", [](const httplib::Request&, httplib::Response& res) {
+        auto& db = Database::instance();
+        ensureMediaScheduleSchema(db);
+        json schedules = db.query("SELECT * FROM media_time_schedules ORDER BY start_time ASC, id ASC");
+        std::string nowTs = getCurrentTimestamp();
+        std::string hhmm = (nowTs.size() >= 16) ? nowTs.substr(11, 5) : "12:00";
+        json activeSlot = nullptr;
+        for (const auto& sl : schedules) {
+            if (sl.value("is_active", 1) != 1) continue;
+            std::string st = sl.value("start_time", "");
+            std::string en = sl.value("end_time", "");
+            if (st.size() == 5 && en.size() == 5) {
+                bool inRange = (st <= en) ? (hhmm >= st && hhmm <= en) : (hhmm >= st || hhmm <= en);
+                if (inRange) { activeSlot = sl; break; }
+            }
+        }
+        std::string activeGenre = (!activeSlot.is_null()) ? activeSlot.value("genre", "Pop") : "Pop";
+        sendJson(res, {
+            {"success", true},
+            {"current_time", hhmm},
+            {"active_genre", activeGenre},
+            {"active_schedule", activeSlot},
+            {"schedules", schedules}
+        });
+    });
+
+    svr.Post("/api/media/schedules/save", [](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được thiết lập khung giờ phát nhạc!", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureMediaScheduleSchema(db);
+        json body = parseBody(req);
+        int64_t sid = 0;
+        try { sid = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+        std::string name = BodyParser::getParam(req, body, "name", "");
+        std::string startTime = BodyParser::getParam(req, body, "start_time", "");
+        std::string endTime = BodyParser::getParam(req, body, "end_time", "");
+        std::string genre = BodyParser::getParam(req, body, "genre", "Pop");
+        std::string eqPreset = BodyParser::getParam(req, body, "eq_preset_name", "");
+        int isActive = 1;
+        try { isActive = std::stoi(BodyParser::getParam(req, body, "is_active", "1")) != 0 ? 1 : 0; } catch (...) {}
+
+        if (name.empty() || startTime.size() != 5 || endTime.size() != 5 || genre.empty()) {
+            sendError(res, "Vui lòng nhập đầy đủ Tên khung giờ, Giờ bắt đầu/kết thúc (HH:MM) và Thể loại nhạc!", 400);
+            return;
+        }
+        if (sid > 0) {
+            db.execute(
+                "UPDATE media_time_schedules SET name = :n, start_time = :s, end_time = :e, genre = :g, eq_preset_name = :eq, is_active = :act WHERE id = :id",
+                {{":n", name}, {":s", startTime}, {":e", endTime}, {":g", genre}, {":eq", eqPreset}, {":act", isActive}, {":id", sid}}
+            );
+        } else {
+            db.execute(
+                "INSERT INTO media_time_schedules (name, start_time, end_time, genre, eq_preset_name, is_active) VALUES (:n, :s, :e, :g, :eq, :act)",
+                {{":n", name}, {":s", startTime}, {":e", endTime}, {":g", genre}, {":eq", eqPreset}, {":act", isActive}}
+            );
+        }
+        sendJson(res, {{"success", true}, {"message", "Đã lưu khung giờ phát nhạc!"}});
+    });
+
+    svr.Post("/api/media/schedules/delete", [](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được xóa khung giờ phát nhạc!", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureMediaScheduleSchema(db);
+        json body = parseBody(req);
+        int64_t sid = 0;
+        try { sid = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+        if (sid <= 0) {
+            sendError(res, "Thiếu ID khung giờ!", 400);
+            return;
+        }
+        db.execute("DELETE FROM media_time_schedules WHERE id = :id", {{":id", sid}});
+        sendJson(res, {{"success", true}, {"message", "Đã xóa khung giờ phát nhạc!"}});
+    });
     // Auth
     svr.Get("/api/auth", handleAuth);
     svr.Post("/api/auth", handleAuth);

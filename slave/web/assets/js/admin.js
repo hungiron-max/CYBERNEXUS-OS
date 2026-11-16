@@ -5049,13 +5049,111 @@ const Admin = {
         await Promise.all([
             this.loadMediaEqPresets(),
             this.loadMediaJukeboxStatus(),
-            this.loadMediaTracksCatalog()
+            this.loadMediaTracksCatalog(),
+            this.loadMediaSchedules()
         ]);
 
         if (this.mediaPollingTimer) clearInterval(this.mediaPollingTimer);
         this.mediaPollingTimer = setInterval(() => {
             this.loadMediaJukeboxStatus();
         }, 8000);
+    },
+
+    async loadMediaSchedules() {
+        try {
+            const res = await fetch('/api/media/schedules');
+            const data = await res.json();
+            if (!data.success) return;
+            const badge = document.getElementById('media-active-schedule-badge');
+            if (badge) {
+                const act = data.active_schedule;
+                badge.innerHTML = act
+                    ? `<i class="fas fa-music mr-1"></i> Đang áp dụng: <b>${act.name}</b> (${act.start_time}-${act.end_time}) · <b>${act.genre}</b>`
+                    : `Mặc định: ${data.active_genre || 'Pop'}`;
+            }
+            const listEl = document.getElementById('media-schedules-list');
+            if (listEl) {
+                const slots = data.schedules || [];
+                listEl.innerHTML = slots.map(sl => `
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border ${sl.is_active ? 'border-fuchsia-500/30' : 'border-white/5 opacity-60'} flex items-center justify-between gap-2 text-xs">
+                        <div class="min-w-0">
+                            <div class="font-bold text-white truncate">${sl.name}</div>
+                            <div class="text-[11px] font-mono text-amber-300">${sl.start_time} - ${sl.end_time} · <span class="text-sky-300 font-sans font-semibold">${sl.genre}</span></div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onclick="Admin.toggleMediaSchedule(${sl.id}, '${sl.name.replace(/'/g, "\\'")}', '${sl.start_time}', '${sl.end_time}', '${sl.genre.replace(/'/g, "\\'")}', ${sl.is_active ? 0 : 1})" class="px-2 py-0.5 rounded text-[10px] font-bold ${sl.is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700 text-slate-400'}">${sl.is_active ? 'Bật' : 'Tắt'}</button>
+                            <button type="button" onclick="Admin.deleteMediaSchedule(${sl.id})" class="text-rose-400 hover:text-rose-300 px-1" title="Xóa"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {}
+    },
+
+    async autoClassifyMediaTracks() {
+        try {
+            const res = await fetch('/api/media/tracks/auto_classify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ overwrite: 1 })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi phân loại');
+            this.showToast(data.message || 'Đã phân loại kho nhạc!', 'success');
+            this.loadMediaTracksCatalog();
+        } catch (e) {
+            alert(e.message || 'Lỗi tự phân loại nhạc');
+        }
+    },
+
+    async addMediaSchedule() {
+        const name = (document.getElementById('ms-name')?.value || '').trim();
+        const start_time = document.getElementById('ms-start')?.value || '';
+        const end_time = document.getElementById('ms-end')?.value || '';
+        const genre = document.getElementById('ms-genre')?.value || 'Pop';
+        if (!name || !start_time || !end_time) {
+            alert('Vui lòng nhập Tên khung giờ và Giờ bắt đầu/kết thúc!');
+            return;
+        }
+        try {
+            const res = await fetch('/api/media/schedules/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, start_time, end_time, genre, is_active: 1 })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi lưu');
+            document.getElementById('ms-name').value = '';
+            this.showToast('Đã thêm khung giờ phát nhạc!', 'success');
+            this.loadMediaSchedules();
+        } catch (e) {
+            alert(e.message || 'Lỗi lưu khung giờ');
+        }
+    },
+
+    async toggleMediaSchedule(id, name, start_time, end_time, genre, is_active) {
+        try {
+            const res = await fetch('/api/media/schedules/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name, start_time, end_time, genre, is_active })
+            });
+            const data = await res.json();
+            if (data.success) this.loadMediaSchedules();
+        } catch (e) {}
+    },
+
+    async deleteMediaSchedule(id) {
+        if (!confirm('Xóa khung giờ phát nhạc này?')) return;
+        try {
+            const res = await fetch('/api/media/schedules/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+            if (data.success) this.loadMediaSchedules();
+        } catch (e) {}
     },
 
     async loadMediaEqPresets() {

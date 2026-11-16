@@ -623,11 +623,27 @@
             if (!bar) return;
             const genres = ['ALL', ...new Set(this.catalog.map(t => t.genre || 'Lossless'))];
 
-            bar.innerHTML = genres.map(g => `
+            bar.innerHTML = `
+                <button type="button" onclick="POSJukebox.applyScheduleGenre()" class="px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer bg-amber-500/20 text-amber-300 border border-amber-400/40 hover:bg-amber-500/35" title="Tự chọn thể loại nhạc theo khung giờ hiện tại">
+                    🕒 Theo Giờ
+                </button>
+            ` + genres.map(g => `
                 <button type="button" onclick="POSJukebox.onSelectGenre('${g}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer ${this.activeGenre === g ? 'bg-fuchsia-500 text-white shadow-sm' : 'bg-slate-900 text-slate-400 hover:text-white border border-white/5'}">
                     ${g === 'ALL' ? 'Tất cả' : g}
                 </button>
             `).join('');
+        },
+
+        async applyScheduleGenre() {
+            try {
+                const res = await fetch('/api/media/schedules');
+                const data = await res.json();
+                if (data.success && data.active_genre) {
+                    const hasGenre = this.catalog.some(t => (t.genre || '') === data.active_genre);
+                    this.onSelectGenre(hasGenre ? data.active_genre : 'ALL');
+                    this.showToast(`🕒 Khung giờ hiện tại: ${data.active_schedule?.name || ''} → ${data.active_genre}`);
+                }
+            } catch (e) {}
         },
 
         onSelectGenre(genre) {
