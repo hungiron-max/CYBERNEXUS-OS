@@ -16,6 +16,8 @@
 #include <ctime>
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
+#include <cmath>
 #ifdef _WIN32
 #include <iphlpapi.h>
 #include <winhttp.h>
