@@ -1,0 +1,220 @@
+/* CyberNexus OS — Luxury WiFi Marketing Portal Styles & Effects */
+
+:root {
+    --wifi-cyan: #38bdf8;
+    --wifi-emerald: #10b981;
+    --wifi-gold: #fbbf24;
+    --wifi-violet: #a855f7;
+}
+
+body {
+    min-height: 100dvh;
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Tránh iOS Safari tự zoom khi bấm vào ô nhập liệu trên di động */
+@media (max-width: 640px) {
+    .liquid-input {
+        font-size: 16px !important;
+        min-height: 46px;
+    }
+    .wifi-btn-shimmer {
+        min-height: 48px;
+    }
+}
+
+.wifi-bg-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: radial-gradient(circle at 15% 15%, #0f172a 0%, #020617 55%, #050816 100%);
+}
+
+.wifi-aurora {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(72px);
+    opacity: 0.42;
+    pointer-events: none;
+    animation: auroraDrift 14s ease-in-out infinite alternate;
+}
+
+.wifi-aurora-1 {
+    width: 340px;
+    height: 340px;
+    top: -90px;
+    left: -80px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.75), rgba(56, 189, 248, 0.1));
+}
+
+.wifi-aurora-2 {
+    width: 360px;
+    height: 360px;
+    bottom: -110px;
+    right: -90px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.65), rgba(168, 85, 247, 0.15));
+    animation-delay: -5s;
+}
+
+.wifi-aurora-3 {
+    width: 240px;
+    height: 240px;
+    top: 42%;
+    left: 55%;
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.25), rgba(139, 92, 246, 0.12));
+    animation-delay: -9s;
+}
+
+.wifi-grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
+}
+
+/* Floating Sparkles */
+.wifi-sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 9999px;
+    background: #e0f2fe;
+    box-shadow: 0 0 10px 2px rgba(56, 189, 248, 0.8);
+    animation: sparkleFloat 7s ease-in-out infinite;
+    opacity: 0;
+}
+
+/* Glass Card Upgrade */
+.wifi-card {
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.52));
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+        0 20px 50px -12px rgba(0, 0, 0, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.wifi-card-vip {
+    border-color: rgba(251, 191, 36, 0.4) !important;
+    box-shadow:
+        0 20px 50px -12px rgba(245, 158, 11, 0.22),
+        inset 0 1px 0 rgba(253, 230, 138, 0.2);
+}
+
+/* Radar Pulse Rings around WiFi Logo */
+.wifi-radar-wrap {
+    position: relative;
+}
+
+.wifi-radar-ring {
+    position: absolute;
+    inset: -4px;
+    border-radius: 1rem;
+    border: 1.5px solid rgba(56, 189, 248, 0.55);
+    animation: radarPulse 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+    pointer-events: none;
+}
+
+.wifi-radar-ring-2 {
+    animation-delay: 1.2s;
+}
+
+/* Shimmer Sweep CTA */
+.wifi-btn-shimmer {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.25s ease;
+}
+
+.wifi-btn-shimmer:active {
+    transform: scale(0.98);
+}
+
+.wifi-btn-shimmer::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 45%;
+    height: 200%;
+    background: linear-gradient(
+        115deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.38) 50%,
+        transparent 100%
+    );
+    transform: rotate(18deg);
+    animation: shimmerSweep 3.4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+/* Ken Burns Banner Zoom */
+.wifi-kenburns {
+    animation: kenBurns 12s ease-in-out infinite alternate;
+}
+
+/* Speedometer Gauge Needle */
+.wifi-gauge-needle {
+    transform-origin: 70px 72px;
+    transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wifi-gauge-arc {
+    transition: stroke-dashoffset 0.65s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.4s ease;
+}
+
+/* Confetti Burst */
+.wifi-confetti-piece {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    z-index: 60;
+    pointer-events: none;
+    animation: confettiFall 1.5s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+/* Rainbow Gradient Text */
+.wifi-title-glow {
+    background: linear-gradient(120deg, #f8fafc 0%, #7dd3fc 45%, #fde68a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+@keyframes auroraDrift {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(28px, -22px) scale(1.12); }
+}
+
+@keyframes sparkleFloat {
+    0%, 100% { transform: translateY(10px) scale(0.5); opacity: 0; }
+    35%, 65% { opacity: 0.9; transform: translateY(-18px) scale(1.1); }
+}
+
+@keyframes radarPulse {
+    0% { transform: scale(1); opacity: 0.75; }
+    100% { transform: scale(1.48); opacity: 0; }
+}
+
+@keyframes shimmerSweep {
+    0%, 55% { left: -60%; }
+    100% { left: 140%; }
+}
+
+@keyframes kenBurns {
+    0% { transform: scale(1) translate(0, 0); }
+    100% { transform: scale(1.08) translate(-1.5%, -1.5%); }
+}
+
+@keyframes confettiFall {
+    0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translate(var(--tx, 0px), var(--ty, 180px)) rotate(540deg) scale(0.3); opacity: 0; }
+}

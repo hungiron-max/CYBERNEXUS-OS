@@ -3,30 +3,113 @@ let _slideIdx = 0;
 
 function switchWifiTab(mode) {
     const isFree = mode === 'free';
-    document.getElementById('panel-wifi-free').classList.toggle('hidden', !isFree);
-    document.getElementById('panel-wifi-vip').classList.toggle('hidden', isFree);
-    document.getElementById('tab-wifi-free').className = isFree
-        ? 'py-2 rounded-lg bg-sky-500 text-white shadow'
-        : 'py-2 rounded-lg text-slate-400 hover:text-white';
-    document.getElementById('tab-wifi-vip').className = !isFree
-        ? 'py-2 rounded-lg bg-amber-500 text-slate-950 shadow font-black'
-        : 'py-2 rounded-lg text-slate-400 hover:text-white';
+    const panelFree = document.getElementById('panel-wifi-free');
+    const panelVip = document.getElementById('panel-wifi-vip');
+    const tabFree = document.getElementById('tab-wifi-free');
+    const tabVip = document.getElementById('tab-wifi-vip');
+    const portalCard = document.getElementById('wifi-portal-card');
+    const gaugeArc = document.getElementById('wifi-gauge-arc');
+    const gaugeNeedle = document.getElementById('wifi-gauge-needle');
+    const speedLabel = document.getElementById('wifi-speed-label');
+    const tierPill = document.getElementById('wifi-tier-pill');
+
+    if (panelFree) panelFree.classList.toggle('hidden', !isFree);
+    if (panelVip) panelVip.classList.toggle('hidden', isFree);
+
+    if (tabFree) {
+        tabFree.className = isFree
+            ? 'py-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 font-black shadow-lg shadow-sky-500/25 transition-all'
+            : 'py-3 rounded-xl text-slate-300 hover:text-white transition-all';
+    }
+    if (tabVip) {
+        tabVip.className = !isFree
+            ? 'py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black shadow-lg shadow-amber-500/25 transition-all'
+            : 'py-3 rounded-xl text-slate-300 hover:text-white transition-all';
+    }
+
+    if (portalCard) {
+        portalCard.classList.toggle('wifi-card-vip', !isFree);
+    }
+
+    if (gaugeArc && gaugeNeedle) {
+        if (isFree) {
+            gaugeArc.style.stroke = '#38bdf8';
+            gaugeArc.style.strokeDashoffset = '118';
+            gaugeNeedle.style.transform = 'rotate(-52deg)';
+        } else {
+            gaugeArc.style.stroke = '#fbbf24';
+            gaugeArc.style.strokeDashoffset = '12';
+            gaugeNeedle.style.transform = 'rotate(66deg)';
+        }
+    }
+
+    if (speedLabel) {
+        speedLabel.innerHTML = isFree
+            ? '5 Mbps <span class="text-[11px] font-semibold text-slate-400">• Tiêu chuẩn</span>'
+            : '<span class="text-amber-300">50 Mbps</span> <span class="text-[11px] font-semibold text-amber-200/80">• Siêu tốc VIP</span>';
+    }
+
+    if (tierPill) {
+        tierPill.className = isFree
+            ? 'px-2.5 py-1 rounded-xl text-[10px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/30'
+            : 'px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/40';
+        tierPill.textContent = isFree ? 'FREE' : 'VIP';
+    }
+}
+
+function renderSlideDots(activeIdx) {
+    const dotsEl = document.getElementById('wifi-ad-dots');
+    if (!dotsEl || _slides.length <= 1) {
+        if (dotsEl) dotsEl.innerHTML = '';
+        return;
+    }
+    dotsEl.innerHTML = _slides.map((_, idx) => {
+        const active = idx === activeIdx;
+        return `<span class="h-1.5 rounded-full transition-all duration-300 ${active ? 'w-4 bg-amber-300' : 'w-1.5 bg-white/35'}"></span>`;
+    }).join('');
 }
 
 function renderSlide() {
     if (!_slides.length) return;
-    const s = _slides[_slideIdx % _slides.length];
+    const currentIdx = _slideIdx % _slides.length;
+    const s = _slides[currentIdx];
     if (s.title) document.getElementById('wifi-ad-title').textContent = s.title;
     if (s.subtitle) document.getElementById('wifi-ad-sub').textContent = s.subtitle;
-    if (s.badge_text) document.getElementById('wifi-ad-badge').textContent = s.badge_text;
+    if (s.badge_text) {
+        const badgeEl = document.getElementById('wifi-ad-badge');
+        badgeEl.innerHTML = `<i class="fas fa-sparkles text-amber-300"></i> ${escapeHtml(s.badge_text)}`;
+    }
     const img = document.getElementById('wifi-ad-img');
+    const vec = document.getElementById('wifi-ad-vector');
     if (s.image_url) {
         img.src = s.image_url;
         img.classList.remove('hidden');
+        if (vec) vec.classList.add('opacity-20');
     } else {
         img.classList.add('hidden');
+        if (vec) vec.classList.remove('opacity-20');
     }
+    renderSlideDots(currentIdx);
     _slideIdx++;
+}
+
+function launchCelebrationConfetti() {
+    const colors = ['#38bdf8', '#34d399', '#fbbf24', '#f472b6', '#a78bfa'];
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.45;
+    for (let i = 0; i < 24; i++) {
+        const el = document.createElement('span');
+        el.className = 'wifi-confetti-piece';
+        const angle = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.4;
+        const dist = 70 + Math.random() * 120;
+        el.style.left = `${cx}px`;
+        el.style.top = `${cy}px`;
+        el.style.background = colors[i % colors.length];
+        el.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+        el.style.setProperty('--ty', `${Math.sin(angle) * dist + 40}px`);
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1600);
+    }
 }
 
 async function loadPortalInfo() {
@@ -48,7 +131,7 @@ async function loadPortalInfo() {
 async function unlockWifi(mode) {
     const out = document.getElementById('wifi-unlock-result');
     out.classList.remove('hidden');
-    out.className = 'p-3 rounded-xl text-xs font-bold text-center bg-sky-500/15 border border-sky-400/30 text-sky-200';
+    out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-sky-500/15 border border-sky-400/30 text-sky-200';
     out.textContent = '⏳ Đang kích hoạt kết nối WiFi...';
 
     const payload = mode === 'vip'
@@ -67,10 +150,11 @@ async function unlockWifi(mode) {
         });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.message || 'Không thể kích hoạt WiFi');
-        out.className = 'p-3 rounded-xl text-xs font-bold text-center bg-emerald-500/20 border border-emerald-400/40 text-emerald-300';
-        out.textContent = `✅ ${data.message}`;
+        out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 shadow-lg shadow-emerald-500/15';
+        out.innerHTML = `<div class="flex items-center justify-center gap-1.5 text-emerald-300 text-sm mb-1"><i class="fas fa-check-circle"></i> Kết nối thành công!</div><div>${escapeHtml(data.message)}</div>`;
+        launchCelebrationConfetti();
     } catch (e) {
-        out.className = 'p-3 rounded-xl text-xs font-bold text-center bg-rose-500/20 border border-rose-400/40 text-rose-300';
+        out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-rose-500/20 border border-rose-400/40 text-rose-200';
         out.textContent = `❌ ${e.message}`;
     }
 }

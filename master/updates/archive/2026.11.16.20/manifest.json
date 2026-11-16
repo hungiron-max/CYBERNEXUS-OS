@@ -2,7 +2,7 @@
     "version": "2026.11.16.20",
     "title": "v1.3 Release: Bảo mật Auth/CSP/XSS & Tách module Admin JS",
     "notes": "Bản phát hành v1.3: Khóa xác thực Admin cho POST /api/settings, bỏ PIN hardcode trong JS, bật HTTP Security Headers & CSP trên C++ Server, chuẩn hóa security_utils.js (escapeHtml) và tách admin.js thành các module độc lập.",
-    "created_at": "2026-11-16 19:03:09",
+    "created_at": "2026-11-16 19:28:24",
     "files": [
         "cybernexus_slave.exe",
         "RUN_SLAVE.bat",
@@ -26,6 +26,7 @@
         "web/assets/css/customer.css",
         "web/assets/css/login.css",
         "web/assets/css/online_orders.css",
+        "web/assets/css/wifi_portal.css",
         "web/assets/js/security_utils.js",
         "web/assets/js/admin.js",
         "web/assets/js/admin_inventory.js",

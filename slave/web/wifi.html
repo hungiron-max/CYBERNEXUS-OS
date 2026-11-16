@@ -2,83 +2,181 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WiFi Marketing &amp; Kết Nối VIP — CyberNexus OS</title>
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
+    <link rel="stylesheet" href="assets/css/wifi_portal.css?v=1">
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
-    <div class="w-full max-w-md space-y-4">
-        <!-- Header -->
-        <div class="liquid-glass rounded-2xl p-4 border border-sky-500/30 flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-lg">
-                    <i class="fas fa-wifi text-lg"></i>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 relative overflow-x-hidden">
+    <!-- Ambient Aurora & Sparkle Background -->
+    <div class="wifi-bg-canvas" aria-hidden="true">
+        <div class="wifi-aurora wifi-aurora-1"></div>
+        <div class="wifi-aurora wifi-aurora-2"></div>
+        <div class="wifi-aurora wifi-aurora-3"></div>
+        <div class="wifi-grid-overlay"></div>
+        <span class="wifi-sparkle" style="top:14%; left:18%; animation-delay:0s;"></span>
+        <span class="wifi-sparkle" style="top:24%; left:82%; animation-delay:1.4s;"></span>
+        <span class="wifi-sparkle" style="top:48%; left:10%; animation-delay:2.8s;"></span>
+        <span class="wifi-sparkle" style="top:65%; left:88%; animation-delay:0.9s;"></span>
+        <span class="wifi-sparkle" style="top:82%; left:26%; animation-delay:3.6s;"></span>
+        <span class="wifi-sparkle" style="top:35%; left:62%; animation-delay:4.2s;"></span>
+    </div>
+
+    <div class="w-full max-w-md space-y-4 relative z-10 my-2">
+        <!-- Hero Brand Header -->
+        <header class="wifi-card rounded-3xl p-4 border border-sky-400/30 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="wifi-radar-wrap shrink-0">
+                    <span class="wifi-radar-ring"></span>
+                    <span class="wifi-radar-ring wifi-radar-ring-2"></span>
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 via-cyan-400 to-emerald-400 flex items-center justify-center text-slate-950 shadow-lg shadow-sky-500/30 relative z-10">
+                        <i class="fas fa-wifi text-xl"></i>
+                    </div>
                 </div>
-                <div>
-                    <h1 id="wifi-store-name" class="text-sm font-black text-white uppercase tracking-wide">CYBERNEXUS COFFEE &amp; TEA</h1>
-                    <p class="text-[11px] text-sky-300 font-semibold">Cổng Kết Nối WiFi &amp; Ưu Đãi Tại Quán</p>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            Sẵn sàng kết nối
+                        </span>
+                    </div>
+                    <h1 id="wifi-store-name" class="text-base font-black uppercase tracking-wide truncate wifi-title-glow mt-0.5">CYBERNEXUS COFFEE &amp; TEA</h1>
+                    <p class="text-[11px] text-sky-200/80 font-medium truncate">Cổng WiFi Tốc Độ Cao &amp; Ưu Đãi Thành Viên</p>
                 </div>
             </div>
-            <span id="wifi-client-ip" class="text-[10px] font-mono px-2 py-1 rounded-lg bg-slate-900 border border-white/10 text-slate-400">LAN</span>
-        </div>
-
-        <!-- Khối 1: Banner Quảng cáo (từ advertising_promotions) -->
-        <div id="wifi-ad-box" class="liquid-glass rounded-2xl overflow-hidden border border-white/10 relative min-h-[160px] flex items-end p-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
-            <img id="wifi-ad-img" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover opacity-55" />
-            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
-            <div class="relative z-10 space-y-1">
-                <span id="wifi-ad-badge" class="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/40">ƯU ĐÃI HÔM NAY</span>
-                <h2 id="wifi-ad-title" class="text-base font-black text-white">Chào mừng quý khách đến với quán!</h2>
-                <p id="wifi-ad-sub" class="text-xs text-slate-300">Kết nối WiFi nhanh chóng &amp; đặt món trực tiếp qua điện thoại.</p>
+            <div class="text-right shrink-0">
+                <span class="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">IP Thiết Bị</span>
+                <span id="wifi-client-ip" class="inline-block text-[10px] font-mono px-2.5 py-1 rounded-xl bg-slate-900/90 border border-sky-400/25 text-sky-300 shadow-inner">LAN</span>
             </div>
-        </div>
+        </header>
 
-        <!-- Khối 2: Cổng kích hoạt WiFi (Miễn phí / VIP theo hóa đơn) -->
-        <div class="liquid-glass rounded-2xl p-4 border border-white/10 space-y-3.5">
-            <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-900/90 border border-white/10 text-xs font-bold">
-                <button type="button" id="tab-wifi-free" onclick="switchWifiTab('free')" class="py-2 rounded-lg bg-sky-500 text-white shadow">
-                    <i class="fas fa-signal mr-1"></i> WiFi Miễn Phí (5M)
+        <!-- Khối 1: Banner Quảng Cáo Lung Linh + Đồ Họa Vector Dự Phòng -->
+        <section id="wifi-ad-box" class="wifi-card rounded-3xl overflow-hidden border border-white/15 relative min-h-[195px] flex items-end p-5 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 group">
+            <!-- Bespoke Decorative Vector Art (Visible when no custom ad image is set) -->
+            <svg id="wifi-ad-vector" class="absolute inset-0 w-full h-full opacity-90 pointer-events-none" viewBox="0 0 420 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="gWave1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                        <stop offset="50%" stop-color="#a855f7" stop-opacity="0.22"/>
+                        <stop offset="100%" stop-color="#10b981" stop-opacity="0.30"/>
+                    </linearGradient>
+                    <linearGradient id="gCup" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#fde68a"/>
+                        <stop offset="100%" stop-color="#f59e0b"/>
+                    </linearGradient>
+                </defs>
+                <path d="M0,120 C90,65 180,175 280,95 C340,45 390,90 420,65 L420,200 L0,200 Z" fill="url(#gWave1)"/>
+                <circle cx="335" cy="58" r="44" fill="none" stroke="#38bdf8" stroke-opacity="0.25" stroke-width="1.5" stroke-dasharray="4 4"/>
+                <circle cx="335" cy="58" r="28" fill="none" stroke="#fbbf24" stroke-opacity="0.38" stroke-width="1.5"/>
+                <!-- Stylized Glowing Coffee & WiFi Waves Icon -->
+                <g transform="translate(308,33)" opacity="0.88">
+                    <path d="M12,26 H40 L37,46 C36.5,49 34,51 31,51 H21 C18,51 15.5,49 15,46 Z" fill="url(#gCup)" fill-opacity="0.9"/>
+                    <path d="M40,30 H45 C48,30 49,33 48,36 C47,39 44,41 39,41" fill="none" stroke="#fde68a" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M18,17 C22,12 30,12 34,17" fill="none" stroke="#38bdf8" stroke-width="2.4" stroke-linecap="round"/>
+                    <path d="M13,11 C20,4 32,4 39,11" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="26" cy="22" r="2.2" fill="#e0f2fe"/>
+                </g>
+            </svg>
+
+            <img id="wifi-ad-img" src="" alt="Ưu đãi tại quán" class="hidden absolute inset-0 w-full h-full object-cover opacity-70 wifi-kenburns" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent"></div>
+
+            <div class="relative z-10 w-full space-y-1.5">
+                <div class="flex items-center justify-between gap-2">
+                    <span id="wifi-ad-badge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/40 shadow-sm backdrop-blur-md">
+                        <i class="fas fa-sparkles text-amber-300"></i> ƯU ĐÃI HÔM NAY
+                    </span>
+                    <div id="wifi-ad-dots" class="flex items-center gap-1.5"></div>
+                </div>
+                <h2 id="wifi-ad-title" class="text-lg font-black text-white leading-snug drop-shadow">Chào mừng quý khách đến với quán!</h2>
+                <p id="wifi-ad-sub" class="text-xs text-slate-200/90 leading-relaxed">Kết nối WiFi siêu mượt &amp; đặt món trực tiếp tại bàn chỉ với 1 chạm.</p>
+            </div>
+        </section>
+
+        <!-- Khối 2: Cổng Kích Hoạt WiFi + Đồng Hồ Tốc Độ Trực Quan -->
+        <section id="wifi-portal-card" class="wifi-card rounded-3xl p-4 sm:p-5 border border-white/15 space-y-4 transition-all duration-300">
+            <!-- Animated Speedometer & Mode Header -->
+            <div class="flex items-center justify-between gap-3 bg-slate-900/75 rounded-2xl p-3 border border-white/10">
+                <div class="flex items-center gap-3">
+                    <svg width="78" height="48" viewBox="0 0 140 86" class="shrink-0 overflow-visible">
+                        <path d="M 18 72 A 52 52 0 0 1 122 72" fill="none" stroke="rgba(148,163,184,0.2)" stroke-width="10" stroke-linecap="round"/>
+                        <path id="wifi-gauge-arc" class="wifi-gauge-arc" d="M 18 72 A 52 52 0 0 1 122 72" fill="none" stroke="#38bdf8" stroke-width="10" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="118"/>
+                        <g id="wifi-gauge-needle" class="wifi-gauge-needle" style="transform: rotate(-52deg);">
+                            <line x1="70" y1="72" x2="70" y2="26" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+                            <circle cx="70" cy="72" r="5" fill="#38bdf8"/>
+                        </g>
+                    </svg>
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Băng thông cấp phát</div>
+                        <div id="wifi-speed-label" class="text-base font-black text-sky-300">5 Mbps <span class="text-[11px] font-semibold text-slate-400">• Tiêu chuẩn</span></div>
+                    </div>
+                </div>
+                <div id="wifi-tier-pill" class="px-2.5 py-1 rounded-xl text-[10px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/30">
+                    FREE
+                </div>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-white/10 text-xs font-bold">
+                <button type="button" id="tab-wifi-free" onclick="switchWifiTab('free')" class="py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 font-black shadow-lg shadow-sky-500/25 transition-all">
+                    <i class="fas fa-signal mr-1"></i> Miễn Phí (5M)
                 </button>
-                <button type="button" id="tab-wifi-vip" onclick="switchWifiTab('vip')" class="py-2 rounded-lg text-slate-400 hover:text-white">
+                <button type="button" id="tab-wifi-vip" onclick="switchWifiTab('vip')" class="py-2.5 rounded-xl text-slate-300 hover:text-white transition-all">
                     <i class="fas fa-crown text-amber-400 mr-1"></i> WiFi VIP (50M)
                 </button>
             </div>
 
             <!-- Panel Free WiFi -->
-            <div id="panel-wifi-free" class="space-y-2.5">
-                <input type="text" id="wifi-free-name" placeholder="Tên của bạn (tùy chọn)" class="liquid-input w-full py-2 px-3 text-xs" />
-                <input type="tel" id="wifi-free-phone" placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" class="liquid-input w-full py-2 px-3 text-xs" />
-                <button type="button" onclick="unlockWifi('free')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 font-black text-xs shadow-lg">
-                    <i class="fas fa-wifi mr-1"></i> KẾT NỐI WIFI MIỄN PHÍ NGAY
+            <div id="panel-wifi-free" class="space-y-3">
+                <div class="relative">
+                    <i class="fas fa-user text-slate-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="text" id="wifi-free-name" placeholder="Tên của bạn (tùy chọn)" class="liquid-input w-full py-2.5 pl-9 pr-3 text-xs rounded-xl" />
+                </div>
+                <div class="relative">
+                    <i class="fas fa-phone text-slate-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="tel" id="wifi-free-phone" placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" class="liquid-input w-full py-2.5 pl-9 pr-3 text-xs rounded-xl" />
+                </div>
+                <button type="button" onclick="unlockWifi('free')" class="wifi-btn-shimmer w-full py-3 rounded-2xl bg-gradient-to-r from-sky-400 via-cyan-400 to-emerald-400 hover:brightness-110 text-slate-950 font-black text-xs tracking-wide shadow-xl shadow-sky-500/25">
+                    <i class="fas fa-wifi mr-1.5"></i> KẾT NỐI WIFI MIỄN PHÍ NGAY
                 </button>
             </div>
 
             <!-- Panel VIP WiFi -->
-            <div id="panel-wifi-vip" class="hidden space-y-2.5">
-                <p class="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/30 rounded-xl p-2.5">
-                    <i class="fas fa-bolt text-amber-400 mr-1"></i> Dành riêng cho khách đã đặt món &amp; thanh toán hóa đơn tại quán (băng thông ưu tiên <b>50 Mbps</b>).
-                </p>
-                <input type="text" id="wifi-vip-order" placeholder="Nhập Mã Hóa Đơn (VD: HD261116-0001)" class="liquid-input w-full py-2 px-3 text-xs font-mono uppercase" />
-                <button type="button" onclick="unlockWifi('vip')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg">
-                    <i class="fas fa-crown mr-1"></i> MỞ KHÓA WIFI VIP TỐC ĐỘ CAO
+            <div id="panel-wifi-vip" class="hidden space-y-3">
+                <div class="text-[11px] text-amber-100 bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-400/35 rounded-2xl p-3 flex items-start gap-2.5">
+                    <i class="fas fa-bolt text-amber-400 text-sm mt-0.5"></i>
+                    <div>
+                        <div class="font-black text-amber-300 mb-0.5">Đặc quyền khách đã gọi món</div>
+                        <span class="text-amber-100/85">Mở khóa tốc độ cao <b>50 Mbps</b> ổn định để xem 4K, chơi game &amp; họp trực tuyến.</span>
+                    </div>
+                </div>
+                <div class="relative">
+                    <i class="fas fa-receipt text-amber-400 text-xs absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="text" id="wifi-vip-order" placeholder="Nhập Mã Hóa Đơn (VD: HD261116-0001)" class="liquid-input w-full py-2.5 pl-9 pr-3 text-xs font-mono uppercase rounded-xl border-amber-400/30 focus:border-amber-400" />
+                </div>
+                <button type="button" onclick="unlockWifi('vip')" class="wifi-btn-shimmer w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 hover:brightness-110 text-slate-950 font-black text-xs tracking-wide shadow-xl shadow-amber-500/25">
+                    <i class="fas fa-crown mr-1.5"></i> MỞ KHÓA WIFI VIP TỐC ĐỘ CAO
                 </button>
             </div>
 
-            <div id="wifi-unlock-result" class="hidden p-3 rounded-xl text-xs font-bold text-center"></div>
-        </div>
+            <!-- Trạng thái kích hoạt -->
+            <div id="wifi-unlock-result" class="hidden p-3.5 rounded-2xl text-xs font-bold text-center"></div>
+        </section>
 
         <!-- Khối 3: Điều hướng thẳng vào Menu QR -->
-        <a href="customer.html" class="block w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm text-center shadow-xl shadow-emerald-500/20">
-            <i class="fas fa-utensils mr-1.5"></i> XEM THỰC ĐƠN &amp; ĐẶT MÓN NGAY
+        <a href="customer.html" class="wifi-btn-shimmer block w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:brightness-110 text-slate-950 font-black text-sm text-center shadow-xl shadow-emerald-500/25">
+            <i class="fas fa-utensils mr-2"></i> XEM THỰC ĐƠN &amp; ĐẶT MÓN NGAY
         </a>
 
-        <div class="text-center text-[11px] text-slate-500">
-            Powered by CyberNexus OS • Smart WiFi Marketing &amp; QoS
-        </div>
+        <footer class="text-center text-[11px] text-slate-400/80 pt-1">
+            <i class="fas fa-shield-alt text-emerald-400 mr-1"></i>
+            Powered by <span class="text-slate-200 font-bold">CyberNexus OS</span> • Smart WiFi Marketing &amp; QoS
+        </footer>
     </div>
 
-    <script src="assets/js/wifi_portal.js?v=20261116"></script>
+    <script src="assets/js/security_utils.js?v=1"></script>
+    <script src="assets/js/wifi_portal.js?v=20261116_2"></script>
 </body>
 </html>
