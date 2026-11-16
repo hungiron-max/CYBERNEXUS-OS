@@ -1,11 +1,15 @@
 {
-    "version": "2026.11.16.14",
-    "title": "Chặn văng nhân viên về trang khách hàng & nút quay về Phục vụ/Thu ngân/Bếp",
-    "notes": "Tự động điều hướng nhân viên (Phục vụ, Thu ngân, Bếp) về đúng màn hình làm việc nếu rơi vào trang khách hàng, bổ sung nút quay về nhanh trên header và gộp đầy đủ thông báo đơn QR mới + SLA + KPI.",
-    "created_at": "2026-11-16 12:14:37",
+    "version": "2026.11.16.15",
+    "title": "Giai đoạn 1 hoàn chỉnh: Ký số .sig, Tự gia hạn & AI Credit VietQR, Phân loại nhạc theo giờ & AI Copilot API",
+    "notes": "Bổ sung xác thực chữ ký số DLL (.sig), modal Tự gia hạn gói & Nạp AI Credit qua VietQR trên Quản trị Quán, Tự phân loại thể loại nhạc + Lịch phát nhạc theo khung giờ, AI Copilot Q&A và lọc nội dung Jukebox.",
+    "created_at": "2026-11-16 14:18:55",
     "files": [
         "cybernexus_slave.exe",
         "RUN_SLAVE.bat",
+        "modules/libmod_pos_core.dll.sig",
+        "modules/libmod_network_qos.dll.sig",
+        "modules/libmod_media_stream.dll.sig",
+        "modules/libmod_card_payment.dll.sig",
         "web/admin.html",
         "web/index.html",
         "web/kitchen.html",
@@ -14,6 +18,7 @@
         "web/online_orders.html",
         "web/assets/js/admin.js",
         "web/assets/js/pos.js",
+        "web/assets/js/pos-jukebox.js",
         "web/assets/js/online_orders.js",
         "web/assets/js/date_format_ddmmyy.js"
     ]
