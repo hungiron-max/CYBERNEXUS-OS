@@ -1,0 +1,24 @@
+{
+    "version": "2026.11.16.3",
+    "title": "Chống treo đơn không lối thoát: Sửa nút hủy trên Bếp Ready, Hủy đơn Online & Thanh cảnh báo POS",
+    "notes": "Sửa nút thùng rác trên thẻ Chờ Phục Vụ Lấy của kitchen.html gọi đúng Modal yêu cầu hủy đơn; thêm nút Hủy đơn & Hoàn/Thu tiền trên online_orders.html; bổ sung thanh cảnh báo đơn chưa gắn bàn / yêu cầu hủy / hoàn tiền ngay trên POS Thu ngân (index.html) và giữ nguyên sửa lỗi OTA DLL.",
+    "created_at": "2026-11-16 09:33:48",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "modules/libmod_pos_core.dll",
+        "modules/libmod_network_qos.dll",
+        "modules/libmod_media_stream.dll",
+        "modules/libmod_card_payment.dll",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

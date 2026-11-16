@@ -243,6 +243,7 @@ const POS = {
                 if (newlyOccupied && oldTables.length > 0) {
                     this.playNotificationChime();
                 }
+                this.loadPosAlerts();
 
                 // If currently viewing a table, synchronize its cart state if updated remotely
                 if (this.currentTable) {
@@ -280,15 +281,24 @@ const POS = {
             const isPaid = (tbl.payment_status === 'paid' || Boolean(tbl.paid_at));
             const isActive = this.currentTable && this.currentTable.id === tbl.id ? 'active-table' : '';
             const statusClass = isOccupied ? (isPaid ? 'occupied-paid' : 'occupied') : 'free';
+            const kStatus = (tbl.kitchen_status || '').toLowerCase();
+            const isReady = kStatus === 'ready';
+            const isServed = kStatus === 'served' || Boolean(tbl.served_at);
+            const isInKitchen = isOccupied && !isReady && !isServed && !['awaiting_waiter', 'awaiting_payment', 'awaiting_kitchen_push', 'cancel_requested'].includes(kStatus);
+            const elapsedMins = Number(tbl.kitchen_elapsed_minutes || 0);
+            const kitchenSla = Number(tbl.kitchen_sla_minutes || 10);
+            const isOverdueKitchen = isInKitchen && elapsedMins >= kitchenSla;
+            const rushCount = Number(tbl.rush_count || 0);
+            const orderId = Number(tbl.active_order_id || tbl.order_id || 0);
 
             let kitchenBadge = '';
             if (isOccupied) {
                 if (isPaid) {
                     kitchenBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-300 font-bold ml-1 border border-teal-500/40">💰 Đã TT</span>';
                 }
-                if (tbl.kitchen_status === 'ready') {
+                if (isReady) {
                     kitchenBadge += '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black animate-pulse ml-1">Bếp xong</span>';
-                } else if (tbl.kitchen_status === 'served') {
+                } else if (isServed) {
                     kitchenBadge += '<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/30 text-emerald-300 font-bold ml-1">Đã bưng</span>';
                 }
             }
@@ -298,10 +308,20 @@ const POS = {
 
             let subtitle = 'Bàn trống';
             if (isOccupied) {
-                if (isPaid) {
-                    if (tbl.kitchen_status === 'ready') {
+                if (tbl.kitchen_status === 'cancel_requested') {
+                    subtitle = `⚠️ Bếp xin hủy đơn`;
+                } else if (tbl.settlement_status === 'refund_due') {
+                    subtitle = `💸 Cần hoàn tiền`;
+                } else if (tbl.settlement_status === 'extra_due') {
+                    subtitle = `💰 Cần thu thêm`;
+                } else if (tbl.kitchen_status === 'awaiting_payment') {
+                    subtitle = tbl.payment_status === 'verifying' ? `🔎 Chờ đối soát CK` : `⏳ Chờ TT QR`;
+                } else if (tbl.kitchen_status === 'awaiting_waiter') {
+                    subtitle = `🪑 Khách QR chờ duyệt`;
+                } else if (isPaid) {
+                    if (isReady) {
                         subtitle = `${amountText} • Chờ bưng`;
-                    } else if (tbl.kitchen_status === 'served') {
+                    } else if (isServed) {
                         subtitle = `${amountText} • Đã bưng`;
                     } else {
                         subtitle = `${amountText} • Đang nấu`;
@@ -309,16 +329,32 @@ const POS = {
                 } else {
                     subtitle = `${amountText}${countText}`;
                 }
+                if (Number(tbl.pending_cancel_count || 0) > 0) {
+                    subtitle += ' • Chờ hủy món';
+                }
             }
+
+            const statusDotHtml = isOccupied
+                ? (isInKitchen
+                    ? `<span class="relative flex h-2.5 w-2.5 shrink-0" title="Bếp đang chế biến (${elapsedMins} phút)"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-85"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span></span>`
+                    : `<span class="w-2 h-2 rounded-full ${isPaid ? 'bg-teal-400' : 'bg-rose-500 animate-ping'}"></span>`)
+                : '<span class="w-2 h-2 rounded-full bg-emerald-400"></span>';
+
+            const rushBtnHtml = (isOverdueKitchen && orderId > 0)
+                ? `<button type="button" onclick="event.stopPropagation(); POS.rushKitchenOrder(${orderId}, '${tbl.code}', this)" class="px-1.5 py-0.5 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow shadow-rose-500/40 active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" title="Quá ${elapsedMins} phút chưa xong món - Bấm để hối Bếp"><i class="fas fa-fire"></i> ${rushCount > 0 ? `Hối (${rushCount})` : 'Hối'}</button>`
+                : '';
 
             const cardHtml = `
                 <div class="table-card ${statusClass} ${isActive}" onclick="POS.selectTable(${tbl.id})">
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between gap-1">
                         <div class="flex items-center flex-wrap gap-0.5">
                             <span class="font-extrabold text-xs md:text-sm tracking-wide text-white">${tbl.code}</span>
                             ${kitchenBadge}
                         </div>
-                        <span class="w-2 h-2 rounded-full ${isOccupied ? (isPaid ? 'bg-teal-400' : 'bg-rose-500 animate-ping') : 'bg-emerald-400'}"></span>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            ${rushBtnHtml}
+                            ${statusDotHtml}
+                        </div>
                     </div>
                     <div class="text-[11px] truncate font-medium mt-1 ${isOccupied ? (isPaid ? 'text-teal-300 font-bold' : 'text-rose-200 font-bold') : 'text-slate-300'}">
                         ${subtitle}
@@ -450,8 +486,15 @@ const POS = {
         list.forEach(tbl => {
             const isOccupied = tbl.status === 'occupied' || Boolean(tbl.active_order_id || tbl.order_id);
             const isPaid = (tbl.payment_status === 'paid' || Boolean(tbl.paid_at));
-            const isReady = tbl.kitchen_status === 'ready';
-            const isServed = tbl.kitchen_status === 'served';
+            const kStatus = (tbl.kitchen_status || '').toLowerCase();
+            const isReady = kStatus === 'ready';
+            const isServed = kStatus === 'served' || Boolean(tbl.served_at);
+            const isInKitchen = isOccupied && !isReady && !isServed && !['awaiting_waiter', 'awaiting_payment', 'awaiting_kitchen_push', 'cancel_requested'].includes(kStatus);
+            const elapsedMins = Number(tbl.kitchen_elapsed_minutes || 0);
+            const kitchenSla = Number(tbl.kitchen_sla_minutes || 10);
+            const isOverdueKitchen = isInKitchen && elapsedMins >= kitchenSla;
+            const rushCount = Number(tbl.rush_count || 0);
+            const orderId = Number(tbl.active_order_id || tbl.order_id || 0);
             const isCurrent = this.currentTable && this.currentTable.id === tbl.id;
 
             if (isOccupied) {
@@ -484,8 +527,16 @@ const POS = {
                                 ` : (isServed ? `
                                     <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap shrink-0">Đã bưng</span>
                                 ` : `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 whitespace-nowrap shrink-0">Đang làm</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 font-semibold whitespace-nowrap shrink-0 inline-flex items-center gap-1.5">
+                                        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-85"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span></span>
+                                        Đang làm${elapsedMins > 0 ? ` (${elapsedMins}p)` : ''}
+                                    </span>
                                 `)}
+                                ${isOverdueKitchen && orderId > 0 ? `
+                                    <button type="button" onclick="event.stopPropagation(); POS.rushKitchenOrder(${orderId}, '${tbl.code}', this)" class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-black shadow shadow-rose-500/40 animate-pulse whitespace-nowrap shrink-0 flex items-center gap-1 active:scale-90">
+                                        <i class="fas fa-fire"></i> ${rushCount > 0 ? `Hối (${rushCount})` : 'Hối'}
+                                    </button>
+                                ` : ''}
                             </div>
                             <div class="text-right">
                                 <span class="font-mono font-black text-base md:text-lg ${isPaid ? 'text-teal-400' : 'text-amber-300'}">${this.formatMoney(tbl.total_amount)}đ</span>
@@ -542,6 +593,36 @@ const POS = {
         await this.selectTable(tableId);
         if (typeof switchPosMobileView === 'function') {
             switchPosMobileView('menu');
+        }
+    },
+
+    async rushKitchenOrder(orderId, tableCode, btnEl) {
+        if (!orderId) return;
+        const origHtml = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+        try {
+            const res = await fetch('api/orders.php?action=rush_kitchen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Không thể gửi lệnh hối xuống Bếp');
+            }
+            if (typeof this.showToast === 'function') {
+                this.showToast(`🔥 Đã hối Bếp bàn ${tableCode} (lần ${data.rush_count || 1})!`, 'success');
+            }
+            await this.loadTables();
+        } catch (err) {
+            alert(err.message || 'Lỗi gửi lệnh hối xuống Bếp');
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origHtml;
+            }
         }
     },
 
@@ -822,6 +903,31 @@ const POS = {
         modal.classList.add('open');
     },
 
+    async applyPromoCodeInModal() {
+        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
+        if (!code) return;
+        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
+        try {
+            const res = await fetch('api/promotions.php?action=validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promo_code: code, subtotal })
+            }).then(r => r.json());
+            if (res.success && res.promo) {
+                this.setDiscountType('amount');
+                const valInp = document.getElementById('discount-val-input');
+                const rsnInp = document.getElementById('discount-reason-input');
+                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
+                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
+                this.discount.promo_id = res.promo.id;
+                this.discount.promo_code = res.promo.code;
+                this.discount.promo_name = res.promo.name;
+            } else {
+                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+            }
+        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
+    },
+
     applyToppings(index) {
         if (this.isCashierRole()) {
             alert('Thu ngân không có quyền thêm topping cho món!');
@@ -903,6 +1009,53 @@ const POS = {
 
         let subtotal = 0;
         let html = '';
+
+        if (this.currentTable && this.currentTable.order_id) {
+            const tbl = this.currentTable;
+            const ks = tbl.kitchen_status || 'pending';
+            const ps = tbl.payment_status || 'unpaid';
+            const ss = tbl.settlement_status || 'settled';
+            const oType = tbl.order_type || 'pos';
+            const paidAmt = Number(tbl.paid_amount || 0);
+            const totAmt = Number(tbl.total_amount || 0);
+
+            if (ks === 'awaiting_payment' || ks === 'awaiting_waiter' || ks === 'awaiting_kitchen_push') {
+                const canPush = (oType === 'dine_in' || ps === 'paid' || ps === 'cod_approved');
+                html += `
+                    <div class="mb-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 space-y-2 text-xs">
+                        <div class="font-bold text-amber-300 flex items-center justify-between">
+                            <span><i class="fas fa-shield-halved mr-1"></i> ${ks === 'awaiting_waiter' ? 'Đơn QR Tại Bàn chờ duyệt' : (ps === 'verifying' ? 'Khách báo đã CK - Chờ đối soát' : (ps === 'paid' ? 'Đã TT QR - Sẵn sàng Chuyển Bếp' : 'Đơn QR chờ xác nhận thanh toán'))}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${ps !== 'paid' ? `<button type="button" onclick="POS.confirmOrderPayment(${tbl.order_id}, 'paid')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px]"><i class="fas fa-check mr-1"></i>Xác nhận Đã Nhận Tiền</button>` : ''}
+                            <button type="button" onclick="POS.sendOrderToKitchen(${tbl.order_id})" ${canPush ? '' : 'disabled'} class="px-2.5 py-1.5 rounded-lg ${canPush ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} font-bold text-[11px]"><i class="fas fa-fire-burner mr-1"></i>Chuyển Bếp</button>
+                        </div>
+                    </div>
+                `;
+            }
+            if (ks === 'cancel_requested') {
+                html += `
+                    <div class="mb-2 p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 space-y-1.5 text-xs">
+                        <div class="font-bold text-rose-300"><i class="fas fa-triangle-exclamation mr-1"></i> Bếp yêu cầu HỦY ĐƠN: ${tbl.cancel_request_reason || ''}</div>
+                        <button type="button" onclick="POS.cancelOrder()" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px]">Duyệt Hủy Đơn &amp; Giải phóng bàn</button>
+                    </div>
+                `;
+            }
+            if (ss === 'extra_due' || ss === 'refund_due') {
+                const diff = Math.abs(totAmt - paidAmt);
+                const isRef = (ss === 'refund_due');
+                html += `
+                    <div class="mb-2 p-2.5 rounded-xl ${isRef ? 'bg-rose-500/20 border-rose-500/40 text-rose-200' : 'bg-amber-500/20 border-amber-500/40 text-amber-200'} border space-y-1.5 text-xs">
+                        <div class="font-bold">${isRef ? '💸 Cần HOÀN LẠI khách:' : '💰 Cần THU THÊM khách:'} <span class="font-mono">${this.formatMoney(diff)} đ</span></div>
+                        <div class="text-[11px] opacity-80">Đã thu: ${this.formatMoney(paidAmt)}đ • Tổng mới: ${this.formatMoney(totAmt)}đ</div>
+                        <div class="flex gap-1.5">
+                            <button type="button" onclick="POS.settleOrderDelta(${tbl.order_id}, 'cash')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px]">${isRef ? 'Đã hoàn Tiền Mặt' : 'Đã thu Tiền Mặt'}</button>
+                            <button type="button" onclick="POS.settleOrderDelta(${tbl.order_id}, 'banking')" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px]">${isRef ? 'Đã hoàn CK' : 'Đã thu CK'}</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
 
         this.cart.forEach((item, idx) => {
             // Price including toppings
@@ -1062,6 +1215,9 @@ const POS = {
             items: this.cart,
             discount_type: this.discount.type,
             discount_value: this.discount.value,
+            promo_id: this.discount.promo_id || 0,
+            promo_code: this.discount.promo_code || '',
+            promo_name: this.discount.promo_name || '',
             vat_percent: this.vatPercent,
             note: this.note
         };
@@ -1136,6 +1292,31 @@ const POS = {
         modal.classList.add('open');
     },
 
+    async applyPromoCodeInModal() {
+        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
+        if (!code) return;
+        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
+        try {
+            const res = await fetch('api/promotions.php?action=validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promo_code: code, subtotal })
+            }).then(r => r.json());
+            if (res.success && res.promo) {
+                this.setDiscountType('amount');
+                const valInp = document.getElementById('discount-val-input');
+                const rsnInp = document.getElementById('discount-reason-input');
+                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
+                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
+                this.discount.promo_id = res.promo.id;
+                this.discount.promo_code = res.promo.code;
+                this.discount.promo_name = res.promo.name;
+            } else {
+                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+            }
+        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
+    },
+
     async confirmCancelOrderWithReason() {
         const reasonInput = document.getElementById('cancel-order-reason-input');
         const reason = reasonInput ? reasonInput.value.trim() : '';
@@ -1195,6 +1376,14 @@ const POS = {
                     </div>
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('discount-modal').classList.remove('open')">&times;</button>
                 </div>
+                <div class="mb-3 p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-2">
+                    <label class="block text-[11px] font-bold text-amber-300"><i class="fas fa-ticket mr-1"></i> Áp dụng Mã Voucher / Chương trình KM:</label>
+                    <div class="flex gap-1.5">
+                        <input type="text" id="discount-promo-code" value="${this.discount.promo_code || ''}" placeholder="Nhập mã (VD: KHAITRUONG)..." class="liquid-input flex-1 text-xs font-mono uppercase py-1.5 px-2.5" />
+                        <button type="button" onclick="POS.applyPromoCodeInModal()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Áp mã</button>
+                    </div>
+                    <div id="pos-active-promos-chips" class="flex flex-wrap gap-1 text-[10px]"></div>
+                </div>
                 <div class="mb-3">
                     <label class="block text-xs font-semibold text-slate-300 mb-1.5">Loại giảm giá:</label>
                     <div class="grid grid-cols-2 gap-2">
@@ -1228,6 +1417,50 @@ const POS = {
         `;
 
         modal.classList.add('open');
+        this.loadPosPromotionsIntoModal();
+    },
+
+    async loadPosPromotionsIntoModal() {
+        const box = document.getElementById('pos-active-promos-chips');
+        if (!box) return;
+        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
+        try {
+            const res = await fetch(`api/promotions.php?action=active&subtotal=${subtotal}`).then(r => r.json());
+            if (!res || !res.success || !Array.isArray(res.data) || res.data.length === 0) {
+                box.innerHTML = '<span class="text-slate-500 italic">Chưa có chương trình KM nào đang bật.</span>';
+                return;
+            }
+            box.innerHTML = res.data.map(p => `
+                <button type="button" onclick="document.getElementById('discount-promo-code').value='${p.code}'; POS.applyPromoCodeInModal();" class="px-2 py-0.5 rounded-md ${p.eligible_now ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-white/10'} border font-mono">
+                    ${p.code} (${p.discount_type === 'percent' ? p.discount_value + '%' : this.formatMoney(p.discount_value) + 'đ'})
+                </button>
+            `).join('');
+        } catch (e) {}
+    },
+
+    async applyPromoCodeInModal() {
+        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
+        if (!code) return;
+        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
+        try {
+            const res = await fetch('api/promotions.php?action=validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promo_code: code, subtotal })
+            }).then(r => r.json());
+            if (res.success && res.promo) {
+                this.setDiscountType('amount');
+                const valInp = document.getElementById('discount-val-input');
+                const rsnInp = document.getElementById('discount-reason-input');
+                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
+                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
+                this.discount.promo_id = res.promo.id;
+                this.discount.promo_code = res.promo.code;
+                this.discount.promo_name = res.promo.name;
+            } else {
+                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+            }
+        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
     },
 
     setDiscountType(type) {
@@ -1317,6 +1550,31 @@ const POS = {
         modal.classList.add('open');
     },
 
+    async applyPromoCodeInModal() {
+        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
+        if (!code) return;
+        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
+        try {
+            const res = await fetch('api/promotions.php?action=validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promo_code: code, subtotal })
+            }).then(r => r.json());
+            if (res.success && res.promo) {
+                this.setDiscountType('amount');
+                const valInp = document.getElementById('discount-val-input');
+                const rsnInp = document.getElementById('discount-reason-input');
+                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
+                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
+                this.discount.promo_id = res.promo.id;
+                this.discount.promo_code = res.promo.code;
+                this.discount.promo_name = res.promo.name;
+            } else {
+                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+            }
+        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
+    },
+
     async doSwitchTable(targetTableId) {
         try {
             const res = await fetch('api/tables.php?action=switch_table', {
@@ -1384,6 +1642,31 @@ const POS = {
         `;
 
         modal.classList.add('open');
+    },
+
+    async applyPromoCodeInModal() {
+        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
+        if (!code) return;
+        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
+        try {
+            const res = await fetch('api/promotions.php?action=validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promo_code: code, subtotal })
+            }).then(r => r.json());
+            if (res.success && res.promo) {
+                this.setDiscountType('amount');
+                const valInp = document.getElementById('discount-val-input');
+                const rsnInp = document.getElementById('discount-reason-input');
+                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
+                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
+                this.discount.promo_id = res.promo.id;
+                this.discount.promo_code = res.promo.code;
+                this.discount.promo_name = res.promo.name;
+            } else {
+                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+            }
+        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
     },
 
     async doMergeTable(targetTableId) {
@@ -1519,9 +1802,153 @@ const POS = {
     },
 
     // Payment Modal (Thanh toán)
+    async loadPosAlerts() {
+        const bar = document.getElementById('pos-pending-alerts-bar');
+        if (!bar) return;
+        try {
+            const res = await fetch('api/orders.php?action=alerts&target_role=cashier').then(r => r.json());
+            if (!res || !res.success) return;
+            const alerts = Array.isArray(res.alerts) ? res.alerts : [];
+            const qrAlerts = alerts.filter(a => a.alert_type === 'qr_table_pending' || a.alert_type === 'qr_payment_pending');
+
+            // Phát chuông + thông báo nổi khi có đơn QR mới
+            if (!this._knownQrAlertIds) {
+                this._knownQrAlertIds = new Set(qrAlerts.map(a => Number(a.id)));
+            } else {
+                const newQr = qrAlerts.filter(a => !this._knownQrAlertIds.has(Number(a.id)));
+                if (newQr.length > 0) {
+                    if (typeof this.playNotificationChime === 'function') this.playNotificationChime();
+                    if (typeof this.showToast === 'function') {
+                        this.showToast(`📱 ${newQr[0].title || 'Có đơn QR mới từ khách hàng!'}`, 'info');
+                    }
+                }
+                this._knownQrAlertIds = new Set(qrAlerts.map(a => Number(a.id)));
+            }
+
+            const deltas = Array.isArray(res.pending_deltas) ? res.pending_deltas : [];
+            const orphanPending = deltas.filter(d => !d.table_id || Number(d.table_id) === 0);
+            const urgentDeltas = deltas.filter(d => d.settlement_status === 'refund_due' || d.settlement_status === 'extra_due' || d.kitchen_status === 'cancel_requested');
+            if (qrAlerts.length === 0 && orphanPending.length === 0 && urgentDeltas.length === 0) {
+                bar.classList.add('hidden');
+                bar.innerHTML = '';
+                return;
+            }
+            bar.classList.remove('hidden');
+            const chips = [];
+            qrAlerts.forEach(a => {
+                const isTableQr = a.alert_type === 'qr_table_pending';
+                chips.push(`<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${isTableQr ? 'bg-rose-500/20 border border-rose-400/50 text-rose-200' : 'bg-amber-500/20 border border-amber-400/50 text-amber-200'} text-xs animate-pulse">
+                    <b>📱 ${a.title || 'Đơn QR mới'}</b>
+                    <span class="opacity-85 hidden md:inline">${a.message || ''}</span>
+                    ${Number(a.table_id || 0) > 0 ? `<button type="button" onclick="POS.selectTable(${Number(a.table_id)})" class="px-1.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px]">Mở bàn</button>` : ''}
+                    ${isTableQr && Number(a.order_id || 0) > 0 ? `<button type="button" onclick="POS.sendOrderToKitchen(${Number(a.order_id)})" class="px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px]">Chuyển Bếp</button>` : ''}
+                    <button type="button" onclick="POS.ackPosAlert(${Number(a.id)})" class="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-[10px]" title="Đã xem">✕</button>
+                </span>`);
+            });
+            urgentDeltas.forEach(d => {
+                if (d.kitchen_status === 'cancel_requested') {
+                    chips.push(`<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/20 border border-rose-400/40 text-rose-200"><b>⚠️ Bếp xin hủy ${d.table_code || d.order_code}</b> (${d.cancel_request_reason || ''}) <button type="button" onclick="POS.quickCancelPendingOrder(${d.id}, '${d.order_code}', '${(d.cancel_request_reason || 'Bếp yêu cầu hủy').replace(/'/g, "\\'")}')" class="px-1.5 py-0.5 rounded bg-rose-600 text-white font-bold text-[10px]">Chốt Hủy</button></span>`);
+                } else if (d.settlement_status === 'refund_due' || d.settlement_status === 'extra_due') {
+                    const isRef = d.settlement_status === 'refund_due';
+                    const diff = Math.abs(Number(d.total_amount || 0) - Number(d.paid_amount || 0));
+                    chips.push(`<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-200"><b>${isRef ? '💸 Hoàn' : '💰 Thu thêm'} ${d.table_code || d.order_code}: ${this.formatMoney(diff)}đ</b> <button type="button" onclick="POS.settleOrderDelta(${d.id}, 'cash')" class="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">Đã xử lý</button></span>`);
+                }
+            });
+            if (orphanPending.length > 0) {
+                chips.push(`<a href="online_orders.html" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-sky-500/25 border border-sky-400/40 text-sky-200 font-bold hover:bg-sky-500/40"><i class="fas fa-motorcycle"></i> ${orphanPending.length} đơn Online / chưa gắn bàn đang chờ → Mở xử lý</a>`);
+            }
+            bar.innerHTML = chips.join('');
+        } catch (e) {}
+    },
+
+    async ackPosAlert(alertId) {
+        try {
+            await fetch('api/orders.php?action=ack_alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: alertId })
+            });
+            await this.loadPosAlerts();
+        } catch (e) {}
+    },
+
+    async quickCancelPendingOrder(orderId, orderCode, presetReason) {
+        if (!confirm(`Xác nhận CHỐT HỦY đơn ${orderCode} theo yêu cầu từ Bếp?\nLý do: ${presetReason}`)) return;
+        try {
+            const res = await fetch('api/orders.php?action=cancel_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, reason: presetReason })
+            }).then(r => r.json());
+            if (res.success) {
+                await this.loadTables();
+            } else {
+                alert(res.message || 'Không thể hủy đơn');
+            }
+        } catch (e) { alert('Lỗi kết nối'); }
+    },
+
+    async confirmOrderPayment(orderId, mode = 'paid') {
+        try {
+            const res = await fetch('api/orders.php?action=confirm_payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, mode, payment_method: 'banking' })
+            }).then(r => r.json());
+            if (res.success) {
+                await this.loadTables();
+                if (this.currentTable) await this.selectTable(this.currentTable.id);
+            } else {
+                alert(res.message || 'Lỗi xác nhận thanh toán');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    },
+
+    async sendOrderToKitchen(orderId) {
+        try {
+            const res = await fetch('api/orders.php?action=send_to_kitchen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId })
+            }).then(r => r.json());
+            if (res.success) {
+                await this.loadTables();
+                if (this.currentTable) await this.selectTable(this.currentTable.id);
+            } else {
+                alert(res.message || 'Chưa thể chuyển Bếp');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    },
+
+    async settleOrderDelta(orderId, method = 'cash') {
+        try {
+            const res = await fetch('api/orders.php?action=settle_delta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, payment_method: method })
+            }).then(r => r.json());
+            if (res.success) {
+                await this.loadTables();
+                if (this.currentTable) await this.selectTable(this.currentTable.id);
+            } else {
+                alert(res.message || 'Lỗi quyết toán chênh lệch');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    },
+
     openPaymentModal() {
         if (this.cart.length === 0) {
             alert('Hóa đơn chưa có món ăn nào!');
+            return;
+        }
+        if (this.currentTable && Number(this.currentTable.pending_cancel_count || 0) > 0) {
+            alert('Bàn này đang có món chờ Bếp duyệt hủy. Vui lòng chờ Bếp xác nhận trước khi thanh toán!');
             return;
         }
 
@@ -1958,6 +2385,9 @@ const POS = {
             discount_type: this.discount.type,
             discount_value: this.discount.value,
             discount_reason: this.discount.reason || '',
+            promo_id: this.discount.promo_id || 0,
+            promo_code: this.discount.promo_code || '',
+            promo_name: this.discount.promo_name || '',
             vat_percent: this.vatPercent
         };
 

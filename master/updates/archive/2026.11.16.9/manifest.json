@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.9",
+    "title": "Fix cache admin.js?v=42 & Tự động đồng bộ kiểm tra OTA mỗi 60s",
+    "notes": "Phá cache trình duyệt (admin.js?v=42), tự động kiểm tra bản vá mới từ Master mỗi 60s; kèm đầy đủ Promotion & Voucher Engine (promo_voucher_engine) và P&L Real-time.",
+    "created_at": "2026-11-16 10:27:00",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

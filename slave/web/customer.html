@@ -58,6 +58,21 @@
                     if (res && res.authenticated === true && res.user) {
                         localStorage.setItem('pos_user', JSON.stringify(res.user));
                         window.currentUser = res.user;
+                        var searchStr = window.location.search || '';
+                        if (searchStr.indexOf('preview=1') === -1 && searchStr.indexOf('table=') === -1) {
+                            if (res.user.role === 'waiter') {
+                                window.location.replace('order.html');
+                                return;
+                            }
+                            if (res.user.role === 'cashier') {
+                                window.location.replace('index.html');
+                                return;
+                            }
+                            if (res.user.role === 'kitchen') {
+                                window.location.replace('kitchen.html');
+                                return;
+                            }
+                        }
                         if (document.readyState === 'loading') {
                             document.addEventListener('DOMContentLoaded', uncloak);
                         } else {
@@ -1604,12 +1619,15 @@
 
                 <!-- Order Mode Segmented Switch & Form -->
                 <div class="p-2 sm:p-2.5 rounded-xl bg-slate-900/90 border border-white/10 space-y-1.5 shrink-0 box-border">
-                    <div class="p-0.5 rounded-lg bg-slate-950 border border-white/10 grid grid-cols-2 gap-1 text-center">
-                        <button type="button" id="cart-mode-delivery" onclick="CustomerOrdering.setOrderMode('delivery')" class="py-1 rounded-md text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5">
-                            <i class="fas fa-person-biking text-xs"></i> Mang Về / Giao
+                    <div class="p-0.5 rounded-lg bg-slate-950 border border-white/10 grid grid-cols-3 gap-1 text-center">
+                        <button type="button" id="cart-mode-takeaway" onclick="CustomerOrdering.setOrderMode('takeaway')" class="py-1.5 px-1 rounded-md text-[11px] font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1">
+                            <i class="fas fa-bag-shopping text-[10px]"></i> Mang Về
                         </button>
-                        <button type="button" id="cart-mode-table" onclick="CustomerOrdering.setOrderMode('table')" class="py-1 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
-                            <i class="fas fa-utensils text-xs"></i> Ngồi Tại Bàn
+                        <button type="button" id="cart-mode-table" onclick="CustomerOrdering.setOrderMode('dine_in')" class="py-1.5 px-1 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1">
+                            <i class="fas fa-utensils text-[10px]"></i> Tại Bàn
+                        </button>
+                        <button type="button" id="cart-mode-delivery" onclick="CustomerOrdering.setOrderMode('delivery')" class="py-1.5 px-1 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1">
+                            <i class="fas fa-person-biking text-[10px]"></i> Giao Ship
                         </button>
                     </div>
 
@@ -1617,8 +1635,25 @@
                         <input id="customer-order-name" type="text" class="w-full box-border rounded-lg bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Tên của bạn (*)" />
                         <input id="customer-order-phone" type="tel" class="w-full box-border rounded-lg bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Số điện thoại (*)" />
                     </div>
-                    <input id="customer-order-address" type="text" class="w-full box-border rounded-lg bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Địa chỉ nhận món / Số bàn (*)" />
+                    <div id="customer-takeaway-hint" class="px-2.5 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-300">
+                        <i class="fas fa-ticket mr-1"></i> Quán sẽ tự động cấp số phiếu <b>Mang Về (MV)</b> khi bạn xác nhận đơn.
+                    </div>
+                    <div id="customer-table-picker-wrap" class="hidden space-y-1">
+                        <div class="flex items-center justify-between text-[11px] text-slate-300">
+                            <span><i class="fas fa-chair text-amber-400 mr-1"></i> Chọn bàn trống bạn đang ngồi (*):</span>
+                            <button type="button" onclick="CustomerOrdering.loadPublicTables()" class="text-sky-400 hover:text-sky-300 underline">Làm mới bàn</button>
+                        </div>
+                        <select id="customer-table-select" class="w-full box-border rounded-lg bg-slate-950 border border-amber-500/35 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400">
+                            <option value="">-- Đang tải danh sách bàn trống... --</option>
+                        </select>
+                    </div>
+                    <input id="customer-order-address" type="text" class="hidden w-full box-border rounded-lg bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Địa chỉ giao hàng chi tiết (*)" />
                     <input id="customer-order-note" type="text" class="w-full box-border rounded-lg bg-slate-950 border border-white/15 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" placeholder="Ghi chú món ăn (ít đường, không cay, ghi chú đặc biệt...)" />
+                    <div class="flex gap-1.5 items-center pt-0.5">
+                        <input id="customer-promo-input" type="text" class="flex-1 box-border rounded-lg bg-slate-950 border border-amber-500/30 px-2.5 py-1.5 text-xs font-mono uppercase text-amber-300 placeholder-slate-500 focus:outline-none focus:border-amber-400" placeholder="Mã giảm giá / Voucher (nếu có)" />
+                        <button type="button" onclick="CustomerOrdering.applyCustomerPromo()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shrink-0">Áp mã</button>
+                    </div>
+                    <div id="customer-promo-feedback" class="hidden text-[11px] font-semibold px-2 py-1 rounded-lg"></div>
                 </div>
 
                 <div id="customer-order-error" class="hidden p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-[11px] text-rose-300"></div>
@@ -1676,8 +1711,34 @@
                 </div>
 
                 <p id="customer-payment-status" class="text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                    Đơn hàng đã được chuyển vào màn hình Bếp / Pha Chế và Quản trị!
+                    Đơn hàng đang chờ xác nhận thanh toán / duyệt bàn trước khi chuyển vào Bếp.
                 </p>
+
+                <!-- Khung Đánh Giá Sao sau khi hoàn thành đơn -->
+                <div id="customer-review-box" class="hidden p-3.5 rounded-2xl bg-slate-950/75 border border-amber-400/35 space-y-2.5 text-center">
+                    <div class="text-xs font-extrabold text-amber-300 flex items-center justify-center gap-1.5">
+                        <i class="fas fa-star text-amber-400"></i>
+                        <span>Đánh giá trải nghiệm phục vụ của quán</span>
+                    </div>
+                    <div id="customer-review-form" class="space-y-2.5">
+                        <div class="flex items-center justify-center gap-2" id="customer-review-stars">
+                            <button type="button" onclick="CustomerOrdering.setReviewRating(1)" data-star="1" class="text-2xl text-slate-600 hover:scale-110 transition-transform"><i class="fas fa-star"></i></button>
+                            <button type="button" onclick="CustomerOrdering.setReviewRating(2)" data-star="2" class="text-2xl text-slate-600 hover:scale-110 transition-transform"><i class="fas fa-star"></i></button>
+                            <button type="button" onclick="CustomerOrdering.setReviewRating(3)" data-star="3" class="text-2xl text-slate-600 hover:scale-110 transition-transform"><i class="fas fa-star"></i></button>
+                            <button type="button" onclick="CustomerOrdering.setReviewRating(4)" data-star="4" class="text-2xl text-slate-600 hover:scale-110 transition-transform"><i class="fas fa-star"></i></button>
+                            <button type="button" onclick="CustomerOrdering.setReviewRating(5)" data-star="5" class="text-2xl text-slate-600 hover:scale-110 transition-transform"><i class="fas fa-star"></i></button>
+                        </div>
+                        <input type="text" id="customer-review-comment" placeholder="Góp ý thêm cho quán (tùy chọn)..." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400" />
+                        <button type="button" id="btn-submit-customer-review" onclick="CustomerOrdering.submitReview()" class="w-full py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all">
+                            <i class="fas fa-paper-plane mr-1"></i> Gửi Đánh Giá
+                        </button>
+                    </div>
+                    <div id="customer-review-done" class="hidden text-xs text-emerald-300 font-bold py-1"></div>
+                </div>
+
+                <button type="button" id="btn-customer-mark-transfer" onclick="CustomerOrdering.markTransferSent()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white shadow-lg shadow-emerald-600/30">
+                    <i class="fas fa-paper-plane mr-1"></i> Tôi đã chuyển khoản xong (Báo Thu ngân)
+                </button>
 
                 <div class="flex gap-2">
                     <button type="button" onclick="CustomerOrdering.checkOrderStatus()" class="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-sky-200">
@@ -2034,8 +2095,47 @@
             cart: {},
             activeCategory: 0,
             currentOrder: null,
-            orderMode: 'delivery',
+            orderMode: 'takeaway',
+            appliedPromoCode: '',
             _toastTimer: null,
+            _payPollTimer: null,
+
+            async applyCustomerPromo() {
+                const inp = document.getElementById('customer-promo-input');
+                const fb = document.getElementById('customer-promo-feedback');
+                const code = (inp?.value || '').trim().toUpperCase();
+                if (!code) {
+                    this.appliedPromoCode = '';
+                    if (fb) fb.classList.add('hidden');
+                    return;
+                }
+                const pids = Object.keys(this.cart);
+                const subtotal = pids.reduce((s, id) => {
+                    const p = this.getProductInfo(id);
+                    return s + ((p ? p.price : 0) * (Number(this.cart[id]) || 1));
+                }, 0);
+                try {
+                    const res = await fetch('api/promotions?action=validate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ promo_code: code, subtotal })
+                    }).then(r => r.json());
+                    if (fb) fb.classList.remove('hidden');
+                    if (res.success && res.promo) {
+                        this.appliedPromoCode = res.promo.code;
+                        if (fb) {
+                            fb.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300';
+                            fb.textContent = `✅ ${res.message} (Còn ${this.formatMoney(Math.max(0, subtotal - (res.discount_amount || 0)))} đ)`;
+                        }
+                    } else {
+                        this.appliedPromoCode = '';
+                        if (fb) {
+                            fb.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300';
+                            fb.textContent = `⚠️ ${res.message || 'Mã không hợp lệ'}`;
+                        }
+                    }
+                } catch (e) {}
+            },
 
             init() {
                 try {
@@ -2058,22 +2158,58 @@
             },
 
             setOrderMode(mode) {
+                if (mode === 'table') mode = 'dine_in';
                 this.orderMode = mode;
-                const delBtn = document.getElementById('cart-mode-delivery');
+                const takeBtn = document.getElementById('cart-mode-takeaway');
                 const tblBtn = document.getElementById('cart-mode-table');
-                const lbl = document.getElementById('customer-order-address-label');
-                const input = document.getElementById('customer-order-address');
-                if (mode === 'delivery') {
-                    if (delBtn) delBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5';
-                    if (tblBtn) tblBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5';
-                    if (lbl) lbl.innerHTML = 'Địa chỉ giao món <span class="text-rose-400">*</span>';
-                    if (input) input.placeholder = 'Địa chỉ giao hàng chi tiết...';
-                } else {
-                    if (tblBtn) tblBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1.5';
-                    if (delBtn) delBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1.5';
-                    if (lbl) lbl.innerHTML = 'Số bàn của bạn <span class="text-rose-400">*</span>';
-                    if (input) input.placeholder = 'Ví dụ: Bàn 03, Bàn ngoài sân...';
+                const delBtn = document.getElementById('cart-mode-delivery');
+                const takeHint = document.getElementById('customer-takeaway-hint');
+                const tblWrap = document.getElementById('customer-table-picker-wrap');
+                const addrInput = document.getElementById('customer-order-address');
+
+                const activeCls = 'py-1.5 px-1 rounded-md text-[11px] font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center justify-center gap-1';
+                const idleCls = 'py-1.5 px-1 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1';
+                if (takeBtn) takeBtn.className = (mode === 'takeaway') ? activeCls : idleCls;
+                if (tblBtn) tblBtn.className = (mode === 'dine_in') ? activeCls : idleCls;
+                if (delBtn) delBtn.className = (mode === 'delivery') ? activeCls : idleCls;
+
+                if (takeHint) takeHint.classList.toggle('hidden', mode !== 'takeaway');
+                if (tblWrap) tblWrap.classList.toggle('hidden', mode !== 'dine_in');
+                if (addrInput) addrInput.classList.toggle('hidden', mode !== 'delivery');
+
+                if (mode === 'dine_in') {
+                    this.loadPublicTables();
                 }
+            },
+
+            async loadPublicTables() {
+                const sel = document.getElementById('customer-table-select');
+                if (!sel) return;
+                const prevVal = sel.value;
+                try {
+                    const res = await fetch('api/tables?action=public_tables');
+                    const json = await res.json();
+                    if (!json.success || !Array.isArray(json.data)) return;
+                    const dineInTables = json.data.filter(t => t.area_type !== 'MANG_VE' && t.area_type !== 'takeaway' && !String(t.code || '').startsWith('MV'));
+                    const freeTables = dineInTables.filter(t => t.status === 'free');
+                    if (freeTables.length === 0) {
+                        sel.innerHTML = '<option value="">-- Hiện hết bàn trống (vui lòng chọn Mang Về hoặc hỏi nhân viên) --</option>';
+                    } else {
+                        sel.innerHTML = '<option value="">-- Chọn bàn trống bạn đang ngồi --</option>' +
+                            freeTables.map(t => `<option value="${t.id}" data-code="${t.code}">${t.code}${t.name && t.name !== t.code ? ' - ' + t.name : ''} (Đang trống)</option>`).join('');
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const qTable = (urlParams.get('table') || urlParams.get('table_code') || '').trim().toUpperCase();
+                        const qTid = urlParams.get('table_id') || '';
+                        if (qTid && freeTables.some(t => String(t.id) === qTid)) {
+                            sel.value = qTid;
+                        } else if (qTable) {
+                            const match = freeTables.find(t => String(t.code || '').toUpperCase() === qTable);
+                            if (match) sel.value = String(match.id);
+                        } else if (prevVal && freeTables.some(t => String(t.id) === prevVal)) {
+                            sel.value = prevVal;
+                        }
+                    }
+                } catch (e) {}
             },
 
             showToast(msg) {
@@ -2278,6 +2414,9 @@
                 const name = document.getElementById('customer-order-name')?.value.trim();
                 const phone = document.getElementById('customer-order-phone')?.value.trim();
                 const address = document.getElementById('customer-order-address')?.value.trim();
+                const tableSelect = document.getElementById('customer-table-select');
+                const selectedTableId = Number(tableSelect?.value || 0);
+                const selectedTableCode = tableSelect?.options[tableSelect.selectedIndex]?.dataset?.code || '';
                 const note = document.getElementById('customer-order-note')?.value.trim();
                 const submitBtn = document.getElementById('btn-sheet-submit');
                 const errorBox = document.getElementById('customer-order-error');
@@ -2292,8 +2431,13 @@
                     document.getElementById('customer-order-phone')?.focus();
                     return;
                 }
-                if (!address) {
-                    alert(this.orderMode === 'table' ? 'Vui lòng nhập số bàn bạn đang ngồi!' : 'Vui lòng nhập địa chỉ nhận món!');
+                if (this.orderMode === 'dine_in' && selectedTableId <= 0) {
+                    alert('Vui lòng chọn đúng số bàn trống bạn đang ngồi!');
+                    tableSelect?.focus();
+                    return;
+                }
+                if (this.orderMode === 'delivery' && !address) {
+                    alert('Vui lòng nhập địa chỉ giao hàng chi tiết!');
                     document.getElementById('customer-order-address')?.focus();
                     return;
                 }
@@ -2317,7 +2461,7 @@
                     .join('; ');
 
                 const fullNote = [
-                    address ? `${this.orderMode === 'table' ? 'Bàn' : 'Địa chỉ giao'}: ${address}` : '',
+                    this.orderMode === 'dine_in' ? `Ngồi tại bàn: ${selectedTableCode}` : (this.orderMode === 'takeaway' ? 'Mang về tại quán' : `Giao hàng: ${address}`),
                     note ? `Ghi chú chung: ${note}` : '',
                     itemNotesSummary ? `Chi tiết món: ${itemNotesSummary}` : ''
                 ].filter(Boolean).join(' | ');
@@ -2338,17 +2482,22 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                            order_mode: this.orderMode,
                             customer_name: name,
                             customer_phone: phone,
                             note: fullNote,
-                            table_id: 0,
-                            table_code: address ? `${this.orderMode === 'table' ? 'BÀN' : 'GIAO'} (${address})` : 'ONLINE',
+                            table_id: this.orderMode === 'dine_in' ? selectedTableId : 0,
+                            table_code: this.orderMode === 'dine_in' ? selectedTableCode : (this.orderMode === 'takeaway' ? 'MV' : 'ONLINE'),
+                            promo_code: this.appliedPromoCode || '',
                             items: items
                         })
                     });
 
                     const data = await response.json();
                     if (!response.ok || !data.success) {
+                        if (data && data.table_conflict) {
+                            await this.loadPublicTables();
+                        }
                         throw new Error(data.message || 'Không thể tạo đơn hàng.');
                     }
 
@@ -2417,6 +2566,73 @@
 
                 const qrImg = document.getElementById('customer-payment-qr');
                 if (qrImg) qrImg.src = qrUrl;
+
+                const stEl = document.getElementById('customer-payment-status');
+                const btnMark = document.getElementById('btn-customer-mark-transfer');
+                if (btnMark) btnMark.classList.remove('hidden');
+                if (stEl) {
+                    if (order.order_type === 'dine_in') {
+                        stEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
+                        stEl.innerHTML = `🪑 Đơn bàn <b>${order.table_code}</b> đang chờ nhân viên xác nhận bàn. Bạn có thể quét VietQR thanh toán trước hoặc thanh toán tại quầy.`;
+                    } else {
+                        stEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
+                        stEl.innerHTML = `⏳ Vui lòng thanh toán VietQR (${order.order_type === 'takeaway' ? 'Phiếu ' + order.table_code : 'Đơn Online'}) để Thu ngân xác nhận <b>Chuyển Bếp</b>.`;
+                    }
+                }
+                if (this._payPollTimer) clearInterval(this._payPollTimer);
+                this._payPollTimer = setInterval(() => this.checkOrderStatus(true), 3000);
+            },
+
+            async markTransferSent() {
+                if (!this.currentOrder || !this.currentOrder.order_code) return;
+                const btn = document.getElementById('btn-customer-mark-transfer');
+                if (btn) btn.disabled = true;
+                try {
+                    const res = await fetch('api/orders?action=customer_mark_transfer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_code: this.currentOrder.order_code })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        const stEl = document.getElementById('customer-payment-status');
+                        if (stEl) {
+                            stEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
+                            stEl.innerHTML = '🔎 Đã báo Thu ngân! Hệ thống đang đối soát chuyển khoản để chuyển Bếp...';
+                        }
+                    }
+                } catch (e) {} finally {
+                    if (btn) btn.disabled = false;
+                }
+            },
+
+            async checkOrderStatus(silent = false) {
+                if (!this.currentOrder || !this.currentOrder.order_code) return;
+                try {
+                    const res = await fetch(`api/orders?action=check_payment&order_code=${encodeURIComponent(this.currentOrder.order_code)}`);
+                    const json = await res.json();
+                    if (!json.success || !json.data) return;
+                    const d = json.data;
+                    const stEl = document.getElementById('customer-payment-status');
+                    const btnMark = document.getElementById('btn-customer-mark-transfer');
+                    if (d.payment_status === 'paid') {
+                        if (btnMark) btnMark.classList.add('hidden');
+                        if (stEl) {
+                            stEl.className = 'text-xs text-emerald-300 font-bold p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30';
+                            stEl.innerHTML = d.kitchen_status === 'ready'
+                                ? '🍽️ Món đã làm xong! Mời bạn nhận món.'
+                                : '✅ Đã xác nhận thanh toán! Bếp đang chuẩn bị món cho bạn.';
+                        }
+                    } else if (d.payment_status === 'verifying' && stEl) {
+                        stEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
+                        stEl.innerHTML = '🔎 Thu ngân đang đối soát chuyển khoản của bạn...';
+                    } else if (d.payment_status === 'partial' && stEl) {
+                        stEl.className = 'text-xs text-rose-300 font-bold p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30';
+                        stEl.innerHTML = `⚠️ Số tiền chuyển (${this.formatMoney(d.paid_amount)}đ) chưa đủ ${this.formatMoney(d.total_amount)}đ. Vui lòng liên hệ quầy!`;
+                    } else if (!silent && stEl) {
+                        stEl.innerHTML = `⏳ Trạng thái: ${d.kitchen_status === 'pending' ? 'Bếp đang làm' : 'Đang chờ xác nhận thanh toán / duyệt bàn'} (${this.formatMoney(d.total_amount)}đ)`;
+                    }
+                } catch (e) {}
             },
 
             async checkOrderStatus() {
@@ -2428,8 +2644,10 @@
                         const o = data.order;
                         const statusEl = document.getElementById('customer-payment-status');
                         if (statusEl) {
-                            if (o.status === 'completed') {
-                                statusEl.textContent = '🎉 Đơn hàng đã hoàn tất! Cảm ơn quý khách.';
+                            if (o.status === 'completed' || o.kitchen_status === 'served') {
+                                statusEl.textContent = o.status === 'completed'
+                                    ? '🎉 Đơn hàng đã hoàn tất! Cảm ơn quý khách.'
+                                    : '🍽️ Món đã được bưng ra! Chúc quý khách ngon miệng.';
                                 statusEl.className = 'text-xs text-emerald-300 font-semibold p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30';
                             } else if (o.kitchen_status === 'ready') {
                                 statusEl.textContent = '🍳 Món đã chuẩn bị xong, đang giao tới quý khách!';
@@ -2439,13 +2657,84 @@
                                 statusEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
                             }
                         }
+                        this.syncReviewBox(o);
                     }
                 } catch (e) {
                     console.log('Error checking order status:', e);
                 }
             },
 
+            selectedReviewStars: 0,
+            setReviewRating(stars) {
+                this.selectedReviewStars = Number(stars) || 0;
+                document.querySelectorAll('#customer-review-stars button').forEach(btn => {
+                    const s = Number(btn.getAttribute('data-star'));
+                    btn.className = s <= this.selectedReviewStars
+                        ? 'text-2xl text-amber-400 hover:scale-110 transition-transform drop-shadow'
+                        : 'text-2xl text-slate-600 hover:scale-110 transition-transform';
+                });
+            },
+
+            syncReviewBox(order) {
+                const box = document.getElementById('customer-review-box');
+                const formEl = document.getElementById('customer-review-form');
+                const doneEl = document.getElementById('customer-review-done');
+                if (!box) return;
+                const canReview = order && (order.status === 'completed' || order.kitchen_status === 'served');
+                if (!canReview) {
+                    box.classList.add('hidden');
+                    return;
+                }
+                box.classList.remove('hidden');
+                const rated = Number(order.customer_rating || 0);
+                if (rated > 0) {
+                    if (formEl) formEl.classList.add('hidden');
+                    if (doneEl) {
+                        doneEl.classList.remove('hidden');
+                        doneEl.innerHTML = `✅ Cảm ơn quý khách đã đánh giá <span class="text-amber-300">${'★'.repeat(rated)}${'☆'.repeat(5 - rated)}</span>!`;
+                    }
+                } else {
+                    if (formEl) formEl.classList.remove('hidden');
+                    if (doneEl) doneEl.classList.add('hidden');
+                    if (!this.selectedReviewStars) this.setReviewRating(5);
+                }
+            },
+
+            async submitReview() {
+                if (!this.currentOrder?.order_code) return;
+                const rating = this.selectedReviewStars || 5;
+                const comment = (document.getElementById('customer-review-comment')?.value || '').trim();
+                const btn = document.getElementById('btn-submit-customer-review');
+                if (btn) btn.disabled = true;
+                try {
+                    const res = await fetch('api/orders?action=submit_review', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            order_code: this.currentOrder.order_code,
+                            rating,
+                            comment
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || 'Không thể gửi đánh giá');
+                    }
+                    this.syncReviewBox({ status: 'completed', customer_rating: rating });
+                } catch (e) {
+                    alert(e.message || 'Lỗi gửi đánh giá');
+                    if (btn) btn.disabled = false;
+                }
+            },
+
             resetOrder() {
+                this.selectedReviewStars = 0;
+                const revBox = document.getElementById('customer-review-box'); if (revBox) revBox.classList.add('hidden');
+                const revCmt = document.getElementById('customer-review-comment'); if (revCmt) revCmt.value = '';
+                this.appliedPromoCode = '';
+                const pInp = document.getElementById('customer-promo-input'); if (pInp) pInp.value = '';
+                const pFb = document.getElementById('customer-promo-feedback'); if (pFb) pFb.classList.add('hidden');
+                if (this._payPollTimer) { clearInterval(this._payPollTimer); this._payPollTimer = null; }
                 this.currentOrder = null;
                 const activeEl = document.getElementById('customer-cart-active');
                 const payment = document.getElementById('customer-order-payment');
@@ -3000,15 +3289,26 @@
                     const zone = document.getElementById('user-nav-zone');
                     if (zone) {
                         const isAdmin = (u.role === 'admin' || u.is_super_admin === true);
+                        const roleHomeMap = {
+                            waiter: { href: 'order.html', label: 'Phục vụ' },
+                            cashier: { href: 'index.html', label: 'Thu ngân' },
+                            kitchen: { href: 'kitchen.html', label: 'Bếp' }
+                        };
+                        const roleHome = roleHomeMap[u.role];
                         const adminBadgeHtml = isAdmin
                             ? `<a href="admin.html" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">
                                 <i class="fas fa-crown text-amber-400 text-xs"></i>
                                 <span class="hidden sm:inline font-bold text-amber-200">${u.fullname || u.username}</span>
                                 <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">ADMIN</span>
                             </a>`
-                            : `<span class="w-8 h-8 rounded-xl btn-glass flex items-center justify-center text-sky-300 border border-indigo-500/35 bg-indigo-500/15 shadow-sm shrink-0" title="${u.fullname || u.username}">
-                                <i class="fas fa-user-check text-xs"></i>
-                            </span>`;
+                            : (roleHome
+                                ? `<a href="${roleHome.href}" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all" title="Quay về trang ${roleHome.label}">
+                                    <i class="fas fa-arrow-left text-sky-300 text-[10px]"></i>
+                                    <span class="font-bold text-sky-200">${roleHome.label}</span>
+                                </a>`
+                                : `<span class="w-8 h-8 rounded-xl btn-glass flex items-center justify-center text-sky-300 border border-indigo-500/35 bg-indigo-500/15 shadow-sm shrink-0" title="${u.fullname || u.username}">
+                                    <i class="fas fa-user-check text-xs"></i>
+                                </span>`);
                         zone.innerHTML = `
                             <div class="flex items-center gap-1.5 shrink-0">
                                 ${adminBadgeHtml}

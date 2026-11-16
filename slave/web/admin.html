@@ -552,6 +552,8 @@
                     <span class="text-sky-300 font-mono">SQLite WAL</span>
                     <span class="text-slate-600">•</span>
                     <span class="text-purple-300 font-medium">Toàn quyền vận hành</span>
+                    <span class="text-slate-600">•</span>
+                    <span id="store-app-version-pill" class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-400/30 font-mono text-[10px] font-bold" title="Phiên bản hệ thống hiện tại của quán">v2026.11.16.11</span>
                 </div>
             </div>
         </div>
@@ -1729,18 +1731,118 @@
                 <!-- ============================================ -->
                 <div id="ops-subview-kpi" class="hidden space-y-4">
                     <div class="p-3 bg-slate-900/60 rounded-xl border border-white/10 flex flex-wrap items-center justify-between gap-3">
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2.5">
                             <i class="fas fa-bullseye text-fuchsia-400 text-sm"></i>
                             <span class="text-xs font-bold text-slate-300">Kỳ đánh giá KPI:</span>
                             <input type="month" id="kpi-month-input" onchange="Admin.loadKpi()" class="liquid-input py-1 px-2.5 text-xs font-mono font-bold text-fuchsia-300 bg-slate-900" />
-                            <span id="kpi-target-note" class="text-[11px] text-slate-400"></span>
+                            <span id="kpi-active-sla-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">Đang tải SLA...</span>
+                            <span id="kpi-avg-rating-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">⭐ 0.0 / 5</span>
                         </div>
                         <div class="flex flex-wrap items-center gap-2 text-xs">
-                            <div class="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10"><span class="text-slate-400">Lương giờ:</span> <b id="kpi-total-hourly" class="text-sky-300 font-mono">0 đ</b></div>
-                            <div class="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10"><span class="text-slate-400">Phụ cấp:</span> <b id="kpi-total-allowance" class="text-amber-300 font-mono">0 đ</b></div>
-                            <div class="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10"><span class="text-slate-400">Thưởng:</span> <b id="kpi-total-bonus" class="text-emerald-300 font-mono">0 đ</b></div>
-                            <div class="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10"><span class="text-slate-400">Phạt:</span> <b id="kpi-total-deduction" class="text-rose-300 font-mono">0 đ</b></div>
-                            <div class="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30"><span class="text-emerald-300 font-semibold">Thực chi:</span> <b id="kpi-total-net" class="text-emerald-400 font-mono text-sm">0 đ</b></div>
+                            <button type="button" onclick="Admin.loadKpi()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10 font-semibold"><i class="fas fa-sync-alt mr-1"></i> Làm mới</button>
+                            <button type="button" onclick="Admin.toggleKpiConfigPanel()" class="btn-glass text-xs py-1.5 px-3 bg-fuchsia-500/20 hover:bg-fuchsia-500/40 text-fuchsia-300 border-fuchsia-500/30 font-bold"><i class="fas fa-sliders-h mr-1"></i> Thiết lập SLA &amp; Điểm KPI</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Thiết lập Khung giờ Cao/Thấp điểm & Quy tắc Cộng/Trừ KPI -->
+                    <div id="kpi-config-panel" class="hidden liquid-glass rounded-xl border border-fuchsia-500/30 p-4 space-y-4">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                            <div>
+                                <h4 class="font-extrabold text-sm text-fuchsia-300 uppercase">Thiết Lập Mốc Thời Gian Phục Vụ (SLA) &amp; Quy Tắc Điểm KPI</h4>
+                                <p class="text-[11px] text-slate-400">Chủ quán tùy chỉnh thời gian Bếp làm / Phục vụ bưng ra theo khung giờ và điểm cộng/trừ KPI, đánh giá sao.</p>
+                            </div>
+                            <button type="button" onclick="Admin.toggleKpiConfigPanel()" class="text-slate-400 hover:text-white text-xs px-2 py-1"><i class="fas fa-times"></i> Đóng</button>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2.5 text-xs">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">SLA Bếp thấp điểm (p)</label>
+                                <input type="number" min="1" id="cfg-default-kitchen-sla" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">SLA Phục vụ thấp điểm (p)</label>
+                                <input type="number" min="1" id="cfg-default-waiter-sla" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Điểm KPI nền</label>
+                                <input type="number" min="0" id="cfg-kpi-base" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-emerald-400 mb-1">Bếp đúng hạn (+)</label>
+                                <input type="number" id="cfg-kitchen-ontime" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-emerald-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-rose-400 mb-1">Bếp bị Hối (trừ)</label>
+                                <input type="number" min="0" id="cfg-kitchen-rush-pen" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-rose-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-emerald-400 mb-1">PV đúng hạn (+)</label>
+                                <input type="number" id="cfg-waiter-ontime" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-emerald-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-rose-400 mb-1">PV bị Báo lại (trừ)</label>
+                                <input type="number" min="0" id="cfg-waiter-remind-pen" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-rose-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-amber-300 mb-1">Đánh giá 5⭐</label>
+                                <input type="number" id="cfg-star-5" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-amber-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-amber-300 mb-1">Đánh giá 4⭐</label>
+                                <input type="number" id="cfg-star-4" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Đánh giá 3⭐</label>
+                                <input type="number" id="cfg-star-3" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-rose-300 mb-1">Đánh giá 2⭐</label>
+                                <input type="number" id="cfg-star-2" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-rose-300" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-rose-400 mb-1">Đánh giá 1⭐</label>
+                                <input type="number" id="cfg-star-1" class="liquid-input w-full py-1.5 px-2.5 text-xs font-mono text-rose-400" />
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="button" onclick="Admin.saveKpiSlaSettings()" class="btn-glass text-xs py-1.5 px-4 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/30 font-bold"><i class="fas fa-save mr-1"></i> Lưu Cấu Hình KPI &amp; Mặc Định</button>
+                        </div>
+
+                        <!-- Khung giờ Cao điểm / Thấp điểm -->
+                        <div class="pt-3 border-t border-white/10 space-y-2.5">
+                            <div class="text-xs font-bold text-sky-300 uppercase"><i class="fas fa-clock mr-1"></i> Mốc Khung Giờ Cao Điểm / Thấp Điểm</div>
+                            <div id="kpi-sla-slots-list" class="space-y-1.5"></div>
+                            <div class="grid grid-cols-2 sm:grid-cols-7 gap-2 pt-2 items-end text-xs">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-[10px] text-slate-400 mb-1">Tên khung giờ</label>
+                                    <input type="text" id="sla-slot-name" placeholder="VD: Cao điểm Tối" class="liquid-input w-full py-1.5 px-2.5 text-xs" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Loại</label>
+                                    <select id="sla-slot-type" class="liquid-input w-full py-1.5 px-2 text-xs bg-slate-900">
+                                        <option value="peak">Cao điểm</option>
+                                        <option value="off_peak">Thấp điểm</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Từ giờ</label>
+                                    <input type="time" id="sla-slot-start" value="18:00" class="liquid-input w-full py-1.5 px-2 text-xs font-mono" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Đến giờ</label>
+                                    <input type="time" id="sla-slot-end" value="21:00" class="liquid-input w-full py-1.5 px-2 text-xs font-mono" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Bếp (p) / PV (p)</label>
+                                    <div class="flex gap-1">
+                                        <input type="number" min="1" id="sla-slot-kitchen" value="15" class="liquid-input w-1/2 py-1.5 px-1.5 text-xs font-mono text-center" title="SLA Bếp (phút)" />
+                                        <input type="number" min="1" id="sla-slot-waiter" value="5" class="liquid-input w-1/2 py-1.5 px-1.5 text-xs font-mono text-center" title="SLA Phục vụ (phút)" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <button type="button" onclick="Admin.addSlaSlot()" class="btn-glass w-full text-xs py-1.5 px-3 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/30 font-bold"><i class="fas fa-plus mr-1"></i> Thêm Mốc</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1752,20 +1854,35 @@
                                 <thead class="bg-slate-900">
                                     <tr class="border-b border-white/10 text-[11px] text-slate-400 uppercase">
                                         <th class="py-2.5 px-3">Nhân viên</th>
-                                        <th class="py-2.5 px-3 text-center">Ca / Trễ / Sự cố</th>
+                                        <th class="py-2.5 px-3 text-center">Vai trò</th>
                                         <th class="py-2.5 px-3 text-center">Đơn xử lý</th>
-                                        <th class="py-2.5 px-3 text-center" title="Chuyên cần · Đúng giờ · Kỷ luật · Năng suất · Thái độ · Phối hợp">Điểm thành phần</th>
-                                        <th class="py-2.5 px-3 text-center">KPI</th>
-                                        <th class="py-2.5 px-3 text-right">Lương giờ</th>
-                                        <th class="py-2.5 px-3 text-right">Phụ cấp</th>
-                                        <th class="py-2.5 px-3 text-right">Thưởng</th>
-                                        <th class="py-2.5 px-3 text-right">Phạt</th>
-                                        <th class="py-2.5 px-3 text-right">Thực nhận</th>
-                                        <th class="py-2.5 px-3 text-right"></th>
+                                        <th class="py-2.5 px-3 text-center">Đúng hạn (+)</th>
+                                        <th class="py-2.5 px-3 text-center">Bị Hối / Báo lại (-)</th>
+                                        <th class="py-2.5 px-3 text-center">Đánh giá Sao</th>
+                                        <th class="py-2.5 px-3 text-center">Biến động</th>
+                                        <th class="py-2.5 px-3 text-right">Điểm KPI</th>
                                     </tr>
                                 </thead>
                                 <tbody id="kpi-tbody" class="divide-y divide-white/5"></tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="liquid-glass rounded-xl border border-white/10 p-3 space-y-2">
+                            <h4 class="text-xs font-extrabold text-fuchsia-300 uppercase"><i class="fas fa-history mr-1"></i> Nhật Ký Cộng / Trừ KPI Gần Nhất</h4>
+                            <div class="max-h-64 overflow-y-auto">
+                                <table class="w-full text-left text-[11px]">
+                                    <thead class="text-slate-400 border-b border-white/10">
+                                        <tr><th class="py-1.5 px-2">Nhân viên</th><th class="py-1.5 px-2">Sự kiện</th><th class="py-1.5 px-2 text-right">Điểm</th><th class="py-1.5 px-2 text-right">Giờ</th></tr>
+                                    </thead>
+                                    <tbody id="kpi-logs-tbody" class="divide-y divide-white/5"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="liquid-glass rounded-xl border border-white/10 p-3 space-y-2">
+                            <h4 class="text-xs font-extrabold text-amber-300 uppercase"><i class="fas fa-star mr-1"></i> Đánh Giá Sao Từ Khách Hàng</h4>
+                            <div id="kpi-reviews-list" class="max-h-64 overflow-y-auto space-y-2"></div>
                         </div>
                     </div>
                 </div>
@@ -2094,6 +2211,94 @@
                                 <div><label class="block text-[10px] text-slate-400 mb-1">Bắt đầu</label><input name="customer_promo_start" type="date" value="" class="liquid-input w-full" /></div>
                                 <div><label class="block text-[10px] text-slate-400 mb-1">Kết thúc</label><input name="customer_promo_end" type="date" value="" class="liquid-input w-full" /></div>
                             </div>
+                        </div>
+
+                        <!-- Promotion & Voucher Engine Manager -->
+                        <div id="promo-engine-card" class="p-4 rounded-2xl bg-slate-900/75 border border-emerald-500/30 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                                <div>
+                                    <h4 class="text-xs font-black text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fas fa-tags"></i> Chương Trình Khuyến Mãi &amp; Mã Voucher Tự Động
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Áp dụng tự động theo khung giờ vàng / đơn tối thiểu hoặc khách nhập mã trên QR &amp; POS Thu ngân.</p>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="Admin.loadPromotions()" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-xs" title="Tải lại"><i class="fas fa-rotate"></i></button>
+                                    <button type="button" onclick="Admin.openPromoFormModal()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"><i class="fas fa-plus"></i> Tạo Khuyến Mãi</button>
+                                </div>
+                            </div>
+
+                            <div id="promo-form-box" class="hidden p-3 rounded-xl bg-slate-950/80 border border-sky-500/30 space-y-2.5">
+                                <input type="hidden" id="promo-edit-id" value="0" />
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Mã KM / Voucher (*)</label>
+                                        <input type="text" id="promo-code" class="liquid-input w-full text-xs font-mono uppercase text-amber-300" placeholder="VD: KHAITRUONG20" />
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-[10px] text-slate-400 mb-1">Tên chương trình (*)</label>
+                                        <input type="text" id="promo-name" class="liquid-input w-full text-xs" placeholder="VD: Giờ Vàng 14h-17h Giảm 20%" />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Chế độ áp dụng</label>
+                                        <select id="promo-mode" class="liquid-input w-full text-xs bg-slate-900">
+                                            <option value="voucher">Nhập mã Voucher</option>
+                                            <option value="auto">Tự động áp dụng</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Loại giảm</label>
+                                        <select id="promo-discount-type" class="liquid-input w-full text-xs bg-slate-900">
+                                            <option value="percent">Phần trăm (%)</option>
+                                            <option value="amount">Số tiền (VNĐ)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Giá trị giảm (*)</label>
+                                        <input type="number" id="promo-discount-value" min="0" class="liquid-input w-full text-xs font-mono" placeholder="20 hoặc 15000" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Giảm tối đa (VNĐ, 0=∞)</label>
+                                        <input type="number" id="promo-max-cap" min="0" value="0" class="liquid-input w-full text-xs font-mono" />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Đơn tối thiểu (VNĐ)</label>
+                                        <input type="number" id="promo-min-order" min="0" value="0" class="liquid-input w-full text-xs font-mono" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Từ ngày</label>
+                                        <input type="date" id="promo-start-date" class="liquid-input w-full text-xs" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Đến ngày</label>
+                                        <input type="date" id="promo-end-date" class="liquid-input w-full text-xs" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Giờ vàng từ (HH:MM)</label>
+                                        <input type="time" id="promo-start-time" class="liquid-input w-full text-xs" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Đến giờ (HH:MM)</label>
+                                        <input type="time" id="promo-end-time" class="liquid-input w-full text-xs" />
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-end justify-between gap-2 pt-1">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Giới hạn lượt dùng (0 = Không giới hạn)</label>
+                                        <input type="number" id="promo-usage-limit" min="0" value="0" class="liquid-input w-40 text-xs font-mono" />
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button type="button" onclick="document.getElementById('promo-form-box').classList.add('hidden')" class="px-3 py-1.5 rounded-lg bg-white/10 text-xs text-slate-300">Đóng</button>
+                                        <button type="button" onclick="Admin.savePromotion()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white">Lưu Khuyến Mãi</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="promo-list-container" class="space-y-2 text-xs text-slate-300"></div>
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-300 mb-1">Liên kết mạng xã hội / bản đồ:</label>
@@ -4936,7 +5141,7 @@
     <script src="assets/js/image_processor.js?v=1"></script>
     <script src="assets/js/jukebox-engine.js?v=2"></script>
     <script src="assets/js/date_format_ddmmyy.js?v=1"></script>
-    <script src="assets/js/admin.js?v=41"></script>
+    <script src="assets/js/admin.js?v=42"></script>
     <script>
         // Master list of Vietnamese banks supported by VietQR / NAPAS 247
         const VIETQR_BANKS = [

@@ -60,6 +60,7 @@ const SuperAdmin = {
         } else if (tabId === 'settings') {
             this.loadSaasSettings();
             this.loadMasterAiVault();
+            this.loadOtaPatchArchive();
         } else if (tabId === 'resellers') {
             this.loadResellers();
         }
@@ -2690,35 +2691,66 @@ const SuperAdmin = {
         if (m) m.classList.remove('open');
     },
 
-    async openPushUpdateModal(targetCode = 'ALL') {
+    async openPushUpdateModal(targetCode = 'ALL', preselectVersion = '') {
         const modal = document.getElementById('modal-push-update');
         if (!modal) return;
         const targetInput = document.getElementById('push-target-code');
         const infoEl = document.getElementById('push-patch-info');
+        const verSelect = document.getElementById('push-patch-version');
         if (targetInput) targetInput.value = targetCode || 'ALL';
         modal.classList.remove('hidden');
         modal.classList.add('flex');
-        if (infoEl) {
-            infoEl.textContent = 'Đang kiểm tra gói patch trên Master...';
-            try {
-                const res = await fetch('/api/updates/latest');
-                const data = await res.json();
-                if (data.success && data.has_patch && data.manifest) {
-                    const files = Array.isArray(data.manifest.files) ? data.manifest.files.join(', ') : '';
-                    const kb = data.zip_size_bytes ? (data.zip_size_bytes / 1024).toFixed(1) + ' KB' : '';
-                    infoEl.textContent = `Gói patch sẵn sàng: v${data.manifest.version || 'latest'} (${kb}) • Files: ${files}`;
+        if (infoEl) infoEl.textContent = 'Đang tải danh sách các bản vá trên Master...';
+        try {
+            const res = await fetch('/api/super_admin?action=list_patches');
+            const data = await res.json();
+            const patches = (data.success && Array.isArray(data.patches)) ? data.patches : [];
+            patches.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+            this._pushPatchesCache = patches;
+            if (verSelect) {
+                if (patches.length === 0) {
+                    verSelect.innerHTML = '<option value="">-- Chưa có bản vá nào trong kho lưu trữ --</option>';
+                    if (infoEl) infoEl.textContent = 'Chưa có file bản vá nào trên Master.';
                 } else {
-                    infoEl.textContent = 'Chưa có file patch_latest.zip trên Master (chỉ có thể gửi thông báo văn bản).';
+                    verSelect.innerHTML = patches.map((p, idx) => {
+                        const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+                        const tags = [];
+                        if (idx === 0) tags.push('Mới nhất');
+                        if (p.is_active) tags.push('Đang phát hành');
+                        const tagStr = tags.length ? ` [${tags.join(' • ')}]` : '';
+                        return `<option value="${p.version}">v${p.version}${tagStr} — ${mb} MB (${p.title || ''})</option>`;
+                    }).join('');
+                    verSelect.value = preselectVersion && patches.some(p => p.version === preselectVersion)
+                        ? preselectVersion
+                        : patches[0].version;
+                    this.onPushPatchVersionChange();
                 }
-            } catch (e) {
-                infoEl.textContent = 'Không kiểm tra được gói patch: ' + e.message;
             }
+        } catch (e) {
+            if (infoEl) infoEl.textContent = 'Không kiểm tra được kho bản vá: ' + e.message;
         }
+    },
+
+    onPushPatchVersionChange() {
+        const verSelect = document.getElementById('push-patch-version');
+        const infoEl = document.getElementById('push-patch-info');
+        const titleEl = document.getElementById('push-title');
+        const msgEl = document.getElementById('push-message');
+        const ver = verSelect ? verSelect.value : '';
+        const p = (this._pushPatchesCache || []).find(x => x.version === ver);
+        if (!p) return;
+        const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+        if (infoEl) {
+            infoEl.textContent = `Đã chọn: v${p.version} (${mb} MB • ${p.files_count || 0} files • ${p.created_at || ''}) — ${p.title || ''}`;
+        }
+        if (titleEl) titleEl.value = p.title ? `Cập nhật CyberNexus POS v${p.version}: ${p.title}` : `Cập nhật hệ thống CyberNexus POS v${p.version}`;
+        if (msgEl && p.notes) msgEl.value = p.notes;
     },
 
     async submitPushUpdate(btn) {
         const targetCode = (document.getElementById('push-target-code')?.value || 'ALL').trim();
         const mode = document.getElementById('push-mode')?.value || 'notify';
+        const version = document.getElementById('push-patch-version')?.value || '';
         const title = (document.getElementById('push-title')?.value || '').trim();
         const message = (document.getElementById('push-message')?.value || '').trim();
         const autoApply = Boolean(document.getElementById('push-auto-apply')?.checked);
@@ -2733,7 +2765,7 @@ const SuperAdmin = {
             const res = await fetch('/api/super_admin?action=push_store_update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tenant_code: targetCode, mode, title, message, auto_apply: autoApply })
+                body: JSON.stringify({ tenant_code: targetCode, mode, version, title, message, auto_apply: autoApply })
             });
             const data = await res.json();
             if (data.success) {
@@ -2915,6 +2947,84 @@ const SuperAdmin = {
         } catch (e) {
             alert('Lỗi: ' + e.message);
         }
+    },
+
+    async loadOtaPatchArchive() {
+        const listEl = document.getElementById('ota-patch-archive-list');
+        const badgeEl = document.getElementById('ota-active-version-badge');
+        if (!listEl) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=list_patches').then(r => r.json());
+            if (!res || !res.success) return;
+            if (badgeEl) {
+                badgeEl.textContent = res.active_version ? `Đang phát hành: v${res.active_version}` : 'Chưa có bản vá phát hành';
+            }
+            const patches = Array.isArray(res.patches) ? res.patches : [];
+            if (patches.length === 0) {
+                listEl.innerHTML = '<div class="italic text-slate-500">Chưa có bản vá nào trong kho lưu trữ (updates/archive).</div>';
+                return;
+            }
+            listEl.innerHTML = patches.map(p => {
+                const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+                const isActive = Boolean(p.is_active);
+                return `
+                    <div class="p-3 rounded-xl ${isActive ? 'bg-emerald-950/25 border border-emerald-500/40' : 'bg-slate-900/65 border border-white/10'} space-y-1.5">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-black text-sky-300">v${p.version}</span>
+                                ${isActive
+                                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">ĐANG PHÁT HÀNH</span>'
+                                    : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/10 text-[10px]">Lưu trữ</span>'}
+                                <span class="text-[10px] font-mono text-slate-400">${mb} MB • ${p.files_count || 0} files</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                ${!isActive ? `<button type="button" onclick="SuperAdmin.activateOtaPatch('${p.version}')" class="px-2.5 py-1 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-bold"><i class="fas fa-check mr-1"></i>Kích hoạt / Rollback</button>` : ''}
+                                <button type="button" onclick="SuperAdmin.pushArchivedPatch('${p.version}')" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border border-sky-400/30 text-[10px] font-bold"><i class="fas fa-paper-plane mr-1"></i>Đẩy xuống quán</button>
+                                <a href="/api/updates/download?version=${encodeURIComponent(p.version)}" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-[10px]"><i class="fas fa-download"></i></a>
+                                ${!isActive ? `<button type="button" onclick="SuperAdmin.deleteOtaPatch('${p.version}')" class="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 text-[10px]"><i class="fas fa-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-xs font-semibold text-white">${p.title || ''}</div>
+                        ${p.notes ? `<div class="text-[11px] text-slate-400 leading-snug">${p.notes}</div>` : ''}
+                        <div class="text-[10px] text-slate-500 font-mono">Tạo lúc: ${p.created_at || '--'}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {}
+    },
+
+    async activateOtaPatch(version) {
+        if (!confirm(`Kích hoạt bản vá v${version} làm bản OTA phát hành hiện tại?`)) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=activate_patch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ version })
+            }).then(r => r.json());
+            if (res.success) {
+                await this.loadOtaPatchArchive();
+                alert(res.message || `Đã kích hoạt v${version}!`);
+            } else {
+                alert(res.message || 'Không thể kích hoạt bản vá');
+            }
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    },
+
+    async deleteOtaPatch(version) {
+        if (!confirm(`Xóa vĩnh viễn bản vá v${version} khỏi kho lưu trữ?`)) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=delete_patch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ version })
+            }).then(r => r.json());
+            if (res.success) await this.loadOtaPatchArchive();
+            else alert(res.message || 'Không thể xóa bản vá');
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    },
+
+    async pushArchivedPatch(version) {
+        this.openPushUpdateModal('ALL', version);
     }
 };
 

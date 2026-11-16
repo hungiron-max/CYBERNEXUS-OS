@@ -136,6 +136,391 @@ static std::string getCurrentDate() {
     return std::string(buf);
 }
 
+static void ensureOrderWorkflowSchema(Database& db) {
+    static bool migrated = false;
+    if (migrated) return;
+    migrated = true;
+
+    auto addMissingCols = [&](const std::string& table, const std::vector<std::pair<std::string, std::string>>& cols) {
+        std::vector<std::string> existing;
+        try {
+            json info = db.query("PRAGMA table_info(" + table + ")");
+            for (const auto& c : info) {
+                existing.push_back(c.value("name", ""));
+            }
+        } catch (...) {}
+        for (const auto& kv : cols) {
+            if (std::find(existing.begin(), existing.end(), kv.first) == existing.end()) {
+                try { db.execute("ALTER TABLE " + table + " ADD COLUMN " + kv.first + " " + kv.second); } catch (...) {}
+            }
+        }
+    };
+
+    addMissingCols("orders", {
+        {"order_type", "TEXT DEFAULT 'pos'"},
+        {"paid_amount", "REAL DEFAULT 0"},
+        {"settlement_status", "TEXT DEFAULT 'settled'"},
+        {"payment_verified_by", "TEXT DEFAULT ''"},
+        {"bank_ref", "TEXT DEFAULT ''"},
+        {"cancel_request_reason", "TEXT DEFAULT ''"},
+        {"cancel_requested_by", "TEXT DEFAULT ''"},
+        {"cancel_requested_at", "TEXT DEFAULT ''"},
+        {"kitchen_sent_at", "TEXT DEFAULT ''"},
+        {"rush_count", "INTEGER DEFAULT 0"},
+        {"last_rushed_at", "TEXT DEFAULT ''"},
+        {"last_rushed_by", "TEXT DEFAULT ''"},
+        {"remind_count", "INTEGER DEFAULT 0"},
+        {"last_reminded_at", "TEXT DEFAULT ''"},
+        {"customer_rating", "INTEGER DEFAULT 0"},
+        {"customer_review_note", "TEXT DEFAULT ''"},
+        {"customer_reviewed_at", "TEXT DEFAULT ''"}
+    });
+
+    addMissingCols("order_items", {
+        {"cancel_status", "TEXT DEFAULT 'none'"},
+        {"cancel_reason", "TEXT DEFAULT ''"},
+        {"cancel_requested_by", "TEXT DEFAULT ''"},
+        {"cancel_requested_at", "TEXT DEFAULT ''"},
+        {"cancel_resolved_by", "TEXT DEFAULT ''"},
+        {"cancel_resolved_at", "TEXT DEFAULT ''"}
+    });
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS payment_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            order_code TEXT DEFAULT '',
+            tx_type TEXT DEFAULT 'pay',
+            method TEXT DEFAULT 'cash',
+            amount REAL DEFAULT 0,
+            bank_ref TEXT DEFAULT '',
+            verified_by TEXT DEFAULT '',
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS order_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER DEFAULT 0,
+            order_code TEXT DEFAULT '',
+            table_id INTEGER DEFAULT 0,
+            table_code TEXT DEFAULT '',
+            alert_type TEXT DEFAULT 'info',
+            title TEXT DEFAULT '',
+            message TEXT DEFAULT '',
+            target_role TEXT DEFAULT 'all',
+            is_ack INTEGER DEFAULT 0,
+            ack_by TEXT DEFAULT '',
+            ack_at TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS sla_time_slots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slot_type TEXT DEFAULT 'peak',
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            kitchen_sla_minutes INTEGER DEFAULT 15,
+            waiter_sla_minutes INTEGER DEFAULT 5,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    try {
+        auto cntSlot = db.queryScalar("SELECT COUNT(*) FROM sla_time_slots");
+        if (cntSlot.is_number() && cntSlot.get<int64_t>() == 0) {
+            db.execute("INSERT INTO sla_time_slots (name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active) VALUES ('Cao điểm Sáng', 'peak', '07:00', '09:30', 15, 5, 1)");
+            db.execute("INSERT INTO sla_time_slots (name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active) VALUES ('Cao điểm Trưa', 'peak', '11:00', '13:30', 15, 5, 1)");
+            db.execute("INSERT INTO sla_time_slots (name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active) VALUES ('Cao điểm Tối', 'peak', '18:00', '21:00', 15, 5, 1)");
+        }
+    } catch (...) {}
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS kpi_sla_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            default_kitchen_sla INTEGER DEFAULT 10,
+            default_waiter_sla INTEGER DEFAULT 3,
+            kpi_base_score INTEGER DEFAULT 100,
+            kpi_kitchen_ontime_pts INTEGER DEFAULT 2,
+            kpi_kitchen_rush_penalty INTEGER DEFAULT 5,
+            kpi_waiter_ontime_pts INTEGER DEFAULT 2,
+            kpi_waiter_remind_penalty INTEGER DEFAULT 3,
+            kpi_star_5_pts INTEGER DEFAULT 5,
+            kpi_star_4_pts INTEGER DEFAULT 2,
+            kpi_star_3_pts INTEGER DEFAULT 0,
+            kpi_star_2_pts INTEGER DEFAULT -3,
+            kpi_star_1_pts INTEGER DEFAULT -5,
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    try { db.execute("INSERT OR IGNORE INTO kpi_sla_settings (id) VALUES (1)"); } catch (...) {}
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS kpi_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER DEFAULT 0,
+            user_name TEXT DEFAULT '',
+            role_type TEXT DEFAULT 'waiter',
+            order_id INTEGER DEFAULT 0,
+            order_code TEXT DEFAULT '',
+            table_code TEXT DEFAULT '',
+            event_type TEXT DEFAULT '',
+            points_delta INTEGER DEFAULT 0,
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS order_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER UNIQUE NOT NULL,
+            order_code TEXT DEFAULT '',
+            table_code TEXT DEFAULT '',
+            rating INTEGER NOT NULL,
+            comment TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+
+    // Backfill paid_amount for legacy paid orders
+    try {
+        db.execute("UPDATE orders SET paid_amount = total_amount WHERE payment_status = 'paid' AND COALESCE(paid_amount, 0) = 0 AND total_amount > 0");
+    } catch (...) {}
+}
+
+struct ActiveSlaConfig {
+    int kitchenSla = 10;
+    int waiterSla = 3;
+    std::string label = "Thấp điểm (Mặc định)";
+    bool isPeak = false;
+    json settings;
+};
+
+static ActiveSlaConfig getActiveSlaConfig(Database& db) {
+    ensureOrderWorkflowSchema(db);
+    ActiveSlaConfig cfg;
+    auto sRow = db.queryRow("SELECT * FROM kpi_sla_settings WHERE id = 1");
+    if (!sRow.is_null()) {
+        cfg.settings = sRow;
+        cfg.kitchenSla = std::max(1, sRow.value("default_kitchen_sla", 10));
+        cfg.waiterSla = std::max(1, sRow.value("default_waiter_sla", 3));
+    } else {
+        cfg.settings = json::object();
+    }
+    std::string nowTs = getCurrentTimestamp();
+    std::string hhmm = (nowTs.size() >= 16) ? nowTs.substr(11, 5) : "00:00";
+    try {
+        auto slots = db.query("SELECT * FROM sla_time_slots WHERE is_active = 1 ORDER BY id ASC");
+        for (const auto& sl : slots) {
+            std::string st = sl.value("start_time", "");
+            std::string en = sl.value("end_time", "");
+            if (st.size() == 5 && en.size() == 5) {
+                bool inRange = (st <= en) ? (hhmm >= st && hhmm <= en) : (hhmm >= st || hhmm <= en);
+                if (inRange) {
+                    cfg.kitchenSla = std::max(1, sl.value("kitchen_sla_minutes", cfg.kitchenSla));
+                    cfg.waiterSla = std::max(1, sl.value("waiter_sla_minutes", cfg.waiterSla));
+                    cfg.label = sl.value("name", "Cao điểm");
+                    cfg.isPeak = (sl.value("slot_type", "peak") == "peak");
+                    break;
+                }
+            }
+        }
+    } catch (...) {}
+    return cfg;
+}
+
+static void recordKpiEvent(
+    Database& db, int64_t userId, const std::string& userName, const std::string& roleType,
+    int64_t orderId, const std::string& orderCode, const std::string& tableCode,
+    const std::string& eventType, int pointsDelta, const std::string& note
+) {
+    try {
+        db.execute(R"(
+            INSERT INTO kpi_logs (user_id, user_name, role_type, order_id, order_code, table_code, event_type, points_delta, note, created_at)
+            VALUES (:uid, :uname, :rtype, :oid, :ocode, :tcode, :etype, :pts, :note, :cat)
+        )", {
+            {":uid", userId}, {":uname", userName}, {":rtype", roleType},
+            {":oid", orderId}, {":ocode", orderCode}, {":tcode", tableCode},
+            {":etype", eventType}, {":pts", pointsDelta}, {":note", note},
+            {":cat", getCurrentTimestamp()}
+        });
+    } catch (...) {}
+}
+
+static int computeElapsedMinutesSql(Database& db, int64_t orderId, const std::string& colExpr) {
+    try {
+        auto r = db.queryScalar(
+            "SELECT MAX(0, CAST((strftime('%s', 'now', 'localtime') - strftime('%s', " + colExpr + ")) / 60 AS INTEGER)) FROM orders WHERE id = :id",
+            {{":id", orderId}}
+        );
+        if (r.is_number()) return r.get<int>();
+    } catch (...) {}
+    return 0;
+}
+
+static void ensurePromotionSchema(Database& db) {
+    static bool promoMigrated = false;
+    if (promoMigrated) return;
+    promoMigrated = true;
+
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS promotions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            promo_mode TEXT DEFAULT 'voucher',
+            discount_type TEXT DEFAULT 'percent',
+            discount_value REAL DEFAULT 0,
+            max_discount_amount REAL DEFAULT 0,
+            min_order_amount REAL DEFAULT 0,
+            start_date TEXT DEFAULT '',
+            end_date TEXT DEFAULT '',
+            start_time TEXT DEFAULT '',
+            end_time TEXT DEFAULT '',
+            usage_limit INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    try { db.execute("ALTER TABLE orders ADD COLUMN promo_id INTEGER DEFAULT 0"); } catch (...) {}
+    try { db.execute("ALTER TABLE orders ADD COLUMN promo_code TEXT DEFAULT ''"); } catch (...) {}
+    try { db.execute("ALTER TABLE orders ADD COLUMN promo_name TEXT DEFAULT ''"); } catch (...) {}
+}
+
+static double computePromoDiscount(const json& promo, double subtotal) {
+    if (subtotal <= 0) return 0.0;
+    std::string dType = promo.contains("discount_type") && promo["discount_type"].is_string()
+        ? promo["discount_type"].get<std::string>() : "percent";
+    double dVal = promo.contains("discount_value") && promo["discount_value"].is_number()
+        ? promo["discount_value"].get<double>() : 0.0;
+    double maxCap = promo.contains("max_discount_amount") && promo["max_discount_amount"].is_number()
+        ? promo["max_discount_amount"].get<double>() : 0.0;
+    double disc = 0.0;
+    if (dType == "percent") {
+        disc = std::round((subtotal * std::min(100.0, std::max(0.0, dVal))) / 100.0);
+        if (maxCap > 0.0 && disc > maxCap) disc = maxCap;
+    } else {
+        disc = std::min(subtotal, std::max(0.0, dVal));
+    }
+    return std::min(subtotal, std::max(0.0, disc));
+}
+
+static bool isPromoEligibleNow(Database& db, const json& promo, double subtotal, std::string& reasonOut) {
+    if ((promo.contains("is_active") && promo["is_active"].is_number() ? promo["is_active"].get<int>() : 1) != 1) {
+        reasonOut = "Chương trình khuyến mãi đang tạm tắt.";
+        return false;
+    }
+    double minAmt = promo.contains("min_order_amount") && promo["min_order_amount"].is_number()
+        ? promo["min_order_amount"].get<double>() : 0.0;
+    if (subtotal + 0.5 < minAmt) {
+        reasonOut = "Đơn chưa đạt tối thiểu " + std::to_string(static_cast<int64_t>(minAmt)) + "đ.";
+        return false;
+    }
+    std::string nowTs = getCurrentTimestamp();
+    std::string today = nowTs.substr(0, 10);
+    std::string hhmm = (nowTs.size() >= 16) ? nowTs.substr(11, 5) : "00:00";
+
+    std::string sDate = promo.contains("start_date") && promo["start_date"].is_string() ? promo["start_date"].get<std::string>() : "";
+    std::string eDate = promo.contains("end_date") && promo["end_date"].is_string() ? promo["end_date"].get<std::string>() : "";
+    if (!sDate.empty() && today < sDate) { reasonOut = "Chương trình chưa tới ngày bắt đầu."; return false; }
+    if (!eDate.empty() && today > eDate) { reasonOut = "Chương trình đã hết hạn."; return false; }
+
+    std::string sTime = promo.contains("start_time") && promo["start_time"].is_string() ? promo["start_time"].get<std::string>() : "";
+    std::string eTime = promo.contains("end_time") && promo["end_time"].is_string() ? promo["end_time"].get<std::string>() : "";
+    if (!sTime.empty() && hhmm < sTime) { reasonOut = "Chưa tới khung giờ vàng (" + sTime + " - " + eTime + ")."; return false; }
+    if (!eTime.empty() && hhmm > eTime) { reasonOut = "Đã qua khung giờ vàng (" + sTime + " - " + eTime + ")."; return false; }
+
+    int64_t limit = promo.contains("usage_limit") && promo["usage_limit"].is_number() ? promo["usage_limit"].get<int64_t>() : 0;
+    if (limit > 0) {
+        int64_t pid = promo.contains("id") && promo["id"].is_number() ? promo["id"].get<int64_t>() : 0;
+        int64_t used = db.queryScalar("SELECT COUNT(*) FROM orders WHERE promo_id = :pid AND status != 'cancelled'", {{":pid", pid}}).get<int64_t>();
+        if (used >= limit) {
+            reasonOut = "Mã khuyến mãi đã hết lượt sử dụng (" + std::to_string(used) + "/" + std::to_string(limit) + ").";
+            return false;
+        }
+    }
+    return true;
+}
+
+static void createOrderAlert(Database& db, int64_t orderId, const std::string& orderCode,
+                             int64_t tableId, const std::string& tableCode,
+                             const std::string& alertType, const std::string& title,
+                             const std::string& message, const std::string& targetRole = "all") {
+    ensureOrderWorkflowSchema(db);
+    db.execute(R"(
+        INSERT INTO order_alerts (order_id, order_code, table_id, table_code, alert_type, title, message, target_role, created_at)
+        VALUES (:oid, :oc, :tid, :tc, :at, :ttl, :msg, :tr, :cat)
+    )", {
+        {":oid", orderId}, {":oc", orderCode}, {":tid", tableId}, {":tc", tableCode},
+        {":at", alertType}, {":ttl", title}, {":msg", message}, {":tr", targetRole},
+        {":cat", getCurrentTimestamp()}
+    });
+}
+
+static json recalculateOrderTotalsAndSettlement(Database& db, int64_t orderId) {
+    ensureOrderWorkflowSchema(db);
+    auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
+    if (ord.is_null()) return json::object();
+
+    json activeRow = db.queryRow(R"(
+        SELECT COALESCE(SUM(subtotal), 0) as sub, COUNT(*) as cnt
+        FROM order_items
+        WHERE order_id = :oid
+          AND COALESCE(cancel_status, 'none') NOT IN ('approved', 'out_of_stock')
+    )", {{":oid", orderId}});
+
+    double newSub = activeRow.value("sub", 0.0);
+    int64_t activeCount = activeRow.value("cnt", int64_t(0));
+
+    std::string dType = ord.contains("discount_type") && ord["discount_type"].is_string() ? ord["discount_type"].get<std::string>() : "amount";
+    double dVal = ord.contains("discount_value") && ord["discount_value"].is_number() ? ord["discount_value"].get<double>() : 0.0;
+    double vatPct = ord.contains("vat_percent") && ord["vat_percent"].is_number() ? ord["vat_percent"].get<double>() : 0.0;
+    double paidAmt = ord.contains("paid_amount") && ord["paid_amount"].is_number() ? ord["paid_amount"].get<double>() : 0.0;
+    std::string payStatus = ord.contains("payment_status") && ord["payment_status"].is_string() ? ord["payment_status"].get<std::string>() : "unpaid";
+
+    double dAmt = (dType == "percent") ? (newSub * std::min(100.0, std::max(0.0, dVal)) / 100.0) : std::min(newSub, std::max(0.0, dVal));
+    double afterDisc = std::max(0.0, newSub - dAmt);
+    double vatAmt = afterDisc * std::max(0.0, vatPct) / 100.0;
+    double newTot = afterDisc + vatAmt;
+
+    std::string settleStatus = "settled";
+    if (paidAmt > newTot + 0.5) {
+        settleStatus = "refund_due";
+    } else if (paidAmt > 0.5 && newTot > paidAmt + 0.5) {
+        settleStatus = "extra_due";
+    } else if (payStatus == "paid" && newTot > paidAmt + 0.5) {
+        settleStatus = "extra_due";
+    }
+
+    db.execute(R"(
+        UPDATE orders SET
+            subtotal = :sub,
+            discount_amount = :da,
+            vat_amount = :va,
+            total_amount = :tot,
+            settlement_status = :ss
+        WHERE id = :id
+    )", {
+        {":sub", newSub}, {":da", dAmt}, {":va", vatAmt}, {":tot", newTot},
+        {":ss", settleStatus}, {":id", orderId}
+    });
+
+    return {
+        {"subtotal", newSub},
+        {"total_amount", newTot},
+        {"paid_amount", paidAmt},
+        {"settlement_status", settleStatus},
+        {"delta_amount", newTot - paidAmt},
+        {"active_items", activeCount}
+    };
+}
+
 struct ShiftCfg {
     std::string s1Name = "Ca 1 (Ca Sáng)";
     std::string s1Start = "06:30";
@@ -1172,12 +1557,28 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
 // ==========================================
 void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& res) {
     auto& db = Database::instance();
+    ensureOrderWorkflowSchema(db);
     json body = parseBody(req);
     std::string action = getAction(req, body);
 
+    if (req.method == "GET" && action == "public_tables") {
+        json rows = db.query(R"(
+            SELECT t.id, t.code, t.name, t.area_type,
+                   CASE WHEN o.id IS NOT NULL THEN 'occupied' ELSE 'free' END as status
+            FROM tables_areas t
+            LEFT JOIN orders o ON o.id = COALESCE(
+                (SELECT active_order.id FROM orders active_order WHERE active_order.id = t.active_order_id AND active_order.status = 'pending' LIMIT 1),
+                (SELECT MAX(pending_order.id) FROM orders pending_order WHERE pending_order.table_id = t.id AND pending_order.status = 'pending')
+            )
+            ORDER BY t.sort_order ASC, t.id ASC
+        )");
+        sendJson(res, {{"success", true}, {"data", rows}});
+        return;
+    }
+
     // 1. GET: Fetch all tables with real-time active order info (Bước 2.4)
     if (req.method == "GET" && action.empty()) {
-        // 1a. Auto-complete any order that meets all 3 factors (Cooking, Serving, Payment)
+        // 1a. Auto-complete any order that meets all 3 factors (Cooking, Serving, Payment) and has no pending settlement delta
         db.execute(R"(
             UPDATE orders 
             SET status = 'completed', 
@@ -1185,6 +1586,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             WHERE status = 'pending' 
               AND (payment_status = 'paid' OR paid_at IS NOT NULL) 
               AND (kitchen_status = 'served' OR served_at IS NOT NULL)
+              AND COALESCE(settlement_status, 'settled') = 'settled'
         )");
 
         // 1b. Auto-free tables that have no active pending order
@@ -1212,13 +1614,26 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
                 CASE WHEN o.kitchen_status = 'awaiting_waiter' THEN 1 ELSE 0 END as customer_order_pending,
                 o.total_amount,
                 o.subtotal,
+                COALESCE(o.paid_amount, 0) as paid_amount,
+                COALESCE(o.settlement_status, 'settled') as settlement_status,
+                COALESCE(o.order_type, 'pos') as order_type,
+                COALESCE(o.cancel_request_reason, '') as cancel_request_reason,
                 o.kitchen_status,
                 o.kitchen_ready_at,
+                COALESCE(o.kitchen_sent_at, '') as kitchen_sent_at,
+                COALESCE(o.rush_count, 0) as rush_count,
+                COALESCE(o.last_rushed_at, '') as last_rushed_at,
+                COALESCE(o.last_rushed_by, '') as last_rushed_by,
+                COALESCE(o.remind_count, 0) as remind_count,
+                CASE WHEN o.id IS NOT NULL THEN MAX(0, CAST((strftime('%s', 'now', 'localtime') - strftime('%s', COALESCE(NULLIF(o.kitchen_sent_at, ''), o.created_at))) / 60 AS INTEGER)) ELSE 0 END as kitchen_elapsed_minutes,
+                CASE WHEN o.id IS NOT NULL AND o.kitchen_ready_at IS NOT NULL AND o.kitchen_ready_at != '' THEN MAX(0, CAST((strftime('%s', 'now', 'localtime') - strftime('%s', o.kitchen_ready_at)) / 60 AS INTEGER)) ELSE 0 END as waiter_elapsed_minutes,
                 o.served_at,
                 o.payment_status,
                 o.paid_at,
                 o.created_at as order_created_at,
-                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as item_count,
+                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id AND COALESCE(oi.cancel_status, 'none') NOT IN ('approved', 'out_of_stock')) as item_count,
+                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id AND COALESCE(oi.cancel_status, 'none') = 'pending_kitchen') as pending_cancel_count,
+                (SELECT COUNT(*) FROM order_alerts oa WHERE oa.order_id = o.id AND oa.is_ack = 0) as unread_alerts_count,
                 (SELECT COUNT(*) FROM orders pending_orders WHERE pending_orders.table_id = t.id AND pending_orders.status = 'pending') as open_order_count
             FROM tables_areas t
             LEFT JOIN orders o ON o.id = COALESCE(
@@ -1228,6 +1643,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             ORDER BY t.sort_order ASC, t.id ASC
         )";
 
+        ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
         json tables = db.query(sql);
 
         // Group by area_type: 'MANG_VE' and 'TAI_QUAN'
@@ -1236,7 +1652,11 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             {"TAI_QUAN", json::array()}
         };
 
-        for (const auto& t : tables) {
+        for (auto& t : tables) {
+            t["kitchen_sla_minutes"] = slaCfg.kitchenSla;
+            t["waiter_sla_minutes"] = slaCfg.waiterSla;
+            t["active_sla_label"] = slaCfg.label;
+            t["is_peak_sla"] = slaCfg.isPeak;
             std::string area = t.value("area_type", "TAI_QUAN");
             if (!grouped.contains(area)) {
                 grouped[area] = json::array();
@@ -1248,6 +1668,12 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
             {"success", true},
             {"data", tables},
             {"grouped", grouped},
+            {"active_sla", {
+                {"kitchen_sla_minutes", slaCfg.kitchenSla},
+                {"waiter_sla_minutes", slaCfg.waiterSla},
+                {"label", slaCfg.label},
+                {"is_peak", slaCfg.isPeak}
+            }},
             {"qr_error", nullptr}
         });
         return;
@@ -1569,13 +1995,14 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         // A. GET REQUESTS
         // ------------------------------------------
         if (req.method == "GET") {
+            ensureOrderWorkflowSchema(db);
             // Step 3.2: Kitchen Tickets (Đơn chế biến màn hình Bếp KDS)
             if (action == "kitchen_tickets") {
                 if (!requireModule(res, "kitchen_kds", "Màn Hình Bếp & Pha Chế (KDS)")) return;
                 std::string filterStatus = BodyParser::getParam(req, body, "status", "active");
                 std::string todayDate = getCurrentDate();
 
-                // Auto-complete any order that meets all 3 factors
+                // Auto-complete any order that meets all 3 factors and has no pending settlement delta
                 db.execute(R"(
                     UPDATE orders 
                     SET status = 'completed', 
@@ -1583,6 +2010,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     WHERE status = 'pending' 
                       AND (payment_status = 'paid' OR paid_at IS NOT NULL) 
                       AND (kitchen_status = 'served' OR served_at IS NOT NULL)
+                      AND COALESCE(settlement_status, 'settled') = 'settled'
                 )");
 
                 std::string sql;
@@ -1601,11 +2029,11 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         FROM orders o
                         LEFT JOIN tables_areas t ON o.table_id = t.id
                         WHERE o.status != 'cancelled'
-                          AND COALESCE(o.kitchen_status, 'pending') != 'awaiting_waiter'
+                          AND COALESCE(o.kitchen_status, 'pending') NOT IN ('awaiting_waiter', 'awaiting_payment', 'awaiting_kitchen_push')
                     )";
 
                     if (filterStatus == "active") {
-                        sql += " AND o.status = 'pending' AND (o.kitchen_status = 'pending' OR o.kitchen_status = 'ready' OR o.kitchen_status IS NULL)";
+                        sql += " AND o.status = 'pending' AND (o.kitchen_status IN ('pending', 'ready', 'cancel_requested') OR o.kitchen_status IS NULL)";
                     } else if (filterStatus == "served") {
                         sql += " AND o.status = 'pending' AND o.kitchen_status = 'served'";
                     } else {
@@ -1623,9 +2051,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     )";
                 }
 
+                ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
                 json orders = db.query(sql);
                 for (auto& o : orders) {
                     int64_t oid = getInt(o, "id", 0);
+                    o["kitchen_sla_minutes"] = slaCfg.kitchenSla;
+                    o["waiter_sla_minutes"] = slaCfg.waiterSla;
+                    o["active_sla_label"] = slaCfg.label;
+                    o["kitchen_elapsed_minutes"] = computeElapsedMinutesSql(db, oid, "COALESCE(NULLIF(kitchen_sent_at, ''), created_at)");
+                    std::string kReadyAt = getString(o, "kitchen_ready_at", "");
+                    o["waiter_elapsed_minutes"] = kReadyAt.empty() ? 0 : computeElapsedMinutesSql(db, oid, "kitchen_ready_at");
                     json items = db.query("SELECT * FROM order_items WHERE order_id = :oid ORDER BY id ASC", {{":oid", oid}});
                     for (auto& it : items) {
                         if (it.contains("toppings_json") && !it["toppings_json"].is_null() && it["toppings_json"].is_string()) {
@@ -1673,6 +2108,54 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
+            if (action == "check_payment") {
+                std::string code = BodyParser::getParam(req, body, "order_code", BodyParser::getParam(req, body, "code", ""));
+                if (code.empty() && req.has_param("order_code")) code = req.get_param_value("order_code");
+                auto ord = db.queryRow(
+                    "SELECT id, order_code, table_code, total_amount, COALESCE(paid_amount, 0) as paid_amount, "
+                    "payment_status, kitchen_status, status, COALESCE(settlement_status, 'settled') as settlement_status, "
+                    "COALESCE(payment_verified_by, '') as payment_verified_by "
+                    "FROM orders WHERE order_code = :c OR id = :c LIMIT 1",
+                    {{":c", code}}
+                );
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                sendJson(res, {{"success", true}, {"data", ord}});
+                return;
+            }
+
+            if (action == "alerts") {
+                std::string roleFilter = BodyParser::getParam(req, body, "target_role", "all");
+                json alerts;
+                if (roleFilter == "all" || roleFilter.empty()) {
+                    alerts = db.query("SELECT * FROM order_alerts WHERE is_ack = 0 ORDER BY id DESC LIMIT 50");
+                } else {
+                    alerts = db.query(
+                        "SELECT * FROM order_alerts WHERE is_ack = 0 AND (target_role = 'all' OR target_role = :r) ORDER BY id DESC LIMIT 50",
+                        {{":r", roleFilter}}
+                    );
+                }
+                json pendingDeltas = db.query(R"(
+                    SELECT id, order_code, table_id, table_code, total_amount, COALESCE(paid_amount, 0) as paid_amount,
+                           COALESCE(settlement_status, 'settled') as settlement_status,
+                           COALESCE(kitchen_status, 'pending') as kitchen_status,
+                           COALESCE(cancel_request_reason, '') as cancel_request_reason,
+                           status, payment_status
+                    FROM orders
+                    WHERE COALESCE(settlement_status, 'settled') IN ('extra_due', 'refund_due')
+                       OR (status = 'pending' AND kitchen_status IN ('cancel_requested', 'awaiting_payment', 'awaiting_waiter', 'awaiting_kitchen_push'))
+                    ORDER BY id DESC LIMIT 30
+                )");
+                sendJson(res, {
+                    {"success", true},
+                    {"alerts", alerts},
+                    {"pending_deltas", pendingDeltas}
+                });
+                return;
+            }
+
             // Online & Takeaway Orders (Màn hình xử lý Đơn Online / Mang Về)
             if (action == "online_orders") {
                 std::string filterStatus = BodyParser::getParam(req, body, "status", "active");
@@ -1693,9 +2176,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
                 sql += " ORDER BY CASE WHEN o.status = 'pending' THEN 0 ELSE 1 END, o.id DESC LIMIT 100";
 
+                ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
                 json orders = db.query(sql);
                 for (auto& o : orders) {
                     int64_t oid = getInt(o, "id", 0);
+                    o["kitchen_sla_minutes"] = slaCfg.kitchenSla;
+                    o["waiter_sla_minutes"] = slaCfg.waiterSla;
+                    o["active_sla_label"] = slaCfg.label;
+                    o["kitchen_elapsed_minutes"] = computeElapsedMinutesSql(db, oid, "COALESCE(NULLIF(kitchen_sent_at, ''), created_at)");
+                    std::string kReadyAt = getString(o, "kitchen_ready_at", "");
+                    o["waiter_elapsed_minutes"] = kReadyAt.empty() ? 0 : computeElapsedMinutesSql(db, oid, "kitchen_ready_at");
                     json items = db.query("SELECT * FROM order_items WHERE order_id = :oid ORDER BY id ASC", {{":oid", oid}});
                     std::string summary;
                     for (size_t i = 0; i < items.size(); ++i) {
@@ -1814,17 +2304,63 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         // B. POST REQUESTS
         // ------------------------------------------
         if (req.method == "POST") {
+            ensureOrderWorkflowSchema(db);
             // Step 3.1: Save / Update Draft Order (Tạo đơn bán / cập nhật giỏ hàng / đặt hàng online)
             if (action == "save_order" || action == "save" || action == "customer_order") {
-                if (action == "customer_order") {
+                bool isCustomerQr = (action == "customer_order");
+                std::string orderMode = BodyParser::getParam(req, body, "order_mode", "");
+                if (isCustomerQr) {
                     if (!requireModule(res, "qr_customer_order", "Thực Đơn QR Khách Hàng")) return;
                 }
                 int64_t tableId = 0;
                 try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
-                if (action == "customer_order" && tableId > 0) {
+                if (isCustomerQr && (orderMode == "dine_in" || tableId > 0)) {
                     if (!requireModule(res, "qr_table_order", "Đặt Món QR Theo Bàn")) return;
                 }
                 std::string tableCode = BodyParser::getParam(req, body, "table_code", "MANG VỀ");
+                std::string orderType = isCustomerQr ? (orderMode.empty() ? (tableId > 0 ? "dine_in" : "delivery") : orderMode) : "pos";
+                std::string initialKitchenStatus = "pending";
+
+                if (isCustomerQr) {
+                    if (orderType == "dine_in") {
+                        if (tableId <= 0) {
+                            sendJson(res, {{"success", false}, {"message", "Vui lòng chọn đúng bàn đang trống trên sơ đồ quán!"}}, 400);
+                            return;
+                        }
+                        auto tblCheck = db.queryRow("SELECT id, code, area_type FROM tables_areas WHERE id = :id LIMIT 1", {{":id", tableId}});
+                        if (tblCheck.is_null()) {
+                            sendJson(res, {{"success", false}, {"message", "Bàn đã chọn không tồn tại!"}}, 400);
+                            return;
+                        }
+                        tableCode = getString(tblCheck, "code", tableCode);
+                        auto busyRow = db.queryRow("SELECT id FROM orders WHERE table_id = :tid AND status = 'pending' LIMIT 1", {{":tid", tableId}});
+                        if (!busyRow.is_null()) {
+                            sendJson(res, {{"success", false}, {"table_conflict", true}, {"message", "Bàn " + tableCode + " vừa có khách đặt trước. Vui lòng chọn bàn trống khác hoặc nhờ nhân viên hỗ trợ!"}}, 409);
+                            return;
+                        }
+                        initialKitchenStatus = "awaiting_waiter";
+                    } else if (orderType == "takeaway") {
+                        auto freeMv = db.queryRow(R"(
+                            SELECT t.id, t.code FROM tables_areas t
+                            WHERE (t.area_type = 'MANG_VE' OR t.area_type = 'takeaway' OR t.code LIKE 'MV%')
+                              AND t.id NOT IN (SELECT table_id FROM orders WHERE status = 'pending' AND table_id IS NOT NULL)
+                            ORDER BY t.sort_order ASC, t.id ASC LIMIT 1
+                        )");
+                        if (!freeMv.is_null()) {
+                            tableId = getInt(freeMv, "id", 0);
+                            tableCode = getString(freeMv, "code", "MV1");
+                        } else {
+                            tableId = 0;
+                            tableCode = "MV-CHỜ";
+                        }
+                        initialKitchenStatus = "awaiting_payment";
+                    } else {
+                        orderType = "delivery";
+                        tableId = 0;
+                        tableCode = "ONLINE";
+                        initialKitchenStatus = "awaiting_payment";
+                    }
+                }
                 std::string customerName = BodyParser::getParam(req, body, "customer_name", "Khách vãng lai");
                 std::string customerPhone = BodyParser::getParam(req, body, "customer_phone");
                 if (!customerPhone.empty() && customerName.find(customerPhone) == std::string::npos) {
@@ -1900,8 +2436,34 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     subtotal += (qty * price);
                 }
 
+                ensurePromotionSchema(db);
+                int64_t promoId = 0;
+                try {
+                    std::string pidStr = BodyParser::getParam(req, body, "promo_id");
+                    if (!pidStr.empty()) promoId = std::stoll(pidStr);
+                } catch (...) {}
+                std::string promoCode = BodyParser::getParam(req, body, "promo_code", "");
+                std::string promoName = BodyParser::getParam(req, body, "promo_name", "");
+
                 double discountAmount = 0.0;
-                if (discountType == "percent") {
+                if (!promoCode.empty()) {
+                    std::string upCode = promoCode;
+                    std::transform(upCode.begin(), upCode.end(), upCode.begin(), ::toupper);
+                    auto pRow = db.queryRow("SELECT * FROM promotions WHERE UPPER(code) = :c LIMIT 1", {{":c", upCode}});
+                    std::string pErr;
+                    if (!pRow.is_null() && isPromoEligibleNow(db, pRow, subtotal, pErr)) {
+                        promoId = getInt(pRow, "id", 0);
+                        promoCode = getString(pRow, "code", upCode);
+                        promoName = getString(pRow, "name", "");
+                        discountType = getString(pRow, "discount_type", "percent");
+                        discountValue = getDouble(pRow, "discount_value", 0.0);
+                        discountAmount = computePromoDiscount(pRow, subtotal);
+                    } else if (discountValue > 0) {
+                        discountAmount = (discountType == "percent")
+                            ? (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0
+                            : std::min(subtotal, std::max(0.0, discountValue));
+                    }
+                } else if (discountType == "percent") {
                     discountAmount = (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0;
                 } else {
                     discountAmount = std::min(subtotal, std::max(0.0, discountValue));
@@ -1938,15 +2500,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         double newVatAmt = std::max(0.0, newSub - newDiscAmt) * (vatPct / 100.0);
                         double newTot = std::max(0.0, newSub - newDiscAmt) + newVatAmt;
 
+                        std::string kSentNow = getCurrentTimestamp();
                         db.execute(R"(
                             UPDATE orders SET
                                 subtotal = :sub, discount_amount = :disc, vat_amount = :vat,
                                 total_amount = :tot, kitchen_status = 'pending', kitchen_ready_at = NULL,
-                                prep_time_minutes = 0
+                                kitchen_sent_at = :ksent, prep_time_minutes = 0
                             WHERE id = :id AND status = 'pending'
                         )", {
                             {":sub", newSub}, {":disc", newDiscAmt}, {":vat", newVatAmt},
-                            {":tot", newTot}, {":id", orderId}
+                            {":tot", newTot}, {":ksent", kSentNow}, {":id", orderId}
                         });
                         totalAmount = newTot;
                     } else {
@@ -1995,25 +2558,29 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         nextSeq++;
                     }
 
+                    std::string initialKitchenSentAt = (initialKitchenStatus == "pending") ? nowStr : "";
                     orderId = db.execute(R"(
                         INSERT INTO orders (
                             order_code, table_id, table_code, customer_name, guest_count,
                             subtotal, discount_type, discount_value, discount_amount, vat_percent, vat_amount,
-                            total_amount, status, payment_status, kitchen_status, user_id, user_name, note, created_at
+                            total_amount, status, payment_status, kitchen_status, kitchen_sent_at, order_type, promo_id, promo_code, promo_name, user_id, user_name, note, created_at
                         ) VALUES (
                             :code, :tid, :tcode, :cname, :gc,
                             :sub, :dt, :dv, :da, :vp, :va,
-                            :tot, 'pending', 'unpaid', 'pending', :uid, :uname, :note, :created
+                            :tot, 'pending', 'unpaid', :kstat, :ksent, :otype, :pid, :pcode, :pname, :uid, :uname, :note, :created
                         )
                     )", {
                         {":code", orderCode}, {":tid", tableId > 0 ? json(tableId) : json(nullptr)},
                         {":tcode", tableCode}, {":cname", customerName}, {":gc", guestCount},
                         {":sub", subtotal}, {":dt", discountType}, {":dv", discountValue}, {":da", discountAmount},
                         {":vp", vatPercent}, {":va", vatAmount}, {":tot", totalAmount},
+                        {":kstat", initialKitchenStatus}, {":ksent", initialKitchenSentAt}, {":otype", orderType},
+                        {":pid", promoId}, {":pcode", promoCode}, {":pname", promoName},
                         {":uid", userId}, {":uname", userName}, {":note", note}, {":created", nowStr}
                     });
 
                     if (orderId <= 0) {
+                        db.rollback();
                         sendError(res, "Lỗi tạo hóa đơn (không thể lưu vào CSDL)!", 500);
                         return;
                     }
@@ -2040,15 +2607,39 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     db.execute(R"(
                         INSERT INTO order_items (
                             order_id, product_id, product_code, product_name, unit,
-                            quantity, price, subtotal, note, toppings_json
+                            quantity, price, subtotal, note, toppings_json, cancel_status
                         ) VALUES (
                             :oid, :pid, :pcode, :pname, :unit,
-                            :qty, :price, :sub, :note, :tops
+                            :qty, :price, :sub, :note, :tops, 'none'
                         )
                     )", {
                         {":oid", orderId}, {":pid", pid}, {":pcode", pCode}, {":pname", pName}, {":unit", pUnit},
                         {":qty", qty}, {":price", price}, {":sub", lineTotal}, {":note", itemNote}, {":tops", tops}
                     });
+                }
+
+                if (isAppendMode) {
+                    json recalc = recalculateOrderTotalsAndSettlement(db, orderId);
+                    if (recalc.contains("total_amount")) totalAmount = recalc["total_amount"].get<double>();
+                    if (recalc.value("settlement_status", "settled") == "extra_due") {
+                        double diff = recalc.value("delta_amount", 0.0);
+                        createOrderAlert(db, orderId, orderCode, tableId, tableCode, "extra_due",
+                            "Cần thu thêm tiền " + tableCode,
+                            "Khách gọi thêm món trên đơn đã thanh toán. Cần thu thêm " + std::to_string(static_cast<int64_t>(diff)) + "đ.",
+                            "cashier");
+                    }
+                }
+
+                if (isCustomerQr) {
+                    std::string alertTitle = (orderType == "dine_in")
+                        ? ("Khách QR đặt tại bàn " + tableCode)
+                        : ((orderType == "takeaway") ? ("Đơn QR Mang Về " + tableCode) : ("Đơn QR Online mới " + orderCode));
+                    std::string alertMsg = (orderType == "dine_in")
+                        ? ("Khách " + customerName + " đặt " + std::to_string(items.size()) + " món tại bàn " + tableCode + ". Chờ duyệt gửi Bếp.")
+                        : ("Đơn " + orderCode + " (" + std::to_string(static_cast<int64_t>(totalAmount)) + "đ) đang chờ xác nhận thanh toán trước khi chuyển Bếp.");
+                    createOrderAlert(db, orderId, orderCode, tableId, tableCode,
+                        (orderType == "dine_in" ? "qr_table_pending" : "qr_payment_pending"),
+                        alertTitle, alertMsg, "all");
                 }
 
                 // Kitchen Service Log
@@ -2070,14 +2661,33 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 db.commit();
 
+                json store = getStoreInfo(db);
+                std::string bankId = store.value("bank_id", "OCB");
+                std::string accNo = store.value("bank_account_no", "");
+                std::string accName = store.value("bank_account_name", "");
+                std::string vietQrUrl;
+                if (!accNo.empty()) {
+                    std::stringstream vss;
+                    vss << "https://img.vietqr.io/image/" << bankId << "-" << accNo
+                        << "-compact2.png?amount=" << static_cast<int64_t>(totalAmount)
+                        << "&addInfo=" << httplib::detail::encode_url("THANH TOAN " + orderCode)
+                        << "&accountName=" << httplib::detail::encode_url(accName);
+                    vietQrUrl = vss.str();
+                }
+
                 sendJson(res, {
                     {"success", true},
                     {"message", "Lưu đơn hàng thành công!"},
                     {"order_id", orderId},
                     {"order_code", orderCode},
                     {"tracking_token", orderCode},
+                    {"table_id", tableId},
                     {"table_code", tableCode},
-                    {"total_amount", totalAmount}
+                    {"order_type", orderType},
+                    {"kitchen_status", initialKitchenStatus},
+                    {"payment_status", "unpaid"},
+                    {"total_amount", totalAmount},
+                    {"vietqr_url", vietQrUrl}
                 });
                 return;
             }
@@ -2098,7 +2708,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     return;
                 }
 
-                auto ord = db.queryRow("SELECT order_code, table_code, created_at FROM orders WHERE id = :id", {{":id", orderId}});
+                auto ord = db.queryRow("SELECT order_code, table_code, created_at, kitchen_status, user_id, user_name, COALESCE(remind_count, 0) as remind_count FROM orders WHERE id = :id", {{":id", orderId}});
                 if (ord.is_null()) {
                     sendJson(res, {{"success", false}, {"message", "Hóa đơn không tồn tại!"}}, 404);
                     return;
@@ -2110,24 +2720,53 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 std::string kRole = userOpt.has_value() ? userOpt->role : "kitchen";
 
                 std::string nowStr = getCurrentTimestamp();
-                int prepMinutes = 1;
-
-                db.beginTransaction();
-                db.execute(R"(
-                    UPDATE orders SET 
-                        kitchen_status = 'ready', kitchen_ready_at = :kat,
-                        kitchen_user_id = :kuid, kitchen_user_name = :kuname,
-                        prep_time_minutes = :prep
-                    WHERE id = :id AND status = 'pending'
-                )", {
-                    {":kat", nowStr}, {":kuid", kUserId}, {":kuname", kUserName},
-                    {":prep", prepMinutes}, {":id", orderId}
-                });
-
-                syncOrderStatus(db, orderId);
-
+                std::string prevKStatus = getString(ord, "kitchen_status", "pending");
+                bool wasAlreadyReady = (prevKStatus == "ready");
+                ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
+                int prepMinutes = computeElapsedMinutesSql(db, orderId, "COALESCE(NULLIF(kitchen_sent_at, ''), created_at)");
                 std::string tCode = getString(ord, "table_code", "Bàn");
                 std::string oCode = getString(ord, "order_code", "");
+
+                db.beginTransaction();
+                if (wasAlreadyReady) {
+                    int nextRemind = static_cast<int>(getInt(ord, "remind_count", 0)) + 1;
+                    db.execute(R"(
+                        UPDATE orders SET 
+                            kitchen_ready_at = :kat,
+                            remind_count = :rc,
+                            last_reminded_at = :rat
+                        WHERE id = :id AND status = 'pending'
+                    )", {
+                        {":kat", nowStr}, {":rc", nextRemind}, {":rat", nowStr}, {":id", orderId}
+                    });
+                    int penalty = std::abs(slaCfg.settings.value("kpi_waiter_remind_penalty", 3));
+                    if (penalty > 0) {
+                        int64_t wUid = getInt(ord, "user_id", 0);
+                        std::string wUname = getString(ord, "user_name", "Phục vụ");
+                        recordKpiEvent(db, wUid, wUname, "waiter", orderId, oCode, tCode, "waiter_reminded", -penalty,
+                            "Bếp bấm Báo lại lần " + std::to_string(nextRemind) + " để nhắc bưng món bàn " + tCode);
+                    }
+                } else {
+                    db.execute(R"(
+                        UPDATE orders SET 
+                            kitchen_status = 'ready', kitchen_ready_at = :kat,
+                            kitchen_user_id = :kuid, kitchen_user_name = :kuname,
+                            prep_time_minutes = :prep
+                        WHERE id = :id AND status = 'pending'
+                    )", {
+                        {":kat", nowStr}, {":kuid", kUserId}, {":kuname", kUserName},
+                        {":prep", prepMinutes}, {":id", orderId}
+                    });
+                    if (prepMinutes <= slaCfg.kitchenSla) {
+                        int bonus = slaCfg.settings.value("kpi_kitchen_ontime_pts", 2);
+                        if (bonus != 0) {
+                            recordKpiEvent(db, kUserId, kUserName, "kitchen", orderId, oCode, tCode, "kitchen_ontime", bonus,
+                                "Bếp hoàn thành trong " + std::to_string(prepMinutes) + "p (SLA " + std::to_string(slaCfg.kitchenSla) + "p)");
+                        }
+                    }
+                }
+
+                syncOrderStatus(db, orderId);
 
                 // Ghi nhật ký bếp
                 db.execute(R"(
@@ -2194,7 +2833,11 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 std::string wRole = userOpt.has_value() ? userOpt->role : "waiter";
 
                 std::string nowStr = getCurrentTimestamp();
-                int deliverMinutes = 1;
+                ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
+                std::string kReadyAt = getString(ord, "kitchen_ready_at", "");
+                int deliverMinutes = kReadyAt.empty() ? 1 : computeElapsedMinutesSql(db, orderId, "kitchen_ready_at");
+                std::string tCode = getString(ord, "table_code", "Bàn");
+                std::string oCode = getString(ord, "order_code", "");
 
                 db.beginTransaction();
                 db.execute(R"(
@@ -2208,10 +2851,15 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     {":deliv", deliverMinutes}, {":id", orderId}
                 });
 
-                syncOrderStatus(db, orderId);
+                if (deliverMinutes <= slaCfg.waiterSla) {
+                    int bonus = slaCfg.settings.value("kpi_waiter_ontime_pts", 2);
+                    if (bonus != 0) {
+                        recordKpiEvent(db, wUserId, wUserName, "waiter", orderId, oCode, tCode, "waiter_ontime", bonus,
+                            "Phục vụ bưng ra trong " + std::to_string(deliverMinutes) + "p (SLA " + std::to_string(slaCfg.waiterSla) + "p)");
+                    }
+                }
 
-                std::string tCode = getString(ord, "table_code", "Bàn");
-                std::string oCode = getString(ord, "order_code", "");
+                syncOrderStatus(db, orderId);
 
                 db.execute(R"(
                     INSERT INTO kitchen_service_logs (
@@ -2257,6 +2905,15 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     return;
                 }
 
+                int64_t pendingVoidCnt = db.queryScalar(
+                    "SELECT COUNT(*) FROM order_items WHERE order_id = :oid AND COALESCE(cancel_status, 'none') = 'pending_kitchen'",
+                    {{":oid", orderId}}
+                ).get<int64_t>();
+                if (pendingVoidCnt > 0) {
+                    sendJson(res, {{"success", false}, {"pending_void", true}, {"message", "Đơn này đang có " + std::to_string(pendingVoidCnt) + " món chờ Bếp duyệt hủy. Vui lòng để Bếp xác nhận trước khi thanh toán!"}}, 409);
+                    return;
+                }
+
                 std::string paymentMethod = BodyParser::getParam(req, body, "payment_method", "cash");
                 if (paymentMethod != "banking" && paymentMethod != "card") paymentMethod = "cash";
 
@@ -2276,8 +2933,34 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     if (!vpStr.empty()) vatPercent = std::stod(vpStr);
                 } catch (...) {}
 
+                ensurePromotionSchema(db);
+                int64_t promoId = 0;
+                try {
+                    std::string pidStr = BodyParser::getParam(req, body, "promo_id");
+                    if (!pidStr.empty()) promoId = std::stoll(pidStr);
+                } catch (...) {}
+                std::string promoCode = BodyParser::getParam(req, body, "promo_code", "");
+                std::string promoName = BodyParser::getParam(req, body, "promo_name", "");
+
                 double discountAmount = 0.0;
-                if (discountType == "percent") {
+                if (!promoCode.empty()) {
+                    std::string upCode = promoCode;
+                    std::transform(upCode.begin(), upCode.end(), upCode.begin(), ::toupper);
+                    auto pRow = db.queryRow("SELECT * FROM promotions WHERE UPPER(code) = :c LIMIT 1", {{":c", upCode}});
+                    std::string pErr;
+                    if (!pRow.is_null() && isPromoEligibleNow(db, pRow, subtotal, pErr)) {
+                        promoId = getInt(pRow, "id", 0);
+                        promoCode = getString(pRow, "code", upCode);
+                        promoName = getString(pRow, "name", "");
+                        discountType = getString(pRow, "discount_type", "percent");
+                        discountValue = getDouble(pRow, "discount_value", 0.0);
+                        discountAmount = computePromoDiscount(pRow, subtotal);
+                    } else if (discountValue > 0) {
+                        discountAmount = (discountType == "percent")
+                            ? (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0
+                            : std::min(subtotal, std::max(0.0, discountValue));
+                    }
+                } else if (discountType == "percent") {
                     discountAmount = (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0;
                 } else {
                     discountAmount = std::min(subtotal, std::max(0.0, discountValue));
@@ -2313,15 +2996,25 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 db.execute(R"(
                     UPDATE orders SET
                         discount_type = :dt, discount_value = :dv, discount_amount = :da,
+                        promo_id = :pid, promo_code = :pcode, promo_name = :pname,
                         vat_percent = :vp, vat_amount = :va, total_amount = :tot,
+                        paid_amount = :tot, settlement_status = 'settled',
                         payment_method = :pm, cash_received = :cr, change_amount = :ca,
-                        payment_status = 'paid', paid_at = :pat
+                        payment_status = 'paid', payment_verified_by = :vby, paid_at = :pat
                     WHERE id = :id
                 )", {
                     {":dt", discountType}, {":dv", discountValue}, {":da", discountAmount},
+                    {":pid", promoId}, {":pcode", promoCode}, {":pname", promoName},
                     {":vp", vatPercent}, {":va", vatAmount}, {":tot", totalAmount},
                     {":pm", paymentMethod}, {":cr", cashReceived}, {":ca", changeAmount},
-                    {":pat", nowStr}, {":id", orderId}
+                    {":vby", cUserName}, {":pat", nowStr}, {":id", orderId}
+                });
+                db.execute(R"(
+                    INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, verified_by, note, created_at)
+                    VALUES (:oid, :oc, 'pay', :pm, :amt, :vby, 'Thanh toán tại quầy POS', :cat)
+                )", {
+                    {":oid", orderId}, {":oc", getString(ord, "order_code", "")},
+                    {":pm", paymentMethod}, {":amt", totalAmount}, {":vby", cUserName}, {":cat", nowStr}
                 });
 
                 // Evaluate 3 factors
@@ -2453,6 +3146,554 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
+            // Khách báo đã chuyển khoản VietQR (chuyển sang chờ đối soát, KHÔNG tự động paid)
+            if (action == "customer_mark_transfer") {
+                std::string oCode = BodyParser::getParam(req, body, "order_code", "");
+                auto ord = db.queryRow("SELECT * FROM orders WHERE order_code = :oc LIMIT 1", {{":oc", oCode}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                if (getString(ord, "payment_status", "unpaid") != "paid") {
+                    db.execute("UPDATE orders SET payment_status = 'verifying', payment_method = 'banking' WHERE id = :id", {{":id", getInt(ord, "id", 0)}});
+                    createOrderAlert(db, getInt(ord, "id", 0), oCode, getInt(ord, "table_id", 0), getString(ord, "table_code", ""),
+                        "payment_verifying", "Khách báo đã CK " + oCode,
+                        "Khách báo đã chuyển khoản " + std::to_string(static_cast<int64_t>(getDouble(ord, "total_amount", 0.0))) + "đ cho đơn " + oCode + ". Vui lòng kiểm tra số dư và xác nhận!",
+                        "cashier");
+                }
+                sendJson(res, {{"success", true}, {"payment_status", "verifying"}, {"message", "Đã gửi thông báo chờ Thu ngân đối soát chuyển khoản!"}});
+                return;
+            }
+
+            // Thu ngân xác nhận thanh toán thủ công (Tiền mặt / CK / Duyệt Ship COD)
+            if (action == "confirm_payment") {
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id LIMIT 1", {{":id", orderId}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string mode = BodyParser::getParam(req, body, "mode", "paid"); // paid | cod_approved
+                std::string method = BodyParser::getParam(req, body, "payment_method", "banking");
+                std::string bankRef = BodyParser::getParam(req, body, "bank_ref", "");
+                bool pushToKitchen = (BodyParser::getParam(req, body, "push_to_kitchen", "0") == "1" || (body.contains("push_to_kitchen") && body["push_to_kitchen"].is_boolean() && body["push_to_kitchen"].get<bool>()));
+                std::string nowStr = getCurrentTimestamp();
+                double totAmt = getDouble(ord, "total_amount", 0.0);
+
+                db.beginTransaction();
+                if (mode == "cod_approved") {
+                    db.execute("UPDATE orders SET payment_status = 'cod_approved', payment_method = 'cod', payment_verified_by = :vby WHERE id = :id",
+                        {{":vby", uName}, {":id", orderId}});
+                } else {
+                    db.execute(R"(
+                        UPDATE orders SET
+                            payment_status = 'paid', payment_method = :pm, paid_amount = :tot,
+                            settlement_status = 'settled', payment_verified_by = :vby,
+                            bank_ref = :bref, paid_at = COALESCE(paid_at, :pat)
+                        WHERE id = :id
+                    )", {
+                        {":pm", method}, {":tot", totAmt}, {":vby", uName}, {":bref", bankRef}, {":pat", nowStr}, {":id", orderId}
+                    });
+                    db.execute(R"(
+                        INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, bank_ref, verified_by, note, created_at)
+                        VALUES (:oid, :oc, 'pay', :pm, :amt, :bref, :vby, 'Thu ngân xác nhận thanh toán đơn QR/Online', :cat)
+                    )", {
+                        {":oid", orderId}, {":oc", getString(ord, "order_code", "")}, {":pm", method},
+                        {":amt", totAmt}, {":bref", bankRef}, {":vby", uName}, {":cat", nowStr}
+                    });
+                }
+                if (pushToKitchen) {
+                    db.execute("UPDATE orders SET kitchen_status = 'pending' WHERE id = :id AND COALESCE(kitchen_status, 'pending') IN ('awaiting_payment', 'awaiting_waiter', 'awaiting_kitchen_push')",
+                        {{":id", orderId}});
+                }
+                db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = :by, ack_at = :at WHERE order_id = :oid AND alert_type IN ('qr_payment_pending', 'payment_verifying')",
+                    {{":by", uName}, {":at", nowStr}, {":oid", orderId}});
+                db.commit();
+
+                sendJson(res, {
+                    {"success", true},
+                    {"message", mode == "cod_approved" ? "Đã duyệt Ship COD! Có thể chuyển Bếp ngay." : (pushToKitchen ? "Đã xác nhận nhận tiền & Chuyển Bếp!" : "Đã xác nhận nhận tiền! Nút Chuyển Bếp đã mở khóa.")}
+                });
+                return;
+            }
+
+            // Cổng kiểm soát Chuyển Bếp (Gatekeeper: chỉ mở khi đã TT hoặc duyệt COD hoặc Tại bàn)
+            if (action == "send_to_kitchen" || action == "waiter_confirm_customer_order") {
+                int64_t orderId = 0, tableId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
+                if (orderId <= 0 && tableId > 0) {
+                    auto tbl = db.queryRow("SELECT active_order_id FROM tables_areas WHERE id = :id", {{":id", tableId}});
+                    if (!tbl.is_null()) orderId = getInt(tbl, "active_order_id", 0);
+                }
+                auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id AND status = 'pending'", {{":id", orderId}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng chờ duyệt!", 404);
+                    return;
+                }
+                std::string oType = getString(ord, "order_type", "pos");
+                std::string pStatus = getString(ord, "payment_status", "unpaid");
+                bool isDineIn = (oType == "dine_in" || (getInt(ord, "table_id", 0) > 0 && oType != "takeaway" && getString(ord, "table_code", "").rfind("MV", 0) != 0));
+                if (!isDineIn && pStatus != "paid" && pStatus != "cod_approved") {
+                    sendJson(res, {{"success", false}, {"payment_required", true}, {"message", "Đơn Mang Về / Online chưa xác nhận thanh toán! Vui lòng xác nhận tiền vào hoặc duyệt COD trước khi Chuyển Bếp."}}, 400);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                std::string uName = userOpt ? userOpt->fullname : "Nhân viên";
+                std::string nowStr = getCurrentTimestamp();
+                db.beginTransaction();
+                db.execute("UPDATE orders SET kitchen_status = 'pending', kitchen_sent_at = COALESCE(NULLIF(kitchen_sent_at, ''), :ksent) WHERE id = :id", {{":ksent", nowStr}, {":id", orderId}});
+                db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = :by, ack_at = :at WHERE order_id = :oid AND alert_type = 'qr_table_pending'",
+                    {{":by", uName}, {":at", nowStr}, {":oid", orderId}});
+                db.commit();
+                sendJson(res, {{"success", true}, {"message", "Đã duyệt đơn và chuyển xuống Bếp thành công!"}});
+                return;
+            }
+
+            // Phục vụ / Thu ngân bấm "Hối" khi đơn chờ Bếp quá lâu (>= 10 phút)
+            if (action == "rush_kitchen") {
+                int64_t orderId = 0, tableId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
+                if (orderId <= 0 && tableId > 0) {
+                    auto tbl = db.queryRow("SELECT active_order_id FROM tables_areas WHERE id = :id", {{":id", tableId}});
+                    if (!tbl.is_null()) orderId = getInt(tbl, "active_order_id", 0);
+                }
+                auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id AND status = 'pending'", {{":id", orderId}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng đang chờ Bếp!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                std::string uName = userOpt ? userOpt->fullname : "Nhân viên";
+                std::string nowStr = getCurrentTimestamp();
+                int nextRush = static_cast<int>(getInt(ord, "rush_count", 0)) + 1;
+
+                ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
+                int kPenalty = std::abs(slaCfg.settings.value("kpi_kitchen_rush_penalty", 5));
+                int64_t kUid = getInt(ord, "kitchen_user_id", 0);
+                std::string kUname = getString(ord, "kitchen_user_name", "Tổ Pha Chế & Bếp");
+                if (kUname.empty()) kUname = "Tổ Pha Chế & Bếp";
+
+                db.beginTransaction();
+                db.execute(
+                    "UPDATE orders SET rush_count = :rc, last_rushed_at = :at, last_rushed_by = :by WHERE id = :id",
+                    {{":rc", nextRush}, {":at", nowStr}, {":by", uName}, {":id", orderId}}
+                );
+                if (kPenalty > 0) {
+                    recordKpiEvent(db, kUid, kUname, "kitchen", orderId, getString(ord, "order_code", ""), getString(ord, "table_code", ""),
+                        "kitchen_rushed", -kPenalty, uName + " hối Bếp lần " + std::to_string(nextRush) + " (quá SLA " + std::to_string(slaCfg.kitchenSla) + "p)");
+                }
+                db.execute(
+                    "INSERT INTO order_alerts (order_id, order_code, table_id, table_code, alert_type, title, message, target_role, created_at) "
+                    "VALUES (:oid, :ocode, :tid, :tcode, 'kitchen_rush', :title, :msg, 'kitchen', :at)",
+                    {
+                        {":oid", orderId},
+                        {":ocode", getString(ord, "order_code", "")},
+                        {":tid", getInt(ord, "table_id", 0)},
+                        {":tcode", getString(ord, "table_code", "")},
+                        {":title", "🔥 HỐI MÓN BÀN " + getString(ord, "table_code", "")},
+                        {":msg", uName + " hối Bếp lần " + std::to_string(nextRush) + " (khách đợi lâu)"},
+                        {":at", nowStr}
+                    }
+                );
+                db.commit();
+                sendJson(res, {
+                    {"success", true},
+                    {"rush_count", nextRush},
+                    {"last_rushed_at", nowStr},
+                    {"last_rushed_by", uName},
+                    {"message", "Đã gửi lệnh HỐI xuống Bếp!"}
+                });
+                return;
+            }
+
+            // Khách hàng đánh giá Sao sau khi hoàn thành đơn
+            if (action == "submit_review") {
+                ensureOrderWorkflowSchema(db);
+                std::string orderCode = BodyParser::getParam(req, body, "order_code", BodyParser::getParam(req, body, "token", ""));
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                int rating = 0;
+                try { rating = std::stoi(BodyParser::getParam(req, body, "rating", "0")); } catch (...) {}
+                std::string comment = BodyParser::getParam(req, body, "comment", "");
+                if (rating < 1 || rating > 5) {
+                    sendError(res, "Vui lòng chọn số sao từ 1 đến 5!", 400);
+                    return;
+                }
+                auto ord = (orderId > 0)
+                    ? db.queryRow("SELECT * FROM orders WHERE id = :id LIMIT 1", {{":id", orderId}})
+                    : db.queryRow("SELECT * FROM orders WHERE order_code = :c LIMIT 1", {{":c", orderCode}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                orderId = getInt(ord, "id", 0);
+                orderCode = getString(ord, "order_code", "");
+                std::string tCode = getString(ord, "table_code", "");
+                auto existingRev = db.queryRow("SELECT id FROM order_reviews WHERE order_id = :oid", {{":oid", orderId}});
+                if (!existingRev.is_null()) {
+                    sendError(res, "Đơn hàng này đã được đánh giá trước đó!", 400);
+                    return;
+                }
+
+                ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
+                std::string starCol = "kpi_star_" + std::to_string(rating) + "_pts";
+                int starPts = slaCfg.settings.value(starCol, rating == 5 ? 5 : (rating == 4 ? 2 : (rating == 3 ? 0 : (rating == 2 ? -3 : -5))));
+                std::string nowStr = getCurrentTimestamp();
+
+                db.beginTransaction();
+                db.execute("INSERT INTO order_reviews (order_id, order_code, table_code, rating, comment, created_at) VALUES (:oid, :ocode, :tcode, :rat, :cmt, :cat)", {
+                    {":oid", orderId}, {":ocode", orderCode}, {":tcode", tCode}, {":rat", rating}, {":cmt", comment}, {":cat", nowStr}
+                });
+                db.execute("UPDATE orders SET customer_rating = :rat, customer_review_note = :cmt, customer_reviewed_at = :cat WHERE id = :id", {
+                    {":rat", rating}, {":cmt", comment}, {":cat", nowStr}, {":id", orderId}
+                });
+                if (starPts != 0) {
+                    int64_t wUid = getInt(ord, "served_user_id", 0);
+                    std::string wUname = getString(ord, "served_user_name", "");
+                    if (wUid <= 0) {
+                        wUid = getInt(ord, "user_id", 0);
+                        wUname = getString(ord, "user_name", "Phục vụ");
+                    }
+                    recordKpiEvent(db, wUid, wUname, "waiter", orderId, orderCode, tCode, "customer_rating", starPts,
+                        "Khách đánh giá " + std::to_string(rating) + "⭐" + (comment.empty() ? "" : (": " + comment)));
+                    int64_t kUid = getInt(ord, "kitchen_user_id", 0);
+                    std::string kUname = getString(ord, "kitchen_user_name", "");
+                    if (kUid > 0 && kUid != wUid) {
+                        recordKpiEvent(db, kUid, kUname, "kitchen", orderId, orderCode, tCode, "customer_rating", starPts,
+                            "Khách đánh giá " + std::to_string(rating) + "⭐" + (comment.empty() ? "" : (": " + comment)));
+                    }
+                }
+                db.commit();
+                sendJson(res, {
+                    {"success", true},
+                    {"rating", rating},
+                    {"points_delta", starPts},
+                    {"message", "Cảm ơn quý khách đã đánh giá!"}
+                });
+                return;
+            }
+
+            // Cập nhật ghi chú món (đồng bộ với order.html)
+            if (action == "update_item_note") {
+                int64_t itemId = 0;
+                try { itemId = std::stoll(BodyParser::getParam(req, body, "item_id", "0")); } catch (...) {}
+                std::string itemNote = BodyParser::getParam(req, body, "note", "");
+                if (itemId <= 0) {
+                    sendError(res, "Thiếu item_id!", 400);
+                    return;
+                }
+                db.execute("UPDATE order_items SET note = :n WHERE id = :id", {{":n", itemNote}, {":id", itemId}});
+                sendJson(res, {{"success", true}, {"message", "Đã cập nhật ghi chú món gửi Bếp!"}});
+                return;
+            }
+
+            // Phục vụ / Thu ngân gửi yêu cầu Hủy 1 món xuống Bếp duyệt (KHÔNG nhét vào note)
+            if (action == "request_cancel_item") {
+                int64_t itemId = 0;
+                try { itemId = std::stoll(BodyParser::getParam(req, body, "item_id", "0")); } catch (...) {}
+                std::string reason = BodyParser::getParam(req, body, "reason", "Khách xin hủy");
+                if (itemId <= 0) {
+                    sendError(res, "Thiếu item_id!", 400);
+                    return;
+                }
+                auto it = db.queryRow("SELECT oi.*, o.order_code, o.table_id, o.table_code, o.kitchen_status FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = :id", {{":id", itemId}});
+                if (it.is_null()) {
+                    sendError(res, "Không tìm thấy món trên hóa đơn!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                std::string uName = userOpt ? userOpt->fullname : "Phục vụ";
+                std::string nowStr = getCurrentTimestamp();
+                int64_t ordId = getInt(it, "order_id", 0);
+                std::string pName = getString(it, "product_name", "Món");
+                std::string tCode = getString(it, "table_code", "");
+                std::string oCode = getString(it, "order_code", "");
+
+                db.beginTransaction();
+                db.execute(R"(
+                    UPDATE order_items SET
+                        cancel_status = 'pending_kitchen',
+                        cancel_reason = :rsn,
+                        cancel_requested_by = :by,
+                        cancel_requested_at = :at
+                    WHERE id = :id
+                )", {{":rsn", reason}, {":by", uName}, {":at", nowStr}, {":id", itemId}});
+                createOrderAlert(db, ordId, oCode, getInt(it, "table_id", 0), tCode,
+                    "item_cancel_requested", "Xin hủy món: " + pName + " (" + tCode + ")",
+                    uName + " gửi yêu cầu hủy \"" + pName + "\" (" + reason + "). Chờ Bếp xác nhận.", "all");
+                db.commit();
+                sendJson(res, {{"success", true}, {"message", "Đã gửi yêu cầu xin hủy \"" + pName + "\" đến Bếp & Thu ngân!"}});
+                return;
+            }
+
+            // Bếp duyệt hoặc từ chối hủy 1 món (tự động tính hoàn tiền nếu đơn đã thanh toán!)
+            if (action == "kitchen_cancel_item" || action == "kitchen_reject_cancel_item" || action == "kitchen_resolve_cancel_item") {
+                int64_t itemId = 0;
+                try { itemId = std::stoll(BodyParser::getParam(req, body, "item_id", "0")); } catch (...) {}
+                std::string decision = (action == "kitchen_reject_cancel_item") ? "reject" : BodyParser::getParam(req, body, "decision", "approve");
+                std::string reason = BodyParser::getParam(req, body, "reason", decision == "approve" ? "Bếp đồng ý hủy" : "Bếp đã làm xong / đang chế biến");
+                if (itemId <= 0) {
+                    sendError(res, "Thiếu item_id!", 400);
+                    return;
+                }
+                auto it = db.queryRow("SELECT oi.*, o.order_code, o.table_id, o.table_code, o.paid_amount, o.payment_status FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = :id", {{":id", itemId}});
+                if (it.is_null()) {
+                    sendError(res, "Không tìm thấy món!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 1;
+                std::string uName = userOpt ? userOpt->fullname : "Bếp";
+                std::string uRole = userOpt ? userOpt->role : "kitchen";
+                std::string nowStr = getCurrentTimestamp();
+                int64_t ordId = getInt(it, "order_id", 0);
+                int64_t tId = getInt(it, "table_id", 0);
+                std::string tCode = getString(it, "table_code", "");
+                std::string oCode = getString(it, "order_code", "");
+                std::string pName = getString(it, "product_name", "Món");
+                double lineSub = getDouble(it, "subtotal", 0.0);
+
+                db.beginTransaction();
+                if (decision == "approve") {
+                    db.execute(R"(
+                        UPDATE order_items SET
+                            cancel_status = 'approved',
+                            cancel_reason = :rsn,
+                            cancel_resolved_by = :by,
+                            cancel_resolved_at = :at
+                        WHERE id = :id
+                    )", {{":rsn", reason}, {":by", uName}, {":at", nowStr}, {":id", itemId}});
+
+                    json recalc = recalculateOrderTotalsAndSettlement(db, ordId);
+                    int64_t activeLeft = recalc.value("active_items", int64_t(0));
+                    std::string settleSt = recalc.value("settlement_status", "settled");
+                    double paidAmt = recalc.value("paid_amount", 0.0);
+                    double newTot = recalc.value("total_amount", 0.0);
+
+                    if (activeLeft <= 0) {
+                        db.execute("UPDATE orders SET status = 'cancelled' WHERE id = :id", {{":id", ordId}});
+                        if (tId > 0 && settleSt != "refund_due") {
+                            db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE id = :id", {{":id", tId}});
+                        }
+                    }
+
+                    std::string alertMsg = "Bếp ĐỒNG Ý hủy \"" + pName + "\" bàn " + tCode + ".";
+                    if (settleSt == "refund_due") {
+                        double refAmt = paidAmt - newTot;
+                        alertMsg += " Đơn đã thanh toán trước -> CẦN HOÀN LẠI KHÁCH " + std::to_string(static_cast<int64_t>(refAmt)) + "đ!";
+                    }
+                    createOrderAlert(db, ordId, oCode, tId, tCode, (settleSt == "refund_due" ? "refund_due" : "item_cancel_approved"),
+                        "Bếp duyệt hủy " + pName + " (" + tCode + ")", alertMsg, "all");
+
+                    db.execute(R"(
+                        INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                        VALUES ('VOID_ITEM_APPROVED', :lbl, 'WARN', :oid, :oc, :tc, :amt, :rsn, :uid, :un, :ur, :dtl, :cat)
+                    )", {
+                        {":lbl", "Bếp duyệt hủy món " + pName + " (" + tCode + ")"},
+                        {":oid", ordId}, {":oc", oCode}, {":tc", tCode}, {":amt", lineSub}, {":rsn", reason},
+                        {":uid", uId}, {":un", uName}, {":ur", uRole}, {":dtl", alertMsg}, {":cat", nowStr}
+                    });
+                } else {
+                    db.execute(R"(
+                        UPDATE order_items SET
+                            cancel_status = 'rejected',
+                            cancel_reason = :rsn,
+                            cancel_resolved_by = :by,
+                            cancel_resolved_at = :at
+                        WHERE id = :id
+                    )", {{":rsn", reason}, {":by", uName}, {":at", nowStr}, {":id", itemId}});
+
+                    createOrderAlert(db, ordId, oCode, tId, tCode, "item_cancel_rejected",
+                        "Bếp TỪ CHỐI hủy " + pName + " (" + tCode + ")",
+                        "Bếp không thể hủy \"" + pName + "\" (" + reason + "). Món vẫn giữ trên hóa đơn.", "all");
+                }
+                db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = :by, ack_at = :at WHERE order_id = :oid AND alert_type = 'item_cancel_requested'",
+                    {{":by", uName}, {":at", nowStr}, {":oid", ordId}});
+                db.commit();
+
+                sendJson(res, {{"success", true}, {"message", decision == "approve" ? "Đã đồng ý hủy món & cập nhật hóa đơn!" : "Đã từ chối hủy món & báo lại Phục vụ/Thu ngân!"}});
+                return;
+            }
+
+            // Bếp báo Hết món (khóa thực đơn tùy chọn + trừ tiền + cảnh báo hoàn tiền nếu đã TT)
+            if (action == "kitchen_out_of_stock") {
+                int64_t itemId = 0;
+                try { itemId = std::stoll(BodyParser::getParam(req, body, "item_id", "0")); } catch (...) {}
+                bool lockProduct = (BodyParser::getParam(req, body, "lock_product", "1") != "0");
+                if (body.contains("lock_product") && body["lock_product"].is_boolean()) lockProduct = body["lock_product"].get<bool>();
+                std::string reason = BodyParser::getParam(req, body, "reason", "Bếp báo hết nguyên liệu");
+
+                auto it = db.queryRow("SELECT oi.*, o.order_code, o.table_id, o.table_code FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = :id", {{":id", itemId}});
+                if (it.is_null()) {
+                    sendError(res, "Không tìm thấy món!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 1;
+                std::string uName = userOpt ? userOpt->fullname : "Bếp";
+                std::string uRole = userOpt ? userOpt->role : "kitchen";
+                std::string nowStr = getCurrentTimestamp();
+                int64_t ordId = getInt(it, "order_id", 0);
+                int64_t prodId = getInt(it, "product_id", 0);
+                int64_t tId = getInt(it, "table_id", 0);
+                std::string tCode = getString(it, "table_code", "");
+                std::string oCode = getString(it, "order_code", "");
+                std::string pName = getString(it, "product_name", "Món");
+
+                db.beginTransaction();
+                db.execute("UPDATE order_items SET cancel_status = 'out_of_stock', cancel_reason = :rsn, cancel_resolved_by = :by, cancel_resolved_at = :at WHERE id = :id",
+                    {{":rsn", reason}, {":by", uName}, {":at", nowStr}, {":id", itemId}});
+                if (lockProduct && prodId > 0) {
+                    db.execute("UPDATE products SET status = 'out_of_stock' WHERE id = :pid", {{":pid", prodId}});
+                }
+                json recalc = recalculateOrderTotalsAndSettlement(db, ordId);
+                std::string settleSt = recalc.value("settlement_status", "settled");
+                double refAmt = std::max(0.0, recalc.value("paid_amount", 0.0) - recalc.value("total_amount", 0.0));
+                if (recalc.value("active_items", int64_t(0)) <= 0) {
+                    db.execute("UPDATE orders SET status = 'cancelled' WHERE id = :id", {{":id", ordId}});
+                }
+
+                std::string msg = "Bếp báo HẾT \"" + pName + "\" bàn " + tCode + " (" + reason + "). Mời khách đổi món.";
+                if (settleSt == "refund_due") {
+                    msg += " Đơn đã TT -> Cần hoàn lại " + std::to_string(static_cast<int64_t>(refAmt)) + "đ!";
+                }
+                createOrderAlert(db, ordId, oCode, tId, tCode, (settleSt == "refund_due" ? "refund_due" : "out_of_stock"),
+                    "Bếp báo HẾT món: " + pName + " (" + tCode + ")", msg, "all");
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('KITCHEN_OUT_OF_STOCK', :lbl, 'WARN', :oid, :oc, :tc, :amt, :rsn, :uid, :un, :ur, :dtl, :cat)
+                )", {
+                    {":lbl", "Bếp báo hết món " + pName + " (" + tCode + ")"},
+                    {":oid", ordId}, {":oc", oCode}, {":tc", tCode}, {":amt", getDouble(it, "subtotal", 0.0)}, {":rsn", reason},
+                    {":uid", uId}, {":un", uName}, {":ur", uRole}, {":dtl", msg}, {":cat", nowStr}
+                });
+                db.commit();
+
+                sendJson(res, {{"success", true}, {"message", msg}, {"settlement", recalc}});
+                return;
+            }
+
+            // Bếp gửi yêu cầu Hủy Cả Đơn lên Thu ngân (không tự xóa thẳng hóa đơn)
+            if (action == "kitchen_request_cancel_order") {
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                std::string reason = BodyParser::getParam(req, body, "reason", "");
+                if (orderId <= 0 || reason.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng chọn hoặc nhập lý do yêu cầu hủy đơn!"}}, 400);
+                    return;
+                }
+                auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy hóa đơn!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                std::string uName = userOpt ? userOpt->fullname : "Bếp";
+                std::string nowStr = getCurrentTimestamp();
+                std::string oCode = getString(ord, "order_code", "");
+                std::string tCode = getString(ord, "table_code", "");
+
+                db.beginTransaction();
+                db.execute(R"(
+                    UPDATE orders SET
+                        kitchen_status = 'cancel_requested',
+                        cancel_request_reason = :rsn,
+                        cancel_requested_by = :by,
+                        cancel_requested_at = :at
+                    WHERE id = :id
+                )", {{":rsn", reason}, {":by", uName}, {":at", nowStr}, {":id", orderId}});
+                createOrderAlert(db, orderId, oCode, getInt(ord, "table_id", 0), tCode, "order_cancel_requested",
+                    "Bếp yêu cầu HỦY ĐƠN " + tCode + " (" + oCode + ")",
+                    "Bếp đề nghị hủy đơn vì: " + reason + ". Thu ngân vui lòng kiểm tra & chốt hủy (hoặc hoàn tiền nếu đã thu).",
+                    "all");
+                db.commit();
+
+                sendJson(res, {{"success", true}, {"message", "Đã gửi yêu cầu hủy đơn " + oCode + " lên Thu ngân & Phục vụ!"}});
+                return;
+            }
+
+            // Thu ngân quyết toán chênh lệch Thu thêm (extra_due) hoặc Hoàn tiền (refund_due)
+            if (action == "settle_delta") {
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                std::string method = BodyParser::getParam(req, body, "payment_method", "cash");
+                std::string noteStr = BodyParser::getParam(req, body, "note", "");
+                auto ord = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
+                if (ord.is_null()) {
+                    sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                auto userOpt = AuthService::instance().authenticate(req);
+                int64_t uId = userOpt ? userOpt->id : 1;
+                std::string uName = userOpt ? userOpt->fullname : "Thu ngân";
+                std::string uRole = userOpt ? userOpt->role : "cashier";
+                std::string nowStr = getCurrentTimestamp();
+
+                double totAmt = getDouble(ord, "total_amount", 0.0);
+                double paidAmt = getDouble(ord, "paid_amount", 0.0);
+                double diff = totAmt - paidAmt;
+                std::string txType = (diff >= 0) ? "extra" : "refund";
+                double absAmt = std::abs(diff);
+                std::string oCode = getString(ord, "order_code", "");
+                std::string tCode = getString(ord, "table_code", "");
+                int64_t tId = getInt(ord, "table_id", 0);
+                std::string st = getString(ord, "status", "pending");
+
+                db.beginTransaction();
+                db.execute("UPDATE orders SET paid_amount = total_amount, settlement_status = :ss WHERE id = :id",
+                    {{":ss", (st == "cancelled" ? "refunded" : "settled")}, {":id", orderId}});
+                if (absAmt > 0.5) {
+                    db.execute(R"(
+                        INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, verified_by, note, created_at)
+                        VALUES (:oid, :oc, :tt, :pm, :amt, :vby, :nt, :cat)
+                    )", {
+                        {":oid", orderId}, {":oc", oCode}, {":tt", txType}, {":pm", method},
+                        {":amt", absAmt}, {":vby", uName},
+                        {":nt", noteStr.empty() ? (txType == "refund" ? "Hoàn tiền cho khách" : "Thu thêm chênh lệch đổi/thêm món") : noteStr},
+                        {":cat", nowStr}
+                    });
+                    db.execute(R"(
+                        INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                        VALUES (:ac, :lbl, 'WARN', :oid, :oc, :tc, :amt, :rsn, :uid, :un, :ur, :dtl, :cat)
+                    )", {
+                        {":ac", txType == "refund" ? "SETTLE_REFUND" : "SETTLE_EXTRA"},
+                        {":lbl", (txType == "refund" ? "Hoàn tiền khách " : "Thu thêm tiền ") + tCode},
+                        {":oid", orderId}, {":oc", oCode}, {":tc", tCode}, {":amt", absAmt},
+                        {":rsn", noteStr.empty() ? txType : noteStr},
+                        {":uid", uId}, {":un", uName}, {":ur", uRole}, {":dtl", "Phương thức: " + method}, {":cat", nowStr}
+                    });
+                }
+                if (st == "cancelled" && tId > 0) {
+                    db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE id = :id AND active_order_id = :oid",
+                        {{":id", tId}, {":oid", orderId}});
+                }
+                db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = :by, ack_at = :at WHERE order_id = :oid AND alert_type IN ('extra_due', 'refund_due')",
+                    {{":by", uName}, {":at", nowStr}, {":oid", orderId}});
+                db.commit();
+
+                sendJson(res, {{"success", true}, {"message", txType == "refund" ? "Đã xác nhận hoàn tiền cho khách!" : "Đã xác nhận thu thêm tiền thành công!"}});
+                return;
+            }
+
+            // Đánh dấu đã xử lý / đã báo khách thông báo biến động đơn
+            if (action == "ack_alert") {
+                int64_t alertId = 0;
+                try { alertId = std::stoll(BodyParser::getParam(req, body, "alert_id", "0")); } catch (...) {}
+                auto userOpt = AuthService::instance().authenticate(req);
+                std::string uName = userOpt ? userOpt->fullname : "Nhân viên";
+                if (alertId > 0) {
+                    db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = :by, ack_at = :at WHERE id = :id",
+                        {{":by", uName}, {":at", getCurrentTimestamp()}, {":id", alertId}});
+                }
+                sendJson(res, {{"success", true}});
+                return;
+            }
+
             // Cancel order (Bắt buộc ghi nhận Lý do vào Nhật ký Kiểm toán audit_logs)
             if (action == "cancel_order") {
                 int64_t orderId = 0;
@@ -2482,12 +3723,22 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 bool wasCooked = (kStatus == "ready" || kStatus == "served");
 
                 db.beginTransaction();
-                db.execute("UPDATE orders SET status = 'cancelled', note = COALESCE(note, '') || ' | [HỦY: ' || :rsn || ']' WHERE id = :id",
+                double paidAmt = getDouble(order, "paid_amount", 0.0);
+                std::string settleUpdate = (paidAmt > 0.5) ? ", total_amount = 0, settlement_status = 'refund_due'" : "";
+                db.execute("UPDATE orders SET status = 'cancelled'" + settleUpdate + ", note = COALESCE(note, '') || ' | [HỦY: ' || :rsn || ']' WHERE id = :id",
                            {{":rsn", reason}, {":id", orderId}});
-                if (!order["table_id"].is_null()) {
+                if (!order["table_id"].is_null() && paidAmt <= 0.5) {
                     int64_t tid = getInt(order, "table_id", 0);
                     db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE id = :id", {{":id", tid}});
                 }
+                if (paidAmt > 0.5) {
+                    createOrderAlert(db, orderId, oCode, getInt(order, "table_id", 0), tCode, "refund_due",
+                        "Cần hoàn tiền đơn đã hủy " + oCode,
+                        "Đơn " + oCode + " (" + tCode + ") đã hủy nhưng khách đã trả " + std::to_string(static_cast<int64_t>(paidAmt)) + "đ. Vui lòng hoàn tiền cho khách!",
+                        "all");
+                }
+                db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = :by, ack_at = :at WHERE order_id = :oid AND alert_type = 'order_cancel_requested'",
+                    {{":by", uName}, {":at", nowStr}, {":oid", orderId}});
 
                 db.execute(R"(
                     INSERT INTO audit_logs (
@@ -2939,8 +4190,11 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
             std::string todayStr = getCurrentDate();
             std::string todayMonth = todayStr.substr(0, 7);
+            bool isRealtimeCycle = false;
             int elapsedDays = daysInMonth;
             if (month == todayMonth && todayStr.size() >= 10) {
+                isRealtimeCycle = true;
+                periodEnd = todayStr; // Chưa đến ngày chốt chu kỳ: tính từ ngày 01 đến thời điểm hiện tại (real-time)
                 elapsedDays = std::max(1, std::min(daysInMonth, std::stoi(todayStr.substr(8, 2))));
             } else if (month > todayMonth) {
                 elapsedDays = 0;
@@ -3048,20 +4302,26 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 }
 
                 // Material inventory transactions in cycle
-                double materialImportCost = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'import' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
-                    {{":ps", periodStart}, {":pe", periodEnd}}
-                ).get<double>();
-                double materialLossCost = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'loss' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
-                    {{":ps", periodStart}, {":pe", periodEnd}}
-                ).get<double>();
+                double materialImportCost = 0.0, materialLossCost = 0.0;
+                try {
+                    materialImportCost = db.queryScalar(
+                        "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'import' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", periodStart}, {":pe", periodEnd}}
+                    ).get<double>();
+                    materialLossCost = db.queryScalar(
+                        "SELECT COALESCE(SUM(total_cost), 0) FROM material_transactions WHERE trans_type = 'loss' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", periodStart}, {":pe", periodEnd}}
+                    ).get<double>();
+                } catch (...) {}
 
                 // Real-time Labor cost from attendances (completed + live working shifts)
-                json attRows = db.query(
-                    "SELECT check_in_time, work_hours, hourly_rate, total_pay, status FROM attendances WHERE work_date BETWEEN :ps AND :pe",
-                    {{":ps", periodStart}, {":pe", periodEnd}}
-                );
+                json attRows = json::array();
+                try {
+                    attRows = db.query(
+                        "SELECT check_in_time, work_hours, hourly_rate, total_pay, status FROM attendances WHERE work_date BETWEEN :ps AND :pe",
+                        {{":ps", periodStart}, {":pe", periodEnd}}
+                    );
+                } catch (...) {}
                 double laborCost = 0.0;
                 double laborHours = 0.0;
                 double laborRealtimeAccrued = 0.0;
@@ -3105,14 +4365,19 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 int64_t payableCount = getInt(expAgg, "payable_count", 0);
 
                 // Counter cash transactions & POS shift discrepancy in period
-                double cashOutCounter = db.queryScalar(
-                    "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE trans_type = 'out' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
-                    {{":ps", periodStart}, {":pe", periodEnd}}
-                ).get<double>();
-                double shiftDiscrepancy = db.queryScalar(
-                    "SELECT COALESCE(SUM(discrepancy), 0) FROM pos_shifts WHERE status = 'closed' AND substr(COALESCE(NULLIF(closed_at, ''), opened_at), 1, 10) BETWEEN :ps AND :pe",
-                    {{":ps", periodStart}, {":pe", periodEnd}}
-                ).get<double>();
+                double cashOutCounter = 0.0, shiftDiscrepancy = 0.0;
+                try {
+                    cashOutCounter = db.queryScalar(
+                        "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE trans_type = 'out' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", periodStart}, {":pe", periodEnd}}
+                    ).get<double>();
+                } catch (...) {}
+                try {
+                    shiftDiscrepancy = db.queryScalar(
+                        "SELECT COALESCE(SUM(discrepancy), 0) FROM pos_shifts WHERE status = 'closed' AND substr(COALESCE(NULLIF(closed_at, ''), opened_at), 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", periodStart}, {":pe", periodEnd}}
+                    ).get<double>();
+                } catch (...) {}
                 double shortageLoss = (shiftDiscrepancy < 0) ? -shiftDiscrepancy : 0.0;
 
                 // Expense breakdown groups (manual + smart auto categories)
@@ -3232,6 +4497,8 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     {"month", month},
                     {"period_start", periodStart},
                     {"period_end", periodEnd},
+                    {"is_realtime_cycle", isRealtimeCycle},
+                    {"realtime_as_of", nowTs},
                     {"days_in_month", daysInMonth},
                     {"elapsed_days", elapsedDays},
                     {"summary", {
@@ -3271,7 +4538,26 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     {"expense_groups", expenseGroups},
                     {"daily_revenue", dailyRevenue},
                     {"category_breakdown", categoryBreakdown},
-                    {"payment_breakdown", paymentBreakdown}
+                    {"payment_breakdown", paymentBreakdown},
+                    {"promo_breakdown", [&]() {
+                        json pb = json::array();
+                        try {
+                            ensurePromotionSchema(db);
+                            pb = db.query(R"(
+                                SELECT COALESCE(NULLIF(promo_code, ''), 'THU_CONG') as promo_code,
+                                       COALESCE(NULLIF(promo_name, ''), 'Giảm giá thủ công POS') as promo_name,
+                                       COUNT(*) as orders,
+                                       COALESCE(SUM(discount_amount), 0) as discount_total,
+                                       COALESCE(SUM(total_amount), 0) as net_revenue
+                                FROM orders
+                                WHERE status = 'completed' AND COALESCE(discount_amount, 0) > 0
+                                  AND substr(COALESCE(NULLIF(completed_at, ''), created_at), 1, 10) BETWEEN :ps AND :pe
+                                GROUP BY promo_code, promo_name
+                                ORDER BY discount_total DESC
+                            )", {{":ps", periodStart}, {":pe", periodEnd}});
+                        } catch (...) {}
+                        return pb;
+                    }()}
                 });
                 return;
             }
@@ -4665,6 +5951,162 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         }
     }
 
+    // KPI & SLA Peak/Off-Peak Management
+    if (action == "get_kpi_dashboard") {
+        ActiveSlaConfig slaCfg = getActiveSlaConfig(db);
+        std::string month = BodyParser::getParam(req, body, "month", getCurrentDate().substr(0, 7));
+        if (month.empty() && req.has_param("month")) month = req.get_param_value("month");
+        if (month.size() < 7) month = getCurrentDate().substr(0, 7);
+
+        json slots = db.query("SELECT * FROM sla_time_slots ORDER BY start_time ASC, id ASC");
+        int baseScore = slaCfg.settings.value("kpi_base_score", 100);
+
+        json staffKpi = db.query(R"(
+            SELECT 
+                u.id as user_id,
+                u.fullname,
+                u.username,
+                u.role,
+                COALESCE(SUM(CASE WHEN substr(kl.created_at, 1, 7) = :m THEN kl.points_delta ELSE 0 END), 0) as delta_points,
+                COALESCE(SUM(CASE WHEN substr(kl.created_at, 1, 7) = :m AND kl.event_type IN ('kitchen_ontime', 'waiter_ontime') THEN 1 ELSE 0 END), 0) as ontime_count,
+                COALESCE(SUM(CASE WHEN substr(kl.created_at, 1, 7) = :m AND kl.event_type = 'kitchen_rushed' THEN 1 ELSE 0 END), 0) as rushed_count,
+                COALESCE(SUM(CASE WHEN substr(kl.created_at, 1, 7) = :m AND kl.event_type = 'waiter_reminded' THEN 1 ELSE 0 END), 0) as reminded_count,
+                COALESCE(SUM(CASE WHEN substr(kl.created_at, 1, 7) = :m AND kl.event_type = 'customer_rating' THEN 1 ELSE 0 END), 0) as review_count,
+                (SELECT COUNT(*) FROM orders o WHERE (o.user_id = u.id OR o.served_user_id = u.id OR o.kitchen_user_id = u.id) AND substr(o.created_at, 1, 7) = :m AND o.status != 'cancelled') as orders_count
+            FROM users u
+            LEFT JOIN kpi_logs kl ON kl.user_id = u.id
+            WHERE u.status = 'active'
+            GROUP BY u.id
+            ORDER BY delta_points DESC, orders_count DESC
+        )", {{":m", month}});
+
+        for (auto& s : staffKpi) {
+            s["base_score"] = baseScore;
+            s["kpi_score"] = std::max(0, baseScore + s.value("delta_points", 0));
+        }
+
+        json recentLogs = db.query("SELECT * FROM kpi_logs WHERE substr(created_at, 1, 7) = :m ORDER BY id DESC LIMIT 60", {{":m", month}});
+        json recentReviews = db.query("SELECT * FROM order_reviews WHERE substr(created_at, 1, 7) = :m ORDER BY id DESC LIMIT 40", {{":m", month}});
+        auto revStats = db.queryRow("SELECT COUNT(*) as total_reviews, COALESCE(ROUND(AVG(rating), 2), 0) as avg_rating FROM order_reviews WHERE substr(created_at, 1, 7) = :m", {{":m", month}});
+
+        sendJson(res, {
+            {"success", true},
+            {"month", month},
+            {"settings", slaCfg.settings},
+            {"sla_slots", slots},
+            {"active_sla", {
+                {"kitchen_sla_minutes", slaCfg.kitchenSla},
+                {"waiter_sla_minutes", slaCfg.waiterSla},
+                {"label", slaCfg.label},
+                {"is_peak", slaCfg.isPeak}
+            }},
+            {"staff_kpi", staffKpi},
+            {"recent_logs", recentLogs},
+            {"recent_reviews", recentReviews},
+            {"review_summary", revStats.is_null() ? json({{"total_reviews", 0}, {"avg_rating", 0}}) : revStats}
+        });
+        return;
+    }
+
+    if (action == "save_kpi_sla_settings") {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || userOpt->role != "admin") {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được chỉnh cấu hình SLA & KPI!", 403);
+            return;
+        }
+        ensureOrderWorkflowSchema(db);
+        auto getIntParam = [&](const std::string& key, int defVal) -> int {
+            try { return std::stoi(BodyParser::getParam(req, body, key, std::to_string(defVal))); } catch (...) { return defVal; }
+        };
+        db.execute(R"(
+            UPDATE kpi_sla_settings SET
+                default_kitchen_sla = :dks,
+                default_waiter_sla = :dws,
+                kpi_base_score = :base,
+                kpi_kitchen_ontime_pts = :ko,
+                kpi_kitchen_rush_penalty = :kr,
+                kpi_waiter_ontime_pts = :wo,
+                kpi_waiter_remind_penalty = :wr,
+                kpi_star_5_pts = :s5,
+                kpi_star_4_pts = :s4,
+                kpi_star_3_pts = :s3,
+                kpi_star_2_pts = :s2,
+                kpi_star_1_pts = :s1,
+                updated_at = :uat
+            WHERE id = 1
+        )", {
+            {":dks", std::max(1, getIntParam("default_kitchen_sla", 10))},
+            {":dws", std::max(1, getIntParam("default_waiter_sla", 3))},
+            {":base", std::max(0, getIntParam("kpi_base_score", 100))},
+            {":ko", getIntParam("kpi_kitchen_ontime_pts", 2)},
+            {":kr", std::abs(getIntParam("kpi_kitchen_rush_penalty", 5))},
+            {":wo", getIntParam("kpi_waiter_ontime_pts", 2)},
+            {":wr", std::abs(getIntParam("kpi_waiter_remind_penalty", 3))},
+            {":s5", getIntParam("kpi_star_5_pts", 5)},
+            {":s4", getIntParam("kpi_star_4_pts", 2)},
+            {":s3", getIntParam("kpi_star_3_pts", 0)},
+            {":s2", getIntParam("kpi_star_2_pts", -3)},
+            {":s1", getIntParam("kpi_star_1_pts", -5)},
+            {":uat", getCurrentTimestamp()}
+        });
+        sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình SLA & KPI thành công!"}});
+        return;
+    }
+
+    if (action == "save_sla_slot") {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || userOpt->role != "admin") {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được chỉnh khung giờ SLA!", 403);
+            return;
+        }
+        ensureOrderWorkflowSchema(db);
+        int64_t slotId = 0;
+        try { slotId = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+        std::string name = BodyParser::getParam(req, body, "name", "");
+        std::string slotType = BodyParser::getParam(req, body, "slot_type", "peak");
+        std::string startTime = BodyParser::getParam(req, body, "start_time", "");
+        std::string endTime = BodyParser::getParam(req, body, "end_time", "");
+        int kSla = 15, wSla = 5, isActive = 1;
+        try { kSla = std::max(1, std::stoi(BodyParser::getParam(req, body, "kitchen_sla_minutes", "15"))); } catch (...) {}
+        try { wSla = std::max(1, std::stoi(BodyParser::getParam(req, body, "waiter_sla_minutes", "5"))); } catch (...) {}
+        try { isActive = std::stoi(BodyParser::getParam(req, body, "is_active", "1")) != 0 ? 1 : 0; } catch (...) {}
+
+        if (name.empty() || startTime.size() != 5 || endTime.size() != 5) {
+            sendError(res, "Vui lòng nhập đầy đủ Tên khung giờ và Giờ bắt đầu / kết thúc (HH:MM)!", 400);
+            return;
+        }
+        if (slotId > 0) {
+            db.execute(
+                "UPDATE sla_time_slots SET name = :n, slot_type = :st, start_time = :s, end_time = :e, kitchen_sla_minutes = :ks, waiter_sla_minutes = :ws, is_active = :act WHERE id = :id",
+                {{":n", name}, {":st", slotType}, {":s", startTime}, {":e", endTime}, {":ks", kSla}, {":ws", wSla}, {":act", isActive}, {":id", slotId}}
+            );
+        } else {
+            db.execute(
+                "INSERT INTO sla_time_slots (name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active) VALUES (:n, :st, :s, :e, :ks, :ws, :act)",
+                {{":n", name}, {":st", slotType}, {":s", startTime}, {":e", endTime}, {":ks", kSla}, {":ws", wSla}, {":act", isActive}}
+            );
+        }
+        sendJson(res, {{"success", true}, {"message", "Đã lưu khung giờ SLA!"}});
+        return;
+    }
+
+    if (action == "delete_sla_slot") {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || userOpt->role != "admin") {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được xóa khung giờ SLA!", 403);
+            return;
+        }
+        int64_t slotId = 0;
+        try { slotId = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+        if (slotId <= 0) {
+            sendError(res, "Thiếu ID khung giờ!", 400);
+            return;
+        }
+        db.execute("DELETE FROM sla_time_slots WHERE id = :id", {{":id", slotId}});
+        sendJson(res, {{"success", true}, {"message", "Đã xóa khung giờ SLA!"}});
+        return;
+    }
+
     sendError(res, "Invalid operations request");
 }
 
@@ -4920,6 +6362,157 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
         });
     } catch (const std::exception& e) {
         sendJson(res, {{"success", false}, {"message", std::string("Lỗi quảng cáo: ") + e.what()}}, 500);
+    }
+}
+
+void ApiHandlers::handlePromotions(const httplib::Request& req, httplib::Response& res) {
+    try {
+        if (!requireModule(res, "promo_voucher_engine", "Khuyến Mãi & Voucher Tự Động (Full)")) return;
+        auto& db = Database::instance();
+        ensurePromotionSchema(db);
+        json body = parseBody(req);
+        std::string action = getAction(req, body);
+        if (action.empty()) action = (req.method == "GET") ? "list" : "validate";
+
+        if (req.method == "GET" && action == "active") {
+            double subtotal = 0.0;
+            try { subtotal = std::stod(BodyParser::getParam(req, body, "subtotal", "0")); } catch (...) {}
+            json rows = db.query("SELECT * FROM promotions WHERE is_active = 1 ORDER BY id DESC");
+            json eligibleAuto = json::array();
+            json allActive = json::array();
+            for (auto& r : rows) {
+                std::string dummyErr;
+                bool okNow = isPromoEligibleNow(db, r, subtotal > 0 ? subtotal : getDouble(r, "min_order_amount", 0.0), dummyErr);
+                r["eligible_now"] = okNow;
+                r["ineligible_reason"] = okNow ? "" : dummyErr;
+                allActive.push_back(r);
+                if (okNow && getString(r, "promo_mode", "voucher") == "auto") {
+                    eligibleAuto.push_back(r);
+                }
+            }
+            sendJson(res, {{"success", true}, {"auto_promotions", eligibleAuto}, {"data", allActive}});
+            return;
+        }
+
+        if (action == "validate") {
+            std::string code = BodyParser::getParam(req, body, "promo_code", BodyParser::getParam(req, body, "code", ""));
+            double subtotal = 0.0;
+            try { subtotal = std::stod(BodyParser::getParam(req, body, "subtotal", "0")); } catch (...) {}
+            std::string upCode = code;
+            std::transform(upCode.begin(), upCode.end(), upCode.begin(), ::toupper);
+
+            if (upCode.empty()) {
+                sendError(res, "Vui lòng nhập mã khuyến mãi!", 400);
+                return;
+            }
+            auto pRow = db.queryRow("SELECT * FROM promotions WHERE UPPER(code) = :c LIMIT 1", {{":c", upCode}});
+            if (pRow.is_null()) {
+                sendError(res, "Mã khuyến mãi [" + upCode + "] không tồn tại!", 404);
+                return;
+            }
+            std::string errReason;
+            if (!isPromoEligibleNow(db, pRow, subtotal, errReason)) {
+                sendError(res, errReason, 400);
+                return;
+            }
+            double discAmt = computePromoDiscount(pRow, subtotal);
+            sendJson(res, {
+                {"success", true},
+                {"promo", pRow},
+                {"discount_amount", discAmt},
+                {"message", "Áp dụng thành công mã " + getString(pRow, "code") + " (-" + std::to_string(static_cast<int64_t>(discAmt)) + "đ)!"}
+            });
+            return;
+        }
+
+        if (req.method == "GET" && action == "list") {
+            json rows = db.query(R"(
+                SELECT p.*,
+                       (SELECT COUNT(*) FROM orders o WHERE o.promo_id = p.id AND o.status != 'cancelled') as used_count,
+                       (SELECT COUNT(*) FROM orders o WHERE o.promo_id = p.id AND o.status = 'completed') as completed_orders,
+                       (SELECT COALESCE(SUM(o.discount_amount), 0) FROM orders o WHERE o.promo_id = p.id AND o.status = 'completed') as total_discount_given,
+                       (SELECT COALESCE(SUM(o.total_amount), 0) FROM orders o WHERE o.promo_id = p.id AND o.status = 'completed') as net_revenue_generated
+                FROM promotions p
+                ORDER BY p.is_active DESC, p.id DESC
+            )");
+            sendJson(res, {{"success", true}, {"data", rows}});
+            return;
+        }
+
+        if (action == "save") {
+            int64_t pid = 0;
+            try { pid = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+            std::string code = BodyParser::getParam(req, body, "code", "");
+            std::transform(code.begin(), code.end(), code.begin(), ::toupper);
+            std::string name = BodyParser::getParam(req, body, "name", "");
+            std::string promoMode = BodyParser::getParam(req, body, "promo_mode", "voucher");
+            if (promoMode != "auto") promoMode = "voucher";
+            std::string dType = BodyParser::getParam(req, body, "discount_type", "percent");
+            if (dType != "amount") dType = "percent";
+            double dVal = 0, maxCap = 0, minAmt = 0;
+            int64_t uLimit = 0;
+            try { dVal = std::stod(BodyParser::getParam(req, body, "discount_value", "0")); } catch (...) {}
+            try { maxCap = std::stod(BodyParser::getParam(req, body, "max_discount_amount", "0")); } catch (...) {}
+            try { minAmt = std::stod(BodyParser::getParam(req, body, "min_order_amount", "0")); } catch (...) {}
+            try { uLimit = std::stoll(BodyParser::getParam(req, body, "usage_limit", "0")); } catch (...) {}
+            std::string sDate = BodyParser::getParam(req, body, "start_date", "");
+            std::string eDate = BodyParser::getParam(req, body, "end_date", "");
+            std::string sTime = BodyParser::getParam(req, body, "start_time", "");
+            std::string eTime = BodyParser::getParam(req, body, "end_time", "");
+            int isActive = (BodyParser::getParam(req, body, "is_active", "1") != "0") ? 1 : 0;
+
+            if (code.empty() || name.empty() || dVal <= 0) {
+                sendError(res, "Vui lòng nhập Mã KM, Tên chương trình và Giá trị giảm > 0!", 400);
+                return;
+            }
+            if (pid > 0) {
+                db.execute(R"(
+                    UPDATE promotions SET
+                        code = :c, name = :n, promo_mode = :pm, discount_type = :dt, discount_value = :dv,
+                        max_discount_amount = :mc, min_order_amount = :ma,
+                        start_date = :sd, end_date = :ed, start_time = :st, end_time = :et,
+                        usage_limit = :ul, is_active = :ia
+                    WHERE id = :id
+                )", {
+                    {":c", code}, {":n", name}, {":pm", promoMode}, {":dt", dType}, {":dv", dVal},
+                    {":mc", maxCap}, {":ma", minAmt}, {":sd", sDate}, {":ed", eDate}, {":st", sTime}, {":et", eTime},
+                    {":ul", uLimit}, {":ia", isActive}, {":id", pid}
+                });
+            } else {
+                db.execute(R"(
+                    INSERT INTO promotions (
+                        code, name, promo_mode, discount_type, discount_value, max_discount_amount, min_order_amount,
+                        start_date, end_date, start_time, end_time, usage_limit, is_active
+                    ) VALUES (:c, :n, :pm, :dt, :dv, :mc, :ma, :sd, :ed, :st, :et, :ul, :ia)
+                )", {
+                    {":c", code}, {":n", name}, {":pm", promoMode}, {":dt", dType}, {":dv", dVal},
+                    {":mc", maxCap}, {":ma", minAmt}, {":sd", sDate}, {":ed", eDate}, {":st", sTime}, {":et", eTime},
+                    {":ul", uLimit}, {":ia", isActive}
+                });
+            }
+            sendJson(res, {{"success", true}, {"message", "Đã lưu chương trình khuyến mãi [" + code + "]!"}});
+            return;
+        }
+
+        if (action == "toggle") {
+            int64_t pid = 0;
+            try { pid = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+            db.execute("UPDATE promotions SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = :id", {{":id", pid}});
+            sendJson(res, {{"success", true}, {"message", "Đã đổi trạng thái khuyến mãi."}});
+            return;
+        }
+
+        if (action == "delete") {
+            int64_t pid = 0;
+            try { pid = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
+            db.execute("DELETE FROM promotions WHERE id = :id", {{":id", pid}});
+            sendJson(res, {{"success", true}, {"message", "Đã xóa chương trình khuyến mãi."}});
+            return;
+        }
+
+        sendError(res, "Yêu cầu khuyến mãi không hợp lệ", 400);
+    } catch (const std::exception& e) {
+        sendJson(res, {{"success", false}, {"message", std::string("Lỗi khuyến mãi: ") + e.what()}}, 500);
     }
 }
 
@@ -5189,6 +6782,106 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     // Orders
     svr.Get("/api/orders", handleOrders);
     svr.Post("/api/orders", handleOrders);
+    svr.Post("/api/payment/webhook", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto& db = Database::instance();
+            ensureOrderWorkflowSchema(db);
+            json body = parseBody(req);
+
+            auto secRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'payment_webhook_secret'");
+            std::string cfgSecret = (!secRow.is_null()) ? secRow.value("setting_value", "") : "";
+            if (!cfgSecret.empty()) {
+                std::string gotSec = req.get_header_value("Authorization");
+                if (gotSec.rfind("Apikey ", 0) == 0) gotSec = gotSec.substr(7);
+                if (gotSec.rfind("Bearer ", 0) == 0) gotSec = gotSec.substr(7);
+                if (gotSec.empty()) gotSec = BodyParser::getParam(req, body, "secret", "");
+                if (gotSec != cfgSecret) {
+                    sendError(res, "Webhook secret không hợp lệ!", 401);
+                    return;
+                }
+            }
+
+            std::string content = BodyParser::getParam(req, body, "content", BodyParser::getParam(req, body, "description", BodyParser::getParam(req, body, "order_code", "")));
+            double amount = 0.0;
+            try {
+                if (body.contains("transferAmount") && body["transferAmount"].is_number()) amount = body["transferAmount"].get<double>();
+                else if (body.contains("amount") && body["amount"].is_number()) amount = body["amount"].get<double>();
+                else amount = std::stod(BodyParser::getParam(req, body, "amount", "0"));
+            } catch (...) {}
+            std::string bankRef = BodyParser::getParam(req, body, "referenceCode", BodyParser::getParam(req, body, "id", ""));
+
+            // Match pending unpaid/verifying/partial order whose order_code appears in content (case-insensitive)
+            std::string upperContent = content;
+            std::transform(upperContent.begin(), upperContent.end(), upperContent.begin(), ::toupper);
+            json candidates = db.query("SELECT * FROM orders WHERE status = 'pending' AND payment_status IN ('unpaid', 'verifying', 'partial') ORDER BY id DESC LIMIT 100");
+            json matchedOrd;
+            for (const auto& c : candidates) {
+                std::string oc = getString(c, "order_code", "");
+                std::string ocNoDash = oc;
+                ocNoDash.erase(std::remove(ocNoDash.begin(), ocNoDash.end(), '-'), ocNoDash.end());
+                if ((!oc.empty() && upperContent.find(oc) != std::string::npos) ||
+                    (!ocNoDash.empty() && upperContent.find(ocNoDash) != std::string::npos)) {
+                    matchedOrd = c;
+                    break;
+                }
+            }
+            if (matchedOrd.is_null()) {
+                sendJson(res, {{"success", false}, {"message", "Không tìm thấy đơn chờ thanh toán khớp nội dung CK: " + content}}, 404);
+                return;
+            }
+
+            int64_t oid = getInt(matchedOrd, "id", 0);
+            std::string oCode = getString(matchedOrd, "order_code", "");
+            std::string tCode = getString(matchedOrd, "table_code", "");
+            int64_t tId = getInt(matchedOrd, "table_id", 0);
+            double totAmt = getDouble(matchedOrd, "total_amount", 0.0);
+            std::string nowStr = getCurrentTimestamp();
+
+            if (amount + 0.5 < totAmt) {
+                db.beginTransaction();
+                db.execute("UPDATE orders SET payment_status = 'partial', paid_amount = COALESCE(paid_amount, 0) + :amt, bank_ref = :br WHERE id = :id",
+                    {{":amt", amount}, {":br", bankRef}, {":id", oid}});
+                createOrderAlert(db, oid, oCode, tId, tCode, "payment_partial",
+                    "Chuyển khoản THIẾU tiền " + oCode,
+                    "Nhận " + std::to_string(static_cast<int64_t>(amount)) + "đ / " + std::to_string(static_cast<int64_t>(totAmt)) + "đ cho đơn " + oCode + ". Chưa chuyển Bếp!",
+                    "cashier");
+                db.commit();
+                sendJson(res, {{"success", true}, {"partial", true}, {"message", "Đã ghi nhận chuyển thiếu tiền; chưa mở khóa Bếp."}});
+                return;
+            }
+
+            auto autoRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'auto_kitchen_after_qr'");
+            bool autoPush = (!autoRow.is_null() && autoRow.value("setting_value", "0") == "1");
+
+            db.beginTransaction();
+            db.execute(R"(
+                UPDATE orders SET
+                    payment_status = 'paid', payment_method = 'banking', paid_amount = :amt,
+                    settlement_status = 'settled', payment_verified_by = 'AUTO_WEBHOOK',
+                    bank_ref = :br, paid_at = COALESCE(paid_at, :pat)
+                WHERE id = :id
+            )", {{":amt", amount}, {":br", bankRef}, {":pat", nowStr}, {":id", oid}});
+            if (autoPush) {
+                db.execute("UPDATE orders SET kitchen_status = 'pending' WHERE id = :id AND COALESCE(kitchen_status, 'pending') IN ('awaiting_payment', 'awaiting_waiter', 'awaiting_kitchen_push')",
+                    {{":id", oid}});
+            }
+            db.execute(R"(
+                INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, bank_ref, verified_by, note, created_at)
+                VALUES (:oid, :oc, 'pay', 'banking', :amt, :br, 'AUTO_WEBHOOK', 'Tự động xác nhận qua Webhook ngân hàng', :cat)
+            )", {{":oid", oid}, {":oc", oCode}, {":amt", amount}, {":br", bankRef}, {":cat", nowStr}});
+            db.execute("UPDATE order_alerts SET is_ack = 1, ack_by = 'AUTO_WEBHOOK', ack_at = :at WHERE order_id = :oid AND alert_type IN ('qr_payment_pending', 'payment_verifying')",
+                {{":at", nowStr}, {":oid", oid}});
+            createOrderAlert(db, oid, oCode, tId, tCode, "payment_auto_paid",
+                "Đã nhận CK tự động: " + oCode,
+                "Webhook ngân hàng xác nhận đủ " + std::to_string(static_cast<int64_t>(amount)) + "đ (" + (autoPush ? "Đã tự chuyển Bếp" : "Sẵn sàng bấm Chuyển Bếp") + ").",
+                "cashier");
+            db.commit();
+
+            sendJson(res, {{"success", true}, {"order_code", oCode}, {"auto_pushed_kitchen", autoPush}});
+        } catch (const std::exception& e) {
+            sendError(res, std::string("Webhook error: ") + e.what(), 500);
+        }
+    });
     svr.Get("/api/orders.php", handleOrders);
     svr.Post("/api/orders.php", handleOrders);
 
@@ -5237,6 +6930,10 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
     svr.Post("/api/advertising", handleAdvertising);
     svr.Get("/api/advertising.php", handleAdvertising);
     svr.Post("/api/advertising.php", handleAdvertising);
+    svr.Get("/api/promotions", handlePromotions);
+    svr.Post("/api/promotions", handlePromotions);
+    svr.Get("/api/promotions.php", handlePromotions);
+    svr.Post("/api/promotions.php", handlePromotions);
 
     // WAN Reverse Long-Polling Tunnel Status & Configuration
     auto handleWanTunnel = [](const httplib::Request& req, httplib::Response& res) {

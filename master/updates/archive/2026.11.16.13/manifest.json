@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.13",
+    "title": "Thông báo đơn QR mới cho Phục vụ & Thu ngân + SLA Cao/Thấp điểm + KPI",
+    "notes": "Phát chuông và thông báo nổi cho Thu ngân & Phục vụ khi có đơn QR mới; kèm theo dõi chấm vàng chuyển bếp, nút Hối quá SLA, cấu hình khung giờ Cao/Thấp điểm, tự động chấm KPI và đánh giá Sao khách hàng.",
+    "created_at": "2026-11-16 12:05:45",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

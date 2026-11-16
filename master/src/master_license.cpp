@@ -49,9 +49,14 @@ void LicenseService::initCatalog() {
             "fa-qrcode", "Add-on", "amber", "Khách Hàng", false, true, 0.0, {"qr_customer_order"}
         },
         {
-            "advertising_promotions", "Quảng Cáo & Khuyến Mãi",
-            "Mở rộng Thực Đơn QR Khách Hàng với trình chiếu ảnh/video giới thiệu quán, chương trình KM và quảng cáo.",
+            "advertising_promotions", "Truyền Thông & Quảng Cáo (Slide/Video)",
+            "Trình chiếu ảnh/video giới thiệu quán, banner truyền thông và AI tạo slide trên Thực Đơn QR Khách Hàng.",
             "fa-photo-film", "Marketing", "fuchsia", "Khách Hàng", false, false, 0.0, {}
+        },
+        {
+            "promo_voucher_engine", "Khuyến Mãi & Voucher Tự Động (Full)",
+            "Tạo chiến dịch giảm giá khung giờ vàng, đơn tối thiểu, mã Voucher trên QR & POS và báo cáo hiệu quả P&L.",
+            "fa-tags", "Marketing", "emerald", "Khách Hàng", false, false, 0.0, {}
         },
         {
             "kitchen_kds", "Màn Hình Bếp & Pha Chế (KDS)",

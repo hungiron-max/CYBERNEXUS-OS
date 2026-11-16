@@ -703,6 +703,7 @@ const Admin = {
             await this.loadRevenueChart();
             // Load Top Selling
             await this.loadTopSelling();
+            this.loadPromotions();
         } catch (e) {
             console.error('Error loading dashboard:', e);
         }
@@ -3118,6 +3119,226 @@ const Admin = {
         if (subtab === 'inventory') this.loadMaterials();
         if (subtab === 'payroll') this.loadPayroll();
         if (subtab === 'kpi' && typeof this.loadKpi === 'function') this.loadKpi();
+    },
+
+    toggleKpiConfigPanel() {
+        const panel = document.getElementById('kpi-config-panel');
+        if (panel) panel.classList.toggle('hidden');
+    },
+
+    async loadKpi() {
+        const monthInput = document.getElementById('kpi-month-input');
+        if (monthInput && !monthInput.value) {
+            const d = new Date();
+            monthInput.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        }
+        const month = monthInput ? monthInput.value : '';
+        try {
+            const res = await fetch(`api/operations.php?action=get_kpi_dashboard&month=${encodeURIComponent(month)}`);
+            const data = await res.json();
+            if (!data.success) return;
+
+            const activeSla = data.active_sla || {};
+            const slaBadge = document.getElementById('kpi-active-sla-badge');
+            if (slaBadge) {
+                slaBadge.innerHTML = `<i class="fas fa-clock mr-1"></i> ${activeSla.label || 'Mặc định'}: Bếp <b>${activeSla.kitchen_sla_minutes || 10}p</b> · PV <b>${activeSla.waiter_sla_minutes || 3}p</b>`;
+                slaBadge.className = activeSla.is_peak
+                    ? 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                    : 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30';
+            }
+
+            const revSum = data.review_summary || {};
+            const avgBadge = document.getElementById('kpi-avg-rating-badge');
+            if (avgBadge) {
+                avgBadge.innerHTML = `⭐ ${Number(revSum.avg_rating || 0).toFixed(1)} / 5 (${revSum.total_reviews || 0} đánh giá)`;
+            }
+
+            const s = data.settings || {};
+            const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+            setVal('cfg-default-kitchen-sla', s.default_kitchen_sla ?? 10);
+            setVal('cfg-default-waiter-sla', s.default_waiter_sla ?? 3);
+            setVal('cfg-kpi-base', s.kpi_base_score ?? 100);
+            setVal('cfg-kitchen-ontime', s.kpi_kitchen_ontime_pts ?? 2);
+            setVal('cfg-kitchen-rush-pen', s.kpi_kitchen_rush_penalty ?? 5);
+            setVal('cfg-waiter-ontime', s.kpi_waiter_ontime_pts ?? 2);
+            setVal('cfg-waiter-remind-pen', s.kpi_waiter_remind_penalty ?? 3);
+            setVal('cfg-star-5', s.kpi_star_5_pts ?? 5);
+            setVal('cfg-star-4', s.kpi_star_4_pts ?? 2);
+            setVal('cfg-star-3', s.kpi_star_3_pts ?? 0);
+            setVal('cfg-star-2', s.kpi_star_2_pts ?? -3);
+            setVal('cfg-star-1', s.kpi_star_1_pts ?? -5);
+
+            const rulesNote = document.getElementById('kpi-rules-note');
+            if (rulesNote) {
+                rulesNote.innerHTML = `Quy tắc hiện tại: Nền <b>${s.kpi_base_score ?? 100}đ</b> · Bếp đúng hạn <b class="text-emerald-300">+${s.kpi_kitchen_ontime_pts ?? 2}</b> · Bị hối <b class="text-rose-300">-${s.kpi_kitchen_rush_penalty ?? 5}</b> · PV đúng hạn <b class="text-emerald-300">+${s.kpi_waiter_ontime_pts ?? 2}</b> · Bị Báo lại <b class="text-rose-300">-${s.kpi_waiter_remind_penalty ?? 3}</b> · Khách đánh giá 5⭐ <b class="text-amber-300">+${s.kpi_star_5_pts ?? 5}</b> / 1⭐ <b class="text-rose-300">${s.kpi_star_1_pts ?? -5}</b>.`;
+            }
+
+            // Render SLA Time Slots
+            const slotsEl = document.getElementById('kpi-sla-slots-list');
+            if (slotsEl) {
+                const slots = data.sla_slots || [];
+                slotsEl.innerHTML = slots.length === 0
+                    ? '<div class="text-[11px] text-slate-500 italic">Chưa có khung giờ riêng (đang dùng mặc định thấp điểm).</div>'
+                    : slots.map(sl => `
+                        <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-xs">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${sl.slot_type === 'peak' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}">${sl.slot_type === 'peak' ? 'Cao điểm' : 'Thấp điểm'}</span>
+                                <b class="text-white">${sl.name}</b>
+                                <span class="font-mono text-amber-300">${sl.start_time} - ${sl.end_time}</span>
+                                <span class="text-slate-400">Bếp: <b class="text-white">${sl.kitchen_sla_minutes}p</b> · PV: <b class="text-white">${sl.waiter_sla_minutes}p</b></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="Admin.toggleSlaSlot(${sl.id}, '${sl.name.replace(/'/g, "\\'")}', '${sl.slot_type}', '${sl.start_time}', '${sl.end_time}', ${sl.kitchen_sla_minutes}, ${sl.waiter_sla_minutes}, ${sl.is_active ? 0 : 1})" class="px-2 py-0.5 rounded text-[10px] font-bold ${sl.is_active ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700 text-slate-400'}">${sl.is_active ? 'Đang bật' : 'Đang tắt'}</button>
+                                <button type="button" onclick="Admin.deleteSlaSlot(${sl.id})" class="text-rose-400 hover:text-rose-300 px-1.5 py-0.5" title="Xóa khung giờ"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            // Render Staff KPI Table
+            const tbody = document.getElementById('kpi-tbody');
+            if (tbody) {
+                const staff = data.staff_kpi || [];
+                const roleLabel = { admin: 'Chủ quán', cashier: 'Thu ngân', waiter: 'Phục vụ', kitchen: 'Bếp / Pha chế' };
+                tbody.innerHTML = staff.map(st => {
+                    const delta = Number(st.delta_points || 0);
+                    const score = Number(st.kpi_score || 100);
+                    const penCount = Number(st.rushed_count || 0) + Number(st.reminded_count || 0);
+                    return `
+                        <tr class="hover:bg-white/5">
+                            <td class="py-2.5 px-3 font-bold text-white">${st.fullname} <span class="text-[10px] text-slate-400 font-normal">(@${st.username})</span></td>
+                            <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold">${roleLabel[st.role] || st.role}</span></td>
+                            <td class="py-2.5 px-3 text-center font-mono text-sky-300">${st.orders_count || 0}</td>
+                            <td class="py-2.5 px-3 text-center font-mono text-emerald-400 font-bold">${st.ontime_count || 0}</td>
+                            <td class="py-2.5 px-3 text-center font-mono ${penCount > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">${penCount}</td>
+                            <td class="py-2.5 px-3 text-center font-mono text-amber-300">${st.review_count || 0}</td>
+                            <td class="py-2.5 px-3 text-center font-mono font-bold ${delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${delta >= 0 ? '+' + delta : delta}</td>
+                            <td class="py-2.5 px-3 text-right font-mono font-black text-sm ${score >= 100 ? 'text-emerald-400' : (score >= 80 ? 'text-amber-300' : 'text-rose-400')}">${score}</td>
+                        </tr>
+                    `;
+                }).join('') || '<tr><td colspan="8" class="py-6 text-center text-slate-500">Chưa có dữ liệu nhân viên</td></tr>';
+            }
+
+            // Render KPI Logs
+            const logsEl = document.getElementById('kpi-logs-tbody');
+            if (logsEl) {
+                const logs = data.recent_logs || [];
+                logsEl.innerHTML = logs.length === 0
+                    ? '<tr><td colspan="4" class="py-4 text-center text-slate-500">Chưa có biến động KPI trong kỳ này.</td></tr>'
+                    : logs.map(l => {
+                        const d = Number(l.points_delta || 0);
+                        return `
+                            <tr class="hover:bg-white/5">
+                                <td class="py-1.5 px-2 font-semibold text-white">${l.user_name || 'Hệ thống'}</td>
+                                <td class="py-1.5 px-2 text-slate-300">${l.note || l.event_type} <span class="font-mono text-[10px] text-sky-400">${l.order_code || ''}</span></td>
+                                <td class="py-1.5 px-2 text-right font-mono font-bold ${d >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${d >= 0 ? '+' + d : d}</td>
+                                <td class="py-1.5 px-2 text-right font-mono text-slate-400">${(l.created_at || '').substring(11, 16)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+            }
+
+            // Render Customer Reviews
+            const revEl = document.getElementById('kpi-reviews-list');
+            if (revEl) {
+                const revs = data.recent_reviews || [];
+                revEl.innerHTML = revs.length === 0
+                    ? '<div class="py-4 text-center text-xs text-slate-500">Chưa có đánh giá sao từ khách hàng trong kỳ này.</div>'
+                    : revs.map(r => `
+                        <div class="p-2.5 rounded-lg bg-slate-900/70 border border-white/10 text-xs space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-amber-400 font-bold">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+                                <span class="text-[10px] font-mono text-slate-400">${r.table_code || ''} • ${r.order_code || ''} • ${(r.created_at || '').substring(0, 16)}</span>
+                            </div>
+                            ${r.comment ? `<div class="text-slate-300 italic">"${r.comment}"</div>` : '<div class="text-[10px] text-slate-500">Không có nhận xét thêm</div>'}
+                        </div>
+                    `).join('');
+            }
+        } catch (err) {
+            console.error('loadKpi error:', err);
+        }
+    },
+
+    async saveKpiSlaSettings() {
+        const g = (id, def) => Number(document.getElementById(id)?.value ?? def);
+        try {
+            const res = await fetch('api/operations.php?action=save_kpi_sla_settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    default_kitchen_sla: g('cfg-default-kitchen-sla', 10),
+                    default_waiter_sla: g('cfg-default-waiter-sla', 3),
+                    kpi_base_score: g('cfg-kpi-base', 100),
+                    kpi_kitchen_ontime_pts: g('cfg-kitchen-ontime', 2),
+                    kpi_kitchen_rush_penalty: g('cfg-kitchen-rush-pen', 5),
+                    kpi_waiter_ontime_pts: g('cfg-waiter-ontime', 2),
+                    kpi_waiter_remind_penalty: g('cfg-waiter-remind-pen', 3),
+                    kpi_star_5_pts: g('cfg-star-5', 5),
+                    kpi_star_4_pts: g('cfg-star-4', 2),
+                    kpi_star_3_pts: g('cfg-star-3', 0),
+                    kpi_star_2_pts: g('cfg-star-2', -3),
+                    kpi_star_1_pts: g('cfg-star-1', -5)
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi lưu cấu hình');
+            this.showToast(data.message || 'Đã lưu cấu hình KPI & SLA!', 'success');
+            this.loadKpi();
+        } catch (e) {
+            alert(e.message || 'Lỗi lưu cấu hình KPI');
+        }
+    },
+
+    async addSlaSlot() {
+        const name = (document.getElementById('sla-slot-name')?.value || '').trim();
+        const slot_type = document.getElementById('sla-slot-type')?.value || 'peak';
+        const start_time = document.getElementById('sla-slot-start')?.value || '';
+        const end_time = document.getElementById('sla-slot-end')?.value || '';
+        const kitchen_sla_minutes = Number(document.getElementById('sla-slot-kitchen')?.value || 15);
+        const waiter_sla_minutes = Number(document.getElementById('sla-slot-waiter')?.value || 5);
+        if (!name || !start_time || !end_time) {
+            alert('Vui lòng nhập Tên khung giờ, Giờ bắt đầu và Giờ kết thúc!');
+            return;
+        }
+        try {
+            const res = await fetch('api/operations.php?action=save_sla_slot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active: 1 })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi thêm khung giờ');
+            document.getElementById('sla-slot-name').value = '';
+            this.showToast('Đã thêm khung giờ SLA!', 'success');
+            this.loadKpi();
+        } catch (e) {
+            alert(e.message || 'Lỗi thêm khung giờ');
+        }
+    },
+
+    async toggleSlaSlot(id, name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active) {
+        try {
+            const res = await fetch('api/operations.php?action=save_sla_slot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active })
+            });
+            const data = await res.json();
+            if (data.success) this.loadKpi();
+        } catch (e) {}
+    },
+
+    async deleteSlaSlot(id) {
+        if (!confirm('Xóa khung giờ SLA này?')) return;
+        try {
+            const res = await fetch('api/operations.php?action=delete_sla_slot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+            if (data.success) this.loadKpi();
+        } catch (e) {}
     },
 
     // 8.1 Realtime Staff
@@ -6423,7 +6644,10 @@ const Admin = {
                 const ps = window.formatDateDDMMYY ? window.formatDateDDMMYY(repRes.period_start, false) : repRes.period_start;
                 const pe = window.formatDateDDMMYY ? window.formatDateDDMMYY(repRes.period_end, false) : repRes.period_end;
                 const elDays = repRes.elapsed_days !== undefined ? repRes.elapsed_days : repRes.days_in_month;
-                cycleBadge.textContent = `Chu kỳ: ${ps} – ${pe} (${elDays}/${repRes.days_in_month || 30} ngày)`;
+                const rtTag = repRes.is_realtime_cycle
+                    ? `Real-time ${repRes.realtime_as_of ? repRes.realtime_as_of.substring(11, 16) : ''} • `
+                    : 'Đã chốt chu kỳ • ';
+                cycleBadge.textContent = `Chu kỳ: ${ps} – ${pe} (${rtTag}${elDays}/${repRes.days_in_month || 30} ngày)`;
             }
 
             if (repRes && repRes.success === false) {
@@ -6794,11 +7018,26 @@ const Admin = {
 
     _pendingSystemUpdate: null,
 
+    _lastMasterCheckAt: 0,
+
     async loadSystemUpdates() {
         try {
+            const nowMs = Date.now();
+            if (nowMs - this._lastMasterCheckAt > 55000) {
+                this._lastMasterCheckAt = nowMs;
+                await fetch('/api/system/updates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'check' })
+                }).catch(() => {});
+            }
             const res = await fetch('/api/system/updates');
             const data = await res.json();
             if (!data.success) return;
+            const verPill = document.getElementById('store-app-version-pill');
+            if (verPill && data.applied_version) {
+                verPill.textContent = `v${data.applied_version}`;
+            }
             const banner = document.getElementById('system-update-banner');
             const titleEl = document.getElementById('sys-upd-title');
             const msgEl = document.getElementById('sys-upd-msg');
@@ -6841,6 +7080,13 @@ const Admin = {
     },
 
     async handleAdminBadgeUpdateClick(btn) {
+        try {
+            await fetch('/api/system/updates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'check' })
+            });
+        } catch (e) {}
         await this.loadSystemUpdates();
         if (this._pendingSystemUpdate && this._pendingSystemUpdate.isOta) {
             await this.applySystemUpdate(null);
@@ -6961,7 +7207,8 @@ const Admin = {
                 { sel: 'a[href*="customer.html"]', code: 'qr_customer_order', allowClickForLockScreen: false },
                 { sel: '#btn-trigger-ai-scan', code: 'ai_invoice_ocr', allowClickForLockScreen: false },
                 { sel: '[onclick*="openCloudSyncModal"]', code: 'cloud_sync_backup', allowClickForLockScreen: false },
-                { sel: '#ad-save-btn, [onclick*="saveAdvertising"]', code: 'advertising_promotions', allowClickForLockScreen: false }
+                { sel: '#ad-save-btn, [onclick*="saveAdvertising"]', code: 'advertising_promotions', allowClickForLockScreen: false },
+                { sel: '#promo-engine-card', code: 'promo_voucher_engine', allowClickForLockScreen: false }
             ];
             subTabMap.forEach(({ sel, code, allowClickForLockScreen }) => {
                 const allowed = this.isModuleAllowed(code);
@@ -7625,6 +7872,123 @@ const Admin = {
         } catch (e) {
             alert('Lỗi kết nối kết toán lô: ' + e.message);
         }
+    },
+
+    async loadPromotions() {
+        const listEl = document.getElementById('promo-list-container');
+        if (!listEl) return;
+        try {
+            const res = await fetch('api/promotions.php?action=list').then(r => r.json());
+            if (!res || !res.success) {
+                listEl.innerHTML = `<div class="text-[11px] text-slate-500 italic">${(res && res.message) || 'Chưa tải được danh sách khuyến mãi.'}</div>`;
+                return;
+            }
+            const rows = Array.isArray(res.data) ? res.data : [];
+            this._promotionsCache = rows;
+            if (rows.length === 0) {
+                listEl.innerHTML = '<div class="text-[11px] text-slate-500 italic p-3 rounded-xl bg-slate-950/50 border border-white/5 text-center">Chưa có chương trình khuyến mãi nào. Bấm "Tạo Khuyến Mãi" để bắt đầu.</div>';
+                return;
+            }
+            listEl.innerHTML = rows.map(p => {
+                const isActive = Number(p.is_active) === 1;
+                const valTxt = p.discount_type === 'percent'
+                    ? `${p.discount_value}%${Number(p.max_discount_amount) > 0 ? ` (tối đa ${this.formatMoney(p.max_discount_amount)}đ)` : ''}`
+                    : `${this.formatMoney(p.discount_value)}đ`;
+                const limitTxt = Number(p.usage_limit) > 0 ? `${p.used_count || 0}/${p.usage_limit} lượt` : `${p.used_count || 0} lượt (∞)`;
+                const timeTxt = (p.start_time || p.end_time) ? ` • Giờ vàng ${p.start_time || '00:00'}–${p.end_time || '23:59'}` : '';
+                const dateTxt = (p.start_date || p.end_date) ? ` • ${p.start_date || '...'} → ${p.end_date || '...'}` : '';
+                return `
+                    <div class="p-3 rounded-xl ${isActive ? 'bg-slate-950/75 border border-emerald-500/30' : 'bg-slate-950/40 border border-white/5 opacity-60'} flex flex-wrap items-center justify-between gap-2">
+                        <div class="min-w-0 space-y-0.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 font-mono font-black text-[11px]">${p.code}</span>
+                                <b class="text-white text-xs">${p.name}</b>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] ${p.promo_mode === 'auto' ? 'bg-sky-500/20 text-sky-300' : 'bg-purple-500/20 text-purple-300'}">${p.promo_mode === 'auto' ? 'Tự động áp' : 'Mã Voucher'}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-400">
+                                Giảm <b class="text-emerald-300">${valTxt}</b>${Number(p.min_order_amount) > 0 ? ` • Đơn từ ${this.formatMoney(p.min_order_amount)}đ` : ''}${dateTxt}${timeTxt}
+                            </div>
+                            <div class="text-[10px] font-mono text-slate-400">
+                                Đã dùng: <b class="text-sky-300">${limitTxt}</b> • Tổng giảm: <b class="text-rose-300">${this.formatMoney(p.total_discount_given || 0)}đ</b> • Doanh thu: <b class="text-emerald-300">${this.formatMoney(p.net_revenue_generated || 0)}đ</b>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onclick="Admin.togglePromotion(${p.id})" class="px-2.5 py-1 rounded-lg ${isActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-white/10'} border text-[10px] font-bold">${isActive ? 'Đang bật' : 'Đã tắt'}</button>
+                            <button type="button" onclick="Admin.openPromoFormModal(${p.id})" class="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-300 text-[10px]" title="Sửa"><i class="fas fa-pen"></i></button>
+                            <button type="button" onclick="Admin.deletePromotion(${p.id})" class="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-[10px]" title="Xóa"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {}
+    },
+
+    openPromoFormModal(editId = 0) {
+        const box = document.getElementById('promo-form-box');
+        if (!box) return;
+        box.classList.remove('hidden');
+        const p = editId ? (this._promotionsCache || []).find(x => Number(x.id) === Number(editId)) : null;
+        document.getElementById('promo-edit-id').value = p ? p.id : 0;
+        document.getElementById('promo-code').value = p ? p.code : '';
+        document.getElementById('promo-name').value = p ? p.name : '';
+        document.getElementById('promo-mode').value = p ? p.promo_mode : 'voucher';
+        document.getElementById('promo-discount-type').value = p ? p.discount_type : 'percent';
+        document.getElementById('promo-discount-value').value = p ? p.discount_value : '';
+        document.getElementById('promo-max-cap').value = p ? p.max_discount_amount : 0;
+        document.getElementById('promo-min-order').value = p ? p.min_order_amount : 0;
+        document.getElementById('promo-start-date').value = p ? (p.start_date || '') : '';
+        document.getElementById('promo-end-date').value = p ? (p.end_date || '') : '';
+        document.getElementById('promo-start-time').value = p ? (p.start_time || '') : '';
+        document.getElementById('promo-end-time').value = p ? (p.end_time || '') : '';
+        document.getElementById('promo-usage-limit').value = p ? (p.usage_limit || 0) : 0;
+    },
+
+    async savePromotion() {
+        const payload = {
+            id: Number(document.getElementById('promo-edit-id')?.value || 0),
+            code: (document.getElementById('promo-code')?.value || '').trim().toUpperCase(),
+            name: (document.getElementById('promo-name')?.value || '').trim(),
+            promo_mode: document.getElementById('promo-mode')?.value || 'voucher',
+            discount_type: document.getElementById('promo-discount-type')?.value || 'percent',
+            discount_value: Number(document.getElementById('promo-discount-value')?.value || 0),
+            max_discount_amount: Number(document.getElementById('promo-max-cap')?.value || 0),
+            min_order_amount: Number(document.getElementById('promo-min-order')?.value || 0),
+            start_date: document.getElementById('promo-start-date')?.value || '',
+            end_date: document.getElementById('promo-end-date')?.value || '',
+            start_time: document.getElementById('promo-start-time')?.value || '',
+            end_time: document.getElementById('promo-end-time')?.value || '',
+            usage_limit: Number(document.getElementById('promo-usage-limit')?.value || 0)
+        };
+        const res = await fetch('api/promotions.php?action=save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(r => r.json());
+        if (res.success) {
+            document.getElementById('promo-form-box')?.classList.add('hidden');
+            await this.loadPromotions();
+        } else {
+            alert(res.message || 'Không thể lưu khuyến mãi');
+        }
+    },
+
+    async togglePromotion(id) {
+        await fetch('api/promotions.php?action=toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        await this.loadPromotions();
+    },
+
+    async deletePromotion(id) {
+        if (!confirm('Xóa chương trình khuyến mãi này?')) return;
+        await fetch('api/promotions.php?action=delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        await this.loadPromotions();
     }
 };
 

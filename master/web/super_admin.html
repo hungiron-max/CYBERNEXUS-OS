@@ -883,6 +883,25 @@
                                 </div>
                             </section>
 
+                            <section class="liquid-glass rounded-3xl border border-sky-500/25 p-5 sm:p-6 space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+                                    <div>
+                                        <span class="text-[10px] font-bold uppercase tracking-[.16em] text-sky-300">OTA Patch Archive • Rollback Ready</span>
+                                        <h3 class="mt-0.5 text-sm font-bold text-white flex items-center gap-2">
+                                            <i class="fas fa-box-archive text-sky-400"></i> Kho Lưu Trữ &amp; Quản Lý Tất Cả Bản Vá OTA
+                                        </h3>
+                                        <p class="mt-0.5 text-[11px] text-slate-400">Mọi bản vá đều được lưu trữ theo phiên bản để theo dõi, kích hoạt/rollback, tải về hoặc đẩy xuống từng quán.</p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span id="ota-active-version-badge" class="text-[11px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 font-bold">Đang phát hành: --</span>
+                                        <button type="button" onclick="SuperAdmin.loadOtaPatchArchive()" class="text-xs py-1.5 px-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border border-sky-400/30 font-semibold" title="Làm mới danh sách bản vá">
+                                            <i class="fas fa-rotate"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ota-patch-archive-list" class="space-y-2 text-xs text-slate-300 max-h-[360px] overflow-y-auto pr-1"></div>
+                            </section>
+
                             <div class="sa-settings-actions rounded-3xl border border-white/10 bg-slate-900/65 p-4 sm:px-5">
                                 <p class="sa-settings-actions__note text-xs text-slate-400"><i class="fas fa-shield-halved mr-1.5 text-slate-400"></i>Thay đổi được áp dụng sau khi lưu.</p>
                                 <button type="submit" class="sa-settings-actions__button btn-glass text-sm bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
@@ -2218,9 +2237,15 @@
             </div>
             <div>
                 <label class="block text-slate-400 mb-1">Loại tác vụ</label>
-                <select id="push-mode" class="w-full px-3 py-2 rounded-lg bg-slate-900/80 border border-white/10 text-white">
-                    <option value="ota_update">Cập nhật phần mềm OTA (Kèm gói vá mới nhất)</option>
+                <select id="push-mode" onchange="document.getElementById('push-patch-version-wrap')?.classList.toggle('hidden', this.value !== 'ota_update')" class="w-full px-3 py-2 rounded-lg bg-slate-900/80 border border-white/10 text-white">
+                    <option value="ota_update">Cập nhật phần mềm OTA (Chọn phiên bản bên dưới)</option>
                     <option value="notify">Chỉ gửi thông báo hiển thị tại quán</option>
+                </select>
+            </div>
+            <div id="push-patch-version-wrap">
+                <label class="block text-slate-400 mb-1">Chọn phiên bản bản vá OTA (Ưu tiên mới nhất)</label>
+                <select id="push-patch-version" onchange="SuperAdmin.onPushPatchVersionChange()" class="w-full px-3 py-2 rounded-lg bg-slate-900/80 border border-sky-500/35 text-sky-300 font-mono text-xs">
+                    <option value="">-- Đang tải danh sách bản vá đã lưu... --</option>
                 </select>
             </div>
             <div>

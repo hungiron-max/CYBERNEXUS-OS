@@ -2035,9 +2035,21 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::string title = getString(body, "title", "Thông báo từ Hệ thống CyberNexus");
                 std::string message = getString(body, "message", "");
                 bool autoApply = body.value("auto_apply", false);
+                std::string reqVersion = getString(body, "version", "");
+
+                fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+                fs::path manifestPath = updatesDir / "manifest.json";
+                std::string downloadPath = "/api/updates/download";
+                if (!reqVersion.empty() && reqVersion.find("..") == std::string::npos && reqVersion.find('/') == std::string::npos && reqVersion.find('\\') == std::string::npos) {
+                    fs::path archMf = updatesDir / "archive" / reqVersion / "manifest.json";
+                    fs::path archZip = updatesDir / "archive" / reqVersion / "patch.zip";
+                    if (fs::exists(archMf) && fs::exists(archZip)) {
+                        manifestPath = archMf;
+                        downloadPath = "/api/updates/download?version=" + reqVersion;
+                    }
+                }
 
                 json manifest = json::object();
-                fs::path manifestPath = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates" / "manifest.json";
                 if (fs::exists(manifestPath)) {
                     try {
                         std::ifstream mf(manifestPath.string());
@@ -2051,8 +2063,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     {"title", title},
                     {"message", message},
                     {"auto_apply", autoApply},
-                    {"version", manifest.value("version", "2026.11.13")},
-                    {"download_path", "/api/updates/download"},
+                    {"version", manifest.value("version", reqVersion.empty() ? "2026.11.16" : reqVersion)},
+                    {"download_path", downloadPath},
                     {"files", manifest.value("files", json::array())},
                     {"pushed_at", StoreTunnelManager::nowMs()}
                 };
@@ -2086,6 +2098,119 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 });
                 return;
             }
+        }
+
+        if (action == "list_patches") {
+            fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+            fs::path archiveDir = updatesDir / "archive";
+            fs::create_directories(archiveDir);
+
+            // Auto-archive active patch_latest.zip if not yet in archive/
+            std::string activeVer;
+            fs::path activeManifestPath = updatesDir / "manifest.json";
+            fs::path activeZipPath = updatesDir / "patch_latest.zip";
+            if (fs::exists(activeManifestPath)) {
+                try {
+                    json mf;
+                    std::ifstream in(activeManifestPath.string());
+                    in >> mf;
+                    activeVer = mf.value("version", "");
+                    if (!activeVer.empty() && fs::exists(activeZipPath)) {
+                        fs::path vDir = archiveDir / activeVer;
+                        if (!fs::exists(vDir / "manifest.json") || !fs::exists(vDir / "patch.zip")) {
+                            fs::create_directories(vDir);
+                            fs::copy_file(activeManifestPath, vDir / "manifest.json", fs::copy_options::overwrite_existing);
+                            fs::copy_file(activeZipPath, vDir / "patch.zip", fs::copy_options::overwrite_existing);
+                        }
+                    }
+                } catch (...) {}
+            }
+
+            json patches = json::array();
+            if (fs::exists(archiveDir) && fs::is_directory(archiveDir)) {
+                for (const auto& entry : fs::directory_iterator(archiveDir)) {
+                    if (!entry.is_directory()) continue;
+                    fs::path mfPath = entry.path() / "manifest.json";
+                    fs::path zipPath = entry.path() / "patch.zip";
+                    if (!fs::exists(mfPath) || !fs::exists(zipPath)) continue;
+                    try {
+                        json mf;
+                        std::ifstream in(mfPath.string());
+                        in >> mf;
+                        std::string ver = mf.value("version", entry.path().filename().string());
+                        patches.push_back({
+                            {"version", ver},
+                            {"title", mf.value("title", "Bản vá " + ver)},
+                            {"notes", mf.value("notes", "")},
+                            {"created_at", mf.value("created_at", "")},
+                            {"files_count", mf.contains("files") && mf["files"].is_array() ? mf["files"].size() : 0},
+                            {"size_bytes", static_cast<int64_t>(fs::file_size(zipPath))},
+                            {"is_active", (!activeVer.empty() && ver == activeVer)}
+                        });
+                    } catch (...) {}
+                }
+            }
+            std::sort(patches.begin(), patches.end(), [](const json& a, const json& b) {
+                return a.value("created_at", "") > b.value("created_at", "");
+            });
+            sendJson(res, {
+                {"success", true},
+                {"active_version", activeVer},
+                {"patches", patches}
+            });
+            return;
+        }
+
+        if (action == "activate_patch") {
+            std::string ver = getString(body, "version");
+            if (ver.empty() || ver.find("..") != std::string::npos || ver.find('/') != std::string::npos || ver.find('\\') != std::string::npos) {
+                sendError(res, "Phiên bản bản vá không hợp lệ!", 400);
+                return;
+            }
+            fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+            fs::path vDir = updatesDir / "archive" / ver;
+            fs::path mfSrc = vDir / "manifest.json";
+            fs::path zipSrc = vDir / "patch.zip";
+            if (!fs::exists(mfSrc) || !fs::exists(zipSrc)) {
+                sendError(res, "Không tìm thấy bản vá v" + ver + " trong kho lưu trữ!", 404);
+                return;
+            }
+            fs::copy_file(mfSrc, updatesDir / "manifest.json", fs::copy_options::overwrite_existing);
+            fs::copy_file(zipSrc, updatesDir / "patch_latest.zip", fs::copy_options::overwrite_existing);
+            sendJson(res, {
+                {"success", true},
+                {"active_version", ver},
+                {"message", "Đã kích hoạt bản vá v" + ver + " làm bản phát hành OTA hiện tại!"}
+            });
+            return;
+        }
+
+        if (action == "delete_patch") {
+            std::string ver = getString(body, "version");
+            if (ver.empty() || ver.find("..") != std::string::npos || ver.find('/') != std::string::npos || ver.find('\\') != std::string::npos) {
+                sendError(res, "Phiên bản bản vá không hợp lệ!", 400);
+                return;
+            }
+            fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+            std::string activeVer;
+            if (fs::exists(updatesDir / "manifest.json")) {
+                try {
+                    json mf;
+                    std::ifstream in((updatesDir / "manifest.json").string());
+                    in >> mf;
+                    activeVer = mf.value("version", "");
+                } catch (...) {}
+            }
+            if (!activeVer.empty() && ver == activeVer) {
+                sendError(res, "Không thể xóa bản vá đang phát hành hiện tại!", 400);
+                return;
+            }
+            fs::path vDir = updatesDir / "archive" / ver;
+            if (fs::exists(vDir)) {
+                fs::remove_all(vDir);
+            }
+            sendJson(res, {{"success", true}, {"message", "Đã xóa bản vá v" + ver + " khỏi kho lưu trữ."}});
+            return;
         }
 
         if (action == "get_ai_vault") {
@@ -2789,8 +2914,20 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         }
     });
 
-    svr.Get("/api/updates/download", [](const httplib::Request&, httplib::Response& res) {
-        fs::path zipPath = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates" / "patch_latest.zip";
+    svr.Get("/api/updates/download", [](const httplib::Request& req, httplib::Response& res) {
+        fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+        fs::path zipPath = updatesDir / "patch_latest.zip";
+        std::string filename = "patch_latest.zip";
+        if (req.has_param("version")) {
+            std::string ver = req.get_param_value("version");
+            if (!ver.empty() && ver.find("..") == std::string::npos && ver.find('/') == std::string::npos && ver.find('\\') == std::string::npos) {
+                fs::path archZip = updatesDir / "archive" / ver / "patch.zip";
+                if (fs::exists(archZip)) {
+                    zipPath = archZip;
+                    filename = "patch_v" + ver + ".zip";
+                }
+            }
+        }
         if (!fs::exists(zipPath)) {
             res.status = 404;
             res.set_content("No patch_latest.zip available", "text/plain");
@@ -2798,7 +2935,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         }
         std::ifstream ifs(zipPath.string(), std::ios::binary);
         std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-        res.set_header("Content-Disposition", "attachment; filename=\"patch_latest.zip\"");
+        res.set_header("Content-Disposition", "attachment; filename=\"" + filename + "\"");
         res.set_content(content, "application/zip");
     });
 }

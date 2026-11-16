@@ -44,17 +44,23 @@ public:
 
     nlohmann::json getStatus() {
         nlohmann::json notifs = nlohmann::json::array();
+        std::string appliedVer = "2026.11.16.14";
         try {
             notifs = Database::instance().query(
                 "SELECT id, type, table_code as version, title, message, is_read_cashier as is_read, created_at "
                 "FROM app_notifications WHERE type IN ('SYSTEM_NOTIFY', 'SYSTEM_UPDATE') "
                 "ORDER BY id DESC LIMIT 20"
             );
+            auto vr = Database::instance().queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'ota_applied_version'");
+            if (!vr.is_null() && !vr.value("setting_value", "").empty()) {
+                appliedVer = vr.value("setting_value", appliedVer);
+            }
         } catch (...) {}
 
         std::lock_guard<std::mutex> lk(mtx_);
         return {
             {"success", true},
+            {"applied_version", appliedVer},
             {"has_update", has_update_},
             {"latest_version", latest_version_},
             {"update_title", update_title_},
@@ -81,11 +87,25 @@ public:
             }
             if (j.value("has_patch", false) && j.contains("manifest") && j["manifest"].is_object()) {
                 auto& m = j["manifest"];
-                std::lock_guard<std::mutex> lk(mtx_);
-                has_update_ = true;
-                latest_version_ = m.value("version", "");
-                update_title_ = m.value("title", "Bản cập nhật mới từ Master");
-                update_message_ = m.value("notes", "");
+                std::string mVer = m.value("version", "");
+                std::string appliedVer;
+                try {
+                    auto r = Database::instance().queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'ota_applied_version'");
+                    if (!r.is_null()) appliedVer = r.value("setting_value", "");
+                } catch (...) {}
+
+                bool isNewer = (!mVer.empty() && mVer != appliedVer);
+                {
+                    std::lock_guard<std::mutex> lk(mtx_);
+                    has_update_ = isNewer;
+                    latest_version_ = mVer;
+                    update_title_ = m.value("title", "Bản cập nhật mới từ Master");
+                    update_message_ = m.value("notes", "");
+                }
+                j["has_update"] = isNewer;
+                j["applied_version"] = appliedVer;
+            } else {
+                j["has_update"] = false;
             }
             return j;
         } catch (const std::exception& e) {
@@ -135,35 +155,58 @@ public:
             }
 #endif
 
-            bool hasExeUpdate = false;
-            fs::path stagedExePath;
+            bool needsRestart = false;
+            std::vector<std::pair<fs::path, fs::path>> deferredCopies;
             int copiedCount = 0;
 
             for (const auto& entry : fs::recursive_directory_iterator(extractDir)) {
                 if (!entry.is_regular_file()) continue;
                 fs::path rel = fs::relative(entry.path(), extractDir);
                 std::string relStr = rel.generic_string();
-                if (relStr == "cybernexus_slave.exe") {
-                    hasExeUpdate = true;
-                    stagedExePath = entry.path();
-                    continue; // Applied by helper script after process exits
-                }
+                std::string ext = entry.path().extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                 fs::path dest = baseDir / rel;
                 if (dest.has_parent_path()) fs::create_directories(dest.parent_path());
-                fs::copy_file(entry.path(), dest, fs::copy_options::overwrite_existing);
-                copiedCount++;
+
+                if (relStr == "cybernexus_slave.exe" || ext == ".exe" || ext == ".dll") {
+                    needsRestart = true;
+                    deferredCopies.push_back({entry.path(), dest});
+                    continue; // Applied by helper script after process exits & unlocks .exe/.dll
+                }
+
+                std::error_code ec;
+                fs::copy_file(entry.path(), dest, fs::copy_options::overwrite_existing, ec);
+                if (ec) {
+                    needsRestart = true;
+                    deferredCopies.push_back({entry.path(), dest});
+                } else {
+                    copiedCount++;
+                }
             }
+
+            try {
+                Database::instance().execute(
+                    "UPDATE app_notifications SET is_read_cashier = 1, is_read_waiter = 1 WHERE type = 'SYSTEM_UPDATE'"
+                );
+                if (!latest_version_.empty()) {
+                    Database::instance().execute(
+                        "INSERT INTO store_settings (setting_key, setting_value) VALUES ('ota_applied_version', :v) "
+                        "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                        {{":v", latest_version_}}
+                    );
+                }
+            } catch (...) {}
 
             {
                 std::lock_guard<std::mutex> lk(mtx_);
                 has_update_ = false;
-                restart_pending_ = hasExeUpdate;
+                restart_pending_ = needsRestart;
                 last_result_ = "Đã cập nhật " + std::to_string(copiedCount) + " file" +
-                    (hasExeUpdate ? " và chuẩn bị khởi động lại cybernexus_slave.exe" : "");
+                    (needsRestart ? " và chuẩn bị khởi động lại để thay " + std::to_string(deferredCopies.size()) + " file hệ thống (.exe/.dll)" : "");
             }
             applying_.store(false);
 
-            if (hasExeUpdate) {
+            if (needsRestart) {
 #ifdef _WIN32
                 fs::path batPath = tempDir / "apply_exe_update.bat";
                 fs::path targetExe = baseDir / "cybernexus_slave.exe";
@@ -172,9 +215,12 @@ public:
                     bf << "@echo off\r\n"
                        << "timeout /t 2 /nobreak >nul\r\n"
                        << "taskkill /F /IM cybernexus_slave.exe >nul 2>&1\r\n"
-                       << "timeout /t 1 /nobreak >nul\r\n"
-                       << "copy /Y \"" << stagedExePath.string() << "\" \"" << targetExe.string() << "\" >nul\r\n"
-                       << "cd /d \"" << baseDir.string() << "\"\r\n"
+                       << "taskkill /F /FI \"WINDOWTITLE eq CyberNexus OS - Slave Store*\" >nul 2>&1\r\n"
+                       << "timeout /t 2 /nobreak >nul\r\n";
+                    for (const auto& pair : deferredCopies) {
+                        bf << "copy /Y \"" << pair.first.string() << "\" \"" << pair.second.string() << "\" >nul\r\n";
+                    }
+                    bf << "cd /d \"" << baseDir.string() << "\"\r\n"
                        << "start \"CyberNexus OS - Slave Store\" \"" << targetExe.string() << "\"\r\n"
                        << "exit\r\n";
                 }
@@ -190,9 +236,10 @@ public:
             return {
                 {"success", true},
                 {"copied_files", copiedCount},
-                {"restarting", hasExeUpdate},
-                {"message", hasExeUpdate
-                    ? "Đã chép đè " + std::to_string(copiedCount) + " file. Server đang tự khởi động lại để áp dụng cybernexus_slave.exe mới (3 giây)..."
+                {"deferred_files", deferredCopies.size()},
+                {"restarting", needsRestart},
+                {"message", needsRestart
+                    ? "Đã chép đè " + std::to_string(copiedCount) + " file. Server đang tự khởi động lại để cập nhật " + std::to_string(deferredCopies.size()) + " file (.exe/.dll) (4 giây)..."
                     : "Đã cập nhật xong " + std::to_string(copiedCount) + " file! Hãy tải lại trang (F5)."}
             };
         } catch (const std::exception& e) {

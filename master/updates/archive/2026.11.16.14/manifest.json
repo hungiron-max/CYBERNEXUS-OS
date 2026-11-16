@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.14",
+    "title": "Chặn văng nhân viên về trang khách hàng & nút quay về Phục vụ/Thu ngân/Bếp",
+    "notes": "Tự động điều hướng nhân viên (Phục vụ, Thu ngân, Bếp) về đúng màn hình làm việc nếu rơi vào trang khách hàng, bổ sung nút quay về nhanh trên header và gộp đầy đủ thông báo đơn QR mới + SLA + KPI.",
+    "created_at": "2026-11-16 12:14:37",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

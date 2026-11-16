@@ -229,6 +229,14 @@
         </button>
     </div>
 
+    <!-- Waiter Action Center: Theo dõi biến động đơn (Hết món / Hủy món / Thu thêm / Hoàn tiền) -->
+    <div id="waiter-action-center" class="hidden shrink-0 mx-3 mt-2 p-2.5 rounded-2xl bg-slate-900/95 border border-amber-500/40 shadow-lg space-y-1.5 z-40">
+        <div class="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-300">
+            <span><i class="fas fa-bell-concierge mr-1"></i> Biến Động Đơn Cần Theo Dõi (<span id="waiter-alert-count">0</span>)</span>
+        </div>
+        <div id="waiter-alert-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1"></div>
+    </div>
+
     <!-- STEP 1: Sơ Đồ Bàn (Table Selector View) -->
     <section id="view-tables" class="flex-1 flex flex-col p-3 overflow-y-auto space-y-3 z-10">
         <!-- Area Filter Tabs -->
@@ -550,6 +558,65 @@
                     if (cancelBanner) cancelBanner.classList.add('hidden');
                 }
 
+                // Poll new workflow alerts (order_alerts + settlement deltas)
+                try {
+                    const aRes = await fetch('api/orders.php?action=alerts&target_role=all');
+                    const aJson = await aRes.json();
+                    const box = document.getElementById('waiter-action-center');
+                    const listEl = document.getElementById('waiter-alert-list');
+                    const cntEl = document.getElementById('waiter-alert-count');
+                    if (aJson && aJson.success && box && listEl) {
+                        const alerts = Array.isArray(aJson.alerts) ? aJson.alerts : [];
+                        const qrAlerts = alerts.filter(al => al.alert_type === 'qr_table_pending' || al.alert_type === 'qr_payment_pending');
+                        if (!window.knownQrAlertIds) {
+                            window.knownQrAlertIds = new Set(qrAlerts.map(al => Number(al.id)));
+                        } else {
+                            const hasNewQrAlert = qrAlerts.some(al => !window.knownQrAlertIds.has(Number(al.id)));
+                            if (hasNewQrAlert) playDingDong();
+                            window.knownQrAlertIds = new Set(qrAlerts.map(al => Number(al.id)));
+                        }
+                        const deltas = Array.isArray(aJson.pending_deltas) ? aJson.pending_deltas.filter(d => d.settlement_status === 'extra_due' || d.settlement_status === 'refund_due') : [];
+                        const totalCnt = alerts.length + deltas.length;
+                        if (cntEl) cntEl.textContent = String(totalCnt);
+                        if (totalCnt === 0) {
+                            box.classList.add('hidden');
+                        } else {
+                            box.classList.remove('hidden');
+                            let html = '';
+                            deltas.forEach(d => {
+                                const isRef = (d.settlement_status === 'refund_due');
+                                const diff = Math.abs(Number(d.total_amount || 0) - Number(d.paid_amount || 0));
+                                html += `
+                                    <div class="p-2 rounded-xl ${isRef ? 'bg-rose-950/60 border border-rose-500/40 text-rose-200' : 'bg-amber-950/60 border border-amber-500/40 text-amber-200'} flex items-center justify-between gap-2 text-xs">
+                                        <div class="min-w-0">
+                                            <b class="block truncate">${isRef ? '💸 Cần HOÀN TIỀN' : '💰 Cần THU THÊM'} ${d.table_code || d.order_code}: ${formatMoney(diff)} đ</b>
+                                            <span class="text-[11px] opacity-85">Đơn ${d.order_code} • Đã trả ${formatMoney(d.paid_amount)}đ / Mới ${formatMoney(d.total_amount)}đ</span>
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-black/30 shrink-0">${isRef ? 'Chờ hoàn' : 'Chờ thu'}</span>
+                                    </div>
+                                `;
+                            });
+                            alerts.forEach(al => {
+                                const isQr = (al.alert_type === 'qr_table_pending' || al.alert_type === 'qr_payment_pending');
+                                const isUrgent = isQr || (al.alert_type === 'out_of_stock' || al.alert_type === 'refund_due' || al.alert_type === 'order_cancel_requested');
+                                html += `
+                                    <div class="p-2 rounded-xl ${isQr ? 'bg-amber-950/60 border border-amber-400/50 text-amber-100' : (isUrgent ? 'bg-rose-950/50 border border-rose-500/40 text-rose-100' : 'bg-slate-800/90 border border-white/10 text-slate-200')} flex items-center justify-between gap-2 text-xs">
+                                        <div class="min-w-0">
+                                            <b class="block truncate">${isQr ? '📱 ' : ''}${al.title}</b>
+                                            <span class="text-[11px] opacity-85">${al.message}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            ${isQr && Number(al.table_id || 0) > 0 ? `<button type="button" onclick="selectOrderTable(${Number(al.table_id)})" class="px-2 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold">Mở bàn</button>` : ''}
+                                            <button type="button" onclick="ackWaiterAlert(${al.id})" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">${isQr ? 'Đã xem' : 'Đã báo khách'}</button>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            listEl.innerHTML = html;
+                        }
+                    }
+                } catch (e) {}
+
                 // Check direct kitchen_ready alerts (Bếp báo xong món / Báo lại chuông)
                 if (notifData && notifData.ready_alerts && notifData.ready_alerts.length > 0) {
                     let hasNewBell = false;
@@ -799,6 +866,33 @@
             }
         }
 
+        async function rushKitchenOrder(orderId, tableCode, btnEl) {
+            if (!orderId) return;
+            const origHtml = btnEl ? btnEl.innerHTML : '';
+            if (btnEl) {
+                btnEl.disabled = true;
+                btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang hối...';
+            }
+            try {
+                const res = await fetch('api/orders.php?action=rush_kitchen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || 'Không thể gửi lệnh hối xuống Bếp');
+                }
+                await loadTablesData();
+            } catch (e) {
+                alert(e.message || 'Lỗi gửi lệnh hối xuống Bếp');
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.innerHTML = origHtml;
+                }
+            }
+        }
+
         async function confirmCustomerQrOrder(orderId) {
             const table = allTables.find(item => Number(item.active_order_id) === Number(orderId));
             if (!table || !table.customer_order_pending) {
@@ -897,16 +991,30 @@
             let html = '';
             list.forEach(t => {
                 const isOcc = t.status === 'occupied';
-                const isReady = t.kitchen_status === 'ready';
+                const kStatus = (t.kitchen_status || '').toLowerCase();
+                const isReady = kStatus === 'ready';
                 const isCustomerQrPending = Boolean(t.customer_order_pending);
                 const isPaid = (t.payment_status === 'paid' || Boolean(t.paid_at));
-                const isServed = (t.kitchen_status === 'served' || Boolean(t.served_at));
+                const isServed = (kStatus === 'served' || Boolean(t.served_at));
+                const isInKitchen = isOcc && !isCustomerQrPending && !isReady && !isServed && !['awaiting_waiter', 'awaiting_payment', 'awaiting_kitchen_push', 'cancel_requested'].includes(kStatus);
+                const elapsedMins = Number(t.kitchen_elapsed_minutes || 0);
+                const kitchenSla = Number(t.kitchen_sla_minutes || 10);
+                const isOverdueKitchen = isInKitchen && elapsedMins >= kitchenSla;
+                const rushCount = Number(t.rush_count || 0);
+                const yellowDotHtml = `
+                    <span class="relative flex h-2.5 w-2.5 shrink-0" title="Bếp đang chế biến (${elapsedMins} phút)">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-85"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span>
+                    </span>
+                `;
 
                 let cardBorderClass = 'border-emerald-500/30 hover:border-sky-400';
                 if (isCustomerQrPending) {
                     cardBorderClass = 'border-rose-400 bg-rose-950/40 shadow-xl shadow-rose-500/25 ring-2 ring-rose-400 animate-pulse';
                 } else if (isReady) {
                     cardBorderClass = 'border-amber-400 bg-amber-950/40 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400 animate-pulse';
+                } else if (isOverdueKitchen) {
+                    cardBorderClass = 'border-amber-500/70 bg-amber-950/20 shadow-lg shadow-amber-500/15';
                 } else if (isOcc) {
                     cardBorderClass = isPaid 
                         ? 'border-teal-500/50 bg-teal-950/20 shadow-teal-900/20' 
@@ -922,12 +1030,16 @@
                     if (isPaid) {
                         if (isServed) {
                             badgeHtml = '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>';
+                        } else if (isInKitchen) {
+                            badgeHtml = `<div class="flex items-center gap-1.5">${yellowDotHtml}<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span></div>`;
                         } else {
                             badgeHtml = '<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span>';
                         }
                     } else {
                         if (isServed) {
                             badgeHtml = '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>';
+                        } else if (isInKitchen) {
+                            badgeHtml = yellowDotHtml;
                         } else {
                             badgeHtml = '<span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>';
                         }
@@ -953,6 +1065,13 @@
                                 <span class="text-amber-300 font-bold text-[11px] truncate">${formatMoney(t.total_amount)}đ</span>
                                 <button type="button" class="px-2 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] shadow active:scale-90 flex items-center gap-1 shrink-0" onclick="event.stopPropagation(); confirmDelivered(${t.active_order_id}, '${t.code}')">
                                     <i class="fas fa-check"></i> ĐÃ BƯNG RA
+                                </button>
+                            ` : isOverdueKitchen ? `
+                                <span class="${isPaid ? 'text-teal-300' : 'text-amber-300'} truncate font-bold text-xs">
+                                    ${formatMoney(t.total_amount)}đ <span class="text-[10px] text-rose-400 font-black">(${elapsedMins}p)</span>
+                                </span>
+                                <button type="button" class="px-2 py-1 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow shadow-rose-500/40 active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" onclick="event.stopPropagation(); rushKitchenOrder(${Number(t.active_order_id)}, '${t.code}', this)">
+                                    <i class="fas fa-fire"></i> ${rushCount > 0 ? `Hối (${rushCount})` : 'Hối'}
                                 </button>
                             ` : `
                                 <span class="${isOcc ? (isPaid ? 'text-teal-300' : 'text-amber-300') : 'text-emerald-400'} truncate font-bold text-xs">
@@ -1265,30 +1384,33 @@
                     const topSum = (it.toppings || []).reduce((a, b) => a + (parseFloat(b.price) || 0), 0);
                     const sub = (it.price + topSum) * it.quantity;
                     const noteStr = (it.note || '').trim();
-                    const isRejected = noteStr.includes('Đã làm') || noteStr.includes('Đã chế biến') || noteStr.includes('Giữ nguyên món');
-                    const isCancelNote = !isRejected && /hủy|huy/i.test(noteStr);
+                    const cancelSt = (it.cancel_status || 'none');
+                    const isCancelled = (cancelSt === 'approved' || cancelSt === 'out_of_stock');
+                    const isRejected = (cancelSt === 'rejected') || noteStr.includes('Đã làm') || noteStr.includes('Đã chế biến') || noteStr.includes('Giữ nguyên món');
+                    const isCancelNote = (cancelSt === 'pending_kitchen') || (cancelSt === 'none' && !isRejected && /hủy|huy/i.test(noteStr));
+                    const cancelRsn = (it.cancel_reason || noteStr || '').trim();
 
                     html += `
-                        <div class="p-2.5 rounded-xl ${isCancelNote ? 'bg-amber-950/20 border border-amber-500/40' : (isRejected ? 'bg-rose-950/15 border border-rose-500/30' : 'bg-slate-900/60 border border-white/5 opacity-80')} flex items-center justify-between transition-all">
+                        <div class="p-2.5 rounded-xl ${isCancelled ? 'bg-slate-950/70 border border-rose-500/20 opacity-60' : (isCancelNote ? 'bg-amber-950/20 border border-amber-500/40' : (isRejected ? 'bg-rose-950/15 border border-rose-500/30' : 'bg-slate-900/60 border border-white/5 opacity-80'))} flex items-center justify-between transition-all">
                             <div class="space-y-0.5 flex-1 pr-2">
                                 <div class="flex items-center gap-2">
                                     <span class="text-slate-400 font-mono text-[11px]">#${idx + 1}</span>
-                                    <h5 class="font-bold text-xs text-slate-200">${it.name}</h5>
+                                    <h5 class="font-bold text-xs ${isCancelled ? 'line-through text-slate-400' : 'text-slate-200'}">${it.name}</h5>
                                 </div>
                                 <div class="text-[11px] text-slate-400 font-mono">
                                     ${formatMoney(it.price + topSum)} đ / ${it.unit || 'phần'}
-                                    ${it.note ? (
+                                    ${isCancelled ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">${cancelSt === 'out_of_stock' ? '🚫 Bếp báo HẾT' : '✖ Đã hủy'}${cancelRsn ? ' (' + cancelRsn + ')' : ''}</span>` : (
                                         isCancelNote
-                                            ? `<span class="ml-2 text-[10px] text-amber-300 font-bold bg-amber-950/70 border border-amber-500/40 px-1.5 py-0.5 rounded">⚠️ Đang chờ bếp duyệt (${it.note})</span>`
+                                            ? `<span class="ml-2 text-[10px] text-amber-300 font-bold bg-amber-950/70 border border-amber-500/40 px-1.5 py-0.5 rounded">⏳ Chờ Bếp duyệt hủy${cancelRsn ? ' (' + cancelRsn + ')' : ''}</span>`
                                             : (isRejected
-                                                ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">🔒 ${it.note}</span>`
-                                                : `<span class="ml-2 text-[10px] text-amber-300 italic">(${it.note})</span>`)
-                                    ) : ''}
+                                                ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">🔒 ${cancelRsn || 'Bếp đã làm - Không hủy'}</span>`
+                                                : (it.note ? `<span class="ml-2 text-[10px] text-amber-300 italic">(${it.note})</span>` : ''))
+                                    )}
                                 </div>
                             </div>
 
                             <div class="flex items-center gap-1.5 shrink-0">
-                                ${!isAlreadyServed ? `
+                                ${(!isAlreadyServed && !isCancelled && !isCancelNote) ? `
                                     <button type="button" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 active:scale-90 flex items-center gap-1 cursor-pointer" onclick="event.stopPropagation(); addNoteToConfirmedItem(${it.order_item_id || it.id})" title="Bổ sung ghi chú gửi bếp">
                                         <i class="fas fa-comment-dots text-[10px]"></i>
                                         <span>${it.note ? 'Sửa GC' : 'Ghi chú'}</span>
@@ -1434,34 +1556,58 @@
             }
         }
 
-        async function requestCancelConfirmedItem(orderItemId) {
-            const item = existingConfirmedItems.find(it => (it.order_item_id === orderItemId || it.id === orderItemId));
-            if (!item) return;
-
-            const reason = prompt(`Nhập lý do xin hủy món "${item.name}" gửi bếp duyệt:\n(Bếp sẽ thấy nút [Đồng ý] để duyệt hủy món khỏi hóa đơn)`, 'Khách xin hủy');
-            if (reason === null) return;
-            const finalReason = reason.trim() || 'Khách xin hủy';
-            const noteToSend = /hủy|huy/i.test(finalReason) ? finalReason : `Hủy: ${finalReason}`;
-
+        async function ackWaiterAlert(alertId) {
             try {
-                const res = await fetch('api/orders.php?action=update_item_note', {
+                await fetch('api/orders.php?action=ack_alert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        item_id: item.order_item_id || item.id,
-                        note: noteToSend
-                    })
+                    body: JSON.stringify({ alert_id: alertId })
+                });
+                pollNotifications();
+            } catch (e) {}
+        }
+
+        let _waiterCancelTargetItemId = null;
+        function requestCancelConfirmedItem(orderItemId) {
+            const item = existingConfirmedItems.find(it => (it.order_item_id === orderItemId || it.id === orderItemId));
+            if (!item) return;
+            _waiterCancelTargetItemId = item.order_item_id || item.id;
+            const modal = document.getElementById('waiter-cancel-item-modal');
+            const nameEl = document.getElementById('wcim-item-name');
+            const inp = document.getElementById('wcim-reason');
+            if (nameEl) nameEl.textContent = item.name || 'Món này';
+            if (inp) inp.value = 'Khách đổi ý';
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeWaiterCancelModal() {
+            document.getElementById('waiter-cancel-item-modal')?.classList.add('hidden');
+            _waiterCancelTargetItemId = null;
+        }
+
+        async function submitWaiterCancelModal() {
+            if (!_waiterCancelTargetItemId) return;
+            const reason = (document.getElementById('wcim-reason')?.value || '').trim() || 'Khách xin hủy';
+            try {
+                const res = await fetch('api/orders.php?action=request_cancel_item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id: _waiterCancelTargetItemId, reason })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    item.note = noteToSend;
+                    const it = existingConfirmedItems.find(x => (x.order_item_id === _waiterCancelTargetItemId || x.id === _waiterCancelTargetItemId));
+                    if (it) {
+                        it.cancel_status = 'pending_kitchen';
+                        it.cancel_reason = reason;
+                    }
+                    closeWaiterCancelModal();
                     renderCartSheetItems();
-                    alert(`✅ Đã gửi ghi chú xin hủy món "${item.name}" đến bếp!\nMàn hình Bếp đã hiển thị nút [Đồng ý] để duyệt hủy.`);
+                    pollNotifications();
                 } else {
                     alert(data.message || 'Lỗi khi gửi yêu cầu hủy');
                 }
-            } catch(e) {
-                console.error(e);
+            } catch (e) {
                 alert('Lỗi kết nối máy chủ');
             }
         }
@@ -1751,6 +1897,27 @@
         </div>
     </div>
     <script src="assets/vendor/qrcode.min.js"></script>
+    <!-- Modal Xin Hủy Món (Phục vụ gửi Bếp duyệt) -->
+    <div id="waiter-cancel-item-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="liquid-glass rounded-2xl p-5 w-[400px] max-w-[94vw] border border-rose-500/40 text-white space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <h3 class="text-sm font-black text-rose-300"><i class="fas fa-ban mr-1.5"></i> Xin Hủy Món: <span id="wcim-item-name" class="text-white"></span></h3>
+                <button type="button" onclick="closeWaiterCancelModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <p class="text-[11px] text-slate-300">Yêu cầu sẽ gửi xuống <b>Bếp</b> duyệt và thông báo cho <b>Thu ngân</b>. Món chỉ trừ tiền sau khi Bếp đồng ý.</p>
+            <div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="document.getElementById('wcim-reason').value='Khách đổi ý'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px]">Khách đổi ý</button>
+                <button type="button" onclick="document.getElementById('wcim-reason').value='Đặt nhầm món'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px]">Đặt nhầm món</button>
+                <button type="button" onclick="document.getElementById('wcim-reason').value='Chờ lâu quá khách hủy'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px]">Chờ lâu</button>
+            </div>
+            <textarea id="wcim-reason" rows="2" class="w-full rounded-xl bg-slate-950 border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-400" placeholder="Nhập lý do hủy món..."></textarea>
+            <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="closeWaiterCancelModal()" class="px-4 py-2 rounded-xl bg-white/10 text-xs font-bold text-slate-300">Đóng</button>
+                <button type="button" onclick="submitWaiterCancelModal()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-black text-white">Gửi Bếp Duyệt Hủy</button>
+            </div>
+        </div>
+    </div>
+
     <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
 </body>
 </html>

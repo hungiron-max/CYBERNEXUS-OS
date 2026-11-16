@@ -17,6 +17,9 @@ if(MSVC)
     add_compile_options(/O2 /EHsc /utf-8 /wd4996)
 else()
     add_compile_options(-Wall -O3)
+    if(MINGW)
+        add_link_options(-static -static-libgcc -static-libstdc++)
+    endif()
 endif()
 
 # Shared Common Sources
@@ -45,6 +48,9 @@ target_compile_definitions(cybernexus_master PRIVATE CYBERNEXUS_ROLE_MASTER=1)
 
 if(WIN32)
     target_link_libraries(cybernexus_master PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp)
+    if(MINGW)
+        target_link_options(cybernexus_master PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
 endif()
 
 # ========================================================
@@ -64,6 +70,9 @@ target_compile_definitions(cybernexus_slave PRIVATE CYBERNEXUS_ROLE_SLAVE=1)
 
 if(WIN32)
     target_link_libraries(cybernexus_slave PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp)
+    if(MINGW)
+        target_link_options(cybernexus_slave PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
 endif()
 
 # ========================================================

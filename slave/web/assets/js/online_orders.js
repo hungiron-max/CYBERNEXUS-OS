@@ -121,7 +121,19 @@ const OnlineOrders = {
                     </div>
                     <p class="online-order-action-hint">Chỉ xác nhận sau khi đã bàn giao thực tế.</p>
                 </div>` : '';
-            const preparationStep = !isReady && isActive ? `
+            const isWaitingKitchenGate = isActive && ['awaiting_payment', 'awaiting_waiter', 'awaiting_kitchen_push'].includes(order.kitchen_status || '');
+            const canPushKitchen = isPaid || order.payment_status === 'cod_approved';
+            const kitchenGateControl = isWaitingKitchenGate ? `
+                <div class="mt-2.5 rounded-xl border border-amber-500/35 bg-amber-950/25 p-2.5 space-y-2 text-xs">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-bold text-amber-200"><i class="fas fa-fire-burner mr-1"></i> ${canPushKitchen ? 'Đã xác nhận TT/COD — Sẵn sàng chuyển Bếp' : (order.payment_status === 'verifying' ? 'Khách báo đã CK — Chờ đối soát' : 'Chưa xác nhận thanh toán')}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${(!canPushKitchen && order.order_type === 'delivery') ? `<button type="button" onclick="OnlineOrders.approveCod(${Number(order.id)})" class="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px]">Duyệt Ship COD</button>` : ''}
+                        <button type="button" onclick="OnlineOrders.sendToKitchen(${Number(order.id)})" ${canPushKitchen ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${canPushKitchen ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} font-bold text-[11px]"><i class="fas fa-paper-plane mr-1"></i>Chuyển Bếp</button>
+                    </div>
+                </div>` : '';
+            const preparationStep = !isReady && isActive && !isWaitingKitchenGate ? `
                 <div class="mt-2 flex items-center gap-2 rounded-lg border border-sky-400/15 bg-sky-950/20 px-2.5 py-2 text-[10px] text-sky-100">
                     <i class="fas fa-hourglass-half text-sky-300"></i>
                     <span>${window.onlineOrderPermissions.delivery ? 'Đang chờ bếp hoàn thành món; nút bàn giao sẽ xuất hiện khi bếp báo xong.' : 'Đang chờ bếp hoàn thành món.'}</span>
@@ -154,7 +166,17 @@ const OnlineOrders = {
                         <span class="text-[10px] font-bold ${isPaid ? 'text-emerald-300' : 'text-amber-200'}">${paymentLabel}</span>
                     </div>
                     ${note}
-                    ${preparationStep}${deliveredNotice}${payControl}${deliveryControl}
+                    ${order.kitchen_status === 'cancel_requested' ? `<div class="mt-2 rounded-lg border border-rose-500/40 bg-rose-950/35 px-2.5 py-2 text-[11px] text-rose-200"><b>⚠️ Bếp yêu cầu hủy đơn:</b> ${this.escape(order.cancel_request_reason || 'Không rõ lý do')}</div>` : ''}
+                    ${(order.settlement_status === 'refund_due' || order.settlement_status === 'extra_due') ? `
+                        <div class="mt-2 rounded-xl border border-amber-500/40 bg-amber-950/30 p-2.5 text-[11px] text-amber-100 space-y-1.5">
+                            <div><b>${order.settlement_status === 'refund_due' ? '💸 Cần hoàn lại khách:' : '💰 Cần thu thêm:'}</b> <span class="font-mono font-bold">${this.money(Math.abs(Number(order.total_amount || 0) - Number(order.paid_amount || 0)))}</span></div>
+                            <div class="flex gap-1.5">
+                                <button type="button" onclick="OnlineOrders.settleDelta(${Number(order.id)}, 'cash')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px]">Đã xử lý Tiền Mặt</button>
+                                <button type="button" onclick="OnlineOrders.settleDelta(${Number(order.id)}, 'banking')" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px]">Đã xử lý CK</button>
+                            </div>
+                        </div>` : ''}
+                    ${preparationStep}${deliveredNotice}${payControl}${kitchenGateControl}${deliveryControl}
+                    ${isActive ? `<div class="mt-2.5 pt-2 border-t border-white/10 flex justify-end"><button type="button" onclick="OnlineOrders.cancelOrder(${Number(order.id)}, '${this.escape(order.order_code)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[11px] font-bold transition"><i class="fas fa-trash-alt mr-1"></i>Hủy đơn</button></div>` : ''}
                 </article>`;
         }).join('');
     },
@@ -194,6 +216,57 @@ const OnlineOrders = {
     updatePaymentConfirmState() {
         const confirmButton = document.getElementById('online-payment-confirm');
         if (confirmButton) confirmButton.disabled = this.paymentBusy || !document.getElementById('online-payment-verified').checked;
+    },
+
+    async approveCod(orderId) {
+        try {
+            const res = await fetch('api/orders.php?action=confirm_payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, mode: 'cod_approved' })
+            }).then(r => r.json());
+            if (res.success) await this.load();
+            else alert(res.message || 'Lỗi duyệt COD');
+        } catch (e) { alert('Lỗi kết nối'); }
+    },
+
+    async sendToKitchen(orderId) {
+        try {
+            const res = await fetch('api/orders.php?action=send_to_kitchen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId })
+            }).then(r => r.json());
+            if (res.success) await this.load();
+            else alert(res.message || 'Chưa thể chuyển Bếp');
+        } catch (e) { alert('Lỗi kết nối'); }
+    },
+
+    async cancelOrder(orderId, orderCode) {
+        const reason = prompt(`Nhập lý do hủy đơn ${orderCode} (ghi nhận Kiểm toán):`, 'Khách hủy / Đơn treo cần đóng');
+        if (reason === null) return;
+        const finalReason = reason.trim() || 'Thu ngân hủy đơn';
+        try {
+            const res = await fetch('api/orders.php?action=cancel_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, reason: finalReason })
+            }).then(r => r.json());
+            if (res.success) await this.load();
+            else alert(res.message || 'Không thể hủy đơn');
+        } catch (e) { alert('Lỗi kết nối'); }
+    },
+
+    async settleDelta(orderId, method = 'cash') {
+        try {
+            const res = await fetch('api/orders.php?action=settle_delta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, payment_method: method })
+            }).then(r => r.json());
+            if (res.success) await this.load();
+            else alert(res.message || 'Lỗi quyết toán chênh lệch');
+        } catch (e) { alert('Lỗi kết nối'); }
     },
 
     async confirmPayment() {

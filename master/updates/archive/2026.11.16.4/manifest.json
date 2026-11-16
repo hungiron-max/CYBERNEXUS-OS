@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.4",
+    "title": "Bản vá OTA tương thích 100% (Chống treo đơn, Quy trình 3 luồng QR, Fix DLL lock)",
+    "notes": "Loại bỏ các file DLL không đổi khỏi gói OTA để bản Slave cũ ở quán cập nhật 1 chạm qua OTA mượt mà (không dính Permission denied), đồng thời nâng cấp Slave lên slave_updater.h mới hỗ trợ cả cập nhật DLL về sau.",
+    "created_at": "2026-11-16 09:35:49",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

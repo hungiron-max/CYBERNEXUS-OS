@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.10",
+    "title": "Dọn log DB migration & Tự động đóng cửa sổ CMD cũ khi OTA restart",
+    "notes": "Kiểm tra PRAGMA table_info trước khi ALTER TABLE (không còn log duplicate column name); tự động đóng cửa sổ CMD cũ khi restart OTA để chỉ còn duy nhất 1 cửa sổ server; tích lũy đầy đủ Promotion & Voucher Engine và P&L Real-time.",
+    "created_at": "2026-11-16 10:32:38",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

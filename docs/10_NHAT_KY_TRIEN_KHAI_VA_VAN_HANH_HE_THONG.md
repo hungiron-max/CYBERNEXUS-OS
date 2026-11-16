@@ -619,3 +619,64 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
 - Phát hành bản vá OTA **`v2026.11.13.14`** tại `master/updates/manifest.json` và `master/updates/patch_latest.zip` (`2,136,169` bytes).
 - Đóng gói đầy đủ tại `release/master.zip` (`8,308,284` bytes), `release/cybernexus-store.zip` (`176,800,725` bytes) và `release/store_patch_update.zip` (`2,136,169` bytes).
 - Đã commit (`41d36b3`) và push đồng bộ lên `origin/main` (`https://github.com/hungiron-max/CYBERNEXUS-OS.git`).
+
+---
+
+## 21. Static Build Không Phụ Thuộc DLL, Chuẩn Hóa Quy Trình Order/Thanh Toán/Hủy & Kho Lưu Trữ Bản Vá OTA (`v2026.11.16.1` - 16/11/2026)
+
+### 21.1. Khắc Phục Lỗi Thiếu `libwinpthread-1.dll` & Đóng Gói Bản Đầy Đủ (`v2026.11.13.15`)
+- **Static Link toàn bộ (`CMakeLists.txt`):** Bổ sung `add_link_options(-static -static-libgcc -static-libstdc++)` cho MinGW; kiểm tra `objdump` xác nhận `cybernexus_master.exe`, `cybernexus_slave.exe` và 4 module `.dll` (`libmod_pos_core.dll`, `libmod_network_qos.dll`, `libmod_media_stream.dll`, `libmod_card_payment.dll`) không còn phụ thuộc DLL MinGW trên máy Windows sạch.
+- **Đóng gói đầy đủ bản cài mới:** Bổ sung `tools/ffmpeg.exe`, `tools/yt-dlp.exe`, `assets/`, `uploads/`, `database/`, `Mo_Tuong_Lua_LAN.bat` vào `release/cybernexus-store.zip`.
+
+### 21.2. Chuẩn Hóa Quy Trình 3 Luồng QR, Cổng Thanh Toán → Chuyển Bếp, Hủy Món & Hoàn/Thu Thêm (`v2026.11.16.1`)
+- **Backend CSDL & API (`slave/src/slave_handlers.cpp`):**
+  - `ensureOrderWorkflowSchema`: Bổ sung `order_type`, `paid_amount`, `settlement_status` (`settled` / `extra_due` / `refund_due` / `refunded`), `payment_verified_by`, `bank_ref`, `cancel_request_reason` trên `orders`; `cancel_status` (`none` / `pending_kitchen` / `approved` / `rejected` / `out_of_stock`) trên `order_items`; tạo bảng `payment_transactions` và `order_alerts`.
+  - **3 luồng `customer_order` (`customer.html` + `GET /api/tables?action=public_tables`):**
+    1. `dine_in` (Ngồi tại bàn): Bắt buộc chọn đúng bàn trống (`TQ1..TQ8`), chống trùng bàn trong transaction (HTTP `409` nếu bàn vừa có người đặt), trạng thái `awaiting_waiter`.
+    2. `takeaway` (Mang về tại quán): Tự động gán ô `MANG_VE` (`MV1..MV5`) trống đầu tiên, trạng thái `awaiting_payment`.
+    3. `delivery` (Giao Ship Online): `table_id = NULL`, `table_code = 'ONLINE'`, trạng thái `awaiting_payment`.
+  - **Cổng Thanh Toán Tự Động & Thủ Công → Mở khóa Chuyển Bếp:**
+    - `POST /api/payment/webhook`: Xác thực `payment_webhook_secret`, đối chiếu `order_code` & `amount >= total_amount` (chuyển thiếu đánh dấu `partial`), cập nhật `paid` (`AUTO_WEBHOOK`), tùy chọn tự đẩy Bếp (`auto_kitchen_after_qr`).
+    - `customer_mark_transfer` + `check_payment` (màn hình khách `customer.html` poll mỗi 3 giây); `confirm_payment` (Thu ngân xác nhận CK/Tiền mặt hoặc `cod_approved`); `send_to_kitchen` (chỉ mở khóa khi `dine_in` hoặc `paid` / `cod_approved`).
+  - **Hủy món, Báo hết, Hủy đơn & Quyết toán chênh lệch (`kitchen.html`, `order.html`, `pos.js`, `online_orders.js`):**
+    - Thay toàn bộ `confirm()`/`prompt()`/`alert()` hủy món, hết món, hủy đơn bằng Modal chuyên nghiệp (`#kitchen-action-modal`, `#waiter-cancel-item-modal`) qua `request_cancel_item`, `kitchen_resolve_cancel_item`, `kitchen_out_of_stock`, `kitchen_request_cancel_order`.
+    - `recalculateOrderTotalsAndSettlement` & `settle_delta`: Tự động tính `extra_due` (thu thêm) / `refund_due` (hoàn lại khách) khi đơn đã `paid` phát sinh thêm/hủy/hết món; khóa thanh toán bàn khi còn món `pending_kitchen`.
+    - Màn hình Phục vụ (`order.html`) bổ sung **Thanh Biến Động Đơn (`#waiter-action-center`)** kèm nút **[Đã báo khách]** (`ack_alert`).
+
+### 21.3. Kho Lưu Trữ & Quản Lý Tất Cả Bản Vá OTA Trên Super Admin
+- **Master (`master/src/master_handlers.cpp`, `super_admin.html`, `super_admin.js`):**
+  - Mọi bản vá được lưu giữ theo phiên bản tại `master/updates/archive/<version>/` (`patch.zip` + `manifest.json`), hỗ trợ tải theo phiên bản qua `GET /api/updates/download?version=...`.
+  - Bổ sung action `list_patches`, `activate_patch` (kích hoạt / rollback tức thì), `delete_patch` và thẻ **Kho Lưu Trữ & Quản Lý Tất Cả Bản Vá OTA** ngay trên **Super Admin → Cài Đặt SaaS & VietQR**.
+  - Đã lưu bản `v2026.11.16.1` vào kho lưu trữ và biên dịch thành công `cybernexus_master.exe` & `cybernexus_slave.exe` (`exit code 0`).
+
+---
+
+## 22. Hoàn Thiện Hệ Sinh Thái Vận Hành, SLA Cao/Thấp Điểm, KPI Tự Động, Đánh Giá Sao & Phát Hành Chính Thức `v1.0.0` (16/11/2026)
+
+### 22.1. Tách Module Promotion & Voucher Engine (18 Modules Bản Quyền)
+- Tách riêng `promo_voucher_engine` khỏi `advertising_promotions` trong bộ kiểm soát bản quyền (`shared/include/license.hpp`, `master/src/master_license.cpp`, `slave/src/slave_license.cpp`, `admin.html`, `super_admin.html`), giúp Super Admin phân gói truyền thông quảng cáo và gói khuyến mãi/voucher độc lập, dễ quản lý.
+
+### 22.2. Chuẩn Hóa OTA Update 1 Cửa Sổ CMD, Theo Dõi Phiên Bản & Chọn Phiên Bản Đẩy Từ Kho Lưu Trữ (`v2026.11.16.10` – `v2026.11.16.11`)
+- **Sửa triệt để lỗi OTA Restart (`slave/src/slave_updater.h`):** Tối ưu script `apply_exe_update.bat` khởi động lại tiến trình quán chỉ giữ đúng **1 cửa sổ CMD duy nhất**, giải phóng cổng 8501 sạch trước khi mở lại.
+- **Migration CSDL sạch:** Kiểm tra `PRAGMA table_info` trước khi `ALTER TABLE` để loại bỏ hoàn toàn cảnh báo `duplicate column name` khi khởi động quán.
+- **Hiển thị phiên bản trên Quản trị Quán (`admin.html`, `admin.js`):** Bổ sung `applied_version` vào `/api/system/updates` và badge `#store-app-version-pill` trên header để chủ quán theo dõi trực tiếp phiên bản đã cập nhật.
+- **Super Admin chọn phiên bản đẩy OTA (`master_handlers.cpp`, `super_admin.html`, `super_admin.js`):** Modal `#modal-push-update` tự động tải toàn bộ danh sách bản vá từ `master/updates/archive/` (`list_patches`), sắp xếp mới nhất lên đầu (mặc định chọn bản mới nhất) và hỗ trợ đẩy bất kỳ phiên bản nào xuống quán qua `/api/updates/download?version=...`.
+
+### 22.3. Theo Dõi Bếp Chấm Vàng, Nút "Hối", Khung Giờ Cao/Thấp Điểm (SLA), KPI Tự Động & Đánh Giá Sao (`v2026.11.16.12`)
+- **Chấm vàng nhấp nháy & Nút Hối (`order.html`, `pos.js`, `kitchen.html`, `slave_handlers.cpp`):**
+  - Đơn đã chuyển bếp (`kitchen_status = 'pending'`) luôn hiển thị chấm vàng nhấp nháy trên màn hình Phục vụ và Thu ngân (kể cả khi bàn đã gắn nhãn `Đã TT`).
+  - Quá mốc SLA bếp làm sẽ tự động nổi nút **`Hối`** (`rush_kitchen`), đồng bộ chuông báo khẩn và nhãn **`HỐI MÓN (xN)`** sang màn hình Bếp (`kitchen.html`).
+  - Quá mốc SLA phục vụ bưng ra sau khi bếp báo xong, nút **`Báo Lại`** trên màn hình Bếp nổi cảnh báo nhắc phục vụ (`Báo Lại (Nhắc PV)`).
+- **Thiết lập Mốc Thời Gian Cao Điểm / Thấp Điểm & KPI (`admin.html`, `admin.js`, `slave_handlers.cpp`):**
+  - Tạo các bảng `sla_time_slots`, `kpi_sla_settings`, `kpi_logs`, `order_reviews` với cấu hình mặc định (Thấp điểm: Bếp 10p / Phục vụ 3p; Cao điểm Sáng/Trưa/Tối: Bếp 15p / Phục vụ 5p; Điểm nền KPI `100`, đúng hạn `+2`, bị hối `-5`, bị Báo lại `-3`, đánh giá 5⭐ `+5` đến 1⭐ `-5`).
+  - Chủ quán tự thêm/bật-tắt/xóa khung giờ và chỉnh sửa toàn bộ điểm cộng/trừ KPI & Sao trong **Nhân Sự & Bếp → KPI & Thưởng**.
+- **Đánh giá Sao sau khi hoàn thành đơn (`customer.html`):** Hiển thị khung đánh giá **1–5 sao** kèm góp ý khi đơn đạt `completed` hoặc `served` (`POST /api/orders?action=submit_review`), tự động cộng/trừ KPI cho nhân viên liên quan.
+
+### 22.4. Thông Báo Đơn QR Mới Cho Phục Vụ & Thu Ngân, Chống Văng Trang Khách (`v2026.11.16.13` – `v2026.11.16.14`)
+- **Thông báo đơn QR mới (`pos.js`, `order.html`):** Khi có đơn QR mới (`qr_table_pending`, `qr_payment_pending`), cả Thu ngân và Phục vụ đều phát chuông, hiện thông báo nổi và nút thao tác nhanh (`Mở bàn`, `Chuyển Bếp`, `Đã xem`).
+- **Bảo vệ điều hướng nhân viên (`customer.html`):** Tự động điều hướng nhân viên (`waiter` → `order.html`, `cashier` → `index.html`, `kitchen` → `kitchen.html`) nếu vô tình truy cập trang khách (trừ khi mở xem qua `?table=` hoặc `?preview=1`), kèm nút quay về nhanh trên header.
+
+### 22.5. Đánh Dấu Phát Hành Chính Thức Phiên Bản Đầu Tiên (`v1.0.0` - Master & Slave `2026.11.16.14`)
+- **Master Server:** `master/cybernexus_master.exe` (biên dịch tĩnh MinGW, hỗ trợ SaaS Licensing 18 modules, Đại lý, AI Vault & Quota, Quản lý & Đẩy OTA chọn phiên bản).
+- **Slave Store Server:** `slave/cybernexus_slave.exe` (`v2026.11.16.14`, gói OTA `master/updates/patch_latest.zip` & `release/store_patch_update.zip`, `2,955,158` bytes).
+- **GitHub Tag phát hành chính thức:** `v1.0.0` trên nhánh `main` (`https://github.com/hungiron-max/CYBERNEXUS-OS.git`).

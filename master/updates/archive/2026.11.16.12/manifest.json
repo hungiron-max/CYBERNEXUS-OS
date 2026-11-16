@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.12",
+    "title": "Chấm vàng theo dõi Bếp, nút Hối quá giờ, SLA Cao/Thấp điểm, KPI tự động & Đánh giá Sao",
+    "notes": "Bổ sung chấm vàng nhấp nháy theo dõi đơn chuyển bếp, nút Hối khi quá SLA, cấu hình khung giờ Cao điểm/Thấp điểm, tự động chấm điểm KPI cho Bếp & Phục vụ (bị hối, Báo lại, đúng hạn, đánh giá sao) và khung đánh giá 1-5 sao cho khách hàng.",
+    "created_at": "2026-11-16 11:40:04",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

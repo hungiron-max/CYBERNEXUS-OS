@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.7",
+    "title": "Chủ động kiểm tra OTA từ Master & P&L Real-time chu kỳ tháng",
+    "notes": "Tự động check Master khi mở Admin hoặc bấm badge Chủ Quán (không bị lỡ bản vá khi tunnel mất kết nối tạm thời); so sánh version với ota_applied_version; P&L tính real-time từ ngày 01 đến hiện tại.",
+    "created_at": "2026-11-16 09:54:26",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

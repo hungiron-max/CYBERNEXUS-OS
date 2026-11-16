@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.11",
+    "title": "Hiển thị số hiệu phiên bản đã cập nhật trên trang Quản trị Quán",
+    "notes": "Bổ sung applied_version vào /api/system/updates và hiển thị badge số hiệu phiên bản hiện tại (#store-app-version-pill) ngay trên header trang Quản trị Quán; kèm đầy đủ sửa lỗi 1 CMD khi OTA restart, Promotion & Voucher Engine và P&L Real-time.",
+    "created_at": "2026-11-16 10:34:41",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}

@@ -1,0 +1,20 @@
+{
+    "version": "2026.11.16.5",
+    "title": "Tự động ẩn thông báo OTA sau khi cập nhật & Hoàn thiện quy trình Hủy/Chốt đơn",
+    "notes": "Tự động đánh dấu đã đọc thông báo SYSTEM_UPDATE và lưu ota_applied_version sau khi cập nhật thành công; đầy đủ quy trình 3 luồng QR, cổng thanh toán, hủy món/đơn & hoàn/thu thêm.",
+    "created_at": "2026-11-16 09:41:10",
+    "files": [
+        "cybernexus_slave.exe",
+        "RUN_SLAVE.bat",
+        "web/admin.html",
+        "web/index.html",
+        "web/kitchen.html",
+        "web/order.html",
+        "web/customer.html",
+        "web/online_orders.html",
+        "web/assets/js/admin.js",
+        "web/assets/js/pos.js",
+        "web/assets/js/online_orders.js",
+        "web/assets/js/date_format_ddmmyy.js"
+    ]
+}
