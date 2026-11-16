@@ -277,6 +277,10 @@ int main(int argc, char* argv[]) {
     svr.Get("/customer.html", serveView("customer"));
     svr.Get("/customer.php", serveView("customer"));
 
+    // Trang WiFi Marketing (Captive Portal)
+    svr.Get("/wifi", serveView("wifi"));
+    svr.Get("/wifi.html", serveView("wifi"));
+
     svr.Get("/login", serveView("login"));
     svr.Get("/login.html", serveView("login"));
     svr.Get("/login.php", serveView("login"));

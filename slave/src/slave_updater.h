@@ -44,7 +44,7 @@ public:
 
     nlohmann::json getStatus() {
         nlohmann::json notifs = nlohmann::json::array();
-        std::string appliedVer = "2026.11.16.17";
+        std::string appliedVer = "2026.11.16.18";
         try {
             notifs = Database::instance().query(
                 "SELECT id, type, table_code as version, title, message, is_read_cashier as is_read, created_at "

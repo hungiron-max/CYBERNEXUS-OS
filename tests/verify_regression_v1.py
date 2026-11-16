@@ -38,6 +38,7 @@ def check_js_syntax():
         "slave/web/order.html",
         "slave/web/kitchen.html",
         "slave/web/customer.html",
+        "slave/web/wifi.html",
     ]
     for rel in html_files:
         p = os.path.join(ROOT, rel.replace("/", os.sep))

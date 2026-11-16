@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WiFi Marketing &amp; Kết Nối VIP — CyberNexus OS</title>
+    <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-md space-y-4">
+        <!-- Header -->
+        <div class="liquid-glass rounded-2xl p-4 border border-sky-500/30 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-lg">
+                    <i class="fas fa-wifi text-lg"></i>
+                </div>
+                <div>
+                    <h1 id="wifi-store-name" class="text-sm font-black text-white uppercase tracking-wide">CYBERNEXUS COFFEE &amp; TEA</h1>
+                    <p class="text-[11px] text-sky-300 font-semibold">Cổng Kết Nối WiFi &amp; Ưu Đãi Tại Quán</p>
+                </div>
+            </div>
+            <span id="wifi-client-ip" class="text-[10px] font-mono px-2 py-1 rounded-lg bg-slate-900 border border-white/10 text-slate-400">LAN</span>
+        </div>
+
+        <!-- Khối 1: Banner Quảng cáo (từ advertising_promotions) -->
+        <div id="wifi-ad-box" class="liquid-glass rounded-2xl overflow-hidden border border-white/10 relative min-h-[160px] flex items-end p-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
+            <img id="wifi-ad-img" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover opacity-55" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
+            <div class="relative z-10 space-y-1">
+                <span id="wifi-ad-badge" class="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/40">ƯU ĐÃI HÔM NAY</span>
+                <h2 id="wifi-ad-title" class="text-base font-black text-white">Chào mừng quý khách đến với quán!</h2>
+                <p id="wifi-ad-sub" class="text-xs text-slate-300">Kết nối WiFi nhanh chóng &amp; đặt món trực tiếp qua điện thoại.</p>
+            </div>
+        </div>
+
+        <!-- Khối 2: Cổng kích hoạt WiFi (Miễn phí / VIP theo hóa đơn) -->
+        <div class="liquid-glass rounded-2xl p-4 border border-white/10 space-y-3.5">
+            <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-900/90 border border-white/10 text-xs font-bold">
+                <button type="button" id="tab-wifi-free" onclick="switchWifiTab('free')" class="py-2 rounded-lg bg-sky-500 text-white shadow">
+                    <i class="fas fa-signal mr-1"></i> WiFi Miễn Phí (5M)
+                </button>
+                <button type="button" id="tab-wifi-vip" onclick="switchWifiTab('vip')" class="py-2 rounded-lg text-slate-400 hover:text-white">
+                    <i class="fas fa-crown text-amber-400 mr-1"></i> WiFi VIP (50M)
+                </button>
+            </div>
+
+            <!-- Panel Free WiFi -->
+            <div id="panel-wifi-free" class="space-y-2.5">
+                <input type="text" id="wifi-free-name" placeholder="Tên của bạn (tùy chọn)" class="liquid-input w-full py-2 px-3 text-xs" />
+                <input type="tel" id="wifi-free-phone" placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" class="liquid-input w-full py-2 px-3 text-xs" />
+                <button type="button" onclick="unlockWifi('free')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 font-black text-xs shadow-lg">
+                    <i class="fas fa-wifi mr-1"></i> KẾT NỐI WIFI MIỄN PHÍ NGAY
+                </button>
+            </div>
+
+            <!-- Panel VIP WiFi -->
+            <div id="panel-wifi-vip" class="hidden space-y-2.5">
+                <p class="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/30 rounded-xl p-2.5">
+                    <i class="fas fa-bolt text-amber-400 mr-1"></i> Dành riêng cho khách đã đặt món &amp; thanh toán hóa đơn tại quán (băng thông ưu tiên <b>50 Mbps</b>).
+                </p>
+                <input type="text" id="wifi-vip-order" placeholder="Nhập Mã Hóa Đơn (VD: HD261116-0001)" class="liquid-input w-full py-2 px-3 text-xs font-mono uppercase" />
+                <button type="button" onclick="unlockWifi('vip')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg">
+                    <i class="fas fa-crown mr-1"></i> MỞ KHÓA WIFI VIP TỐC ĐỘ CAO
+                </button>
+            </div>
+
+            <div id="wifi-unlock-result" class="hidden p-3 rounded-xl text-xs font-bold text-center"></div>
+        </div>
+
+        <!-- Khối 3: Điều hướng thẳng vào Menu QR -->
+        <a href="customer.html" class="block w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm text-center shadow-xl shadow-emerald-500/20">
+            <i class="fas fa-utensils mr-1.5"></i> XEM THỰC ĐƠN &amp; ĐẶT MÓN NGAY
+        </a>
+
+        <div class="text-center text-[11px] text-slate-500">
+            Powered by CyberNexus OS • Smart WiFi Marketing &amp; QoS
+        </div>
+    </div>
+
+    <script>
+        let _slides = [];
+        let _slideIdx = 0;
+
+        function switchWifiTab(mode) {
+            const isFree = mode === 'free';
+            document.getElementById('panel-wifi-free').classList.toggle('hidden', !isFree);
+            document.getElementById('panel-wifi-vip').classList.toggle('hidden', isFree);
+            document.getElementById('tab-wifi-free').className = isFree
+                ? 'py-2 rounded-lg bg-sky-500 text-white shadow'
+                : 'py-2 rounded-lg text-slate-400 hover:text-white';
+            document.getElementById('tab-wifi-vip').className = !isFree
+                ? 'py-2 rounded-lg bg-amber-500 text-slate-950 shadow font-black'
+                : 'py-2 rounded-lg text-slate-400 hover:text-white';
+        }
+
+        function renderSlide() {
+            if (!_slides.length) return;
+            const s = _slides[_slideIdx % _slides.length];
+            if (s.title) document.getElementById('wifi-ad-title').textContent = s.title;
+            if (s.subtitle) document.getElementById('wifi-ad-sub').textContent = s.subtitle;
+            if (s.badge_text) document.getElementById('wifi-ad-badge').textContent = s.badge_text;
+            const img = document.getElementById('wifi-ad-img');
+            if (s.image_url) {
+                img.src = s.image_url;
+                img.classList.remove('hidden');
+            } else {
+                img.classList.add('hidden');
+            }
+            _slideIdx++;
+        }
+
+        async function loadPortalInfo() {
+            try {
+                const res = await fetch('/api/wifi/portal_info');
+                const data = await res.json();
+                if (data.success) {
+                    if (data.store_name) document.getElementById('wifi-store-name').textContent = data.store_name;
+                    if (data.client_ip) document.getElementById('wifi-client-ip').textContent = data.client_ip;
+                    if (Array.isArray(data.slides) && data.slides.length > 0) {
+                        _slides = data.slides;
+                        renderSlide();
+                        if (_slides.length > 1) setInterval(renderSlide, 4500);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function unlockWifi(mode) {
+            const out = document.getElementById('wifi-unlock-result');
+            out.classList.remove('hidden');
+            out.className = 'p-3 rounded-xl text-xs font-bold text-center bg-sky-500/15 border border-sky-400/30 text-sky-200';
+            out.textContent = '⏳ Đang kích hoạt kết nối WiFi...';
+
+            const payload = mode === 'vip'
+                ? { mode: 'vip', order_code: (document.getElementById('wifi-vip-order').value || '').trim() }
+                : {
+                    mode: 'free',
+                    customer_name: (document.getElementById('wifi-free-name').value || '').trim(),
+                    phone: (document.getElementById('wifi-free-phone').value || '').trim()
+                };
+
+            try {
+                const res = await fetch('/api/wifi/unlock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.message || 'Không thể kích hoạt WiFi');
+                out.className = 'p-3 rounded-xl text-xs font-bold text-center bg-emerald-500/20 border border-emerald-400/40 text-emerald-300';
+                out.textContent = `✅ ${data.message}`;
+            } catch (e) {
+                out.className = 'p-3 rounded-xl text-xs font-bold text-center bg-rose-500/20 border border-rose-400/40 text-rose-300';
+                out.textContent = `❌ ${e.message}`;
+            }
+        }
+
+        loadPortalInfo();
+    </script>
+</body>
+</html>

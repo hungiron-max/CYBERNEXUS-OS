@@ -7313,6 +7313,108 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         sendJson(res, {{"success", true}, {"allowed", true}, {"recommended_eq_preset", recommendedPreset}});
     });
 
+    // WiFi Marketing Captive Portal (Lấy slide quảng cáo & mở khóa WiFi VIP theo hóa đơn)
+    auto ensureWifiLeadsSchema = [](Database& db) {
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS wifi_marketing_leads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer_name TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
+                client_ip TEXT DEFAULT '',
+                unlock_type TEXT DEFAULT 'free_basic',
+                order_code TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+    };
+
+    svr.Get("/api/wifi/portal_info", [](const httplib::Request& req, httplib::Response& res) {
+        auto& db = Database::instance();
+        std::string storeName = "CYBERNEXUS COFFEE & TEA";
+        auto snRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'store_name'");
+        if (!snRow.is_null() && !snRow.value("setting_value", "").empty()) storeName = snRow.value("setting_value", "");
+        json slides = json::array();
+        try {
+            slides = db.query("SELECT id, title, subtitle, badge_text, image_url FROM ad_slides WHERE is_active = 1 ORDER BY sort_order ASC, id ASC LIMIT 6");
+        } catch (...) {}
+        sendJson(res, {
+            {"success", true},
+            {"store_name", storeName},
+            {"client_ip", req.remote_addr},
+            {"slides", slides}
+        });
+    });
+
+    svr.Post("/api/wifi/unlock", [ensureWifiLeadsSchema](const httplib::Request& req, httplib::Response& res) {
+        auto& db = Database::instance();
+        ensureWifiLeadsSchema(db);
+        json body = parseBody(req);
+        std::string mode = getString(body, "mode", "free");
+        std::string phone = getString(body, "phone", "");
+        std::string cname = getString(body, "customer_name", "");
+        std::string orderCode = getString(body, "order_code", "");
+        std::string clientIp = req.remote_addr.empty() ? getString(body, "client_ip", "127.0.0.1") : req.remote_addr;
+
+        if (mode == "vip") {
+            if (orderCode.empty()) {
+                sendError(res, "Vui lòng nhập Mã hóa đơn đã thanh toán để mở WiFi VIP!", 400);
+                return;
+            }
+            auto ord = db.queryRow(
+                "SELECT id, order_code, payment_status, status FROM orders WHERE UPPER(order_code) = UPPER(:oc) LIMIT 1",
+                {{":oc", orderCode}}
+            );
+            if (ord.is_null() || (ord.value("payment_status", "") != "paid" && ord.value("status", "") != "completed")) {
+                sendError(res, "Mã hóa đơn chưa tồn tại hoặc chưa thanh toán!", 400);
+                return;
+            }
+            int64_t ordId = ord.value("id", int64_t(0));
+            std::string realCode = ord.value("order_code", orderCode);
+            db.execute(
+                "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'vip_order', :oc)",
+                {{":cn", cname}, {":ph", phone}, {":ip", clientIp}, {":oc", realCode}}
+            );
+            CyberNexus::PluginManager::instance().dispatchEvent("ORDER_PAID", {
+                {"order_id", ordId},
+                {"order_code", realCode},
+                {"client_ip", clientIp}
+            });
+            sendJson(res, {
+                {"success", true},
+                {"tier", "vip_high_speed"},
+                {"speed", "50 Mbps"},
+                {"client_ip", clientIp},
+                {"order_code", realCode},
+                {"message", "Đã kích hoạt WiFi VIP tốc độ cao (50 Mbps) cho hóa đơn " + realCode + "!"}
+            });
+            return;
+        }
+
+        db.execute(
+            "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'free_basic', '')",
+            {{":cn", cname}, {":ph", phone}, {":ip", clientIp}}
+        );
+        sendJson(res, {
+            {"success", true},
+            {"tier", "free_basic"},
+            {"speed", "5 Mbps"},
+            {"client_ip", clientIp},
+            {"message", "Đã kết nối WiFi Miễn phí (5 Mbps)! Chúc quý khách trải nghiệm vui vẻ."}
+        });
+    });
+
+    svr.Get("/api/wifi/leads", [ensureWifiLeadsSchema](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Unauthorized", 403);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureWifiLeadsSchema(db);
+        json rows = db.query("SELECT * FROM wifi_marketing_leads ORDER BY id DESC LIMIT 100");
+        sendJson(res, {{"success", true}, {"data", rows}});
+    });
+
     // Store OTA Update & System Notification Endpoints
     svr.Get("/api/system/updates", [](const httplib::Request&, httplib::Response& res) {
         sendJson(res, SlaveUpdateManager::instance().getStatus());

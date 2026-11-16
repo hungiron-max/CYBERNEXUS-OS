@@ -217,6 +217,12 @@ def run_e2e():
             if st == 200:
                 assert net_res.get("status") == "success"
 
+            # 7. Verify WiFi Marketing Portal Info & Unlock
+            st, wp_res = http_req(base_url, "/api/wifi/portal_info")
+            assert st == 200 and wp_res.get("success"), f"wifi portal_info failed: {wp_res}"
+            st, wu_res = http_req(base_url, "/api/wifi/unlock", method="POST", body={"mode": "free", "customer_name": "Test", "phone": "0909123456"})
+            assert st == 200 and wu_res.get("success") and wu_res.get("tier") == "free_basic", f"wifi unlock failed: {wu_res}"
+
             print("E2E_API_TESTS_PASSED")
         finally:
             proc.terminate()
