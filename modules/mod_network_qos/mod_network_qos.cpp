@@ -68,6 +68,37 @@ class NetworkQosPlugin : public IModulePlugin {
         return false;
     }
 
+    static bool isSafeHostOrIp(const std::string& s) {
+        if (s.empty() || s.size() > 64) return false;
+        for (char c : s) {
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c == '-' || c == ':')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool applyEdgeRouterSsh(const std::string& ip, const std::string& qos, std::string& msgOut) {
+        std::string host = m_cfg.value("host", "");
+        std::string user = m_cfg.value("username", "ubnt");
+        int port = m_cfg.value("port", 22);
+        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(ip) || !isSafeHostOrIp(user)) {
+            msgOut = "Tham số IP/Host EdgeRouter không hợp lệ!";
+            return false;
+        }
+        std::string rate = (qos == "vip_high_speed") ? "50mbit" : (qos == "blocked" ? "8kbit" : "5mbit");
+        std::string remoteCmd = "sudo tc class change dev eth0 parent 1: classid 1:10 htb rate " + rate + " || true";
+        std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "
+            + std::to_string(port) + " " + user + "@" + host + " \"" + remoteCmd + "\"";
+        int rc = std::system(cmd.c_str());
+        if (rc == 0) {
+            msgOut = "EdgeRouter SSH đã cập nhật QoS (" + rate + ") cho " + ip;
+            return true;
+        }
+        msgOut = "EdgeRouter SSH không phản hồi (kiểm tra SSH key hoặc IP " + host + ")";
+        return false;
+    }
+
 public:
     ModuleMetadata getMetadata() const override {
         ModuleMetadata m;
@@ -164,7 +195,7 @@ public:
                 if (rType == "mikrotik" && !ip.empty()) {
                     ok = applyMikrotikQueue(ip, qos, msg);
                 } else if (rType == "edgerouter" && !ip.empty()) {
-                    msg = "Đã gửi lệnh EdgeRouter SSH QoS (" + qos + ") cho " + ip + ".";
+                    ok = applyEdgeRouterSsh(ip, qos, msg);
                 }
                 res.status = ok ? 200 : 502;
                 res.set_content(json({{"status", ok ? "success" : "error"}, {"mode", rType}, {"ip", ip}, {"qos", qos}, {"message", msg}}).dump(2), "application/json; charset=utf-8");

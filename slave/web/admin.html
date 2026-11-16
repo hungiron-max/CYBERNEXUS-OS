@@ -2856,6 +2856,34 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Quản Trị Mạng & Router QoS (MikroTik / EdgeRouter) -->
+                        <div class="pt-3 border-t border-white/10 space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                    <i class="fas fa-network-wired text-emerald-400"></i>
+                                    <span>Quản Trị Mạng &amp; Router QoS (MikroTik / EdgeRouter VIP WiFi)</span>
+                                </div>
+                                <button type="button" onclick="Admin.loadRouterDevices()" class="btn-glass text-[11px] py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border-white/10 font-bold">
+                                    <i class="fas fa-sync-alt mr-1"></i> Quét Thiết Bị LAN
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
+                                <select id="rq-type" class="liquid-input py-1.5 px-2 text-xs bg-slate-900">
+                                    <option value="simulation">Mô phỏng</option>
+                                    <option value="mikrotik">MikroTik REST</option>
+                                    <option value="edgerouter">EdgeRouter SSH</option>
+                                </select>
+                                <input type="text" id="rq-host" placeholder="IP Router (192.168.88.1)" class="liquid-input py-1.5 px-2 text-xs font-mono" />
+                                <input type="number" id="rq-port" placeholder="Port (80/22)" class="liquid-input py-1.5 px-2 text-xs font-mono" />
+                                <input type="text" id="rq-user" placeholder="User (admin)" class="liquid-input py-1.5 px-2 text-xs font-mono" />
+                                <input type="password" id="rq-pass" placeholder="Mật khẩu Router" class="liquid-input py-1.5 px-2 text-xs font-mono" autocomplete="off" />
+                                <button type="button" onclick="Admin.saveRouterQosConfig()" class="btn-glass text-xs py-1.5 px-2.5 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-400/40 font-bold">
+                                    <i class="fas fa-save mr-1"></i> Lưu Router
+                                </button>
+                            </div>
+                            <div id="router-qos-devices-list" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+                        </div>
                     </div>
 
                     <div class="flex justify-end pt-2">

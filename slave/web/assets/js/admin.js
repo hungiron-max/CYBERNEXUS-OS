@@ -3168,6 +3168,73 @@ const Admin = {
         }
     },
 
+    async loadRouterDevices() {
+        try {
+            const [cfgRes, devRes] = await Promise.all([
+                fetch('/api/network/config').then(r => r.json()).catch(() => ({})),
+                fetch('/api/network/devices').then(r => r.json()).catch(() => ({}))
+            ]);
+            if (cfgRes && cfgRes.config) {
+                const c = cfgRes.config;
+                if (document.getElementById('rq-type')) document.getElementById('rq-type').value = c.router_type || 'simulation';
+                if (document.getElementById('rq-host')) document.getElementById('rq-host').value = c.host || '';
+                if (document.getElementById('rq-port')) document.getElementById('rq-port').value = c.port || 80;
+                if (document.getElementById('rq-user')) document.getElementById('rq-user').value = c.username || '';
+            }
+            const listEl = document.getElementById('router-qos-devices-list');
+            if (listEl && devRes && Array.isArray(devRes.devices)) {
+                listEl.innerHTML = devRes.devices.map(d => `
+                    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-[11px]">
+                        <div>
+                            <b class="text-white">${d.name || 'Thiết bị'}</b>
+                            <span class="font-mono text-sky-300 ml-1.5">${d.ip}</span>
+                            <span class="font-mono text-slate-400 ml-1">(${d.mac || ''})</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="Admin.setDeviceQos('${d.ip}', 'vip_high_speed')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold">VIP</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${d.ip}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Cơ bản</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${d.ip}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">Chặn</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {}
+    },
+
+    async saveRouterQosConfig() {
+        try {
+            const payload = {
+                router_type: document.getElementById('rq-type')?.value || 'simulation',
+                host: (document.getElementById('rq-host')?.value || '').trim(),
+                port: Number(document.getElementById('rq-port')?.value || 80),
+                username: (document.getElementById('rq-user')?.value || '').trim(),
+                password: document.getElementById('rq-pass')?.value || ''
+            };
+            const res = await fetch('/api/network/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                this.showToast(data.message || 'Đã lưu cấu hình Router QoS!', 'success');
+                this.loadRouterDevices();
+            }
+        } catch (e) { alert('Lỗi lưu cấu hình Router'); }
+    },
+
+    async setDeviceQos(ip, qos) {
+        try {
+            const res = await fetch('/api/network/qos/set', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, qos })
+            });
+            const data = await res.json();
+            this.showToast(data.message || `Đã đặt ${qos} cho ${ip}`, data.status === 'success' ? 'success' : 'error');
+        } catch (e) { alert('Lỗi cập nhật QoS'); }
+    },
+
     openBillingModal() {
         const m = document.getElementById('modal-store-billing');
         if (m) m.classList.remove('hidden');

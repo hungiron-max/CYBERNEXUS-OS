@@ -68,6 +68,7 @@ endif()
 set(SLAVE_SRCS
     ${SHARED_SRCS}
     slave/src/slave_license.cpp
+    slave/src/slave_license_handlers.cpp
     slave/src/slave_handlers.cpp
     slave/src/main_slave.cpp
 )
