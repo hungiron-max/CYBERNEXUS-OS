@@ -131,6 +131,13 @@ int main(int argc, char* argv[]) {
     httplib::Server svr;
     g_server = &svr;
 
+    svr.set_default_headers({
+        {"X-Content-Type-Options", "nosniff"},
+        {"X-Frame-Options", "SAMEORIGIN"},
+        {"Referrer-Policy", "strict-origin-when-cross-origin"},
+        {"Content-Security-Policy", "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://img.vietqr.io https://api.vietqr.io https:; media-src 'self' data: blob:; connect-src 'self' ws: wss: https://api.vietqr.io https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"}
+    });
+
     // BẢO MẬT KHO NHẠC: Mọi API Media/Jukebox và file nhạc tĩnh chỉ dành cho người dùng ĐÃ ĐĂNG NHẬP.
     // Khách vãng lai (chưa đăng nhập) không được truy cập kho nhạc / hàng đợi / EQ.
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {

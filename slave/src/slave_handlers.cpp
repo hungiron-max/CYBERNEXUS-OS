@@ -5272,6 +5272,11 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
         }
 
         if (req.method == "POST") {
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendJson(res, {{"success", false}, {"message", "Bạn không có quyền thay đổi cấu hình quán (yêu cầu Admin)!"}}, 403);
+                return;
+            }
             if (body.empty()) {
                 sendJson(res, {{"success", false}, {"message", "Không có dữ liệu gửi lên!"}}, 400);
                 return;

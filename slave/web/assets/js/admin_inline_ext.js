@@ -18,13 +18,17 @@ async function handleAdminShutdownHost() {
     if (!confirm('XÁC NHẬN TẮT MÁY CHỦ C++?\n\nToàn bộ kết nối POS, Bếp và Khách sẽ tạm dừng.\nDữ liệu hóa đơn và doanh thu sẽ được tự động lưu an toàn.')) return;
     try {
         const token = localStorage.getItem('pos_token') || '';
+        if (!token) {
+            alert('Vui lòng đăng nhập lại bằng tài khoản Admin trước khi tắt máy chủ.');
+            return;
+        }
         await fetch('/api/system/control', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
             },
-            body: JSON.stringify({ action: 'stop', pin: '9999' })
+            body: JSON.stringify({ action: 'stop' })
         });
         alert('Máy chủ C++ đã dừng an toàn thành công!\nBạn có thể đóng trình duyệt.');
     } catch(e) {
@@ -1135,9 +1139,13 @@ async function saveStoreSettings(e) {
     formData.forEach((value, key) => { payload[key] = value; });
 
     try {
+        const token = localStorage.getItem('pos_token') || '';
         const res = await fetch('api/settings.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(payload)
         });
         const data = await res.json();

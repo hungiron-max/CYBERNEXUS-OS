@@ -119,6 +119,13 @@ int main(int argc, char* argv[]) {
     svr.new_task_queue = [] { return new httplib::ThreadPool(128); };
     g_server = &svr;
 
+    svr.set_default_headers({
+        {"X-Content-Type-Options", "nosniff"},
+        {"X-Frame-Options", "SAMEORIGIN"},
+        {"Referrer-Policy", "strict-origin-when-cross-origin"},
+        {"Content-Security-Policy", "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://img.vietqr.io https://api.vietqr.io https:; media-src 'self' data: blob:; connect-src 'self' ws: wss: https://api.vietqr.io https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"}
+    });
+
     // Static files mount
     fs::path webDir = config.getWebDir();
     fs::path assetsDir = webDir / "assets";
