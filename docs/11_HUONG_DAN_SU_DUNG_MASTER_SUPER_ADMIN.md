@@ -127,3 +127,23 @@ sequenceDiagram
 | Quán báo `Offline` dù đang mở | Chưa bật kênh WAN hoặc đổi IP Master | Kiểm tra `server_ip` / URL Master trong cài đặt quán khớp với IP máy Master (`port 8500`). |
 | Quán gọi AI báo lỗi HTTP `402` | Hết AI Credit tháng | Mở quản lý cửa hàng trên Super Admin → nạp thêm `ai_bonus_credits` hoặc tăng `ai_monthly_quota`. |
 | Đẩy OTA xong giao diện chưa đổi | Trình duyệt giữ cache cũ | Nhắc quán bấm `Ctrl + F5` (hoặc vuốt tải lại trên điện thoại). |
+
+
+---
+
+## 8. Cấu Hình Mạng WAN Cho Master Server (Router + Firewall + DNS)
+
+Để các quán (Slave) ở mạng ngoài (VNPT/Viettel/FPT/4G) kết nối được vào Master qua tên miền (VD: `http://hungtien.net:8500`):
+
+1. **Đặt IP LAN tĩnh cho máy Master** (VD: `10.0.126.159`).
+2. **Mở Port Forwarding trên Router chính (VD: TP-Link Archer):**
+   - `External Port: 8500` → `Internal Port: 8500`, `Protocol: TCP/All`, `Device IP: 10.0.126.159`.
+   - Kiểm tra Router nhận **IP WAN Public thật** (khớp IP hiển thị trên `ping.eu`, không phải dải CGNAT `100.64.x.x`).
+3. **Mở Windows Firewall trên máy Master:**
+   ```powershell
+   netsh advfirewall firewall add rule name="CyberNexus Master 8500" dir=in action=allow protocol=TCP localport=8500 profile=any
+   ```
+4. **Kiểm tra DNS (tránh lỗi `AAAA` IPv6):**
+   - Chạy `nslookup <ten-mien> 8.8.8.8`. Nếu thấy có cả bản ghi **IPv6 (`AAAA`)** trong khi Master/Router chỉ mở Port Forward IPv4, hãy **xóa bản ghi `AAAA`** trên trang quản trị DNS, chỉ giữ bản ghi `A` (IPv4).
+5. **Lưu ý khi test cùng mạng LAN (NAT Loopback):**
+   - Máy Slave nằm **cùng mạng LAN** với Master nên dùng IP LAN (`http://10.0.126.159:8500`) nếu modem chặn NAT Loopback; các quán ở ngoài mạng dùng `http://<ten-mien>:8500`.

@@ -119,3 +119,64 @@ flowchart TD
    - Tạo mã VietQR động đúng số tiền (sau khi áp dụng Voucher nếu có) → bấm **`Tôi đã chuyển khoản xong`** để báo Thu ngân/Webhook xác nhận.
    - Theo dõi tiến độ món theo thời gian thực (*Đang chế biến → Đã xong → Đã bưng ra / Hoàn tất*).
 3. **Đánh giá 1–5 Sao:** Sau khi đơn hoàn thành, khách chọn số sao và nhập góp ý trực tiếp trên màn hình.
+
+
+---
+
+## 7. Cấu Hình WiFi Marketing (EdgeRouter X + UniFi Controller) & Quản Lý Băng Thông VIP
+
+### 7.1. Chuẩn bị hạ tầng mạng tại quán
+1. **Cố định IP máy chủ Slave trên EdgeRouter X (`172.16.0.1`):**
+   - Vào **Services → DHCP → Actions → View Leases**, tìm máy Slave → bấm **Map Static IP** (VD: `172.16.38.119`).
+   - Tại tab **Details** của DHCP Server: đặt **DNS 1 = `172.16.0.1`**, để trống DNS 2.
+2. **Mở Firewall trên máy Slave (`172.16.38.119`) cho cả Slave (`8501`) và UniFi Portal (`8880, 8843`):**
+   ```powershell
+   netsh advfirewall firewall add rule name="CyberNexus & UniFi Portal" dir=in action=allow protocol=TCP localport=8501,8880,8843 profile=any
+   ```
+
+### 7.2. Cấu hình UniFi Controller (Hotspot Portal)
+1. **Tạo WiFi khách (`Settings → WiFi`):**
+   - `Security Protocol`: **Open**
+   - `Application`: **Hotspot** → `Hotspot Type`: **Captive Portal**
+2. **Cấu hình `Hotspot Portal`:**
+   - Bỏ trống `Authentication Methods` và `External Portal Server` (khách bấm 1 chạm là vào).
+   - `Landing Page Settings`: chỉ giữ **`[✓] Show Landing Page`**, bỏ tick `HTTPs Redirection Support` và `Encrypted URL`.
+   - `Pre-Authorization Allowances`: thêm **`172.16.38.119/32`** và **`172-16-38-119.sslip.io`** (thay dấu `.` bằng `-` theo IP LAN tĩnh máy Slave — không cần mua tên miền riêng, không bị ảnh hưởng bởi IP WAN động).
+   - `Post-Authorization Restrictions`: **xóa `172.16.0.0/12`** để khách sau khi nối WiFi vẫn vào được máy Slave (`wifi.html`, `customer.html`).
+   - `Success Landing Page → Custom URL`: nhập **`http://172-16-38-119.sslip.io:8501/wifi.html`** → bấm **Save**.
+
+### 7.3. Cấu hình Quản lý Băng thông VIP (`mod_network_qos`)
+1. **Cài SSH Key không mật khẩu từ máy Slave → EdgeRouter X (`172.16.0.1`):**
+   - Trên PowerShell máy Slave:
+     ```powershell
+     mkdir -Force "$env:USERPROFILE\.ssh" | Out-Null
+     ssh-keygen -t ed25519 -N '""' -f "$env:USERPROFILE\.ssh\id_ed25519"
+     Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub"
+     ```
+   - Trên EdgeRouter CLI (`ssh admin@172.16.0.1`), nhấn Enter từng dòng:
+     ```text
+     configure
+     set system login user admin authentication public-keys slave-pc type ssh-ed25519
+     set system login user admin authentication public-keys slave-pc key <CHUOI_BASE64_AAAAC3...>
+     commit
+     save
+     exit
+     ```
+   - Test lại trên máy Slave: `ssh -o BatchMode=yes admin@172.16.0.1 "echo OK"` → hiện `OK` là đạt.
+2. **Bật QoS HTB trên EdgeRouter X (`172.16.0.1`):**
+   - Vào tab **QoS → Basic Queue / Smart Queue** (hoặc cấu hình `tc` HTB `parent 1: classid 1:10` trên `eth0`) để EdgeRouter nhận lệnh đổi tốc độ `50mbit` (VIP) / `5mbit` (Cơ bản) / `8kbit` (Chặn).
+3. **Khai báo trên Slave (`admin.html` → Tab Cài đặt → Quản Trị Mạng & Router QoS):**
+   - Chọn **Loại Router:** `EdgeRouter SSH` (hoặc `MikroTik REST` nếu dùng MikroTik)
+   - **IP Router:** `172.16.0.1` | **Port:** `22` | **User:** `admin`
+   - Bấm **Lưu Router**.
+
+### 7.4. Quy trình Test thực tế (End-to-End)
+1. **Test luồng WiFi Marketing trên điện thoại:**
+   - Vào UniFi → **Clients** → **Unauthorize** điện thoại test (hoặc quên mạng WiFi), rồi kết nối lại vào WiFi quán.
+   - Bấm nút trên trang chào UniFi → trình duyệt tự chuyển sang `http://172-16-38-119.sslip.io:8501/wifi.html`.
+2. **Test mở khóa WiFi Miễn phí (`5 Mbps`) & WiFi VIP (`50 Mbps`):**
+   - Thử tab **Miễn Phí (5M)**: nhập Tên/SĐT → bấm **KẾT NỐI WIFI MIỄN PHÍ NGAY** → báo thành công & bắn confetti.
+   - Tạo 1 đơn hàng tại POS hoặc Khách hàng (`customer.html`) để lấy **Mã hóa đơn** (VD: `HD...`), quay lại `wifi.html` chọn tab **WiFi VIP (50M)** → nhập mã hóa đơn → bấm **MỞ KHÓA WIFI VIP TỐC ĐỘ CAO**.
+   - Kiểm tra dữ liệu lead trong DB (`wifi_marketing_leads`) và test tốc độ thực tế bằng `speedtest.net` / `fast.com`.
+3. **Test điều chỉnh thủ công từ Admin:**
+   - Trong `admin.html` → mục **Quản Trị Mạng & Router QoS**, bấm **Quét Thiết Bị LAN** và thử chuyển trạng thái `VIP` / `Cơ bản` / `Chặn` cho IP thiết bị test.
