@@ -151,31 +151,40 @@ Object.assign(Admin, {
 
             const kpiContainer = document.getElementById('fin-kpi-cards');
             if (kpiContainer) {
+                const covPct = Number(summary.cogs_coverage_pct ?? 100);
+                const estCogs = Number(summary.estimated_cogs || 0);
+                const netCash = Number(summary.net_cashflow || 0);
+                const cashIn = Number(summary.cash_inflow || 0);
+                const cashOut = Number(summary.cash_outflow || 0);
+                const supPaid = Number(summary.supplier_paid_in_period || 0);
+                const cogsQualityBadge = covPct >= 90
+                    ? `<span class="text-emerald-300">Giá vốn thực ${covPct}%</span>`
+                    : `<span class="text-amber-300" title="Một số món chưa có giá vốn/định lượng nên hệ thống ước tính phần thiếu">Giá vốn thực ${covPct}% (Ước tính ${this.formatMoney(estCogs)} đ)</span>`;
                 kpiContainer.innerHTML = `
                     <div class="liquid-glass-card p-3 border-l-4 border-emerald-400">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DOANH THU THỰC (${summary.order_count || 0} ĐƠN)</span>
                         <div class="text-xl font-black text-emerald-400 font-mono mt-1">${this.formatMoney(summary.revenue)} đ</div>
-                        <span class="text-[10px] text-sky-300 mt-0.5 block">Bàn đang mở: +${this.formatMoney(summary.pending_revenue || 0)} đ (${summary.pending_orders_count || 0} bàn)</span>
+                        <span class="text-[10px] text-sky-300 mt-0.5 block">Thực thu: ${this.formatMoney(cashIn)} đ • Đang mở: +${this.formatMoney(summary.pending_revenue || 0)} đ</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG CHI PHÍ KỲ (REALTIME)</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG CHI PHÍ P&amp;L (REALTIME)</span>
                         <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(totalAllCosts)} đ</div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">COGS ${this.formatMoney(summary.cogs || 0)} + Vận hành ${this.formatMoney(summary.expenses || 0)}</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">COGS ${this.formatMoney(summary.cogs || 0)} + VH ${this.formatMoney(summary.expenses || 0)} • ${cogsQualityBadge}</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 ${summary.net_profit >= 0 ? 'border-sky-400' : 'border-rose-400'}">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LỢI NHUẬN RÒNG (${netMarginPct}%)</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LỢI NHUẬN RÒNG P&amp;L (${netMarginPct}%)</span>
                         <div class="text-xl font-black ${summary.net_profit >= 0 ? 'text-sky-400' : 'text-rose-400'} font-mono mt-1">${this.formatMoney(summary.net_profit)} đ</div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">Dự phóng tháng: ${this.formatMoney(summary.projected_net_profit || 0)} đ</span>
+                        <span class="text-[10px] ${netCash >= 0 ? 'text-emerald-300' : 'text-rose-300'} mt-0.5 block" title="Dòng tiền ròng = Thực thu - (Trả NCC + Chi phí đã trả + Chi tại quầy)">Dòng tiền ròng: ${this.formatMoney(netCash)} đ (Chi ${this.formatMoney(cashOut)} đ)</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 border-purple-400">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LƯƠNG &amp; THƯỞNG (REALTIME)</span>
                         <div class="text-xl font-black text-purple-400 font-mono mt-1">${this.formatMoney(totalLabor)} đ</div>
                         <span class="text-[10px] text-slate-400 mt-0.5 block">${Number(summary.labor_hours || 0).toFixed(1)}h công • ${summary.working_staff_count || 0} NV đang trực</span>
                     </div>
-                    <div class="liquid-glass-card p-3 border-l-4 border-teal-400">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CÔNG NỢ &amp; NHẬP KHO</span>
-                        <div class="text-sm font-black text-teal-300 font-mono mt-1">Thu: ${this.formatMoney(totalReceivable)} đ</div>
-                        <span class="text-[10px] text-amber-300 mt-0.5 block">Trả NCC: ${this.formatMoney(totalPayable)} đ • Nhập kho: ${this.formatMoney(summary.material_import_cost || 0)} đ</span>
+                    <div class="liquid-glass-card p-3 border-l-4 border-teal-400 cursor-pointer hover:bg-white/[0.03]" onclick="Admin.openSupplierFinanceModal()" title="Bấm để xem &amp; thanh toán chi tiết công nợ Nhà cung cấp">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CÔNG NỢ &amp; KHO HÀNG <i class="fas fa-arrow-up-right-from-square ml-1 text-teal-400"></i></span>
+                        <div class="text-sm font-black text-rose-300 font-mono mt-1">Nợ phải trả: ${this.formatMoney(totalPayable)} đ</div>
+                        <span class="text-[10px] text-amber-300 mt-0.5 block">Đã trả NCC: ${this.formatMoney(supPaid)} đ • Nhập kho: ${this.formatMoney(summary.material_import_cost || 0)} đ</span>
                     </div>
                 `;
             }

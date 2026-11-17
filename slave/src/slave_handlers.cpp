@@ -4367,6 +4367,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     SELECT COALESCE(SUM(CASE WHEN category NOT IN ('Nguyên Vật Liệu', 'Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
                            COALESCE(SUM(CASE WHEN category IN ('Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as bonus_expenses,
                            COALESCE(SUM(CASE WHEN category = 'Nguyên Vật Liệu' THEN amount ELSE 0 END), 0) as nvl_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') != 'unpaid' THEN amount ELSE 0 END), 0) as paid_expenses,
                            COALESCE(SUM(amount), 0) as total_expenses,
                            COALESCE(SUM(vat_amount), 0) as vat_input,
                            COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') = 'unpaid' THEN amount ELSE 0 END), 0) as payable_debt,
@@ -4378,9 +4379,30 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 double opexExpenses = getDouble(expAgg, "opex_expenses", 0.0);
                 double bonusCost = getDouble(expAgg, "bonus_expenses", 0.0);
                 double nvlExpenses = getDouble(expAgg, "nvl_expenses", 0.0);
+                double paidFinanceExpenses = getDouble(expAgg, "paid_expenses", 0.0);
                 double vatInput = getDouble(expAgg, "vat_input", 0.0);
-                double payableDebt = getDouble(expAgg, "payable_debt", 0.0);
-                int64_t payableCount = getInt(expAgg, "payable_count", 0);
+                double expPayableDebt = getDouble(expAgg, "payable_debt", 0.0);
+                int64_t expPayableCount = getInt(expAgg, "payable_count", 0);
+
+                // Merge Supplier Invoices Payables & Payments (Công nợ & thực trả Nhà Cung Cấp)
+                double supplierPayableDebt = 0.0;
+                int64_t supplierPayableCount = 0;
+                double supplierPaidInPeriod = 0.0;
+                try {
+                    json supDebtRow = db.queryRow(R"(
+                        SELECT COALESCE(SUM(CASE WHEN total_amount > paid_amount THEN total_amount - paid_amount ELSE 0 END), 0) as debt,
+                               COALESCE(SUM(CASE WHEN total_amount > paid_amount THEN 1 ELSE 0 END), 0) as cnt
+                        FROM supplier_invoices
+                    )");
+                    supplierPayableDebt = getDouble(supDebtRow, "debt", 0.0);
+                    supplierPayableCount = getInt(supDebtRow, "cnt", 0);
+                    supplierPaidInPeriod = db.queryScalar(
+                        "SELECT COALESCE(SUM(amount), 0) FROM supplier_payments WHERE substr(paid_at, 1, 10) BETWEEN :ps AND :pe",
+                        {{":ps", periodStart}, {":pe", periodEnd}}
+                    ).get<double>();
+                } catch (...) {}
+                double payableDebt = expPayableDebt + supplierPayableDebt;
+                int64_t payableCount = expPayableCount + supplierPayableCount;
 
                 // Counter cash transactions & POS shift discrepancy in period
                 double cashOutCounter = 0.0, shiftDiscrepancy = 0.0;
@@ -4503,6 +4525,13 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 double netProfit = grossProfit - totalOperatingExpenses;
                 double totalCosts = cogs + totalOperatingExpenses;
 
+                // Cashflow (Dòng tiền thực tế thu/chi trong kỳ) & COGS Data Quality
+                double cashInflow = std::max(0.0, revenue - receivableAmount);
+                double cashOutflow = supplierPaidInPeriod + paidFinanceExpenses + cashOutCounter;
+                double netCashflow = cashInflow - cashOutflow;
+                double estimatedCogs = std::max(0.0, cogs - directCogs);
+                double cogsCoveragePct = (revenue > 0.0) ? std::min(100.0, std::round((costedRev / revenue) * 100.0)) : 100.0;
+
                 double projectedRevenue = (elapsedDays > 0 && elapsedDays < daysInMonth)
                     ? std::round((revenue / elapsedDays) * daysInMonth)
                     : revenue;
@@ -4550,6 +4579,15 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                         {"receivable_amount", receivableAmount},
                         {"payable_count", payableCount},
                         {"payable_debt", payableDebt},
+                        {"supplier_payable_debt", supplierPayableDebt},
+                        {"expense_payable_debt", expPayableDebt},
+                        {"supplier_paid_in_period", supplierPaidInPeriod},
+                        {"cash_inflow", cashInflow},
+                        {"cash_outflow", cashOutflow},
+                        {"net_cashflow", netCashflow},
+                        {"direct_cogs", directCogs},
+                        {"estimated_cogs", estimatedCogs},
+                        {"cogs_coverage_pct", cogsCoveragePct},
                         {"projected_revenue", projectedRevenue},
                         {"projected_net_profit", projectedNetProfit}
                     }},
