@@ -6165,10 +6165,33 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             sendError(res, "Không có danh sách mặt hàng để nhập kho!", 400);
             return;
         }
-        std::string supplier = body.value("supplier", "");
-        std::string invoiceNo = body.value("invoice_no", "");
-        std::string invoiceImg = body.value("invoice_image", "");
-        std::string note = body.value("note", "");
+        auto jStr = [](const json& j, const char* k, const std::string& def = "") -> std::string {
+            if (!j.contains(k) || j[k].is_null()) return def;
+            return j[k].is_string() ? j[k].get<std::string>() : def;
+        };
+        auto jNum = [](const json& j, const char* k, double def = 0.0) -> double {
+            if (!j.contains(k) || j[k].is_null()) return def;
+            if (j[k].is_number()) return j[k].get<double>();
+            if (j[k].is_string()) { try { return std::stod(j[k].get<std::string>()); } catch (...) {} }
+            return def;
+        };
+        auto jInt = [](const json& j, const char* k, int64_t def = 0) -> int64_t {
+            if (!j.contains(k) || j[k].is_null()) return def;
+            if (j[k].is_number()) return j[k].get<int64_t>();
+            if (j[k].is_string()) { try { return std::stoll(j[k].get<std::string>()); } catch (...) {} }
+            return def;
+        };
+        auto jBool = [](const json& j, const char* k, bool def = false) -> bool {
+            if (!j.contains(k) || j[k].is_null()) return def;
+            if (j[k].is_boolean()) return j[k].get<bool>();
+            if (j[k].is_number()) return j[k].get<int>() != 0;
+            return def;
+        };
+
+        std::string supplier = jStr(body, "supplier");
+        std::string invoiceNo = jStr(body, "invoice_no");
+        std::string invoiceImg = jStr(body, "invoice_image");
+        std::string note = jStr(body, "note");
         if (note.empty()) {
             note = "Nhập kho theo chứng từ: " + (invoiceNo.empty() ? "Hóa đơn mua hàng" : invoiceNo);
         }
@@ -6182,20 +6205,20 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             db.execute("BEGIN TRANSACTION");
             int idx = 1;
             for (const auto& item : body["items"]) {
-                std::string name = item.value("name", "");
-                double qty = item.value("quantity", 0.0);
-                double unitPrice = item.value("unit_price", 0.0);
+                std::string name = jStr(item, "name");
+                double qty = jNum(item, "quantity", 0.0);
+                double unitPrice = jNum(item, "unit_price", 0.0);
                 if (name.empty() || qty <= 0.0 || unitPrice < 0.0) continue;
 
-                std::string unit = item.value("unit", "kg");
+                std::string unit = jStr(item, "unit", "kg");
                 if (unit.empty()) unit = "kg";
-                std::string category = item.value("category", "Nguyên liệu");
-                bool isNew = item.value("is_new", false);
-                int64_t matId = item.value("material_id", int64_t(0));
+                std::string category = jStr(item, "category", "Nguyên liệu");
+                bool isNew = jBool(item, "is_new", false);
+                int64_t matId = jInt(item, "material_id", 0);
                 double lineCost = std::round(qty * unitPrice);
 
                 if (isNew || matId <= 0) {
-                    std::string matCode = item.value("code", "");
+                    std::string matCode = jStr(item, "code");
                     if (matCode.empty()) {
                         int64_t nextNum = db.queryScalar("SELECT COALESCE(MAX(id), 0) + 1 FROM materials").get<int64_t>();
                         char buf[32];
