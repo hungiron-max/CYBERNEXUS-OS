@@ -52,6 +52,7 @@ class NetworkQosPlugin : public IModulePlugin {
         {"max_devices_per_order", 2},
         {"peak_mode_enabled", true},
         {"throttle_after_70_pct", true},
+        {"peak_windows", "08:00-11:30, 18:30-22:00"},
         {"whitelist_ips", json::array()}
     };
 
@@ -517,6 +518,47 @@ class NetworkQosPlugin : public IModulePlugin {
         return ok;
     }
 
+    static bool isWithinPeakWindow(const std::string& windowsStr) {
+        std::string trimmed = windowsStr;
+        trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), ::isspace), trimmed.end());
+        if (trimmed.empty()) return true; // Empty = apply all day when toggle is ON
+
+        std::time_t now = std::time(nullptr);
+        std::tm lt{};
+#ifdef _WIN32
+        localtime_s(&lt, &now);
+#else
+        localtime_r(&now, &lt);
+#endif
+        int curMin = lt.tm_hour * 60 + lt.tm_min;
+
+        std::istringstream ss(trimmed);
+        std::string slot;
+        auto parseHm = [](const std::string& hm) -> int {
+            size_t c = hm.find(':');
+            if (c == std::string::npos) return -1;
+            try {
+                int h = std::stoi(hm.substr(0, c));
+                int m = std::stoi(hm.substr(c + 1));
+                if (h < 0 || h > 23 || m < 0 || m > 59) return -1;
+                return h * 60 + m;
+            } catch (...) { return -1; }
+        };
+        while (std::getline(ss, slot, ',')) {
+            size_t dash = slot.find('-');
+            if (dash == std::string::npos) continue;
+            int sMin = parseHm(slot.substr(0, dash));
+            int eMin = parseHm(slot.substr(dash + 1));
+            if (sMin < 0 || eMin < 0) continue;
+            if (sMin <= eMin) {
+                if (curMin >= sMin && curMin <= eMin) return true;
+            } else {
+                if (curMin >= sMin || curMin <= eMin) return true; // overnight window
+            }
+        }
+        return false;
+    }
+
     void watcherLoop() {
         while (m_running.load()) {
             for (int i = 0; i < 15 && m_running.load(); ++i) {
@@ -526,11 +568,14 @@ class NetworkQosPlugin : public IModulePlugin {
 
             bool peakMode = true;
             bool throttle70 = true;
+            std::string peakWindows;
             {
                 std::lock_guard<std::mutex> lk(m_mtx);
                 peakMode = m_cfg.value("peak_mode_enabled", true);
                 throttle70 = m_cfg.value("throttle_after_70_pct", true);
+                peakWindows = m_cfg.value("peak_windows", "08:00-11:30, 18:30-22:00");
             }
+            bool inPeakNow = peakMode && throttle70 && isWithinPeakWindow(peakWindows);
 
             std::vector<WifiSession> actions;
             std::time_t now = std::time(nullptr);
@@ -552,7 +597,7 @@ class NetworkQosPlugin : public IModulePlugin {
                         it = m_sessions.erase(it);
                         continue;
                     }
-                    if (s.tier == "vip" && peakMode && throttle70) {
+                    if (s.tier == "vip" && inPeakNow) {
                         if (ratio >= 0.90 && s.stage < 2) {
                             s.stage = 2;
                             actions.push_back(s);

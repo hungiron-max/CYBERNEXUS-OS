@@ -1662,7 +1662,7 @@
         <!-- ========================================== -->
         <!-- TAB 6: STORE SETTINGS & VIETQR -->
         <!-- ========================================== -->
-        <section id="tab-settings" class="admin-section hidden flex-1 overflow-y-auto">
+        <section id="tab-settings" class="admin-section hidden flex-1 overflow-y-auto" style="min-height: 0; max-height: calc(100vh - 88px); overflow-y: auto; padding-bottom: 48px;">
             <div class="max-w-4xl mx-auto liquid-glass p-6 rounded-2xl border border-white/10 space-y-5">
                 <div class="border-b border-white/10 pb-3">
                     <h3 class="font-bold text-base text-sky-400">Cài Đặt Hệ Thống & Thanh Toán VietQR</h3>
@@ -2457,7 +2457,7 @@
                                     <i class="fas fa-save mr-1"></i> Lưu Router
                                 </button>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs items-center bg-slate-900/50 p-2.5 rounded-xl border border-white/10">
+                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs items-center bg-slate-900/50 p-2.5 rounded-xl border border-white/10">
                                 <div>
                                     <label class="block text-[10px] text-slate-400 mb-1">Dùng thử Free (phút)</label>
                                     <input type="number" id="rq-free-min" min="1" max="1440" value="10" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
@@ -2470,9 +2470,13 @@
                                     <label class="block text-[10px] text-slate-400 mb-1">Thiết bị tối đa / Hóa đơn</label>
                                     <input type="number" id="rq-max-dev" min="1" max="20" value="2" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
                                 </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Khung giờ cao điểm (trống = cả ngày)</label>
+                                    <input type="text" id="rq-peak-windows" value="08:00-11:30, 18:30-22:00" placeholder="08:00-11:30, 18:30-22:00" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
+                                </div>
                                 <label class="flex items-center gap-2 cursor-pointer text-[11px] text-amber-200 font-semibold pt-3 sm:pt-4">
                                     <input type="checkbox" id="rq-throttle70" checked class="rounded border-white/20 bg-slate-800 text-amber-500" />
-                                    <span>Giờ cao điểm: Giảm tốc sau 70% giờ VIP</span>
+                                    <span>Giảm tốc sau 70% giờ VIP</span>
                                 </label>
                             </div>
                             <div id="router-qos-devices-list" class="space-y-1.5" style="max-height: 240px; overflow-y: auto; padding-right: 4px;"></div>

@@ -3183,6 +3183,7 @@ const Admin = {
                 if (document.getElementById('rq-free-min')) document.getElementById('rq-free-min').value = c.free_minutes ?? 10;
                 if (document.getElementById('rq-vip-min')) document.getElementById('rq-vip-min').value = c.vip_minutes ?? 180;
                 if (document.getElementById('rq-max-dev')) document.getElementById('rq-max-dev').value = c.max_devices_per_order ?? 2;
+                if (document.getElementById('rq-peak-windows')) document.getElementById('rq-peak-windows').value = c.peak_windows !== undefined ? c.peak_windows : '08:00-11:30, 18:30-22:00';
                 if (document.getElementById('rq-throttle70')) document.getElementById('rq-throttle70').checked = c.throttle_after_70_pct !== false;
             }
             const fmtRem = (sec) => {
@@ -3239,6 +3240,7 @@ const Admin = {
                 free_minutes: Math.max(1, Number(document.getElementById('rq-free-min')?.value || 10)),
                 vip_minutes: Math.max(5, Number(document.getElementById('rq-vip-min')?.value || 180)),
                 max_devices_per_order: Math.max(1, Number(document.getElementById('rq-max-dev')?.value || 2)),
+                peak_windows: (document.getElementById('rq-peak-windows')?.value || '').trim(),
                 throttle_after_70_pct: !!document.getElementById('rq-throttle70')?.checked
             };
             const res = await fetch('/api/network/config', {
