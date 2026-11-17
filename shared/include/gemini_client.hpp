@@ -4,6 +4,10 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <cctype>
+#include <mutex>
+#include <unordered_map>
+#include <chrono>
 #include <nlohmann/json.hpp>
 
 #ifdef _WIN32
@@ -176,6 +180,140 @@ inline std::string extractGeminiError(const std::string& rawResp, int status) {
     return "HTTP " + std::to_string(status);
 }
 
+struct GeminiModelScore {
+    std::string name;
+    int major = 0;
+    int minor = 0;
+    int tierRank = 0; // higher = preferred (flash > pro, stable > preview/exp)
+};
+
+inline GeminiModelScore scoreGeminiModel(const std::string& nm) {
+    GeminiModelScore s;
+    s.name = nm;
+    // Parse version numbers right after "gemini-" (e.g. gemini-3.8-flash -> 3, 8; gemini-3-flash -> 3, 0)
+    size_t pos = nm.find("gemini-");
+    if (pos != std::string::npos) {
+        size_t i = pos + 7;
+        while (i < nm.size() && std::isdigit(static_cast<unsigned char>(nm[i]))) {
+            s.major = s.major * 10 + (nm[i] - '0');
+            ++i;
+        }
+        if (i < nm.size() && nm[i] == '.') {
+            ++i;
+            while (i < nm.size() && std::isdigit(static_cast<unsigned char>(nm[i]))) {
+                s.minor = s.minor * 10 + (nm[i] - '0');
+                ++i;
+            }
+        }
+    }
+    if (nm.find("flash") != std::string::npos) s.tierRank += 20;
+    if (nm.find("lite") != std::string::npos) s.tierRank -= 5;
+    if (nm.find("preview") == std::string::npos && nm.find("exp") == std::string::npos) s.tierRank += 10;
+    if (nm.find("-latest") != std::string::npos) s.tierRank -= 2;
+    return s;
+}
+
+inline void resolveGeminiModelsForKey(const std::string& apiKey,
+                                        std::vector<std::string>& textModelsOut,
+                                        std::vector<std::string>& imageModelsOut) {
+    struct CachedModels {
+        std::vector<std::string> textModels;
+        std::vector<std::string> imageModels;
+        std::chrono::steady_clock::time_point fetchedAt;
+    };
+    static std::mutex cacheMu;
+    static std::unordered_map<std::string, CachedModels> cache;
+
+    auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lk(cacheMu);
+        auto it = cache.find(apiKey);
+        if (it != cache.end() && (now - it->second.fetchedAt) < std::chrono::minutes(10)) {
+            textModelsOut = it->second.textModels;
+            imageModelsOut = it->second.imageModels;
+            return;
+        }
+    }
+
+    std::vector<GeminiModelScore> textScored, imgScored;
+    int st = 0;
+    std::string resp, errIgnore;
+    if (winHttpRequest("generativelanguage.googleapis.com", 443, true, "/v1beta/models?key=" + apiKey, "GET", "", st, resp, errIgnore)
+        && st >= 200 && st < 300) {
+        try {
+            json j = json::parse(resp);
+            if (j.contains("models") && j["models"].is_array()) {
+                for (const auto& m : j["models"]) {
+                    std::string nm = m.value("name", "");
+                    if (nm.rfind("models/", 0) == 0) nm = nm.substr(7);
+                    if (nm.rfind("gemini-", 0) != 0) continue;
+
+                    bool supportsGen = false;
+                    if (m.contains("supportedGenerationMethods") && m["supportedGenerationMethods"].is_array()) {
+                        for (const auto& meth : m["supportedGenerationMethods"]) {
+                            if (meth.is_string() && meth.get<std::string>() == "generateContent") {
+                                supportsGen = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!supportsGen) continue;
+                    if (nm.find("tts") != std::string::npos || nm.find("audio") != std::string::npos ||
+                        nm.find("embedding") != std::string::npos || nm.find("robotics") != std::string::npos ||
+                        nm.find("computer-use") != std::string::npos || nm.find("deep-research") != std::string::npos) {
+                        continue;
+                    }
+
+                    if (nm.find("image") != std::string::npos) {
+                        imgScored.push_back(scoreGeminiModel(nm));
+                    } else if (nm.find("flash") != std::string::npos || nm.find("pro") != std::string::npos) {
+                        textScored.push_back(scoreGeminiModel(nm));
+                    }
+                }
+            }
+        } catch (...) {}
+    }
+
+    auto cmpScore = [](const GeminiModelScore& a, const GeminiModelScore& b) {
+        if (a.major != b.major) return a.major > b.major;
+        if (a.minor != b.minor) return a.minor > b.minor;
+        if (a.tierRank != b.tierRank) return a.tierRank > b.tierRank;
+        return a.name < b.name;
+    };
+    std::sort(textScored.begin(), textScored.end(), cmpScore);
+    std::sort(imgScored.begin(), imgScored.end(), cmpScore);
+
+    textModelsOut.clear();
+    for (const auto& s : textScored) {
+        textModelsOut.push_back(s.name);
+        if (textModelsOut.size() >= 6) break;
+    }
+    for (const auto& fb : std::vector<std::string>{"gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"}) {
+        if (std::find(textModelsOut.begin(), textModelsOut.end(), fb) == textModelsOut.end()) {
+            textModelsOut.push_back(fb);
+        }
+    }
+
+    imageModelsOut.clear();
+    for (const auto& s : imgScored) {
+        imageModelsOut.push_back(s.name);
+        if (imageModelsOut.size() >= 6) break;
+    }
+    for (const auto& fb : std::vector<std::string>{
+             "gemini-3.8-flash-image", "gemini-3.1-flash-image-preview", "gemini-3.1-flash-image",
+             "gemini-2.5-flash-image", "gemini-2.0-flash-preview-image-generation"
+         }) {
+        if (std::find(imageModelsOut.begin(), imageModelsOut.end(), fb) == imageModelsOut.end()) {
+            imageModelsOut.push_back(fb);
+        }
+    }
+
+    if (!textScored.empty() || !imgScored.empty()) {
+        std::lock_guard<std::mutex> lk(cacheMu);
+        cache[apiKey] = CachedModels{textModelsOut, imageModelsOut, now};
+    }
+}
+
 inline bool geminiVerifyKey(const std::string& apiKey, int& modelCountOut, std::vector<std::string>& sampleOut, std::string& errOut) {
     if (apiKey.empty()) { errOut = "Chưa nhập Gemini API Key!"; return false; }
     int st = 0;
@@ -191,14 +329,23 @@ inline bool geminiVerifyKey(const std::string& apiKey, int& modelCountOut, std::
         json j = json::parse(resp);
         if (j.contains("models") && j["models"].is_array()) {
             modelCountOut = static_cast<int>(j["models"].size());
-            sampleOut.clear();
+            std::vector<GeminiModelScore> scored;
             for (const auto& m : j["models"]) {
                 std::string nm = m.value("name", "");
                 if (nm.rfind("models/", 0) == 0) nm = nm.substr(7);
-                if (nm.find("gemini") != std::string::npos || nm.find("imagen") != std::string::npos) {
-                    sampleOut.push_back(nm);
-                    if (sampleOut.size() >= 5) break;
+                if (nm.rfind("gemini-", 0) == 0) {
+                    scored.push_back(scoreGeminiModel(nm));
                 }
+            }
+            std::sort(scored.begin(), scored.end(), [](const GeminiModelScore& a, const GeminiModelScore& b) {
+                if (a.major != b.major) return a.major > b.major;
+                if (a.minor != b.minor) return a.minor > b.minor;
+                return a.tierRank > b.tierRank;
+            });
+            sampleOut.clear();
+            for (const auto& s : scored) {
+                sampleOut.push_back(s.name);
+                if (sampleOut.size() >= 5) break;
             }
             return true;
         }
@@ -209,12 +356,14 @@ inline bool geminiVerifyKey(const std::string& apiKey, int& modelCountOut, std::
 
 inline bool geminiGenerateContentText(const std::string& apiKey, const json& contentsJson, bool jsonMode,
                                       std::string& textOut, std::string& modelUsedOut, std::string& errOut) {
-    static const std::vector<std::string> models = {"gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"};
+    std::vector<std::string> models, imgUnused;
+    resolveGeminiModelsForKey(apiKey, models, imgUnused);
     json reqPayload = {{"contents", contentsJson}};
     if (jsonMode) {
         reqPayload["generationConfig"] = {{"responseMimeType", "application/json"}};
     }
     std::string bodyStr = reqPayload.dump();
+    std::string primaryErr;
     for (const auto& mdl : models) {
         int st = 0;
         std::string resp;
@@ -235,25 +384,26 @@ inline bool geminiGenerateContentText(const std::string& apiKey, const json& con
                     }
                 }
             } catch (...) {}
-            errOut = "AI không trả về văn bản hợp lệ";
-            return false;
+            if (primaryErr.empty()) primaryErr = "AI không trả về văn bản hợp lệ";
+        } else {
+            std::string curErr = extractGeminiError(resp, st);
+            if (primaryErr.empty() || (st != 404 && primaryErr.find("not found") != std::string::npos)) {
+                primaryErr = curErr;
+            }
+            if (st == 400 || st == 401 || st == 403) {
+                errOut = primaryErr;
+                return false;
+            }
         }
-        errOut = extractGeminiError(resp, st);
-        if (st == 400 || st == 401 || st == 403) return false;
     }
+    errOut = primaryErr.empty() ? "Không gọi được model Gemini nào khả dụng." : primaryErr;
     return false;
 }
 
 inline bool geminiGenerateImageBase64(const std::string& apiKey, const std::string& prompt,
                                       std::string& outB64, std::string& outMime, std::string& modelUsedOut, std::string& errOut) {
-    static const std::vector<std::string> geminiImgModels = {
-        "gemini-2.5-flash-image",
-        "gemini-3.1-flash-image-preview",
-        "gemini-3.1-flash-image",
-        "gemini-3-pro-image-preview",
-        "gemini-2.0-flash-preview-image-generation",
-        "gemini-2.0-flash-exp-image-generation"
-    };
+    std::vector<std::string> textUnused, geminiImgModels;
+    resolveGeminiModelsForKey(apiKey, textUnused, geminiImgModels);
     std::string primaryErr;
     for (const auto& mdl : geminiImgModels) {
         json reqPayload = {
