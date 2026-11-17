@@ -1,5 +1,14 @@
 let _slides = [];
 let _slideIdx = 0;
+let _freeMinutes = 10;
+let _vipMinutes = 180;
+let _countdownTimer = null;
+
+function formatVipDuration(mins) {
+    if (mins >= 60 && mins % 60 === 0) return `${mins / 60} giờ`;
+    if (mins > 60) return `${Math.floor(mins / 60)}g ${mins % 60}p`;
+    return `${mins} phút`;
+}
 
 function switchWifiTab(mode) {
     const isFree = mode === 'free';
@@ -30,8 +39,8 @@ function switchWifiTab(mode) {
     if (gaugeArc && gaugeNeedle) {
         if (isFree) {
             gaugeArc.style.stroke = '#38bdf8';
-            gaugeArc.style.strokeDashoffset = '118';
-            gaugeNeedle.style.transform = 'rotate(-52deg)';
+            gaugeArc.style.strokeDashoffset = '82';
+            gaugeNeedle.style.transform = 'rotate(-10deg)';
         } else {
             gaugeArc.style.stroke = '#fbbf24';
             gaugeArc.style.strokeDashoffset = '12';
@@ -41,8 +50,8 @@ function switchWifiTab(mode) {
 
     if (speedLabel) {
         speedLabel.innerHTML = isFree
-            ? '5 Mbps <span class="text-[11px] font-semibold text-slate-400">• Tiêu chuẩn</span>'
-            : '<span class="text-amber-300">50 Mbps</span> <span class="text-[11px] font-semibold text-amber-200/80">• Siêu tốc VIP</span>';
+            ? `Tốc độ tối đa <span class="text-[11px] font-semibold text-slate-400">• ${_freeMinutes} phút</span>`
+            : `<span class="text-amber-300">Phiên VIP</span> <span class="text-[11px] font-semibold text-amber-200/80">• ${formatVipDuration(_vipMinutes)}</span>`;
     }
 
     if (tierPill) {
@@ -115,6 +124,11 @@ async function loadPortalInfo() {
         if (data.success) {
             if (data.store_name) document.getElementById('wifi-store-name').textContent = data.store_name;
             if (data.client_ip) document.getElementById('wifi-client-ip').textContent = data.client_ip;
+            if (Number(data.free_minutes) > 0) _freeMinutes = Number(data.free_minutes);
+            if (Number(data.vip_minutes) > 0) _vipMinutes = Number(data.vip_minutes);
+            const tabFreeMin = document.getElementById('tab-free-min');
+            if (tabFreeMin) tabFreeMin.textContent = `${_freeMinutes}p`;
+            switchWifiTab('free');
             if (Array.isArray(data.slides) && data.slides.length > 0) {
                 _slides = data.slides;
                 renderSlide();
@@ -147,7 +161,22 @@ async function unlockWifi(mode) {
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.message || 'Không thể kích hoạt WiFi');
         out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 shadow-lg shadow-emerald-500/15';
-        out.innerHTML = `<div class="flex items-center justify-center gap-1.5 text-emerald-300 text-sm mb-1"><i class="fas fa-check-circle"></i> Kết nối thành công!</div><div>${escapeHtml(data.message)}</div>`;
+        const mins = Number(data.minutes || (mode === 'vip' ? _vipMinutes : _freeMinutes));
+        out.innerHTML = `<div class="flex items-center justify-center gap-1.5 text-emerald-300 text-sm mb-1"><i class="fas fa-check-circle"></i> Kết nối thành công!</div><div>${escapeHtml(data.message)}</div><div id="wifi-session-countdown" class="mt-1.5 text-[11px] font-mono text-sky-300"></div>`;
+        if (_countdownTimer) clearInterval(_countdownTimer);
+        let remSec = mins * 60;
+        const updateCd = () => {
+            const cdEl = document.getElementById('wifi-session-countdown');
+            if (!cdEl) return;
+            const h = Math.floor(remSec / 3600);
+            const m = Math.floor((remSec % 3600) / 60);
+            const s = remSec % 60;
+            const fmt = (h > 0 ? `${String(h).padStart(2, '0')}:` : '') + `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            cdEl.textContent = `Thời gian phiên còn lại: ${fmt}`;
+            if (remSec > 0) remSec--;
+        };
+        updateCd();
+        _countdownTimer = setInterval(updateCd, 1000);
         launchCelebrationConfetti();
     } catch (e) {
         out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-rose-500/20 border border-rose-400/40 text-rose-200';

@@ -105,8 +105,8 @@
                         </g>
                     </svg>
                     <div>
-                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Băng thông cấp phát</div>
-                        <div id="wifi-speed-label" class="text-base font-black text-sky-300">5 Mbps <span class="text-[11px] font-semibold text-slate-400">• Tiêu chuẩn</span></div>
+                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Chế độ kết nối</div>
+                        <div id="wifi-speed-label" class="text-base font-black text-sky-300">Tốc độ tối đa <span id="wifi-free-min-label" class="text-[11px] font-semibold text-slate-400">• 10 phút</span></div>
                     </div>
                 </div>
                 <div id="wifi-tier-pill" class="px-2.5 py-1 rounded-xl text-[10px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/30">
@@ -117,10 +117,10 @@
             <!-- Tab Switcher -->
             <div class="wifi-tabs">
                 <button type="button" id="tab-wifi-free" onclick="switchWifiTab('free')" class="wifi-tab-btn wifi-tab-active-free">
-                    <i class="fas fa-signal mr-1"></i> Miễn Phí (5M)
+                    <i class="fas fa-bolt mr-1"></i> Dùng thử (<span id="tab-free-min">10p</span>)
                 </button>
                 <button type="button" id="tab-wifi-vip" onclick="switchWifiTab('vip')" class="wifi-tab-btn">
-                    <i class="fas fa-crown text-amber-400 mr-1"></i> WiFi VIP (50M)
+                    <i class="fas fa-crown text-amber-400 mr-1"></i> WiFi VIP
                 </button>
             </div>
 
@@ -142,18 +142,18 @@
             <!-- Panel VIP WiFi -->
             <div id="panel-wifi-vip" class="hidden space-y-3">
                 <div class="text-[11px] text-amber-100 rounded-2xl p-3 flex items-start gap-2.5" style="background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(251, 191, 36, 0.35);">
-                    <i class="fas fa-bolt text-amber-400 text-sm mt-0.5"></i>
+                    <i class="fas fa-crown text-amber-400 text-sm mt-0.5"></i>
                     <div>
-                        <div class="font-black text-amber-300 mb-0.5">Đặc quyền khách đã gọi món</div>
-                        <span class="text-amber-100/85">Mở khóa tốc độ cao <b>50 Mbps</b> ổn định để xem 4K, chơi game &amp; họp trực tuyến.</span>
+                        <div class="font-black text-amber-300 mb-0.5">Đặc quyền khách hàng tại quán</div>
+                        <span class="text-amber-100/85">Nhập mã hóa đơn in trên bill để mở khóa phiên kết nối <b>VIP dài hạn</b> ổn định.</span>
                     </div>
                 </div>
                 <div class="wifi-input-wrap">
                     <i class="fas fa-receipt wifi-input-icon" style="color: #fbbf24;"></i>
-                    <input type="text" id="wifi-vip-order" placeholder="Nhập Mã Hóa Đơn (VD: HD261116-0001)" class="wifi-input wifi-input-vip font-mono uppercase" />
+                    <input type="text" id="wifi-vip-order" placeholder="Nhập Mã Hóa Đơn (VD: HD261117-0001)" class="wifi-input wifi-input-vip font-mono uppercase" />
                 </div>
                 <button type="button" onclick="unlockWifi('vip')" class="wifi-btn-shimmer wifi-cta-vip">
-                    <i class="fas fa-crown"></i> MỞ KHÓA WIFI VIP TỐC ĐỘ CAO
+                    <i class="fas fa-crown"></i> MỞ KHÓA WIFI VIP NGAY
                 </button>
             </div>
 
@@ -161,10 +161,15 @@
             <div id="wifi-unlock-result" class="hidden p-3.5 rounded-2xl text-xs font-bold text-center"></div>
         </section>
 
-        <!-- Khối 3: Điều hướng thẳng vào Menu QR -->
-        <a href="/customer.html" onclick="window.location.assign('/customer.html'); return false;" class="wifi-btn-shimmer wifi-cta-menu" style="position: relative; z-index: 25;">
-            <i class="fas fa-utensils"></i> XEM THỰC ĐƠN &amp; ĐẶT MÓN NGAY
-        </a>
+        <!-- Nhắc nhẹ quét QR tại bàn (không đặt link trực tiếp trong Captive Portal để tránh mất giỏ hàng khi bấm Done) -->
+        <div class="wifi-card p-3.5 flex items-center gap-3 text-xs text-slate-300" style="border-color: rgba(16, 185, 129, 0.28);">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background: rgba(16, 185, 129, 0.16); color: #34d399;">
+                <i class="fas fa-qrcode text-base"></i>
+            </div>
+            <div class="leading-relaxed">
+                <span class="font-bold text-emerald-300">Đặt món tại bàn:</span> Quý khách vui lòng mở <b>Camera</b> điện thoại quét <b>Mã QR trên bàn</b> để xem thực đơn &amp; gọi món trực tiếp.
+            </div>
+        </div>
 
         <footer class="text-center text-[11px] text-slate-400 pt-1">
             <i class="fas fa-shield-alt text-emerald-400 mr-1"></i>

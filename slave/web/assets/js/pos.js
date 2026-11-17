@@ -2866,7 +2866,7 @@ const POS = {
             <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
             
             <div style="text-align: center; font-size: 11px; color: #333; margin-top: 6px;">
-                <div>Wifi: <b>${wifi}</b></div>
+                <div>WiFi VIP: <b>${(store && store.store_wifi_ssid) ? store.store_wifi_ssid : wifi}</b>${order && order.order_code ? ` &bull; Mã kích hoạt: <b>${order.order_code}</b>` : ''}</div>
                 <div style="font-weight: bold; margin-top: 4px; font-size: 12px;">CẢM ƠN VÀ HẸN GẶP LẠI QUÝ KHÁCH!</div>
                 <div style="font-size: 9px; color: #777; margin-top: 2px;">Hệ thống POS Góc Phố</div>
             </div>

@@ -7333,24 +7333,56 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         )");
     };
 
-    svr.Get("/api/wifi/portal_info", [](const httplib::Request& req, httplib::Response& res) {
+    auto readWifiPolicy = []() -> json {
+        json pol = {
+            {"free_minutes", 10},
+            {"vip_minutes", 180},
+            {"max_devices_per_order", 2},
+            {"peak_mode_enabled", true},
+            {"throttle_after_70_pct", true}
+        };
+        try {
+            if (fs::exists("config/router_qos.json")) {
+                std::ifstream f("config/router_qos.json");
+                json cfg;
+                f >> cfg;
+                if (cfg.is_object()) {
+                    pol["free_minutes"] = std::max(1, cfg.value("free_minutes", 10));
+                    pol["vip_minutes"] = std::max(5, cfg.value("vip_minutes", 180));
+                    pol["max_devices_per_order"] = std::max(1, cfg.value("max_devices_per_order", 2));
+                    pol["peak_mode_enabled"] = cfg.value("peak_mode_enabled", true);
+                    pol["throttle_after_70_pct"] = cfg.value("throttle_after_70_pct", true);
+                }
+            }
+        } catch (...) {}
+        return pol;
+    };
+
+    svr.Get("/api/wifi/portal_info", [readWifiPolicy](const httplib::Request& req, httplib::Response& res) {
         auto& db = Database::instance();
         std::string storeName = "CYBERNEXUS COFFEE & TEA";
+        std::string wifiSsid = "";
         auto snRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'store_name'");
         if (!snRow.is_null() && !snRow.value("setting_value", "").empty()) storeName = snRow.value("setting_value", "");
+        auto ssRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'store_wifi_ssid'");
+        if (!ssRow.is_null() && !ssRow.value("setting_value", "").empty()) wifiSsid = ssRow.value("setting_value", "");
         json slides = json::array();
         try {
             slides = db.query("SELECT id, title, subtitle, badge_text, image_url FROM ad_slides WHERE is_active = 1 ORDER BY sort_order ASC, id ASC LIMIT 6");
         } catch (...) {}
+        json pol = readWifiPolicy();
         sendJson(res, {
             {"success", true},
             {"store_name", storeName},
+            {"store_wifi_ssid", wifiSsid},
             {"client_ip", req.remote_addr},
+            {"free_minutes", pol["free_minutes"]},
+            {"vip_minutes", pol["vip_minutes"]},
             {"slides", slides}
         });
     });
 
-    svr.Post("/api/wifi/unlock", [ensureWifiLeadsSchema](const httplib::Request& req, httplib::Response& res) {
+    svr.Post("/api/wifi/unlock", [ensureWifiLeadsSchema, readWifiPolicy](const httplib::Request& req, httplib::Response& res) {
         auto& db = Database::instance();
         ensureWifiLeadsSchema(db);
         json body = parseBody(req);
@@ -7358,11 +7390,16 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         std::string phone = getString(body, "phone", "");
         std::string cname = getString(body, "customer_name", "");
         std::string orderCode = getString(body, "order_code", "");
+        std::string mac = getString(body, "mac", "");
         std::string clientIp = req.remote_addr.empty() ? getString(body, "client_ip", "127.0.0.1") : req.remote_addr;
+        json pol = readWifiPolicy();
+        int freeMins = pol.value("free_minutes", 10);
+        int vipMins = pol.value("vip_minutes", 180);
+        int maxDev = pol.value("max_devices_per_order", 2);
 
         if (mode == "vip") {
             if (orderCode.empty()) {
-                sendError(res, "Vui lòng nhập Mã hóa đơn đã thanh toán để mở WiFi VIP!", 400);
+                sendError(res, "Vui lòng nhập Mã hóa đơn để kích hoạt WiFi VIP!", 400);
                 return;
             }
             auto ord = db.queryRow(
@@ -7373,24 +7410,35 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
                 sendError(res, "Mã hóa đơn chưa tồn tại hoặc chưa thanh toán!", 400);
                 return;
             }
-            int64_t ordId = ord.value("id", int64_t(0));
             std::string realCode = ord.value("order_code", orderCode);
+            auto cntRow = db.queryRow(
+                "SELECT COUNT(DISTINCT client_ip) AS c FROM wifi_marketing_leads WHERE UPPER(order_code) = UPPER(:oc) AND client_ip != :ip",
+                {{":oc", realCode}, {":ip", clientIp}}
+            );
+            int usedOtherDevices = cntRow.is_null() ? 0 : cntRow.value("c", 0);
+            if (usedOtherDevices >= maxDev) {
+                sendError(res, "Mã hóa đơn này đã đạt giới hạn tối đa " + std::to_string(maxDev) + " thiết bị sử dụng.", 400);
+                return;
+            }
+
             db.execute(
                 "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'vip_order', :oc)",
                 {{":cn", cname}, {":ph", phone}, {":ip", clientIp}, {":oc", realCode}}
             );
-            CyberNexus::PluginManager::instance().dispatchEvent("ORDER_PAID", {
-                {"order_id", ordId},
+            CyberNexus::PluginManager::instance().dispatchEvent("WIFI_UNLOCK_SESSION", {
+                {"mode", "vip"},
                 {"order_code", realCode},
-                {"client_ip", clientIp}
+                {"client_ip", clientIp},
+                {"mac", mac},
+                {"minutes", vipMins}
             });
             sendJson(res, {
                 {"success", true},
-                {"tier", "vip_high_speed"},
-                {"speed", "50 Mbps"},
+                {"tier", "vip"},
+                {"minutes", vipMins},
                 {"client_ip", clientIp},
                 {"order_code", realCode},
-                {"message", "Đã kích hoạt WiFi VIP tốc độ cao (50 Mbps) cho hóa đơn " + realCode + "!"}
+                {"message", "Đã kích hoạt WiFi VIP thành công! Chúc quý khách trải nghiệm mượt mà."}
             });
             return;
         }
@@ -7399,12 +7447,18 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'free_basic', '')",
             {{":cn", cname}, {":ph", phone}, {":ip", clientIp}}
         );
+        CyberNexus::PluginManager::instance().dispatchEvent("WIFI_UNLOCK_SESSION", {
+            {"mode", "free"},
+            {"client_ip", clientIp},
+            {"mac", mac},
+            {"minutes", freeMins}
+        });
         sendJson(res, {
             {"success", true},
-            {"tier", "free_basic"},
-            {"speed", "5 Mbps"},
+            {"tier", "free"},
+            {"minutes", freeMins},
             {"client_ip", clientIp},
-            {"message", "Đã kết nối WiFi Miễn phí (5 Mbps)! Chúc quý khách trải nghiệm vui vẻ."}
+            {"message", "Đã kết nối WiFi tốc độ cao (" + std::to_string(freeMins) + " phút)! Chúc quý khách vui vẻ."}
         });
     });
 

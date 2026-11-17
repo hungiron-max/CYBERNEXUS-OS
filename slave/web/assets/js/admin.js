@@ -3178,9 +3178,18 @@ const Admin = {
                 const c = cfgRes.config;
                 if (document.getElementById('rq-type')) document.getElementById('rq-type').value = c.router_type || 'simulation';
                 if (document.getElementById('rq-host')) document.getElementById('rq-host').value = c.host || '';
-                if (document.getElementById('rq-port')) document.getElementById('rq-port').value = c.port || 80;
+                if (document.getElementById('rq-port')) document.getElementById('rq-port').value = c.port || 22;
                 if (document.getElementById('rq-user')) document.getElementById('rq-user').value = c.username || '';
+                if (document.getElementById('rq-free-min')) document.getElementById('rq-free-min').value = c.free_minutes ?? 10;
+                if (document.getElementById('rq-vip-min')) document.getElementById('rq-vip-min').value = c.vip_minutes ?? 180;
+                if (document.getElementById('rq-max-dev')) document.getElementById('rq-max-dev').value = c.max_devices_per_order ?? 2;
+                if (document.getElementById('rq-throttle70')) document.getElementById('rq-throttle70').checked = c.throttle_after_70_pct !== false;
             }
+            const fmtRem = (sec) => {
+                if (!sec || sec <= 0) return '';
+                const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+                return ' • còn ' + (h > 0 ? `${h}g ` : '') + `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
             const listEl = document.getElementById('router-qos-devices-list');
             if (listEl && devRes && Array.isArray(devRes.devices)) {
                 if (devRes.devices.length === 0) {
@@ -3188,11 +3197,16 @@ const Admin = {
                     listEl.innerHTML = `<div class="p-2.5 rounded-lg bg-slate-900/60 border border-white/10 text-[11px] text-slate-400">${escapeHtml(notice)}</div>`;
                 } else {
                     listEl.innerHTML = devRes.devices.map(d => {
-                        const qBadge = d.qos === 'vip_high_speed'
-                            ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">VIP 50M</span>'
-                            : (d.qos === 'blocked'
-                                ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">Đã chặn</span>'
-                                : '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px] font-bold">Cơ bản 5M</span>');
+                        const tier = d.tier || d.qos || 'free';
+                        const remTxt = fmtRem(Number(d.remaining_sec || 0));
+                        const stageTxt = Number(d.stage) === 2 ? ' (Giảm >90%)' : (Number(d.stage) === 1 ? ' (Giảm >70%)' : '');
+                        const qBadge = d.whitelisted || tier === 'whitelist'
+                            ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[10px] font-bold">Nội bộ ∞</span>'
+                            : (tier === 'vip' || tier === 'vip_high_speed'
+                                ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">VIP${escapeHtml(remTxt)}${escapeHtml(stageTxt)}</span>`
+                                : (tier === 'blocked'
+                                    ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">Đã ngắt</span>'
+                                    : `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px] font-bold">Free${escapeHtml(remTxt)}</span>`));
                         return `
                     <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-[11px]">
                         <div>
@@ -3202,9 +3216,10 @@ const Admin = {
                             ${qBadge}
                         </div>
                         <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="Admin.toggleDeviceWhitelist('${escapeHtml(d.ip)}')" class="px-2 py-0.5 rounded ${d.whitelisted ? 'bg-sky-500 text-slate-950' : 'bg-sky-500/20 hover:bg-sky-500/35 text-sky-300'} font-bold" title="Ghim thiết bị nội bộ không giới hạn thời gian">Nội bộ ∞</button>
                             <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'vip_high_speed')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold">VIP</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Cơ bản</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">Chặn</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Free</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">Ngắt</button>
                         </div>
                     </div>`;
                     }).join('');
@@ -3218,9 +3233,13 @@ const Admin = {
             const payload = {
                 router_type: document.getElementById('rq-type')?.value || 'simulation',
                 host: (document.getElementById('rq-host')?.value || '').trim(),
-                port: Number(document.getElementById('rq-port')?.value || 80),
+                port: Number(document.getElementById('rq-port')?.value || 22),
                 username: (document.getElementById('rq-user')?.value || '').trim(),
-                password: document.getElementById('rq-pass')?.value || ''
+                password: document.getElementById('rq-pass')?.value || '',
+                free_minutes: Math.max(1, Number(document.getElementById('rq-free-min')?.value || 10)),
+                vip_minutes: Math.max(5, Number(document.getElementById('rq-vip-min')?.value || 180)),
+                max_devices_per_order: Math.max(1, Number(document.getElementById('rq-max-dev')?.value || 2)),
+                throttle_after_70_pct: !!document.getElementById('rq-throttle70')?.checked
             };
             const res = await fetch('/api/network/config', {
                 method: 'POST',
@@ -3229,10 +3248,45 @@ const Admin = {
             });
             const data = await res.json();
             if (data.status === 'success') {
-                this.showToast(data.message || 'Đã lưu cấu hình Router QoS!', 'success');
+                this.showToast(data.message || 'Đã lưu cấu hình WiFi Marketing!', 'success');
                 this.loadRouterDevices();
             }
         } catch (e) { alert('Lỗi lưu cấu hình Router'); }
+    },
+
+    async toggleDeviceWhitelist(ip) {
+        try {
+            const res = await fetch('/api/network/whitelist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip })
+            });
+            const data = await res.json();
+            this.showToast(data.message || 'Đã cập nhật Whitelist', data.status === 'success' ? 'success' : 'error');
+            this.loadRouterDevices();
+        } catch (e) { alert('Lỗi cập nhật Whitelist'); }
+    },
+
+    async exportWifiLeadsCsv() {
+        try {
+            const token = localStorage.getItem('pos_token') || '';
+            const res = await fetch('/api/wifi/leads', {
+                headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+            });
+            const json = await res.json();
+            if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
+                alert('Chưa có dữ liệu khách WiFi Marketing để xuất.');
+                return;
+            }
+            const rows = [['ID', 'Ten Khach', 'SDT', 'IP', 'Loai', 'Ma Hoa Don', 'Thoi Gian']];
+            json.data.forEach(r => rows.push([r.id, r.customer_name || '', r.phone || '', r.client_ip || '', r.unlock_type || '', r.order_code || '', r.created_at || '']));
+            const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `wifi_leads_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+        } catch (e) { alert('Không thể xuất CSV Leads'); }
     },
 
     async setDeviceQos(ip, qos) {

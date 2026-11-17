@@ -1,29 +1,58 @@
 #define BUILDING_PLUGIN_DLL
 #include "IModulePlugin.hpp"
-#include <iostream>
-#include <fstream>
-#include <filesystem>
-#include <cstdlib>
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdio>
-#include <sstream>
-#include <unordered_map>
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <mutex>
+#include <sstream>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 namespace fs = std::filesystem;
 using namespace CyberNexus;
 
+namespace {
+struct WifiSession {
+    std::string ip;
+    std::string mac;
+    std::string name;
+    std::string tier; // "free", "vip", "whitelist", "blocked"
+    std::string order_code;
+    std::time_t start_epoch{0};
+    int duration_sec{600};
+    int stage{0}; // 0=full, 1=70%, 2=90%, 3=expired
+};
+} // namespace
+
 class NetworkQosPlugin : public IModulePlugin {
     std::string m_configPath = "config/router_qos.json";
     std::mutex m_mtx;
-    std::unordered_map<std::string, std::string> m_ipQos;
+    std::unordered_map<std::string, WifiSession> m_sessions;
+    std::atomic<bool> m_running{false};
+    std::thread m_watcherThread;
+
     json m_cfg = {
         {"router_type", "simulation"},
-        {"host", "192.168.88.1"},
-        {"port", 80},
+        {"host", "172.16.0.1"},
+        {"port", 22},
         {"username", "admin"},
         {"password", ""},
+        {"unifi_site", "default"},
         {"vip_limit", "50M/50M"},
-        {"basic_limit", "5M/5M"}
+        {"basic_limit", "5M/5M"},
+        {"free_minutes", 10},
+        {"vip_minutes", 180},
+        {"max_devices_per_order", 2},
+        {"peak_mode_enabled", true},
+        {"throttle_after_70_pct", true},
+        {"whitelist_ips", json::array()}
     };
 
     void loadConfig() {
@@ -32,7 +61,10 @@ class NetworkQosPlugin : public IModulePlugin {
                 std::ifstream f(m_configPath);
                 json loaded;
                 f >> loaded;
-                if (loaded.is_object()) m_cfg.update(loaded);
+                if (loaded.is_object()) {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    m_cfg.update(loaded);
+                }
             }
         } catch (...) {}
     }
@@ -40,38 +72,10 @@ class NetworkQosPlugin : public IModulePlugin {
     void saveConfig() {
         try {
             fs::create_directories(fs::path(m_configPath).parent_path());
+            std::lock_guard<std::mutex> lk(m_mtx);
             std::ofstream f(m_configPath);
             f << m_cfg.dump(2);
         } catch (...) {}
-    }
-
-    bool applyMikrotikQueue(const std::string& ip, const std::string& qos, std::string& msgOut) {
-        std::string host = m_cfg.value("host", "192.168.88.1");
-        int port = m_cfg.value("port", 80);
-        std::string user = m_cfg.value("username", "admin");
-        std::string pass = m_cfg.value("password", "");
-        std::string limit = (qos == "vip_high_speed")
-            ? m_cfg.value("vip_limit", "50M/50M")
-            : (qos == "blocked" ? "1k/1k" : m_cfg.value("basic_limit", "5M/5M"));
-
-        httplib::Client cli(host, port);
-        cli.set_connection_timeout(3, 0);
-        cli.set_read_timeout(5, 0);
-        cli.set_basic_auth(user, pass);
-
-        json body = {
-            {"name", "CBNX_" + ip},
-            {"target", ip + "/32"},
-            {"max-limit", limit},
-            {"comment", "CyberNexus QoS: " + qos}
-        };
-        auto res = cli.Put("/rest/queue/simple", body.dump(), "application/json");
-        if (res && res->status >= 200 && res->status < 300) {
-            msgOut = "MikroTik RouterOS đã cấp băng thông " + limit + " cho " + ip;
-            return true;
-        }
-        msgOut = "Không kết nối được MikroTik REST API (" + host + ":" + std::to_string(port) + ")";
-        return false;
     }
 
     static bool isSafeHostOrIp(const std::string& s) {
@@ -84,46 +88,24 @@ class NetworkQosPlugin : public IModulePlugin {
         return true;
     }
 
-    bool applyEdgeRouterSsh(const std::string& ip, const std::string& qos, std::string& msgOut) {
-        std::string host = m_cfg.value("host", "");
-        std::string user = m_cfg.value("username", "ubnt");
-        int port = m_cfg.value("port", 22);
-        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(ip) || !isSafeHostOrIp(user)) {
-            msgOut = "Tham số IP/Host EdgeRouter không hợp lệ!";
-            return false;
+    bool isWhitelisted(const std::string& ip) {
+        std::lock_guard<std::mutex> lk(m_mtx);
+        if (!m_cfg.contains("whitelist_ips") || !m_cfg["whitelist_ips"].is_array()) return false;
+        for (const auto& w : m_cfg["whitelist_ips"]) {
+            if (w.is_string() && w.get<std::string>() == ip) return true;
         }
-        std::string rate = (qos == "vip_high_speed") ? "50mbit" : (qos == "blocked" ? "8kbit" : "5mbit");
-        std::string remoteCmd = "sudo tc class change dev eth0 parent 1: classid 1:10 htb rate " + rate + " || true";
-        std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "
-            + std::to_string(port) + " " + user + "@" + host + " \"" + remoteCmd + "\"";
-        int rc = std::system(cmd.c_str());
-        if (rc == 0) {
-            msgOut = "EdgeRouter SSH đã cập nhật QoS (" + rate + ") cho " + ip;
-            return true;
-        }
-        msgOut = "EdgeRouter SSH không phản hồi (kiểm tra SSH key hoặc IP " + host + ")";
         return false;
     }
 
-    bool fetchEdgeRouterDevices(json& devsOut, std::string& errOut) {
-        std::string host = m_cfg.value("host", "172.16.0.1");
-        std::string user = m_cfg.value("username", "admin");
-        int port = m_cfg.value("port", 22);
-        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(user)) {
-            errOut = "IP hoặc User EdgeRouter không hợp lệ!";
-            return false;
-        }
-        std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "
-            + std::to_string(port) + " " + user + "@" + host
-            + " \"cat /var/run/dnsmasq-dhcp.leases 2>/dev/null || cat /config/dhcpd.leases 2>/dev/null\"";
+    static std::string execCapture(const std::string& cmd, int* exitCode = nullptr) {
 #ifdef _WIN32
         FILE* pipe = _popen(cmd.c_str(), "r");
 #else
         FILE* pipe = popen(cmd.c_str(), "r");
 #endif
         if (!pipe) {
-            errOut = "Không thể khởi chạy SSH tới EdgeRouter!";
-            return false;
+            if (exitCode) *exitCode = -1;
+            return "";
         }
         char buf[1024];
         std::string output;
@@ -135,13 +117,186 @@ class NetworkQosPlugin : public IModulePlugin {
 #else
         int rc = pclose(pipe);
 #endif
+        if (exitCode) *exitCode = rc;
+        return output;
+    }
+
+    bool applyMikrotikRate(const std::string& ip, const std::string& limit, const std::string& comment, std::string& msgOut) {
+        std::string host, user, pass;
+        int port = 80;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            host = m_cfg.value("host", "192.168.88.1");
+            port = m_cfg.value("port", 80);
+            user = m_cfg.value("username", "admin");
+            pass = m_cfg.value("password", "");
+        }
+        httplib::Client cli(host, port);
+        cli.set_connection_timeout(3, 0);
+        cli.set_read_timeout(5, 0);
+        cli.set_basic_auth(user, pass);
+
+        json body = {
+            {"name", "CBNX_" + ip},
+            {"target", ip + "/32"},
+            {"max-limit", limit},
+            {"comment", comment}
+        };
+        auto res = cli.Put("/rest/queue/simple", body.dump(), "application/json");
+        if (res && res->status >= 200 && res->status < 300) {
+            msgOut = "MikroTik đã cấp " + limit + " cho " + ip;
+            return true;
+        }
+        msgOut = "Không kết nối được MikroTik REST API (" + host + ":" + std::to_string(port) + ")";
+        return false;
+    }
+
+    bool applyEdgeRouterRate(const std::string& ip, const std::string& rate, std::string& msgOut) {
+        std::string host, user;
+        int port = 22;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            host = m_cfg.value("host", "172.16.0.1");
+            user = m_cfg.value("username", "admin");
+            port = m_cfg.value("port", 22);
+        }
+        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(ip) || !isSafeHostOrIp(user)) {
+            msgOut = "Tham số IP/Host EdgeRouter không hợp lệ!";
+            return false;
+        }
+        std::string remoteCmd = "sudo tc class change dev eth0 parent 1: classid 1:10 htb rate " + rate + " || true";
+        std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "
+            + std::to_string(port) + " " + user + "@" + host + " \"" + remoteCmd + "\"";
+        int rc = std::system(cmd.c_str());
+        if (rc == 0) {
+            msgOut = "EdgeRouter SSH đã cập nhật (" + rate + ") cho " + ip;
+            return true;
+        }
+        msgOut = "EdgeRouter SSH không phản hồi (kiểm tra SSH key hoặc IP " + host + ")";
+        return false;
+    }
+
+    bool applyUnifiGuestCmd(const std::string& mac, const std::string& cmdName, int minutes, int downKbps, int upKbps, std::string& msgOut) {
+        if (mac.empty() || !isSafeHostOrIp(mac)) {
+            msgOut = "Thiếu MAC thiết bị để gọi UniFi Controller!";
+            return false;
+        }
+        std::string host, user, pass, site;
+        int port = 443;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            host = m_cfg.value("host", "172.16.38.119");
+            port = m_cfg.value("port", 443);
+            user = m_cfg.value("username", "admin");
+            pass = m_cfg.value("password", "");
+            site = m_cfg.value("unifi_site", "default");
+        }
+        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(site)) {
+            msgOut = "Cấu hình Host/Site UniFi không hợp lệ!";
+            return false;
+        }
+
+        std::string cookieFile = "config/unifi_cookie.txt";
+        fs::create_directories("config");
+        std::string baseUrl = "https://" + host + ":" + std::to_string(port);
+        json loginPayload = {{"username", user}, {"password", pass}};
+
+        // Try UniFi OS (/api/auth/login) then legacy (/api/login)
+        std::string loginCmd = "curl -sk -c \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
+            + [&]() {
+                std::string s = loginPayload.dump();
+                std::string out;
+                for (char c : s) {
+                    if (c == '"') out += "\\\"";
+                    else out += c;
+                }
+                return out;
+            }() + "\" \"" + baseUrl + "/api/auth/login\"";
+        int rc = 0;
+        std::string lRes = execCapture(loginCmd, &rc);
+        std::string apiPrefix = "/proxy/network/api/s/" + site + "/cmd/stamgr";
+        if (lRes.find("\"unique_id\"") == std::string::npos && lRes.find("\"username\"") == std::string::npos) {
+            std::string legCmd = "curl -sk -c \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
+                + [&]() {
+                    std::string s = loginPayload.dump();
+                    std::string out;
+                    for (char c : s) {
+                        if (c == '"') out += "\\\"";
+                        else out += c;
+                    }
+                    return out;
+                }() + "\" \"" + baseUrl + "/api/login\"";
+            execCapture(legCmd, &rc);
+            apiPrefix = "/api/s/" + site + "/cmd/stamgr";
+        }
+
+        json payload = {{"cmd", cmdName}, {"mac", mac}};
+        if (cmdName == "authorize-guest") {
+            payload["minutes"] = std::max(1, minutes);
+            if (downKbps > 0) payload["down"] = downKbps;
+            if (upKbps > 0) payload["up"] = upKbps;
+        }
+        std::string escPayload;
+        for (char c : payload.dump()) {
+            if (c == '"') escPayload += "\\\"";
+            else escPayload += c;
+        }
+        std::string execCmd = "curl -sk -b \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
+            + escPayload + "\" \"" + baseUrl + apiPrefix + "\"";
+        std::string resStr = execCapture(execCmd, &rc);
+        if (resStr.find("\"ok\"") != std::string::npos || resStr.find("\"rc\":\"ok\"") != std::string::npos) {
+            msgOut = "UniFi Controller đã thực thi " + cmdName + " cho " + mac;
+            return true;
+        }
+        msgOut = "UniFi Controller không phản hồi hoặc sai tài khoản (" + host + ":" + std::to_string(port) + ")";
+        return false;
+    }
+
+    bool applySpeedByRouterType(const std::string& ip, const std::string& mac, int minutes, int downKbps, int upKbps, bool unauthorize, std::string& msgOut) {
+        std::string rType;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            rType = m_cfg.value("router_type", "simulation");
+        }
+        if (rType == "unifi") {
+            return applyUnifiGuestCmd(mac, unauthorize ? "unauthorize-guest" : "authorize-guest", minutes, downKbps, upKbps, msgOut);
+        }
+        if (rType == "edgerouter") {
+            std::string rate = unauthorize ? "8kbit" : (downKbps <= 0 ? "50mbit" : (std::to_string(std::max(1, downKbps / 1024)) + "mbit"));
+            return applyEdgeRouterRate(ip, rate, msgOut);
+        }
+        if (rType == "mikrotik") {
+            std::string limit = unauthorize ? "1k/1k" : (downKbps <= 0 ? "50M/50M" : (std::to_string(std::max(1, upKbps / 1024)) + "M/" + std::to_string(std::max(1, downKbps / 1024)) + "M"));
+            return applyMikrotikRate(ip, limit, "CyberNexus QoS", msgOut);
+        }
+        msgOut = unauthorize ? ("Đã kết thúc phiên mô phỏng cho " + ip) : ("Đã cập nhật phiên mô phỏng cho " + ip);
+        return true;
+    }
+
+    bool fetchEdgeRouterDevices(json& devsOut, std::string& errOut) {
+        std::string host, user;
+        int port = 22;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            host = m_cfg.value("host", "172.16.0.1");
+            user = m_cfg.value("username", "admin");
+            port = m_cfg.value("port", 22);
+        }
+        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(user)) {
+            errOut = "IP hoặc User EdgeRouter không hợp lệ!";
+            return false;
+        }
+        std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "
+            + std::to_string(port) + " " + user + "@" + host
+            + " \"cat /var/run/dnsmasq-dhcp.leases 2>/dev/null || cat /config/dhcpd.leases 2>/dev/null\"";
+        int rc = 0;
+        std::string output = execCapture(cmd, &rc);
         if (rc != 0 && output.empty()) {
             errOut = "EdgeRouter SSH không phản hồi (kiểm tra IP " + host + ", Port " + std::to_string(port) + " hoặc SSH Key)";
             return false;
         }
         devsOut = json::array();
         if (output.find("lease ") != std::string::npos && output.find('{') != std::string::npos) {
-            // Parse ISC dhcpd.leases multi-line blocks
             struct LeaseInfo { std::string ip, mac, name, state; };
             std::unordered_map<std::string, LeaseInfo> byIp;
             std::vector<std::string> order;
@@ -180,61 +335,147 @@ class NetworkQosPlugin : public IModulePlugin {
                     }
                 }
             }
+            std::time_t now = std::time(nullptr);
             for (const auto& ipKey : order) {
                 const auto& info = byIp[ipKey];
-                std::string qos = "free_basic";
+                bool wl = isWhitelisted(info.ip);
+                std::string tier = wl ? "whitelist" : "free";
+                int remainingSec = 0;
+                int stage = 0;
                 {
                     std::lock_guard<std::mutex> lk(m_mtx);
-                    auto it = m_ipQos.find(info.ip);
-                    if (it != m_ipQos.end()) qos = it->second;
+                    auto it = m_sessions.find(info.ip);
+                    if (it != m_sessions.end()) {
+                        if (!wl) tier = it->second.tier;
+                        stage = it->second.stage;
+                        if (it->second.duration_sec > 0) {
+                            remainingSec = std::max(0, static_cast<int>((it->second.start_epoch + it->second.duration_sec) - now));
+                        }
+                        if (it->second.mac.empty()) it->second.mac = info.mac;
+                    }
                 }
                 devsOut.push_back({
                     {"mac", info.mac},
                     {"ip", info.ip},
                     {"name", info.name.empty() ? "Thiết bị LAN" : info.name},
-                    {"qos", qos},
+                    {"tier", tier},
+                    {"whitelisted", wl},
+                    {"remaining_sec", remainingSec},
+                    {"stage", stage},
                     {"status", "bound"}
                 });
             }
             return true;
         }
+        return true;
+    }
 
-        // Fallback: dnsmasq-dhcp.leases (single-line: expiry mac ip hostname clientid)
-        std::istringstream iss(output);
-        std::string line;
-        while (std::getline(iss, line)) {
-            if (line.empty()) continue;
-            std::istringstream ls(line);
-            std::string expiry, mac, ip, name;
-            if (!(ls >> expiry >> mac >> ip)) continue;
-            if (ip.find('.') == std::string::npos) continue;
-            if (!(ls >> name) || name == "*") name = "Thiết bị LAN";
-            std::string qos = "free_basic";
+    void startSessionForIp(const std::string& ip, const std::string& mac, const std::string& tier, const std::string& orderCode, int customMinutes) {
+        if (ip.empty()) return;
+        if (isWhitelisted(ip)) return;
+
+        int freeMin = 10, vipMin = 180;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            freeMin = std::max(1, m_cfg.value("free_minutes", 10));
+            vipMin = std::max(5, m_cfg.value("vip_minutes", 180));
+        }
+
+        int mins = (tier == "vip" || tier == "vip_high_speed") ? (customMinutes > 0 ? customMinutes : vipMin)
+                                                               : (customMinutes > 0 ? customMinutes : freeMin);
+        std::string normTier = (tier == "vip" || tier == "vip_high_speed") ? "vip" : (tier == "blocked" ? "blocked" : "free");
+        bool unauth = (normTier == "blocked");
+
+        WifiSession s;
+        s.ip = ip;
+        s.mac = mac;
+        s.tier = normTier;
+        s.order_code = orderCode;
+        s.start_epoch = std::time(nullptr);
+        s.duration_sec = unauth ? 0 : (mins * 60);
+        s.stage = 0;
+
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            if (s.mac.empty() && m_sessions.count(ip)) s.mac = m_sessions[ip].mac;
+            m_sessions[ip] = s;
+        }
+
+        std::string msg;
+        applySpeedByRouterType(s.ip, s.mac, mins, 0, 0, unauth, msg);
+    }
+
+    void watcherLoop() {
+        while (m_running.load()) {
+            for (int i = 0; i < 15 && m_running.load(); ++i) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            if (!m_running.load()) break;
+
+            bool peakMode = true;
+            bool throttle70 = true;
             {
                 std::lock_guard<std::mutex> lk(m_mtx);
-                auto it = m_ipQos.find(ip);
-                if (it != m_ipQos.end()) qos = it->second;
+                peakMode = m_cfg.value("peak_mode_enabled", true);
+                throttle70 = m_cfg.value("throttle_after_70_pct", true);
             }
-            devsOut.push_back({
-                {"mac", mac},
-                {"ip", ip},
-                {"name", name},
-                {"qos", qos},
-                {"status", "bound"}
-            });
+
+            std::vector<WifiSession> actions;
+            std::time_t now = std::time(nullptr);
+            {
+                std::lock_guard<std::mutex> lk(m_mtx);
+                for (auto it = m_sessions.begin(); it != m_sessions.end(); ) {
+                    WifiSession& s = it->second;
+                    if (s.tier == "whitelist" || s.tier == "blocked" || s.duration_sec <= 0) {
+                        ++it;
+                        continue;
+                    }
+                    double elapsed = static_cast<double>(now - s.start_epoch);
+                    double ratio = elapsed / static_cast<double>(s.duration_sec);
+
+                    if (ratio >= 1.0) {
+                        // Silent expiration: unauthorize silently; reconnecting gives default free_minutes
+                        s.stage = 3;
+                        actions.push_back(s);
+                        it = m_sessions.erase(it);
+                        continue;
+                    }
+                    if (s.tier == "vip" && peakMode && throttle70) {
+                        if (ratio >= 0.90 && s.stage < 2) {
+                            s.stage = 2;
+                            actions.push_back(s);
+                        } else if (ratio >= 0.70 && s.stage < 1) {
+                            s.stage = 1;
+                            actions.push_back(s);
+                        }
+                    }
+                    ++it;
+                }
+            }
+
+            for (const auto& act : actions) {
+                std::string msg;
+                int remMins = std::max(1, static_cast<int>((act.start_epoch + act.duration_sec - now) / 60));
+                if (act.stage == 3) {
+                    applySpeedByRouterType(act.ip, act.mac, 1, 0, 0, true, msg);
+                } else if (act.stage == 2) {
+                    applySpeedByRouterType(act.ip, act.mac, remMins, 3072, 1536, false, msg);
+                } else if (act.stage == 1) {
+                    applySpeedByRouterType(act.ip, act.mac, remMins, 10240, 5120, false, msg);
+                }
+            }
         }
-        return true;
     }
 
 public:
     ModuleMetadata getMetadata() const override {
         ModuleMetadata m;
         m.code = "mod_network_qos";
-        m.name = "Quản Trị Băng Thông & Tường Lửa Router (SNM)";
-        m.version = "1.1.0";
+        m.name = "Quản Trị WiFi Marketing & Băng Thông Thông Minh (SNM)";
+        m.version = "2.0.0";
         m.author = "SuperAdmin";
         m.category = "Network";
-        m.description = "Tương tác Router MikroTik REST API / EdgeRouter ER-X SSH: Cấp tốc độ VIP cho khách có hóa đơn, chặn web đen, lọc DNS.";
+        m.description = "Quản lý WiFi theo thời gian (Free/VIP), tự động giảm tốc mềm sau 70%/90% thời gian VIP, Whitelist thiết bị quán, hỗ trợ UniFi Controller / EdgeRouter X / MikroTik.";
         m.monthly_price_vnd = 199000.0;
         m.is_core_required = false;
         m.dependencies = {};
@@ -243,18 +484,26 @@ public:
 
     bool onLoad(const CoreContext& ctx) override {
         loadConfig();
-        std::cout << "[mod_network_qos] Khởi tạo hệ thống kết nối Router (" << m_cfg.value("router_type", "simulation") << ")..." << std::endl;
+        m_running.store(true);
+        m_watcherThread = std::thread(&NetworkQosPlugin::watcherLoop, this);
+        std::cout << "[mod_network_qos] Khởi tạo WiFi Marketing & Time-Based QoS (" << m_cfg.value("router_type", "simulation") << ")..." << std::endl;
         return true;
     }
 
     void onUnload() override {
+        m_running.store(false);
+        if (m_watcherThread.joinable()) m_watcherThread.join();
         std::cout << "[mod_network_qos] Ngắt kết nối và giải phóng tài nguyên mạng." << std::endl;
     }
 
     void registerHttpRoutes(httplib::Server& svr) override {
         svr.Get("/api/network/config", [this](const httplib::Request&, httplib::Response& res) {
-            json safeCfg = m_cfg;
-            if (safeCfg.contains("password") && !safeCfg["password"].get<std::string>().empty()) {
+            json safeCfg;
+            {
+                std::lock_guard<std::mutex> lk(m_mtx);
+                safeCfg = m_cfg;
+            }
+            if (safeCfg.contains("password") && safeCfg["password"].is_string() && !safeCfg["password"].get<std::string>().empty()) {
                 safeCfg["password"] = "********";
             }
             res.set_content(json({{"status", "success"}, {"config", safeCfg}}).dump(2), "application/json; charset=utf-8");
@@ -263,12 +512,53 @@ public:
         svr.Post("/api/network/config", [this](const httplib::Request& req, httplib::Response& res) {
             try {
                 json body = json::parse(req.body);
-                for (auto it = body.begin(); it != body.end(); ++it) {
-                    if (it.key() == "password" && it.value() == "********") continue;
-                    m_cfg[it.key()] = it.value();
+                {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    for (auto it = body.begin(); it != body.end(); ++it) {
+                        if (it.key() == "password" && it.value() == "********") continue;
+                        m_cfg[it.key()] = it.value();
+                    }
                 }
                 saveConfig();
-                res.set_content(json({{"status", "success"}, {"message", "Đã lưu cấu hình Router QoS!"}}).dump(2), "application/json; charset=utf-8");
+                res.set_content(json({{"status", "success"}, {"message", "Đã lưu cấu hình WiFi Marketing & Router QoS!"}}).dump(2), "application/json; charset=utf-8");
+            } catch (const std::exception& e) {
+                res.status = 400;
+                res.set_content(json({{"status", "error"}, {"message", e.what()}}).dump(2), "application/json; charset=utf-8");
+            }
+        });
+
+        svr.Post("/api/network/whitelist", [this](const httplib::Request& req, httplib::Response& res) {
+            try {
+                json body = json::parse(req.body);
+                std::string ip = body.value("ip", "");
+                if (ip.empty()) {
+                    res.status = 400;
+                    res.set_content("{\"status\":\"error\",\"message\":\"Thiếu IP thiết bị\"}", "application/json; charset=utf-8");
+                    return;
+                }
+                bool added = false;
+                {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    if (!m_cfg.contains("whitelist_ips") || !m_cfg["whitelist_ips"].is_array()) {
+                        m_cfg["whitelist_ips"] = json::array();
+                    }
+                    auto& arr = m_cfg["whitelist_ips"];
+                    auto pos = std::find(arr.begin(), arr.end(), json(ip));
+                    if (pos != arr.end()) {
+                        arr.erase(pos);
+                        added = false;
+                    } else {
+                        arr.push_back(ip);
+                        added = true;
+                        m_sessions.erase(ip);
+                    }
+                }
+                saveConfig();
+                res.set_content(json({
+                    {"status", "success"},
+                    {"whitelisted", added},
+                    {"message", added ? ("Đã ghim " + ip + " vào danh sách Nội bộ (Không giới hạn)") : ("Đã bỏ ghim Nội bộ cho " + ip)}
+                }).dump(2), "application/json; charset=utf-8");
             } catch (const std::exception& e) {
                 res.status = 400;
                 res.set_content(json({{"status", "error"}, {"message", e.what()}}).dump(2), "application/json; charset=utf-8");
@@ -276,29 +566,54 @@ public:
         });
 
         svr.Get("/api/network/devices", [this](const httplib::Request&, httplib::Response& res) {
-            std::string rType = m_cfg.value("router_type", "simulation");
+            std::string rType;
+            {
+                std::lock_guard<std::mutex> lk(m_mtx);
+                rType = m_cfg.value("router_type", "simulation");
+            }
             if (rType == "mikrotik") {
-                httplib::Client cli(m_cfg.value("host", "192.168.88.1"), m_cfg.value("port", 80));
+                std::string host, user, pass;
+                int port = 80;
+                {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    host = m_cfg.value("host", "192.168.88.1");
+                    port = m_cfg.value("port", 80);
+                    user = m_cfg.value("username", "admin");
+                    pass = m_cfg.value("password", "");
+                }
+                httplib::Client cli(host, port);
                 cli.set_connection_timeout(3, 0);
-                cli.set_basic_auth(m_cfg.value("username", "admin"), m_cfg.value("password", ""));
+                cli.set_basic_auth(user, pass);
                 auto mRes = cli.Get("/rest/ip/dhcp-server/lease");
                 if (mRes && mRes->status == 200) {
                     try {
                         json leases = json::parse(mRes->body);
                         json devs = json::array();
+                        std::time_t now = std::time(nullptr);
                         for (const auto& l : leases) {
                             std::string ip = l.value("address", "");
-                            std::string qos = "free_basic";
+                            bool wl = isWhitelisted(ip);
+                            std::string tier = wl ? "whitelist" : "free";
+                            int remainingSec = 0, stage = 0;
                             {
                                 std::lock_guard<std::mutex> lk(m_mtx);
-                                auto it = m_ipQos.find(ip);
-                                if (it != m_ipQos.end()) qos = it->second;
+                                auto it = m_sessions.find(ip);
+                                if (it != m_sessions.end()) {
+                                    if (!wl) tier = it->second.tier;
+                                    stage = it->second.stage;
+                                    if (it->second.duration_sec > 0) {
+                                        remainingSec = std::max(0, static_cast<int>((it->second.start_epoch + it->second.duration_sec) - now));
+                                    }
+                                }
                             }
                             devs.push_back({
                                 {"mac", l.value("mac-address", "")},
                                 {"ip", ip},
                                 {"name", l.value("host-name", "Client")},
-                                {"qos", qos},
+                                {"tier", tier},
+                                {"whitelisted", wl},
+                                {"remaining_sec", remainingSec},
+                                {"stage", stage},
                                 {"status", l.value("status", "bound")}
                             });
                         }
@@ -319,11 +634,34 @@ public:
                 }
                 return;
             }
+            if (rType == "unifi") {
+                json devs = json::array();
+                std::time_t now = std::time(nullptr);
+                {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    for (const auto& kv : m_sessions) {
+                        const auto& s = kv.second;
+                        int rem = s.duration_sec > 0 ? std::max(0, static_cast<int>((s.start_epoch + s.duration_sec) - now)) : 0;
+                        devs.push_back({
+                            {"mac", s.mac},
+                            {"ip", s.ip},
+                            {"name", s.name.empty() ? "Khách WiFi" : s.name},
+                            {"tier", s.tier},
+                            {"whitelisted", false},
+                            {"remaining_sec", rem},
+                            {"stage", s.stage},
+                            {"status", "active"}
+                        });
+                    }
+                }
+                res.set_content(json({{"status", "success"}, {"mode", "unifi"}, {"devices", devs}, {"message", devs.empty() ? "Chưa có phiên khách WiFi nào đang hoạt động." : ""}}).dump(2), "application/json; charset=utf-8");
+                return;
+            }
             res.set_content(json({
                 {"status", "success"},
                 {"mode", rType},
                 {"devices", json::array()},
-                {"message", "Đang ở chế độ Mô phỏng — hãy chọn EdgeRouter SSH hoặc MikroTik REST và bấm Lưu Router để quét thiết bị LAN thật."}
+                {"message", "Đang ở chế độ Mô phỏng — hãy chọn EdgeRouter SSH, UniFi Controller hoặc MikroTik REST và bấm Lưu Router để quét thiết bị LAN thật."}
             }).dump(2), "application/json; charset=utf-8");
         });
 
@@ -331,21 +669,13 @@ public:
             try {
                 json body = json::parse(req.body);
                 std::string ip = body.value("ip", "");
+                std::string mac = body.value("mac", "");
                 std::string qos = body.value("qos", "vip_high_speed");
-                std::string rType = m_cfg.value("router_type", "simulation");
-                std::string msg = "Đã cập nhật QoS (" + qos + ") cho " + ip + " (Chế độ mô phỏng).";
-                bool ok = true;
-                if (rType == "mikrotik" && !ip.empty()) {
-                    ok = applyMikrotikQueue(ip, qos, msg);
-                } else if (rType == "edgerouter" && !ip.empty()) {
-                    ok = applyEdgeRouterSsh(ip, qos, msg);
-                }
-                if (ok && !ip.empty()) {
-                    std::lock_guard<std::mutex> lk(m_mtx);
-                    m_ipQos[ip] = qos;
-                }
-                res.status = ok ? 200 : 502;
-                res.set_content(json({{"status", ok ? "success" : "error"}, {"mode", rType}, {"ip", ip}, {"qos", qos}, {"message", msg}}).dump(2), "application/json; charset=utf-8");
+                startSessionForIp(ip, mac, qos, "", 0);
+                std::string msg = (qos == "vip_high_speed" || qos == "vip")
+                    ? ("Đã cấp phiên WiFi VIP cho " + ip)
+                    : (qos == "blocked" ? ("Đã ngắt kết nối " + ip) : ("Đã chuyển " + ip + " về phiên Miễn phí"));
+                res.set_content(json({{"status", "success"}, {"ip", ip}, {"qos", qos}, {"message", msg}}).dump(2), "application/json; charset=utf-8");
             } catch (const std::exception& e) {
                 res.status = 400;
                 res.set_content(json({{"status", "error"}, {"message", e.what()}}).dump(2), "application/json; charset=utf-8");
@@ -354,12 +684,18 @@ public:
     }
 
     void onSystemEvent(const std::string& eventType, const json& eventPayload) override {
-        if (eventType == "ORDER_PAID") {
+        if (eventType == "WIFI_UNLOCK_SESSION") {
             std::string ip = eventPayload.value("client_ip", "");
-            std::cout << "[mod_network_qos] Nhận tín hiệu ORDER_PAID! " << (ip.empty() ? "Sẵn sàng cấp VIP." : ("Nâng VIP cho " + ip)) << std::endl;
-            if (!ip.empty() && m_cfg.value("router_type", "simulation") == "mikrotik") {
-                std::string msg;
-                applyMikrotikQueue(ip, "vip_high_speed", msg);
+            std::string mac = eventPayload.value("mac", "");
+            std::string mode = eventPayload.value("mode", "free");
+            std::string orderCode = eventPayload.value("order_code", "");
+            int mins = eventPayload.value("minutes", 0);
+            startSessionForIp(ip, mac, mode, orderCode, mins);
+        } else if (eventType == "ORDER_PAID") {
+            std::string ip = eventPayload.value("client_ip", "");
+            std::string oc = eventPayload.value("order_code", "");
+            if (!ip.empty()) {
+                startSessionForIp(ip, "", "vip", oc, 0);
             }
         }
     }
