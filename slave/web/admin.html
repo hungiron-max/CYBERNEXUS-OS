@@ -460,30 +460,19 @@
 
             <!-- Products Table View (Modern Enterprise SaaS Layout) -->
             <div class="flex-1 overflow-x-auto overflow-y-auto p-3 sm:p-4 media-custom-scroll">
-                <div class="saas-table-card max-w-6xl mx-auto my-2">
-                    <table class="saas-table">
-                        <colgroup>
-                            <col style="width: 50px;">
-                            <col style="width: 90px;">
-                            <col style="width: 250px;">
-                            <col style="width: 140px;">
-                            <col style="width: 70px;">
-                            <col style="width: 110px;">
-                            <col style="width: 110px;">
-                            <col style="width: 80px;">
-                            <col style="width: 90px;">
-                        </colgroup>
+                <div class="saas-table-card w-full my-1">
+                    <table class="saas-table w-full">
                         <thead>
                             <tr>
-                                <th class="col-center">Ảnh</th>
-                                <th>Mã Hàng</th>
+                                <th class="col-center w-14">Ảnh</th>
+                                <th class="w-24">Mã Hàng</th>
                                 <th class="col-name">Tên Mặt Hàng</th>
                                 <th>Nhóm Hàng</th>
-                                <th class="col-center">ĐVT</th>
-                                <th class="col-right">Giá Bán</th>
-                                <th class="col-right">Giá Vốn</th>
-                                <th class="col-center">Tạm Khóa</th>
-                                <th class="col-right">Thao Tác</th>
+                                <th class="col-center w-16">ĐVT</th>
+                                <th class="col-right w-24">Giá Bán</th>
+                                <th class="col-right w-24">Giá Vốn</th>
+                                <th class="col-center w-20">Tạm Khóa</th>
+                                <th class="col-right w-24">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody id="products-table-body">
@@ -2388,13 +2377,18 @@
                                     <div class="text-[11px] text-slate-400">Khóa API được lưu ẩn an toàn, không hiển thị ở bất kỳ trang nào.</div>
                                 </div>
                             </div>
-                            <button type="button" id="btn-toggle-gemini-edit" onclick="Admin.toggleGeminiKeyEdit(true)" class="btn-glass text-xs py-1.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-200 border border-purple-400/30 flex items-center gap-1.5 font-semibold shrink-0">
-                                <i class="fas fa-pen-to-square text-amber-400"></i> <span>Đổi API Key Mới</span>
-                            </button>
+                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                <button type="button" id="btn-toggle-gemini-edit" onclick="Admin.toggleGeminiKeyEdit(true)" class="btn-glass text-xs py-1.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-200 border border-purple-400/30 flex items-center gap-1.5 font-semibold">
+                                    <i class="fas fa-pen-to-square text-amber-400"></i> <span>Đổi API Key Mới</span>
+                                </button>
+                                <button type="button" onclick="Admin.deleteLocalGeminiKey()" class="btn-glass text-xs py-1.5 px-3 bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 flex items-center gap-1.5 font-semibold" title="Xóa key riêng ở quán để dùng CyberNexus Master AI Proxy">
+                                    <i class="fas fa-trash-can"></i> <span>Xóa Key</span>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Khung thông báo chế độ Master AI Proxy -->
-                        <div id="gemini-status-unconfigured" class="text-xs text-sky-200 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/25 flex flex-wrap items-center justify-between gap-2">
+                        <div id="gemini-status-unconfigured" class="hidden text-xs text-sky-200 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/25 flex flex-wrap items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-2">
                                 <i class="fas fa-cloud-shield text-sky-400"></i>
                                 <span>Mặc định chạy qua <b>CyberNexus Master AI Proxy</b> (Key bảo mật trên Master, không lưu ở quán).</span>

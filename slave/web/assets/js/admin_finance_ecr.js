@@ -828,6 +828,31 @@ Object.assign(Admin, {
         }
     },
 
+    async deleteLocalGeminiKey() {
+        if (!confirm('Xóa Gemini API Key dự phòng tại quán để chuyển sang dùng CyberNexus Master AI Proxy?')) return;
+        try {
+            const res = await fetch('/api/admin?action=save_settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gemini_api_key: '__DELETE__' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const cfgBox = document.getElementById('gemini-status-configured');
+                const uncfgBox = document.getElementById('gemini-status-unconfigured');
+                const inputBox = document.getElementById('gemini-key-input-box');
+                if (cfgBox) cfgBox.classList.add('hidden');
+                if (uncfgBox) uncfgBox.classList.remove('hidden');
+                if (inputBox) inputBox.classList.add('hidden');
+                alert('Đã xóa Key dự phòng tại quán! Hệ thống đã chuyển sang dùng CyberNexus Master AI Proxy.');
+            } else {
+                alert(data.message || 'Không thể xóa Key!');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    },
+
     async markExpensePaid(id) {
         if (!confirm('Xác nhận đã thanh toán khoản công nợ nhà cung cấp này?')) return;
         try {

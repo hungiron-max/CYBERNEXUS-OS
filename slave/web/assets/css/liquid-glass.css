@@ -595,7 +595,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 11px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   white-space: nowrap !important;
   position: sticky;
@@ -617,7 +617,7 @@ body {
 }
 
 .saas-table tbody td {
-  padding: 10px 16px;
+  padding: 10px 12px;
   color: #e2e8f0;
   vertical-align: middle;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
