@@ -4,12 +4,18 @@
 #include <fstream>
 #include <filesystem>
 #include <cstdlib>
+#include <cstdio>
+#include <sstream>
+#include <unordered_map>
+#include <mutex>
 
 namespace fs = std::filesystem;
 using namespace CyberNexus;
 
 class NetworkQosPlugin : public IModulePlugin {
     std::string m_configPath = "config/router_qos.json";
+    std::mutex m_mtx;
+    std::unordered_map<std::string, std::string> m_ipQos;
     json m_cfg = {
         {"router_type", "simulation"},
         {"host", "192.168.88.1"},
@@ -99,6 +105,66 @@ class NetworkQosPlugin : public IModulePlugin {
         return false;
     }
 
+    bool fetchEdgeRouterDevices(json& devsOut, std::string& errOut) {
+        std::string host = m_cfg.value("host", "172.16.0.1");
+        std::string user = m_cfg.value("username", "admin");
+        int port = m_cfg.value("port", 22);
+        if (!isSafeHostOrIp(host) || !isSafeHostOrIp(user)) {
+            errOut = "IP hoặc User EdgeRouter không hợp lệ!";
+            return false;
+        }
+        std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "
+            + std::to_string(port) + " " + user + "@" + host
+            + " \"cat /var/run/dnsmasq-dhcp.leases 2>/dev/null || cat /config/dhcpd.leases 2>/dev/null\"";
+#ifdef _WIN32
+        FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+        FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+        if (!pipe) {
+            errOut = "Không thể khởi chạy SSH tới EdgeRouter!";
+            return false;
+        }
+        char buf[1024];
+        std::string output;
+        while (fgets(buf, sizeof(buf), pipe) != nullptr) {
+            output += buf;
+        }
+#ifdef _WIN32
+        int rc = _pclose(pipe);
+#else
+        int rc = pclose(pipe);
+#endif
+        if (rc != 0 && output.empty()) {
+            errOut = "EdgeRouter SSH không phản hồi (kiểm tra IP " + host + ", Port " + std::to_string(port) + " hoặc SSH Key)";
+            return false;
+        }
+        devsOut = json::array();
+        std::istringstream iss(output);
+        std::string line;
+        while (std::getline(iss, line)) {
+            if (line.empty()) continue;
+            std::istringstream ls(line);
+            std::string expiry, mac, ip, name;
+            if (!(ls >> expiry >> mac >> ip)) continue;
+            if (!(ls >> name) || name == "*") name = "Thiết bị LAN";
+            std::string qos = "free_basic";
+            {
+                std::lock_guard<std::mutex> lk(m_mtx);
+                auto it = m_ipQos.find(ip);
+                if (it != m_ipQos.end()) qos = it->second;
+            }
+            devsOut.push_back({
+                {"mac", mac},
+                {"ip", ip},
+                {"name", name},
+                {"qos", qos},
+                {"status", "bound"}
+            });
+        }
+        return true;
+    }
+
 public:
     ModuleMetadata getMetadata() const override {
         ModuleMetadata m;
@@ -160,11 +226,18 @@ public:
                         json leases = json::parse(mRes->body);
                         json devs = json::array();
                         for (const auto& l : leases) {
+                            std::string ip = l.value("address", "");
+                            std::string qos = "free_basic";
+                            {
+                                std::lock_guard<std::mutex> lk(m_mtx);
+                                auto it = m_ipQos.find(ip);
+                                if (it != m_ipQos.end()) qos = it->second;
+                            }
                             devs.push_back({
                                 {"mac", l.value("mac-address", "")},
-                                {"ip", l.value("address", "")},
+                                {"ip", ip},
                                 {"name", l.value("host-name", "Client")},
-                                {"qos", "free_basic"},
+                                {"qos", qos},
                                 {"status", l.value("status", "bound")}
                             });
                         }
@@ -172,16 +245,25 @@ public:
                         return;
                     } catch (...) {}
                 }
+                res.set_content(json({{"status", "error"}, {"mode", "mikrotik"}, {"devices", json::array()}, {"message", "Không kết nối được MikroTik REST API để quét thiết bị LAN."}}).dump(2), "application/json; charset=utf-8");
+                return;
             }
-            json data = {
+            if (rType == "edgerouter") {
+                json devs = json::array();
+                std::string errMsg;
+                if (fetchEdgeRouterDevices(devs, errMsg)) {
+                    res.set_content(json({{"status", "success"}, {"mode", "edgerouter"}, {"devices", devs}}).dump(2), "application/json; charset=utf-8");
+                } else {
+                    res.set_content(json({{"status", "error"}, {"mode", "edgerouter"}, {"devices", json::array()}, {"message", errMsg}}).dump(2), "application/json; charset=utf-8");
+                }
+                return;
+            }
+            res.set_content(json({
                 {"status", "success"},
                 {"mode", rType},
-                {"devices", {
-                    {{"mac", "B4:2E:99:A1:02:11"}, {"ip", "192.168.1.105"}, {"name", "iPhone 15 Pro"}, {"qos", "vip_high_speed"}, {"traffic_mb", 245.5}},
-                    {{"mac", "70:85:C2:55:FF:01"}, {"ip", "192.168.1.110"}, {"name", "Samsung S24"}, {"qos", "free_basic"}, {"traffic_mb", 52.1}}
-                }}
-            };
-            res.set_content(data.dump(2), "application/json; charset=utf-8");
+                {"devices", json::array()},
+                {"message", "Đang ở chế độ Mô phỏng — hãy chọn EdgeRouter SSH hoặc MikroTik REST và bấm Lưu Router để quét thiết bị LAN thật."}
+            }).dump(2), "application/json; charset=utf-8");
         });
 
         svr.Post("/api/network/qos/set", [this](const httplib::Request& req, httplib::Response& res) {
@@ -196,6 +278,10 @@ public:
                     ok = applyMikrotikQueue(ip, qos, msg);
                 } else if (rType == "edgerouter" && !ip.empty()) {
                     ok = applyEdgeRouterSsh(ip, qos, msg);
+                }
+                if (ok && !ip.empty()) {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    m_ipQos[ip] = qos;
                 }
                 res.status = ok ? 200 : 502;
                 res.set_content(json({{"status", ok ? "success" : "error"}, {"mode", rType}, {"ip", ip}, {"qos", qos}, {"message", msg}}).dump(2), "application/json; charset=utf-8");

@@ -3183,20 +3183,32 @@ const Admin = {
             }
             const listEl = document.getElementById('router-qos-devices-list');
             if (listEl && devRes && Array.isArray(devRes.devices)) {
-                listEl.innerHTML = devRes.devices.map(d => `
+                if (devRes.devices.length === 0) {
+                    const notice = devRes.message || 'Chưa phát hiện thiết bị LAN nào từ Router.';
+                    listEl.innerHTML = `<div class="p-2.5 rounded-lg bg-slate-900/60 border border-white/10 text-[11px] text-slate-400">${escapeHtml(notice)}</div>`;
+                } else {
+                    listEl.innerHTML = devRes.devices.map(d => {
+                        const qBadge = d.qos === 'vip_high_speed'
+                            ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">VIP 50M</span>'
+                            : (d.qos === 'blocked'
+                                ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">Đã chặn</span>'
+                                : '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px] font-bold">Cơ bản 5M</span>');
+                        return `
                     <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-[11px]">
                         <div>
-                            <b class="text-white">${d.name || 'Thiết bị'}</b>
-                            <span class="font-mono text-sky-300 ml-1.5">${d.ip}</span>
-                            <span class="font-mono text-slate-400 ml-1">(${d.mac || ''})</span>
+                            <b class="text-white">${escapeHtml(d.name || 'Thiết bị')}</b>
+                            <span class="font-mono text-sky-300 ml-1.5">${escapeHtml(d.ip)}</span>
+                            <span class="font-mono text-slate-400 ml-1">(${escapeHtml(d.mac || '')})</span>
+                            ${qBadge}
                         </div>
                         <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="Admin.setDeviceQos('${d.ip}', 'vip_high_speed')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold">VIP</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${d.ip}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Cơ bản</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${d.ip}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">Chặn</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'vip_high_speed')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold">VIP</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Cơ bản</button>
+                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">Chặn</button>
                         </div>
-                    </div>
-                `).join('');
+                    </div>`;
+                    }).join('');
+                }
             }
         } catch (e) {}
     },
