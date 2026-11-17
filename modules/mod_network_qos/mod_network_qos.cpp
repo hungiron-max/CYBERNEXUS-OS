@@ -140,6 +140,66 @@ class NetworkQosPlugin : public IModulePlugin {
             return false;
         }
         devsOut = json::array();
+        if (output.find("lease ") != std::string::npos && output.find('{') != std::string::npos) {
+            // Parse ISC dhcpd.leases multi-line blocks
+            struct LeaseInfo { std::string ip, mac, name, state; };
+            std::unordered_map<std::string, LeaseInfo> byIp;
+            std::vector<std::string> order;
+            std::istringstream iss(output);
+            std::string line;
+            LeaseInfo cur;
+            bool inBlock = false;
+            auto trimToken = [](std::string s) {
+                while (!s.empty() && (s.back() == ';' || s.back() == '"' || s.back() == '\r' || s.back() == ' ')) s.pop_back();
+                while (!s.empty() && (s.front() == '"' || s.front() == ' ')) s.erase(s.begin());
+                return s;
+            };
+            while (std::getline(iss, line)) {
+                std::istringstream ls(line);
+                std::string t1, t2, t3;
+                if (!(ls >> t1)) continue;
+                if (t1 == "lease" && (ls >> t2)) {
+                    cur = LeaseInfo{};
+                    cur.ip = t2;
+                    inBlock = true;
+                } else if (inBlock && t1 == "}") {
+                    if (!cur.ip.empty() && cur.state != "free" && cur.state != "abandoned") {
+                        if (byIp.find(cur.ip) == byIp.end()) order.push_back(cur.ip);
+                        byIp[cur.ip] = cur;
+                    }
+                    inBlock = false;
+                } else if (inBlock) {
+                    if (t1 == "hardware" && (ls >> t2 >> t3) && t2 == "ethernet") {
+                        cur.mac = trimToken(t3);
+                    } else if (t1 == "client-hostname") {
+                        std::string rest;
+                        std::getline(ls, rest);
+                        cur.name = trimToken(rest);
+                    } else if (t1 == "binding" && (ls >> t2 >> t3) && t2 == "state") {
+                        cur.state = trimToken(t3);
+                    }
+                }
+            }
+            for (const auto& ipKey : order) {
+                const auto& info = byIp[ipKey];
+                std::string qos = "free_basic";
+                {
+                    std::lock_guard<std::mutex> lk(m_mtx);
+                    auto it = m_ipQos.find(info.ip);
+                    if (it != m_ipQos.end()) qos = it->second;
+                }
+                devsOut.push_back({
+                    {"mac", info.mac},
+                    {"ip", info.ip},
+                    {"name", info.name.empty() ? "Thiết bị LAN" : info.name},
+                    {"qos", qos},
+                    {"status", "bound"}
+                });
+            }
+            return true;
+        }
+
+        // Fallback: dnsmasq-dhcp.leases (single-line: expiry mac ip hostname clientid)
         std::istringstream iss(output);
         std::string line;
         while (std::getline(iss, line)) {
@@ -147,6 +207,7 @@ class NetworkQosPlugin : public IModulePlugin {
             std::istringstream ls(line);
             std::string expiry, mac, ip, name;
             if (!(ls >> expiry >> mac >> ip)) continue;
+            if (ip.find('.') == std::string::npos) continue;
             if (!(ls >> name) || name == "*") name = "Thiết bị LAN";
             std::string qos = "free_basic";
             {
