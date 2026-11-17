@@ -6270,15 +6270,18 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         double totalStockVal = 0.0;
         int lowStockCount = 0;
         for (const auto& m : mats) {
-            double q = m.value("quantity", 0.0);
-            double mq = m.value("min_quantity", 0.0);
-            double cp = m.value("cost_price", 0.0);
+            double q = jNum(m, "quantity", 0.0);
+            double mq = jNum(m, "min_quantity", 0.0);
+            double cp = jNum(m, "cost_price", 0.0);
             if (q > 0 && cp > 0) totalStockVal += q * cp;
             if (q <= mq) lowStockCount++;
         }
         json catRows = db.query("SELECT DISTINCT category FROM materials WHERE status = 'active' AND COALESCE(category,'') != '' ORDER BY category ASC");
         json cats = json::array();
-        for (const auto& c : catRows) cats.push_back(c.value("category", ""));
+        for (const auto& c : catRows) {
+            std::string cv = jStr(c, "category");
+            if (!cv.empty()) cats.push_back(cv);
+        }
         sendJson(res, {
             {"success", true},
             {"materials", mats},
@@ -6367,11 +6370,11 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             sendError(res, "Không tìm thấy nguyên vật liệu!", 404);
             return;
         }
-        double curStock = mat.value("quantity", 0.0);
+        double curStock = jNum(mat, "quantity", 0.0);
         double newStock = curStock;
-        std::string matName = mat.value("name", "");
-        std::string matUnit = mat.value("unit", "kg");
-        if (supplier.empty()) supplier = mat.value("supplier", "");
+        std::string matName = jStr(mat, "name");
+        std::string matUnit = jStr(mat, "unit", "kg");
+        if (supplier.empty()) supplier = jStr(mat, "supplier");
 
         if (transType == "import") {
             newStock = curStock + qty;
@@ -6466,7 +6469,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         json txs = db.query(sql, params);
         double totalExpense = 0.0;
         for (const auto& t : txs) {
-            if (t.value("trans_type", "") == "import") totalExpense += t.value("total_cost", 0.0);
+            if (jStr(t, "trans_type") == "import") totalExpense += jNum(t, "total_cost", 0.0);
         }
         sendJson(res, {
             {"success", true},
@@ -6563,7 +6566,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         if (invId <= 0 || amount <= 0.0) { sendError(res, "Vui lòng nhập hóa đơn và số tiền thanh toán hợp lệ.", 400); return; }
         auto inv = db.queryRow("SELECT * FROM supplier_invoices WHERE id = :id LIMIT 1", {{":id", invId}});
         if (inv.is_null()) { sendError(res, "Không tìm thấy hóa đơn công nợ.", 404); return; }
-        double remaining = std::round(inv.value("total_amount", 0.0) - inv.value("paid_amount", 0.0));
+        double remaining = std::round(jNum(inv, "total_amount", 0.0) - jNum(inv, "paid_amount", 0.0));
         if (amount > remaining) { sendError(res, "Số tiền thanh toán vượt quá công nợ còn lại!", 400); return; }
         try {
             db.execute("BEGIN TRANSACTION");
