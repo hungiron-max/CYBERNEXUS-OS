@@ -6,6 +6,110 @@ Object.assign(Admin, {
     // ==========================================
     // 8. TÀI CHÍNH & SỔ QUỸ (FINANCE REPORTS)
     // ==========================================
+    setAuditFilter(mode) {
+        if (!mode) mode = 'all';
+        this._auditFilterMode = (this._auditFilterMode === mode && mode !== 'all') ? 'all' : mode;
+        const sel = document.getElementById('fin-audit-filter');
+        if (sel) sel.value = this._auditFilterMode;
+        this.renderAuditKpiCards();
+        this.filterAuditLogs();
+    },
+
+    scrollToShiftReconciliation() {
+        const el = document.getElementById('fin-shift-reconciliation-card');
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-amber-400/70');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-amber-400/70'), 1600);
+    },
+
+    renderAuditKpiCards() {
+        const auditKpi = this._auditKpiData || { critical_count: 0, void_count: 0, void_amount: 0, discount_count: 0, discount_amount: 0, total_shift_discrepancy: 0 };
+        const auditKpiEl = document.getElementById('fin-audit-kpi-cards');
+        if (!auditKpiEl) return;
+        const diffVal = Number(auditKpi.total_shift_discrepancy) || 0;
+        const mode = this._auditFilterMode || 'all';
+        const activeCls = (m) => mode === m ? 'ring-2 ring-sky-400/70 bg-white/[0.06]' : 'hover:bg-white/[0.04]';
+        auditKpiEl.innerHTML = `
+            <div onclick="Admin.setAuditFilter('critical')" class="liquid-glass-card p-3 border-l-4 border-rose-500 cursor-pointer transition-all ${activeCls('critical')}" title="Bấm để lọc các sự kiện CRITICAL">
+                <span class="text-[10px] font-bold text-rose-300 uppercase flex items-center justify-between"><span>CẢNH BÁO RỦI RO CAO (CRITICAL)</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
+                <div class="text-xl font-black text-rose-400 font-mono mt-1">${auditKpi.critical_count} <span class="text-xs font-normal text-slate-400">sự kiện</span></div>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Hủy đơn / Giảm giá lớn / Lệch ca</span>
+            </div>
+            <div onclick="Admin.setAuditFilter('void')" class="liquid-glass-card p-3 border-l-4 border-orange-400 cursor-pointer transition-all ${activeCls('void')}" title="Bấm để lọc chi tiết các đơn đã hủy (VOID)">
+                <span class="text-[10px] font-bold text-orange-300 uppercase flex items-center justify-between"><span>TỔNG HỦY ĐƠN (VOID)</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
+                <div class="text-xl font-black text-orange-400 font-mono mt-1">${this.formatMoney(auditKpi.void_amount)} đ</div>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.void_count} hóa đơn bị hủy</span>
+            </div>
+            <div onclick="Admin.setAuditFilter('discount')" class="liquid-glass-card p-3 border-l-4 border-amber-400 cursor-pointer transition-all ${activeCls('discount')}" title="Bấm để lọc chi tiết các lượt giảm giá thủ công">
+                <span class="text-[10px] font-bold text-amber-300 uppercase flex items-center justify-between"><span>TỔNG GIẢM GIÁ THỦ CÔNG</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
+                <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(auditKpi.discount_amount)} đ</div>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.discount_count} lượt áp chiết khấu</span>
+            </div>
+            <div onclick="Admin.scrollToShiftReconciliation()" class="liquid-glass-card p-3 border-l-4 ${diffVal < 0 ? 'border-rose-500' : 'border-emerald-400'} cursor-pointer hover:bg-white/[0.04] transition-all" title="Bấm để xem chi tiết từng ca giao nhận két bên dưới">
+                <span class="text-[10px] font-bold text-slate-300 uppercase flex items-center justify-between"><span>LỆCH KÉT GIAO CA LŨY KẾ</span><i class="fas fa-arrow-down text-[9px] opacity-70"></i></span>
+                <div class="text-xl font-black ${diffVal < 0 ? 'text-rose-400' : 'text-emerald-400'} font-mono mt-1">${diffVal > 0 ? '+' : ''}${this.formatMoney(diffVal)} đ</div>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">${diffVal === 0 ? 'Khớp 100% két lý thuyết' : (diffVal < 0 ? 'Thiếu hụt tiền mặt' : 'Dư tiền mặt')} • Xem chi tiết ca</span>
+            </div>
+        `;
+    },
+
+    filterAuditLogs() {
+        const auditTbody = document.getElementById('fin-audit-logs-tbody');
+        if (!auditTbody) return;
+        const logs = Array.isArray(this._auditLogsData) ? this._auditLogsData : [];
+        const mode = this._auditFilterMode || 'all';
+        const q = (document.getElementById('fin-audit-search')?.value || '').trim().toLowerCase();
+
+        const filtered = logs.filter(l => {
+            const code = String(l.action_code || l.action_label || '').toUpperCase();
+            const isVoid = code.includes('VOID') || code.includes('CANCEL') || code.includes('HUY');
+            const isDisc = code.includes('DISCOUNT') || code.includes('GIAM');
+            if (mode === 'critical' && l.severity !== 'CRITICAL') return false;
+            if (mode === 'void' && !isVoid) return false;
+            if (mode === 'discount' && !isDisc) return false;
+            if (mode === 'other' && (isVoid || isDisc)) return false;
+            if (q) {
+                const hay = `${l.action_label || ''} ${l.action_code || ''} ${l.table_code || ''} ${l.order_code || ''} ${l.reason || ''} ${l.details || ''} ${l.user_name || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+
+        const cntEl = document.getElementById('fin-audit-count');
+        if (cntEl) {
+            cntEl.textContent = filtered.length === logs.length
+                ? `${logs.length} bản ghi`
+                : `${filtered.length}/${logs.length} bản ghi`;
+        }
+
+        if (filtered.length === 0) {
+            auditTbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-xs text-slate-500">${logs.length === 0 ? 'Chưa ghi nhận thao tác nhạy cảm nào trong Nhật ký Kiểm toán.' : 'Không có sự kiện kiểm toán phù hợp bộ lọc hiện tại.'}</td></tr>`;
+            return;
+        }
+        auditTbody.innerHTML = filtered.map(l => {
+            const sevBadge = l.severity === 'CRITICAL'
+                ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40">🚩 CRITICAL</span>'
+                : (l.severity === 'WARN'
+                    ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ WARN</span>'
+                    : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">ℹ️ INFO</span>');
+            return `
+                <tr class="hover:bg-white/[0.03] transition-colors">
+                    <td><span class="font-mono text-[11px] text-slate-400 whitespace-nowrap">${l.created_at ? window.formatDateDDMMYY(l.created_at, true) : '-'}</span></td>
+                    <td>${sevBadge}</td>
+                    <td><span class="text-xs font-bold text-white">${l.action_label || l.action_code}</span></td>
+                    <td><span class="font-mono text-xs text-sky-300">${l.table_code || '-'} ${l.order_code ? '(' + l.order_code + ')' : ''}</span></td>
+                    <td class="col-right"><span class="font-mono font-bold text-xs ${Number(l.amount_impact) > 0 ? 'text-rose-400' : 'text-slate-400'}">${Number(l.amount_impact) > 0 ? this.formatMoney(l.amount_impact) + ' đ' : '-'}</span></td>
+                    <td>
+                        <div class="text-xs text-amber-200 font-semibold">${l.reason || '-'}</div>
+                        ${l.details ? `<div class="text-[10px] text-slate-400">${l.details}</div>` : ''}
+                    </td>
+                    <td><span class="text-xs text-slate-300 font-medium">${l.user_name || '-'} <span class="text-[10px] text-slate-500">[${l.user_role || ''}]</span></span></td>
+                </tr>
+            `;
+        }).join('');
+    },
+
     async loadFinance() {
         const monthInput = document.getElementById('fin-month-input');
         if (monthInput && !monthInput.value) {
@@ -25,63 +129,11 @@ Object.assign(Admin, {
             ]);
 
             // Render Audit KPI Cards & Audit Logs Table & Shifts Table
-            const auditKpi = (auditRes && auditRes.audit_kpi) || { critical_count: 0, void_count: 0, void_amount: 0, discount_count: 0, discount_amount: 0, total_shift_discrepancy: 0 };
-            const auditKpiEl = document.getElementById('fin-audit-kpi-cards');
-            if (auditKpiEl) {
-                const diffVal = Number(auditKpi.total_shift_discrepancy) || 0;
-                auditKpiEl.innerHTML = `
-                    <div class="liquid-glass-card p-3 border-l-4 border-rose-500">
-                        <span class="text-[10px] font-bold text-rose-300 uppercase block">CẢNH BÁO RỦI RO CAO (CRITICAL)</span>
-                        <div class="text-xl font-black text-rose-400 font-mono mt-1">${auditKpi.critical_count} <span class="text-xs font-normal text-slate-400">sự kiện</span></div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">Hủy đơn / Giảm giá lớn / Lệch ca</span>
-                    </div>
-                    <div class="liquid-glass-card p-3 border-l-4 border-orange-400">
-                        <span class="text-[10px] font-bold text-orange-300 uppercase block">TỔNG HỦY ĐƠN (VOID)</span>
-                        <div class="text-xl font-black text-orange-400 font-mono mt-1">${this.formatMoney(auditKpi.void_amount)} đ</div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.void_count} hóa đơn bị hủy</span>
-                    </div>
-                    <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
-                        <span class="text-[10px] font-bold text-amber-300 uppercase block">TỔNG GIẢM GIÁ THỦ CÔNG</span>
-                        <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(auditKpi.discount_amount)} đ</div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.discount_count} lượt áp chiết khấu</span>
-                    </div>
-                    <div class="liquid-glass-card p-3 border-l-4 ${diffVal < 0 ? 'border-rose-500' : 'border-emerald-400'}">
-                        <span class="text-[10px] font-bold text-slate-300 uppercase block">LỆCH KÉT GIAO CA LŨY KẾ</span>
-                        <div class="text-xl font-black ${diffVal < 0 ? 'text-rose-400' : 'text-emerald-400'} font-mono mt-1">${diffVal > 0 ? '+' : ''}${this.formatMoney(diffVal)} đ</div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">${diffVal === 0 ? 'Khớp 100% két lý thuyết' : (diffVal < 0 ? 'Thiếu hụt tiền mặt' : 'Dư tiền mặt')}</span>
-                    </div>
-                `;
-            }
-
-            const auditTbody = document.getElementById('fin-audit-logs-tbody');
-            if (auditTbody) {
-                const logs = (auditRes && auditRes.audit_logs) || [];
-                if (logs.length === 0) {
-                    auditTbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-xs text-slate-500">Chưa ghi nhận thao tác nhạy cảm nào trong Nhật ký Kiểm toán.</td></tr>';
-                } else {
-                    auditTbody.innerHTML = logs.map(l => {
-                        const sevBadge = l.severity === 'CRITICAL'
-                            ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40">🚩 CRITICAL</span>'
-                            : (l.severity === 'WARN'
-                                ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ WARN</span>'
-                                : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">ℹ️ INFO</span>');
-                        return `
-                            <tr class="hover:bg-white/[0.03] transition-colors">
-                                <td><span class="font-mono text-[11px] text-slate-400 whitespace-nowrap">${l.created_at ? window.formatDateDDMMYY(l.created_at, true) : '-'}</span></td>
-                                <td>${sevBadge}</td>
-                                <td><span class="text-xs font-bold text-white">${l.action_label || l.action_code}</span></td>
-                                <td><span class="font-mono text-xs text-sky-300">${l.table_code || '-'} ${l.order_code ? '(' + l.order_code + ')' : ''}</span></td>
-                                <td class="col-right"><span class="font-mono font-bold text-xs ${Number(l.amount_impact) > 0 ? 'text-rose-400' : 'text-slate-400'}">${Number(l.amount_impact) > 0 ? this.formatMoney(l.amount_impact) + ' đ' : '-'}</span></td>
-                                <td>
-                                    <div class="text-xs text-amber-200 font-semibold">${l.reason || '-'}</div>
-                                    ${l.details ? `<div class="text-[10px] text-slate-400">${l.details}</div>` : ''}
-                                </td>
-                                <td><span class="text-xs text-slate-300 font-medium">${l.user_name || '-'} <span class="text-[10px] text-slate-500">[${l.user_role || ''}]</span></span></td>
-                            </tr>
-                        `;
-                    }).join('');
-                }
-            }
+            this._auditKpiData = (auditRes && auditRes.audit_kpi) || { critical_count: 0, void_count: 0, void_amount: 0, discount_count: 0, discount_amount: 0, total_shift_discrepancy: 0 };
+            this._auditLogsData = (auditRes && auditRes.audit_logs) || [];
+            if (!this._auditFilterMode) this._auditFilterMode = 'all';
+            this.renderAuditKpiCards();
+            this.filterAuditLogs();
 
             const shiftsTbody = document.getElementById('fin-shifts-tbody');
             if (shiftsTbody) {

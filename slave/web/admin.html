@@ -1511,8 +1511,24 @@
                     </button>
                 </div>
 
-                <!-- 4 Thẻ KPI Kiểm Toán -->
+                <!-- 4 Thẻ KPI Kiểm Toán (Bấm để lọc chi tiết) -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="fin-audit-kpi-cards"></div>
+
+                <!-- Thanh tìm kiếm & lọc Audit Trail -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative flex-1 min-w-[200px]">
+                        <i class="fas fa-magnifying-glass text-[11px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <input type="text" id="fin-audit-search" oninput="Admin.filterAuditLogs()" placeholder="Tìm theo mã đơn, bàn, lý do hoặc nhân viên..." class="liquid-input w-full py-1.5 pr-3 text-xs" style="padding-left: 2.25rem;" />
+                    </div>
+                    <select id="fin-audit-filter" onchange="Admin.setAuditFilter(this.value)" class="liquid-input py-1.5 px-2.5 text-xs text-slate-200">
+                        <option value="all">Tất cả sự kiện</option>
+                        <option value="critical">Rủi ro cao (CRITICAL)</option>
+                        <option value="void">Hủy đơn (VOID)</option>
+                        <option value="discount">Giảm giá thủ công</option>
+                        <option value="other">In lại bill / Khóa món / Khác</option>
+                    </select>
+                    <span id="fin-audit-count" class="text-[10px] font-mono text-slate-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10">0 bản ghi</span>
+                </div>
 
                 <!-- Bảng Nhật Ký Kiểm Toán Bất Biến -->
                 <div class="overflow-x-auto max-h-72 rounded-xl border border-white/10 bg-slate-950/60">
@@ -1534,7 +1550,7 @@
             </div>
 
             <!-- PHÂN HỆ MỚI 2: ĐỐI SOÁT BÀN GIAO CA & SỔ QUỸ TIỀN MẶT TẠI QUẦY -->
-            <div class="liquid-glass rounded-xl border border-amber-500/30 p-4 space-y-3">
+            <div id="fin-shift-reconciliation-card" class="liquid-glass rounded-xl border border-amber-500/30 p-4 space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
                     <div class="flex items-center gap-2">
                         <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
