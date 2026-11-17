@@ -217,6 +217,22 @@ Object.assign(Admin, {
         const costElem = document.getElementById('import-footer-total-cost');
         if (countElem) countElem.innerText = count;
         if (costElem) costElem.innerText = this.formatMoney(totalCost) + ' đ';
+        this.updateImportPaymentSummary();
+    },
+
+    updateImportPaymentSummary() {
+        const totalText = document.getElementById('import-footer-total-cost')?.innerText || '0';
+        const total = parseFloat(totalText.replace(/[^\d]/g, '')) || 0;
+        ['manual', 'review'].forEach(prefix => {
+            const amountInput = document.getElementById(`${prefix}-import-paid`);
+            const summary = document.getElementById(`${prefix}-import-payment-summary`);
+            if (!amountInput || !summary) return;
+            const paid = Math.max(0, parseFloat(amountInput.value) || 0);
+            const remaining = Math.max(0, total - paid);
+            const status = paid <= 0 ? 'Chưa thanh toán' : (remaining <= 0 ? 'Đã thanh toán đủ' : 'Đã tạm ứng / thanh toán một phần');
+            summary.innerText = `${status} · Còn ${this.formatMoney(remaining)} đ`;
+            summary.className = `mt-1 ${remaining > 0 ? 'text-amber-300' : 'text-emerald-300'}`;
+        });
     },
 
     // --- Phương thức 2: Tải lên hóa đơn & Drag and Drop ---
@@ -848,6 +864,22 @@ Object.assign(Admin, {
         const costElem = document.getElementById('import-footer-total-cost');
         if (countElem) countElem.innerText = count;
         if (costElem) costElem.innerText = this.formatMoney(totalCost) + ' đ';
+        this.updateImportPaymentSummary();
+    },
+
+    updateImportPaymentSummary() {
+        const totalText = document.getElementById('import-footer-total-cost')?.innerText || '0';
+        const total = parseFloat(totalText.replace(/[^\d]/g, '')) || 0;
+        ['manual', 'review'].forEach(prefix => {
+            const amountInput = document.getElementById(`${prefix}-import-paid`);
+            const summary = document.getElementById(`${prefix}-import-payment-summary`);
+            if (!amountInput || !summary) return;
+            const paid = Math.max(0, parseFloat(amountInput.value) || 0);
+            const remaining = Math.max(0, total - paid);
+            const status = paid <= 0 ? 'Chưa thanh toán' : (remaining <= 0 ? 'Đã thanh toán đủ' : 'Đã tạm ứng / thanh toán một phần');
+            summary.innerText = `${status} · Còn ${this.formatMoney(remaining)} đ`;
+            summary.className = `mt-1 ${remaining > 0 ? 'text-amber-300' : 'text-emerald-300'}`;
+        });
     },
 
     // --- XÁC NHẬN NHẬP KHO HÀNG LOẠT ---
@@ -857,11 +889,17 @@ Object.assign(Admin, {
         let invoiceNo = '';
         let note = '';
         let items = [];
+        let paidAmount = 0;
+        let paymentMethod = 'cash';
+        let dueDate = '';
 
         if (method === 'manual') {
             supplier = document.getElementById('manual-import-supplier')?.value.trim() || '';
             invoiceNo = document.getElementById('manual-import-invoice-no')?.value.trim() || '';
             note = document.getElementById('manual-import-note')?.value.trim() || 'Nhập kho thủ công';
+            paidAmount = parseFloat(document.getElementById('manual-import-paid')?.value || 0) || 0;
+            paymentMethod = document.getElementById('manual-import-payment-method')?.value || 'cash';
+            dueDate = document.getElementById('manual-import-due-date')?.value || '';
 
             const rows = document.querySelectorAll('#manual-import-tbody tr');
             rows.forEach(tr => {
@@ -890,6 +928,9 @@ Object.assign(Admin, {
             supplier = document.getElementById('review-supplier-input')?.value.trim() || '';
             invoiceNo = document.getElementById('review-invoice-no-input')?.value.trim() || '';
             note = 'Nhập kho bằng AI OCR chứng từ';
+            paidAmount = parseFloat(document.getElementById('review-import-paid')?.value || 0) || 0;
+            paymentMethod = document.getElementById('review-import-payment-method')?.value || 'cash';
+            dueDate = document.getElementById('review-import-due-date')?.value || '';
 
             const rows = document.querySelectorAll('#review-items-tbody tr.review-row');
             rows.forEach(tr => {
@@ -954,6 +995,9 @@ Object.assign(Admin, {
                     invoice_no: invoiceNo,
                     invoice_image: this.importState.invoiceImageUrl,
                     note: note,
+                    paid_amount: paidAmount,
+                    payment_method: paymentMethod,
+                    due_date: dueDate,
                     items: items
                 })
             });
@@ -979,7 +1023,14 @@ Object.assign(Admin, {
     },
 
     // 8.3 Stock Transactions (Nhập kho / Xuất kho / Chi phí)
-    openStockTransactionModal(type = 'import', matId = null) {
+    async openStockTransactionModal(type = 'import', matId = null) {
+        if (!Array.isArray(this.materialsList) || this.materialsList.length === 0) {
+            try {
+                const res = await fetch('api/operations.php?action=get_materials&category=all');
+                const data = await res.json();
+                if (data && data.success) this.materialsList = data.materials || [];
+            } catch (e) {}
+        }
         const transTypeInput = document.getElementById('modal-trans-type');
         if (transTypeInput) transTypeInput.value = type;
 
@@ -1090,6 +1141,168 @@ Object.assign(Admin, {
             }
         } catch (err) {
             alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    // 8.3B Supplier & Debt Management
+    supplierFinanceState: { suppliers: [], invoices: [], payments: [] },
+
+    _escInvHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    openSupplierFinanceModal() {
+        document.getElementById('modal-supplier-finance')?.classList.add('open');
+        this.loadSupplierFinance();
+    },
+
+    closeSupplierFinanceModal() {
+        document.getElementById('modal-supplier-finance')?.classList.remove('open');
+    },
+
+    async loadSupplierFinance() {
+        try {
+            const res = await fetch('api/operations.php?action=get_supplier_finance');
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Không thể tải dữ liệu nhà cung cấp.');
+            this.supplierFinanceState = {
+                suppliers: data.suppliers || [],
+                invoices: data.invoices || [],
+                payments: data.payments || []
+            };
+            const summary = data.summary || {};
+            document.getElementById('supplier-total-purchases').innerText = this.formatMoney(summary.total_purchases || 0) + ' đ';
+            document.getElementById('supplier-total-paid').innerText = this.formatMoney(summary.total_paid || 0) + ' đ';
+            document.getElementById('supplier-total-outstanding').innerText = this.formatMoney(summary.total_outstanding || 0) + ' đ';
+
+            const supplierBody = document.getElementById('supplier-list-tbody');
+            supplierBody.innerHTML = this.supplierFinanceState.suppliers.length
+                ? this.supplierFinanceState.suppliers.map(s => `
+                    <tr class="hover:bg-white/5">
+                        <td class="p-2 font-semibold text-slate-100">${this._escInvHtml(s.name)}</td>
+                        <td class="p-2 text-slate-300">${this._escInvHtml(s.contact_name || '-')}</td>
+                        <td class="p-2 text-slate-300">${this._escInvHtml(s.phone || '-')}<br><span class="text-slate-500">${this._escInvHtml(s.email || '')}</span></td>
+                        <td class="p-2 text-right font-mono ${Number(s.outstanding_balance) > 0 ? 'text-rose-300' : 'text-emerald-300'}">${this.formatMoney(s.outstanding_balance || 0)} đ</td>
+                        <td class="p-2 text-right"><button type="button" class="text-sky-300 hover:text-sky-100" onclick="Admin.editSupplier(${Number(s.id)})">Sửa</button></td>
+                    </tr>`).join('')
+                : '<tr><td colspan="5" class="p-4 text-center text-slate-500">Chưa có nhà cung cấp.</td></tr>';
+
+            const invoiceBody = document.getElementById('supplier-invoices-tbody');
+            const statusLabels = { unpaid: 'Chưa thanh toán', partial: 'Tạm ứng / một phần', paid: 'Đã thanh toán' };
+            invoiceBody.innerHTML = this.supplierFinanceState.invoices.length
+                ? this.supplierFinanceState.invoices.map(i => `
+                    <tr class="hover:bg-white/5">
+                        <td class="p-2 whitespace-nowrap text-slate-300">${this._escInvHtml(i.created_at || '')}<br><span class="font-mono text-sky-300">${this._escInvHtml(i.invoice_code || '')}</span></td>
+                        <td class="p-2">${this._escInvHtml(i.supplier_display_name || 'Không rõ')}<br><span class="text-slate-500">${this._escInvHtml(i.invoice_no || 'Không có số HĐ')}</span></td>
+                        <td class="p-2 text-right font-mono">${this.formatMoney(i.total_amount || 0)} đ</td>
+                        <td class="p-2 text-right font-mono text-emerald-300">${this.formatMoney(i.paid_amount || 0)} đ</td>
+                        <td class="p-2 text-right font-mono ${Number(i.remaining_amount) > 0 ? 'text-rose-300' : 'text-slate-400'}">${this.formatMoney(i.remaining_amount || 0)} đ</td>
+                        <td class="p-2 text-center whitespace-nowrap">${this._escInvHtml(i.due_date || '-')}</td>
+                        <td class="p-2 text-center"><span class="px-2 py-1 rounded-full ${i.payment_status === 'paid' ? 'bg-emerald-500/15 text-emerald-300' : (i.payment_status === 'partial' ? 'bg-amber-500/15 text-amber-300' : 'bg-rose-500/15 text-rose-300')}">${statusLabels[i.payment_status] || i.payment_status}</span></td>
+                        <td class="p-2 text-right">${Number(i.remaining_amount) > 0 ? `<button type="button" class="btn-glass-success py-1 px-2 text-[10px]" onclick="Admin.openSupplierPayment(${Number(i.id)})">Thanh toán</button>` : ''}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="8" class="p-4 text-center text-slate-500">Chưa có hóa đơn nhập kho.</td></tr>';
+
+            const paymentsList = document.getElementById('supplier-payments-list');
+            paymentsList.innerHTML = this.supplierFinanceState.payments.length
+                ? this.supplierFinanceState.payments.map(p => `
+                    <div class="flex flex-wrap justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-white/5">
+                        <span class="text-slate-300">${this._escInvHtml(p.paid_at || '')} · ${this._escInvHtml(p.supplier_name || '')} · ${this._escInvHtml(p.invoice_code || '')} · ${this._escInvHtml(p.payment_method || 'cash')}${p.reference ? ` · ${this._escInvHtml(p.reference)}` : ''}${p.paid_by_name ? ` · ${this._escInvHtml(p.paid_by_name)}` : ''}</span>
+                        <b class="text-emerald-300 font-mono">${this.formatMoney(p.amount || 0)} đ</b>
+                    </div>`).join('')
+                : '<div class="p-3 text-center text-slate-500">Chưa có giao dịch thanh toán.</div>';
+        } catch (error) {
+            console.error('loadSupplierFinance error:', error);
+            alert(error.message || 'Lỗi tải dữ liệu công nợ nhà cung cấp.');
+        }
+    },
+
+    resetSupplierForm() {
+        document.getElementById('form-supplier')?.reset();
+        document.getElementById('supplier-form-id').value = '';
+        document.getElementById('supplier-form-submit').innerText = 'Thêm nhà cung cấp';
+    },
+
+    editSupplier(id) {
+        const supplier = this.supplierFinanceState.suppliers.find(item => Number(item.id) === Number(id));
+        if (!supplier) return;
+        document.getElementById('supplier-form-id').value = supplier.id;
+        document.getElementById('supplier-form-name').value = supplier.name || '';
+        document.getElementById('supplier-form-contact').value = supplier.contact_name || '';
+        document.getElementById('supplier-form-phone').value = supplier.phone || '';
+        document.getElementById('supplier-form-email').value = supplier.email || '';
+        document.getElementById('supplier-form-address').value = supplier.address || '';
+        document.getElementById('supplier-form-note').value = supplier.note || '';
+        document.getElementById('supplier-form-submit').innerText = 'Lưu thay đổi';
+        document.getElementById('supplier-form-name').focus();
+    },
+
+    async submitSupplier(event) {
+        event.preventDefault();
+        const payload = {
+            id: Number(document.getElementById('supplier-form-id').value || 0),
+            name: document.getElementById('supplier-form-name').value.trim(),
+            contact_name: document.getElementById('supplier-form-contact').value.trim(),
+            phone: document.getElementById('supplier-form-phone').value.trim(),
+            email: document.getElementById('supplier-form-email').value.trim(),
+            address: document.getElementById('supplier-form-address').value.trim(),
+            note: document.getElementById('supplier-form-note').value.trim()
+        };
+        try {
+            const res = await fetch('api/operations.php?action=save_supplier', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Không thể lưu nhà cung cấp.');
+            this.resetSupplierForm();
+            await this.loadSupplierFinance();
+        } catch (error) {
+            alert(error.message || 'Lỗi kết nối máy chủ.');
+        }
+    },
+
+    openSupplierPayment(invoiceId) {
+        const invoice = this.supplierFinanceState.invoices.find(item => Number(item.id) === Number(invoiceId));
+        if (!invoice) return;
+        const balance = Number(invoice.remaining_amount) || 0;
+        document.getElementById('supplier-payment-invoice-id').value = invoice.id;
+        document.getElementById('supplier-payment-amount').value = '';
+        document.getElementById('supplier-payment-amount').max = balance;
+        document.getElementById('supplier-payment-reference').value = '';
+        document.getElementById('supplier-payment-note').value = '';
+        document.getElementById('supplier-payment-invoice-label').innerText =
+            `${invoice.supplier_display_name || 'Nhà cung cấp'} · ${invoice.invoice_code} · Còn nợ ${this.formatMoney(balance)} đ`;
+        document.getElementById('modal-supplier-payment').classList.add('open');
+    },
+
+    closeSupplierPaymentModal() {
+        document.getElementById('modal-supplier-payment')?.classList.remove('open');
+    },
+
+    async submitSupplierPayment(event) {
+        event.preventDefault();
+        const payload = {
+            invoice_id: Number(document.getElementById('supplier-payment-invoice-id').value),
+            amount: Number(document.getElementById('supplier-payment-amount').value),
+            payment_method: document.getElementById('supplier-payment-method').value,
+            reference: document.getElementById('supplier-payment-reference').value.trim(),
+            note: document.getElementById('supplier-payment-note').value.trim()
+        };
+        try {
+            const res = await fetch('api/operations.php?action=record_supplier_payment', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Không thể ghi nhận thanh toán.');
+            this.closeSupplierPaymentModal();
+            await this.loadSupplierFinance();
+        } catch (error) {
+            alert(error.message || 'Lỗi kết nối máy chủ.');
         }
     },
 

@@ -6154,6 +6154,435 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         return;
     }
 
+    auto ensureSupplierDebtTables = [](Database& dbRef) {
+        static bool ensured = false;
+        if (ensured) return;
+        ensured = true;
+        dbRef.execute(R"(
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(150) NOT NULL,
+                contact_name VARCHAR(120) DEFAULT '',
+                phone VARCHAR(40) DEFAULT '',
+                email VARCHAR(120) DEFAULT '',
+                address TEXT DEFAULT '',
+                note TEXT DEFAULT '',
+                status VARCHAR(20) DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        )");
+        dbRef.execute(R"(
+            CREATE TABLE IF NOT EXISTS supplier_invoices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_code VARCHAR(50) UNIQUE,
+                supplier_id INTEGER DEFAULT 0,
+                supplier_name VARCHAR(150) DEFAULT '',
+                invoice_no VARCHAR(80) DEFAULT '',
+                invoice_image VARCHAR(255) DEFAULT '',
+                total_amount DECIMAL(14,2) DEFAULT 0,
+                paid_amount DECIMAL(14,2) DEFAULT 0,
+                due_date VARCHAR(20) DEFAULT '',
+                note TEXT DEFAULT '',
+                created_by INTEGER DEFAULT 0,
+                created_by_name VARCHAR(100) DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        )");
+        dbRef.execute(R"(
+            CREATE TABLE IF NOT EXISTS supplier_invoice_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                material_transaction_id INTEGER DEFAULT 0,
+                material_id INTEGER DEFAULT 0,
+                material_name VARCHAR(150) DEFAULT '',
+                quantity DECIMAL(12,2) DEFAULT 0,
+                unit VARCHAR(30) DEFAULT '',
+                unit_price DECIMAL(12,2) DEFAULT 0,
+                total_cost DECIMAL(14,2) DEFAULT 0
+            )
+        )");
+        dbRef.execute(R"(
+            CREATE TABLE IF NOT EXISTS supplier_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                amount DECIMAL(14,2) DEFAULT 0,
+                payment_method VARCHAR(30) DEFAULT 'cash',
+                reference VARCHAR(120) DEFAULT '',
+                note TEXT DEFAULT '',
+                paid_by INTEGER DEFAULT 0,
+                paid_by_name VARCHAR(100) DEFAULT '',
+                paid_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        )");
+    };
+
+    auto findOrCreateSupplier = [&](Database& dbRef, const std::string& supName) -> int64_t {
+        std::string trimmed = supName;
+        while (!trimmed.empty() && trimmed.front() == ' ') trimmed.erase(trimmed.begin());
+        while (!trimmed.empty() && trimmed.back() == ' ') trimmed.pop_back();
+        if (trimmed.empty()) return 0;
+        auto existing = dbRef.queryRow("SELECT id FROM suppliers WHERE LOWER(TRIM(name)) = LOWER(:n) LIMIT 1", {{":n", trimmed}});
+        if (!existing.is_null()) return existing.value("id", int64_t(0));
+        dbRef.execute("INSERT INTO suppliers (name) VALUES (:n)", {{":n", trimmed}});
+        return dbRef.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+    };
+
+    auto jStr = [](const json& j, const char* k, const std::string& def = "") -> std::string {
+        if (!j.contains(k) || j[k].is_null()) return def;
+        return j[k].is_string() ? j[k].get<std::string>() : def;
+    };
+    auto jNum = [](const json& j, const char* k, double def = 0.0) -> double {
+        if (!j.contains(k) || j[k].is_null()) return def;
+        if (j[k].is_number()) return j[k].get<double>();
+        if (j[k].is_string()) { try { return std::stod(j[k].get<std::string>()); } catch (...) {} }
+        return def;
+    };
+    auto jInt = [](const json& j, const char* k, int64_t def = 0) -> int64_t {
+        if (!j.contains(k) || j[k].is_null()) return def;
+        if (j[k].is_number()) return j[k].get<int64_t>();
+        if (j[k].is_string()) { try { return std::stoll(j[k].get<std::string>()); } catch (...) {} }
+        return def;
+    };
+    auto jBool = [](const json& j, const char* k, bool def = false) -> bool {
+        if (!j.contains(k) || j[k].is_null()) return def;
+        if (j[k].is_boolean()) return j[k].get<bool>();
+        if (j[k].is_number()) return j[k].get<int>() != 0;
+        return def;
+    };
+
+    if (action == "get_materials") {
+        if (!requireModule(res, "inventory_recipes", "Kho Nguyên Vật Liệu")) return;
+        std::string search = BodyParser::getParam(req, body, "search");
+        std::string cat = BodyParser::getParam(req, body, "category", "all");
+        std::string sql = "SELECT * FROM materials WHERE status = 'active'";
+        json params = json::object();
+        if (!search.empty()) {
+            sql += " AND (LOWER(name) LIKE LOWER(:q) OR LOWER(code) LIKE LOWER(:q) OR LOWER(COALESCE(supplier,'')) LIKE LOWER(:q))";
+            params[":q"] = "%" + search + "%";
+        }
+        if (!cat.empty() && cat != "all") {
+            sql += " AND category = :cat";
+            params[":cat"] = cat;
+        }
+        sql += " ORDER BY id DESC";
+        json mats = db.query(sql, params);
+        double totalStockVal = 0.0;
+        int lowStockCount = 0;
+        for (const auto& m : mats) {
+            double q = m.value("quantity", 0.0);
+            double mq = m.value("min_quantity", 0.0);
+            double cp = m.value("cost_price", 0.0);
+            if (q > 0 && cp > 0) totalStockVal += q * cp;
+            if (q <= mq) lowStockCount++;
+        }
+        json catRows = db.query("SELECT DISTINCT category FROM materials WHERE status = 'active' AND COALESCE(category,'') != '' ORDER BY category ASC");
+        json cats = json::array();
+        for (const auto& c : catRows) cats.push_back(c.value("category", ""));
+        sendJson(res, {
+            {"success", true},
+            {"materials", mats},
+            {"categories", cats},
+            {"summary", {
+                {"total_items", static_cast<int>(mats.size())},
+                {"total_stock_value", static_cast<int64_t>(std::round(totalStockVal))},
+                {"low_stock_count", lowStockCount}
+            }}
+        });
+        return;
+    }
+
+    if (action == "save_material") {
+        if (!requireModule(res, "inventory_recipes", "Kho Nguyên Vật Liệu")) return;
+        int64_t id = jInt(body, "id", 0);
+        std::string code = jStr(body, "code");
+        std::string name = jStr(body, "name");
+        std::string category = jStr(body, "category", "Nguyên liệu");
+        std::string unit = jStr(body, "unit", "kg");
+        double qty = jNum(body, "quantity", 0.0);
+        double minQty = jNum(body, "min_quantity", 5.0);
+        double costPrice = jNum(body, "cost_price", 0.0);
+        std::string supplier = jStr(body, "supplier");
+        std::string note = jStr(body, "note");
+        if (name.empty()) {
+            sendError(res, "Vui lòng nhập tên nguyên vật liệu!", 400);
+            return;
+        }
+        if (id > 0) {
+            db.execute(
+                "UPDATE materials SET code = CASE WHEN :c != '' THEN :c ELSE code END, name = :n, category = :cat, unit = :u, "
+                "min_quantity = :mq, cost_price = :cp, supplier = :s, note = :nt, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
+                {{":c", code}, {":n", name}, {":cat", category}, {":u", unit}, {":mq", minQty}, {":cp", costPrice}, {":s", supplier}, {":nt", note}, {":id", id}}
+            );
+            sendJson(res, {{"success", true}, {"message", "Đã cập nhật nguyên vật liệu!"}});
+        } else {
+            if (code.empty()) {
+                int64_t nextNum = db.queryScalar("SELECT COALESCE(MAX(id), 0) + 1 FROM materials").get<int64_t>();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "NVL%03lld", static_cast<long long>(nextNum));
+                code = buf;
+            }
+            db.execute(
+                "INSERT INTO materials (code, name, category, unit, quantity, min_quantity, cost_price, supplier, note) "
+                "VALUES (:c, :n, :cat, :u, :q, :mq, :cp, :s, :nt)",
+                {{":c", code}, {":n", name}, {":cat", category}, {":u", unit}, {":q", qty}, {":mq", minQty}, {":cp", costPrice}, {":s", supplier}, {":nt", note}}
+            );
+            sendJson(res, {{"success", true}, {"message", "Đã thêm nguyên vật liệu mới!"}});
+        }
+        return;
+    }
+
+    if (action == "delete_material") {
+        if (!requireModule(res, "inventory_recipes", "Kho Nguyên Vật Liệu")) return;
+        int64_t id = jInt(body, "id", 0);
+        if (id <= 0) { sendError(res, "Thiếu ID nguyên vật liệu!", 400); return; }
+        db.execute("UPDATE materials SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = :id", {{":id", id}});
+        sendJson(res, {{"success", true}, {"message", "Đã xóa nguyên vật liệu!"}});
+        return;
+    }
+
+    if (action == "create_material_transaction") {
+        if (!requireModule(res, "inventory_recipes", "Nhập Xuất Kho Nguyên Vật Liệu")) return;
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt) { sendError(res, "Vui lòng đăng nhập!", 401); return; }
+        ensureSupplierDebtTables(db);
+
+        int64_t matId = jInt(body, "material_id", 0);
+        std::string transType = jStr(body, "trans_type", "import");
+        double qty = jNum(body, "quantity", 0.0);
+        double unitPrice = jNum(body, "unit_price", 0.0);
+        std::string supplier = jStr(body, "supplier");
+        std::string note = jStr(body, "note");
+        std::string invoiceNo = jStr(body, "invoice_no");
+        double paidAmount = std::max(0.0, jNum(body, "paid_amount", 0.0));
+        std::string dueDate = jStr(body, "due_date");
+        std::string payMethod = jStr(body, "payment_method", "cash");
+
+        if (matId <= 0 || qty <= 0.0) {
+            sendError(res, "Vui lòng chọn vật liệu và số lượng hợp lệ (> 0)!", 400);
+            return;
+        }
+        auto mat = db.queryRow("SELECT * FROM materials WHERE id = :id LIMIT 1", {{":id", matId}});
+        if (mat.is_null()) {
+            sendError(res, "Không tìm thấy nguyên vật liệu!", 404);
+            return;
+        }
+        double curStock = mat.value("quantity", 0.0);
+        double newStock = curStock;
+        std::string matName = mat.value("name", "");
+        std::string matUnit = mat.value("unit", "kg");
+        if (supplier.empty()) supplier = mat.value("supplier", "");
+
+        if (transType == "import") {
+            newStock = curStock + qty;
+        } else if (transType == "export") {
+            if (curStock < qty) {
+                sendError(res, "Số lượng xuất vượt quá tồn kho hiện tại (" + std::to_string(curStock) + " " + matUnit + ")!", 400);
+                return;
+            }
+            newStock = curStock - qty;
+        } else {
+            newStock = qty;
+        }
+
+        double totalCost = (transType == "import") ? std::round(qty * unitPrice) : 0.0;
+        if (transType == "import" && paidAmount > totalCost) {
+            sendError(res, "Số tiền đã thanh toán không được vượt quá tổng tiền phiếu nhập!", 400);
+            return;
+        }
+
+        auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        std::string prefix = (transType == "import") ? "PNK" : ((transType == "export") ? "PXK" : "PDC");
+        std::string transCode = prefix + "-" + std::to_string(nowSec);
+
+        try {
+            db.execute("BEGIN TRANSACTION");
+            db.execute(
+                "INSERT INTO material_transactions (trans_code, material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, supplier, user_id, user_name, note) "
+                "VALUES (:tc, :mid, :mn, :tt, :q, :u, :p, :cost, :sup, :uid, :uname, :nt)",
+                {{":tc", transCode}, {":mid", matId}, {":mn", matName}, {":tt", transType}, {":q", qty}, {":u", matUnit},
+                 {":p", unitPrice}, {":cost", totalCost}, {":sup", supplier}, {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":nt", note}}
+            );
+            int64_t txId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+            db.execute(
+                "UPDATE materials SET quantity = :nq, cost_price = CASE WHEN :tt = 'import' AND :p > 0 THEN :p ELSE cost_price END, "
+                "supplier = CASE WHEN :tt = 'import' AND :sup != '' THEN :sup ELSE supplier END, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
+                {{":nq", newStock}, {":tt", transType}, {":p", unitPrice}, {":sup", supplier}, {":id", matId}}
+            );
+            if (transType == "import" && totalCost > 0.0) {
+                int64_t supId = findOrCreateSupplier(db, supplier);
+                std::string invCode = "MHD-" + std::to_string(nowSec);
+                db.execute(
+                    "INSERT INTO supplier_invoices (invoice_code, supplier_id, supplier_name, invoice_no, total_amount, paid_amount, due_date, note, created_by, created_by_name) "
+                    "VALUES (:ic, :sid, :sn, :ino, :tot, :paid, :dd, :nt, :uid, :uname)",
+                    {{":ic", invCode}, {":sid", supId}, {":sn", supplier}, {":ino", invoiceNo}, {":tot", totalCost},
+                     {":paid", paidAmount}, {":dd", dueDate}, {":nt", note}, {":uid", userOpt->id}, {":uname", userOpt->fullname}}
+                );
+                int64_t invId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+                db.execute(
+                    "INSERT INTO supplier_invoice_items (invoice_id, material_transaction_id, material_id, material_name, quantity, unit, unit_price, total_cost) "
+                    "VALUES (:iid, :tid, :mid, :mn, :q, :u, :p, :cost)",
+                    {{":iid", invId}, {":tid", txId}, {":mid", matId}, {":mn", matName}, {":q", qty}, {":u", matUnit}, {":p", unitPrice}, {":cost", totalCost}}
+                );
+                if (paidAmount > 0.0) {
+                    db.execute(
+                        "INSERT INTO supplier_payments (invoice_id, amount, payment_method, note, paid_by, paid_by_name) VALUES (:iid, :amt, :pm, :nt, :uid, :uname)",
+                        {{":iid", invId}, {":amt", paidAmount}, {":pm", payMethod}, {":nt", "Tạm ứng khi nhập kho"}, {":uid", userOpt->id}, {":uname", userOpt->fullname}}
+                    );
+                }
+            }
+            db.execute("COMMIT");
+        } catch (const std::exception& e) {
+            try { db.execute("ROLLBACK"); } catch (...) {}
+            sendError(res, std::string("Lỗi lưu phiếu kho: ") + e.what(), 500);
+            return;
+        }
+        sendJson(res, {{"success", true}, {"message", transType == "export" ? "Đã xuất kho thành công!" : "Đã lưu phiếu kho thành công!"}});
+        return;
+    }
+
+    if (action == "get_transactions") {
+        if (!requireModule(res, "inventory_recipes", "Lịch Sử Kho")) return;
+        std::string period = BodyParser::getParam(req, body, "period", "month");
+        std::string type = BodyParser::getParam(req, body, "type", "all");
+        int64_t matId = 0;
+        try { matId = std::stoll(BodyParser::getParam(req, body, "material_id", "0")); } catch (...) {}
+
+        std::string sql = "SELECT * FROM material_transactions WHERE 1=1";
+        json params = json::object();
+        if (type == "import" || type == "export" || type == "adjustment" || type == "loss") {
+            sql += " AND trans_type = :tt";
+            params[":tt"] = type;
+        }
+        if (matId > 0) {
+            sql += " AND material_id = :mid";
+            params[":mid"] = matId;
+        }
+        if (period == "today") sql += " AND DATE(created_at) = DATE('now', 'localtime')";
+        else if (period == "7d") sql += " AND DATE(created_at) >= DATE('now', 'localtime', '-7 days')";
+        else if (period == "month") sql += " AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')";
+        sql += " ORDER BY id DESC LIMIT 200";
+
+        json txs = db.query(sql, params);
+        double totalExpense = 0.0;
+        for (const auto& t : txs) {
+            if (t.value("trans_type", "") == "import") totalExpense += t.value("total_cost", 0.0);
+        }
+        sendJson(res, {
+            {"success", true},
+            {"transactions", txs},
+            {"total_expense", static_cast<int64_t>(std::round(totalExpense))},
+            {"count", static_cast<int>(txs.size())}
+        });
+        return;
+    }
+
+    if (action == "get_supplier_finance") {
+        if (!requireModule(res, "inventory_recipes", "Nhà Cung Cấp & Công Nợ")) return;
+        ensureSupplierDebtTables(db);
+        json suppliers = db.query(R"(
+            SELECT s.*,
+                   (SELECT COALESCE(SUM(CASE WHEN i.total_amount > i.paid_amount THEN i.total_amount - i.paid_amount ELSE 0 END), 0)
+                    FROM supplier_invoices i WHERE i.supplier_id = s.id) AS outstanding_balance,
+                   (SELECT COUNT(*) FROM supplier_invoices i WHERE i.supplier_id = s.id) AS invoice_count
+            FROM suppliers s
+            ORDER BY s.status ASC, s.name ASC
+        )");
+        json invoices = db.query(R"(
+            SELECT i.*, COALESCE(NULLIF(s.name, ''), i.supplier_name, '') AS supplier_display_name,
+                   CASE WHEN i.paid_amount <= 0 THEN 'unpaid'
+                        WHEN i.paid_amount >= i.total_amount THEN 'paid'
+                        ELSE 'partial' END AS payment_status,
+                   CASE WHEN i.total_amount > i.paid_amount THEN i.total_amount - i.paid_amount ELSE 0 END AS remaining_amount
+            FROM supplier_invoices i
+            LEFT JOIN suppliers s ON s.id = i.supplier_id
+            ORDER BY i.created_at DESC, i.id DESC
+            LIMIT 200
+        )");
+        json payments = db.query(R"(
+            SELECT p.*, i.invoice_code, i.invoice_no, COALESCE(NULLIF(s.name, ''), i.supplier_name, '') AS supplier_name
+            FROM supplier_payments p
+            JOIN supplier_invoices i ON i.id = p.invoice_id
+            LEFT JOIN suppliers s ON s.id = i.supplier_id
+            ORDER BY p.paid_at DESC, p.id DESC
+            LIMIT 100
+        )");
+        json summary = db.queryRow(R"(
+            SELECT COALESCE(SUM(total_amount), 0) AS total_purchases,
+                   COALESCE(SUM(paid_amount), 0) AS total_paid,
+                   COALESCE(SUM(CASE WHEN total_amount > paid_amount THEN total_amount - paid_amount ELSE 0 END), 0) AS total_outstanding
+            FROM supplier_invoices
+        )");
+        sendJson(res, {
+            {"success", true},
+            {"suppliers", suppliers},
+            {"invoices", invoices},
+            {"payments", payments},
+            {"summary", summary.is_null() ? json({{"total_purchases", 0}, {"total_paid", 0}, {"total_outstanding", 0}}) : summary}
+        });
+        return;
+    }
+
+    if (action == "save_supplier") {
+        if (!requireModule(res, "inventory_recipes", "Nhà Cung Cấp")) return;
+        ensureSupplierDebtTables(db);
+        int64_t id = jInt(body, "id", 0);
+        std::string name = jStr(body, "name");
+        if (name.empty()) { sendError(res, "Vui lòng nhập tên nhà cung cấp.", 400); return; }
+        std::string contact = jStr(body, "contact_name");
+        std::string phone = jStr(body, "phone");
+        std::string email = jStr(body, "email");
+        std::string address = jStr(body, "address");
+        std::string note = jStr(body, "note");
+        if (id > 0) {
+            db.execute(
+                "UPDATE suppliers SET name = :n, contact_name = :cn, phone = :ph, email = :em, address = :ad, note = :nt, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
+                {{":n", name}, {":cn", contact}, {":ph", phone}, {":em", email}, {":ad", address}, {":nt", note}, {":id", id}}
+            );
+            sendJson(res, {{"success", true}, {"message", "Đã cập nhật nhà cung cấp."}});
+        } else {
+            db.execute(
+                "INSERT INTO suppliers (name, contact_name, phone, email, address, note) VALUES (:n, :cn, :ph, :em, :ad, :nt)",
+                {{":n", name}, {":cn", contact}, {":ph", phone}, {":em", email}, {":ad", address}, {":nt", note}}
+            );
+            sendJson(res, {{"success", true}, {"message", "Đã thêm nhà cung cấp."}, {"supplier_id", db.queryScalar("SELECT last_insert_rowid()").get<int64_t>()}});
+        }
+        return;
+    }
+
+    if (action == "record_supplier_payment") {
+        if (!requireModule(res, "inventory_recipes", "Thanh Toán Công Nợ")) return;
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt) { sendError(res, "Vui lòng đăng nhập!", 401); return; }
+        ensureSupplierDebtTables(db);
+        int64_t invId = jInt(body, "invoice_id", 0);
+        double amount = std::round(jNum(body, "amount", 0.0));
+        std::string payMethod = jStr(body, "payment_method", "cash");
+        std::string ref = jStr(body, "reference");
+        std::string note = jStr(body, "note");
+        if (invId <= 0 || amount <= 0.0) { sendError(res, "Vui lòng nhập hóa đơn và số tiền thanh toán hợp lệ.", 400); return; }
+        auto inv = db.queryRow("SELECT * FROM supplier_invoices WHERE id = :id LIMIT 1", {{":id", invId}});
+        if (inv.is_null()) { sendError(res, "Không tìm thấy hóa đơn công nợ.", 404); return; }
+        double remaining = std::round(inv.value("total_amount", 0.0) - inv.value("paid_amount", 0.0));
+        if (amount > remaining) { sendError(res, "Số tiền thanh toán vượt quá công nợ còn lại!", 400); return; }
+        try {
+            db.execute("BEGIN TRANSACTION");
+            db.execute("UPDATE supplier_invoices SET paid_amount = paid_amount + :amt WHERE id = :id", {{":amt", amount}, {":id", invId}});
+            db.execute(
+                "INSERT INTO supplier_payments (invoice_id, amount, payment_method, reference, note, paid_by, paid_by_name) "
+                "VALUES (:iid, :amt, :pm, :ref, :nt, :uid, :uname)",
+                {{":iid", invId}, {":amt", amount}, {":pm", payMethod}, {":ref", ref}, {":nt", note}, {":uid", userOpt->id}, {":uname", userOpt->fullname}}
+            );
+            db.execute("COMMIT");
+        } catch (const std::exception& e) {
+            try { db.execute("ROLLBACK"); } catch (...) {}
+            sendError(res, std::string("Lỗi thanh toán: ") + e.what(), 500);
+            return;
+        }
+        sendJson(res, {{"success", true}, {"message", "Đã ghi nhận thanh toán."}, {"remaining_amount", std::max(0.0, remaining - amount)}});
+        return;
+    }
+
     if (action == "batch_import_materials") {
         if (!requireModule(res, "inventory_recipes", "Nhập Kho Nguyên Vật Liệu")) return;
         auto userOpt = AuthService::instance().authenticate(req);
@@ -6165,33 +6594,15 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             sendError(res, "Không có danh sách mặt hàng để nhập kho!", 400);
             return;
         }
-        auto jStr = [](const json& j, const char* k, const std::string& def = "") -> std::string {
-            if (!j.contains(k) || j[k].is_null()) return def;
-            return j[k].is_string() ? j[k].get<std::string>() : def;
-        };
-        auto jNum = [](const json& j, const char* k, double def = 0.0) -> double {
-            if (!j.contains(k) || j[k].is_null()) return def;
-            if (j[k].is_number()) return j[k].get<double>();
-            if (j[k].is_string()) { try { return std::stod(j[k].get<std::string>()); } catch (...) {} }
-            return def;
-        };
-        auto jInt = [](const json& j, const char* k, int64_t def = 0) -> int64_t {
-            if (!j.contains(k) || j[k].is_null()) return def;
-            if (j[k].is_number()) return j[k].get<int64_t>();
-            if (j[k].is_string()) { try { return std::stoll(j[k].get<std::string>()); } catch (...) {} }
-            return def;
-        };
-        auto jBool = [](const json& j, const char* k, bool def = false) -> bool {
-            if (!j.contains(k) || j[k].is_null()) return def;
-            if (j[k].is_boolean()) return j[k].get<bool>();
-            if (j[k].is_number()) return j[k].get<int>() != 0;
-            return def;
-        };
+        ensureSupplierDebtTables(db);
 
         std::string supplier = jStr(body, "supplier");
         std::string invoiceNo = jStr(body, "invoice_no");
         std::string invoiceImg = jStr(body, "invoice_image");
         std::string note = jStr(body, "note");
+        double paidAmount = std::max(0.0, jNum(body, "paid_amount", 0.0));
+        std::string payMethod = jStr(body, "payment_method", "cash");
+        std::string dueDate = jStr(body, "due_date");
         if (note.empty()) {
             note = "Nhập kho theo chứng từ: " + (invoiceNo.empty() ? "Hóa đơn mua hàng" : invoiceNo);
         }
@@ -6203,6 +6614,16 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
 
         try {
             db.execute("BEGIN TRANSACTION");
+            int64_t supId = findOrCreateSupplier(db, supplier);
+            std::string invCode = "MHD-" + std::to_string(nowSec);
+            db.execute(
+                "INSERT INTO supplier_invoices (invoice_code, supplier_id, supplier_name, invoice_no, invoice_image, total_amount, paid_amount, due_date, note, created_by, created_by_name) "
+                "VALUES (:ic, :sid, :sn, :ino, :img, 0, 0, :dd, :nt, :uid, :uname)",
+                {{":ic", invCode}, {":sid", supId}, {":sn", supplier}, {":ino", invoiceNo}, {":img", invoiceImg},
+                 {":dd", dueDate}, {":nt", note}, {":uid", userOpt->id}, {":uname", userOpt->fullname}}
+            );
+            int64_t invId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+
             int idx = 1;
             for (const auto& item : body["items"]) {
                 std::string name = jStr(item, "name");
@@ -6250,6 +6671,12 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                      {":p", unitPrice}, {":cost", lineCost}, {":sup", supplier},
                      {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":img", invoiceImg}, {":nt", note}}
                 );
+                int64_t txId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+                db.execute(
+                    "INSERT INTO supplier_invoice_items (invoice_id, material_transaction_id, material_id, material_name, quantity, unit, unit_price, total_cost) "
+                    "VALUES (:iid, :tid, :mid, :mn, :q, :u, :p, :cost)",
+                    {{":iid", invId}, {":tid", txId}, {":mid", matId}, {":mn", name}, {":q", qty}, {":u", unit}, {":p", unitPrice}, {":cost", lineCost}}
+                );
 
                 importedCount++;
                 totalBatchCost += lineCost;
@@ -6258,6 +6685,19 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 db.execute("ROLLBACK");
                 sendError(res, "Cần ít nhất một mặt hàng có số lượng và đơn giá hợp lệ!", 400);
                 return;
+            }
+            if (paidAmount > totalBatchCost) {
+                db.execute("ROLLBACK");
+                sendError(res, "Số tiền đã trả không được lớn hơn tổng hóa đơn!", 400);
+                return;
+            }
+            db.execute("UPDATE supplier_invoices SET total_amount = :tot, paid_amount = :paid WHERE id = :id",
+                       {{":tot", totalBatchCost}, {":paid", paidAmount}, {":id", invId}});
+            if (paidAmount > 0.0) {
+                db.execute(
+                    "INSERT INTO supplier_payments (invoice_id, amount, payment_method, note, paid_by, paid_by_name) VALUES (:iid, :amt, :pm, :nt, :uid, :uname)",
+                    {{":iid", invId}, {":amt", paidAmount}, {":pm", payMethod}, {":nt", "Tạm ứng khi nhập kho"}, {":uid", userOpt->id}, {":uname", userOpt->fullname}}
+                );
             }
             db.execute("COMMIT");
         } catch (const std::exception& e) {
