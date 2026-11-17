@@ -246,7 +246,15 @@ inline bool geminiGenerateContentText(const std::string& apiKey, const json& con
 
 inline bool geminiGenerateImageBase64(const std::string& apiKey, const std::string& prompt,
                                       std::string& outB64, std::string& outMime, std::string& modelUsedOut, std::string& errOut) {
-    static const std::vector<std::string> geminiImgModels = {"gemini-2.5-flash-image", "gemini-2.0-flash-exp-image-generation"};
+    static const std::vector<std::string> geminiImgModels = {
+        "gemini-2.5-flash-image",
+        "gemini-3.1-flash-image-preview",
+        "gemini-3.1-flash-image",
+        "gemini-3-pro-image-preview",
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-exp-image-generation"
+    };
+    std::string primaryErr;
     for (const auto& mdl : geminiImgModels) {
         json reqPayload = {
             {"contents", json::array({{{"parts", json::array({{{"text", prompt}}})}}})},
@@ -268,41 +276,24 @@ inline bool geminiGenerateImageBase64(const std::string& apiKey, const std::stri
                         outMime = p["inlineData"].value("mimeType", "image/png");
                         outB64 = p["inlineData"]["data"].get<std::string>();
                         modelUsedOut = mdl;
-                        return !outB64.empty();
+                        if (!outB64.empty()) return true;
                     }
                 }
             } catch (...) {}
+            if (primaryErr.empty()) primaryErr = "Model " + mdl + " không trả về dữ liệu ảnh.";
         } else {
-            errOut = extractGeminiError(resp, st);
-            if (st == 400 || st == 401 || st == 403) return false;
-        }
-    }
-
-    json imgPayload = {
-        {"instances", json::array({{{"prompt", prompt}}})},
-        {"parameters", {{"sampleCount", 1}}}
-    };
-    for (const auto& imgMdl : std::vector<std::string>{"imagen-4.0-generate-001", "imagen-3.0-generate-002"}) {
-        int st = 0;
-        std::string resp;
-        if (winHttpRequest("generativelanguage.googleapis.com", 443, true,
-                           "/v1beta/models/" + imgMdl + ":predict?key=" + apiKey,
-                           "POST", imgPayload.dump(), st, resp, errOut)) {
-            if (st >= 200 && st < 300) {
-                try {
-                    json j = json::parse(resp);
-                    if (j.contains("predictions") && !j["predictions"].empty()) {
-                        outB64 = j["predictions"][0].value("bytesBase64Encoded", "");
-                        outMime = j["predictions"][0].value("mimeType", "image/png");
-                        modelUsedOut = imgMdl;
-                        return !outB64.empty();
-                    }
-                } catch (...) {}
-            } else {
-                errOut = extractGeminiError(resp, st);
+            std::string curErr = extractGeminiError(resp, st);
+            // Keep non-404 errors (e.g. 429 quota/billing) so fallback 404s don't mask the real reason
+            if (primaryErr.empty() || (st != 404 && primaryErr.find("not found") != std::string::npos)) {
+                primaryErr = curErr;
+            }
+            if (st == 400 || st == 401 || st == 403) {
+                errOut = primaryErr;
+                return false;
             }
         }
     }
+    errOut = primaryErr.empty() ? "Không có model tạo ảnh Gemini khả dụng cho API Key này." : primaryErr;
     return false;
 }
 
