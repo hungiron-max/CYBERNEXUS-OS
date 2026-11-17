@@ -6154,6 +6154,104 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         return;
     }
 
+    if (action == "batch_import_materials") {
+        if (!requireModule(res, "inventory_recipes", "Nhập Kho Nguyên Vật Liệu")) return;
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt) {
+            sendError(res, "Vui lòng đăng nhập để nhập kho!", 401);
+            return;
+        }
+        if (!body.contains("items") || !body["items"].is_array() || body["items"].empty()) {
+            sendError(res, "Không có danh sách mặt hàng để nhập kho!", 400);
+            return;
+        }
+        std::string supplier = body.value("supplier", "");
+        std::string invoiceNo = body.value("invoice_no", "");
+        std::string invoiceImg = body.value("invoice_image", "");
+        std::string note = body.value("note", "");
+        if (note.empty()) {
+            note = "Nhập kho theo chứng từ: " + (invoiceNo.empty() ? "Hóa đơn mua hàng" : invoiceNo);
+        }
+
+        int importedCount = 0;
+        double totalBatchCost = 0.0;
+        auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        try {
+            db.execute("BEGIN TRANSACTION");
+            int idx = 1;
+            for (const auto& item : body["items"]) {
+                std::string name = item.value("name", "");
+                double qty = item.value("quantity", 0.0);
+                double unitPrice = item.value("unit_price", 0.0);
+                if (name.empty() || qty <= 0.0 || unitPrice < 0.0) continue;
+
+                std::string unit = item.value("unit", "kg");
+                if (unit.empty()) unit = "kg";
+                std::string category = item.value("category", "Nguyên liệu");
+                bool isNew = item.value("is_new", false);
+                int64_t matId = item.value("material_id", int64_t(0));
+                double lineCost = std::round(qty * unitPrice);
+
+                if (isNew || matId <= 0) {
+                    std::string matCode = item.value("code", "");
+                    if (matCode.empty()) {
+                        int64_t nextNum = db.queryScalar("SELECT COALESCE(MAX(id), 0) + 1 FROM materials").get<int64_t>();
+                        char buf[32];
+                        snprintf(buf, sizeof(buf), "NVL%03lld", static_cast<long long>(nextNum));
+                        matCode = buf;
+                    }
+                    db.execute(
+                        "INSERT INTO materials (code, name, category, unit, quantity, min_quantity, cost_price, supplier, note) "
+                        "VALUES (:c, :n, :cat, :u, :q, 5, :p, :s, :nt)",
+                        {{":c", matCode}, {":n", name}, {":cat", category}, {":u", unit}, {":q", qty}, {":p", unitPrice},
+                         {":s", supplier}, {":nt", "Khởi tạo tự động từ phiếu nhập kho thông minh"}}
+                    );
+                    matId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+                } else {
+                    db.execute(
+                        "UPDATE materials SET quantity = quantity + :q, "
+                        "cost_price = CASE WHEN :p > 0 THEN :p ELSE cost_price END, "
+                        "supplier = CASE WHEN :s != '' THEN :s ELSE supplier END, "
+                        "updated_at = CURRENT_TIMESTAMP WHERE id = :id",
+                        {{":q", qty}, {":p", unitPrice}, {":s", supplier}, {":id", matId}}
+                    );
+                }
+
+                std::string transCode = "PNK-" + std::to_string(nowSec) + "-" + std::to_string(idx++);
+                db.execute(
+                    "INSERT INTO material_transactions (trans_code, material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, supplier, user_id, user_name, invoice_image, note) "
+                    "VALUES (:tc, :mid, :mn, 'import', :q, :u, :p, :cost, :sup, :uid, :uname, :img, :nt)",
+                    {{":tc", transCode}, {":mid", matId}, {":mn", name}, {":q", qty}, {":u", unit},
+                     {":p", unitPrice}, {":cost", lineCost}, {":sup", supplier},
+                     {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":img", invoiceImg}, {":nt", note}}
+                );
+
+                importedCount++;
+                totalBatchCost += lineCost;
+            }
+            if (importedCount == 0) {
+                db.execute("ROLLBACK");
+                sendError(res, "Cần ít nhất một mặt hàng có số lượng và đơn giá hợp lệ!", 400);
+                return;
+            }
+            db.execute("COMMIT");
+        } catch (const std::exception& e) {
+            try { db.execute("ROLLBACK"); } catch (...) {}
+            sendError(res, std::string("Lỗi nhập kho: ") + e.what(), 500);
+            return;
+        }
+
+        sendJson(res, {
+            {"success", true},
+            {"imported_count", importedCount},
+            {"total_cost", static_cast<int64_t>(std::round(totalBatchCost))},
+            {"message", "Đã nhập kho thành công " + std::to_string(importedCount) + " mặt hàng!"}
+        });
+        return;
+    }
+
     sendError(res, "Invalid operations request");
 }
 
