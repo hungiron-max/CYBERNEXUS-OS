@@ -186,6 +186,26 @@ class NetworkQosPlugin : public IModulePlugin {
         return out;
     }
 
+    std::string m_unifiCsrf;
+
+    static std::string extractHeaderValue(const std::string& headers, const std::string& headerNameLower) {
+        std::istringstream iss(headers);
+        std::string line;
+        while (std::getline(iss, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            size_t colon = line.find(':');
+            if (colon == std::string::npos) continue;
+            std::string k = line.substr(0, colon);
+            for (char& ch : k) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            if (k == headerNameLower) {
+                std::string v = line.substr(colon + 1);
+                size_t first = v.find_first_not_of(" \t");
+                return (first == std::string::npos) ? "" : v.substr(first);
+            }
+        }
+        return "";
+    }
+
     bool unifiLogin(std::string& baseUrlOut, std::string& sitePrefixOut, std::string& cookieFileOut, std::string& errOut) {
         std::string host, user, pass, site;
         int port = 443;
@@ -202,17 +222,26 @@ class NetworkQosPlugin : public IModulePlugin {
             return false;
         }
         cookieFileOut = "config/unifi_cookie.txt";
+        std::string hdrFile = "config/unifi_headers.txt";
         fs::create_directories("config");
         baseUrlOut = "https://" + host + ":" + std::to_string(port);
         std::string escLogin = escapeCmdArg(json({{"username", user}, {"password", pass}}).dump());
 
         int rc = 0;
-        std::string lRes = execCapture("curl -sk -c \"" + cookieFileOut + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrlOut + "/api/auth/login\"", &rc);
+        std::string lRes = execCapture("curl -sk -D \"" + hdrFile + "\" -c \"" + cookieFileOut + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrlOut + "/api/auth/login\"", &rc);
         if (lRes.find("\"unique_id\"") != std::string::npos || lRes.find("\"username\"") != std::string::npos) {
             sitePrefixOut = "/proxy/network/api/s/" + site;
+            if (fs::exists(hdrFile)) {
+                std::ifstream hf(hdrFile);
+                std::string hdrText((std::istreambuf_iterator<char>(hf)), std::istreambuf_iterator<char>());
+                std::string csrf = extractHeaderValue(hdrText, "x-updated-csrf-token");
+                if (csrf.empty()) csrf = extractHeaderValue(hdrText, "x-csrf-token");
+                std::lock_guard<std::mutex> lk(m_mtx);
+                m_unifiCsrf = csrf;
+            }
             return true;
         }
-        std::string legRes = execCapture("curl -sk -c \"" + cookieFileOut + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrlOut + "/api/login\"", &rc);
+        std::string legRes = execCapture("curl -sk -D \"" + hdrFile + "\" -c \"" + cookieFileOut + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrlOut + "/api/login\"", &rc);
         if (legRes.find("\"ok\"") != std::string::npos || legRes.find("\"rc\":\"ok\"") != std::string::npos) {
             sitePrefixOut = "/api/s/" + site;
             return true;
@@ -303,14 +332,27 @@ class NetworkQosPlugin : public IModulePlugin {
             if (upKbps > 0) payload["up"] = upKbps;
         }
         int rc = 0;
-        std::string execCmd = "curl -sk -b \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
+        std::string csrfHeader;
+        {
+            std::lock_guard<std::mutex> lk(m_mtx);
+            if (!m_unifiCsrf.empty()) {
+                csrfHeader = " -H \"X-CSRF-Token: " + escapeCmdArg(m_unifiCsrf) + "\"";
+            }
+        }
+        std::string execCmd = "curl -sk -b \"" + cookieFile + "\" -H \"Content-Type: application/json\"" + csrfHeader + " -d \""
             + escapeCmdArg(payload.dump()) + "\" \"" + baseUrl + sitePrefix + "/cmd/stamgr\"";
         std::string resStr = execCapture(execCmd, &rc);
         if (resStr.find("\"ok\"") != std::string::npos || resStr.find("\"rc\":\"ok\"") != std::string::npos) {
+            if (cmdName == "unauthorize-guest") {
+                // Force reconnect so iOS/Android immediately re-probes Captive Portal
+                std::string kickPayload = escapeCmdArg(json({{"cmd", "kick-sta"}, {"mac", mac}}).dump());
+                execCapture("curl -sk -b \"" + cookieFile + "\" -H \"Content-Type: application/json\"" + csrfHeader + " -d \""
+                    + kickPayload + "\" \"" + baseUrl + sitePrefix + "/cmd/stamgr\"", &rc);
+            }
             msgOut = "UniFi Controller đã thực thi " + cmdName + " cho " + mac;
             return true;
         }
-        msgOut = "UniFi Controller từ chối lệnh " + cmdName + " cho " + mac;
+        msgOut = "UniFi Controller từ chối lệnh " + cmdName + " cho " + mac + (resStr.empty() ? "" : (": " + resStr.substr(0, 120)));
         return false;
     }
 
@@ -432,9 +474,15 @@ class NetworkQosPlugin : public IModulePlugin {
         return true;
     }
 
-    void startSessionForIp(const std::string& ip, const std::string& mac, const std::string& tier, const std::string& orderCode, int customMinutes) {
-        if (ip.empty()) return;
-        if (isWhitelisted(ip)) return;
+    bool startSessionForIp(const std::string& ip, const std::string& mac, const std::string& tier, const std::string& orderCode, int customMinutes, std::string* msgPtr = nullptr) {
+        if (ip.empty()) {
+            if (msgPtr) *msgPtr = "Thiếu IP thiết bị!";
+            return false;
+        }
+        if (isWhitelisted(ip)) {
+            if (msgPtr) *msgPtr = "Thiết bị đang nằm trong danh sách Nội bộ ∞";
+            return true;
+        }
 
         int freeMin = 10, vipMin = 180;
         {
@@ -464,7 +512,9 @@ class NetworkQosPlugin : public IModulePlugin {
         }
 
         std::string msg;
-        applySpeedByRouterType(s.ip, s.mac, mins, 0, 0, unauth, msg);
+        bool ok = applySpeedByRouterType(s.ip, s.mac, mins, 0, 0, unauth, msg);
+        if (msgPtr) *msgPtr = msg;
+        return ok;
     }
 
     void watcherLoop() {
@@ -720,11 +770,15 @@ public:
                 std::string ip = body.value("ip", "");
                 std::string mac = body.value("mac", "");
                 std::string qos = body.value("qos", "vip_high_speed");
-                startSessionForIp(ip, mac, qos, "", 0);
-                std::string msg = (qos == "vip_high_speed" || qos == "vip")
-                    ? ("Đã cấp phiên WiFi VIP cho " + ip)
-                    : (qos == "blocked" ? ("Đã ngắt kết nối " + ip) : ("Đã chuyển " + ip + " về phiên Miễn phí"));
-                res.set_content(json({{"status", "success"}, {"ip", ip}, {"qos", qos}, {"message", msg}}).dump(2), "application/json; charset=utf-8");
+                std::string detailMsg;
+                bool ok = startSessionForIp(ip, mac, qos, "", 0, &detailMsg);
+                if (detailMsg.empty()) {
+                    detailMsg = (qos == "vip_high_speed" || qos == "vip")
+                        ? ("Đã cấp phiên WiFi VIP cho " + ip)
+                        : (qos == "blocked" ? ("Đã ngắt kết nối " + ip) : ("Đã chuyển " + ip + " về phiên Miễn phí"));
+                }
+                res.status = ok ? 200 : 502;
+                res.set_content(json({{"status", ok ? "success" : "error"}, {"ip", ip}, {"qos", qos}, {"message", detailMsg}}).dump(2), "application/json; charset=utf-8");
             } catch (const std::exception& e) {
                 res.status = 400;
                 res.set_content(json({{"status", "error"}, {"message", e.what()}}).dump(2), "application/json; charset=utf-8");
