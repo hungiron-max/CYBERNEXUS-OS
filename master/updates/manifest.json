@@ -1,8 +1,8 @@
 {
-    "version": "2026.11.16.21",
-    "title": "v2.0 Release: Kiến trúc 5 lõi Native DLL, Bảo mật Auth/CSP/XSS, WiFi Marketing Mobile-First & Smart Jukebox",
-    "notes": "Phiên bản lớn v2.0.0: 5 lõi C++ DLL đã ký .sig (gồm mod_finance_admin.dll), khóa bảo mật POST /api/settings + CSP + security_utils.js, tách module admin.js, giao diện WiFi Marketing Mobile-First và Jukebox giới hạn 5 bài/thiết bị & 1 vote/bài.",
-    "created_at": "2026-11-17 11:26:22",
+    "version": "2026.11.17.1",
+    "title": "v2.0.1 Hotfix OTA: Sửa điều hướng nút Xem Thực Đơn trên WiFi Marketing",
+    "notes": "Bản vá OTA 2026.11.17.1: Cập nhật wifi.html điều hướng trực tiếp sang /customer.html trên mọi trình duyệt/WebView di động, kèm đủ 5 lõi DLL và toàn bộ module bảo mật v2.0.",
+    "created_at": "2026-11-17 11:57:15",
     "files": [
         "cybernexus_slave.exe",
         "RUN_SLAVE.bat",
