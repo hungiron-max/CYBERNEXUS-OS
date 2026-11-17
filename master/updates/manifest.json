@@ -1,8 +1,8 @@
 {
-    "version": "2026.11.17.11",
+    "version": "2026.11.17.12",
     "title": "v2.0.1 Hotfix OTA: Sửa điều hướng nút Xem Thực Đơn trên WiFi Marketing",
     "notes": "Bản vá OTA 2026.11.17.1: Cập nhật wifi.html điều hướng trực tiếp sang /customer.html trên mọi trình duyệt/WebView di động, kèm đủ 5 lõi DLL và toàn bộ module bảo mật v2.0.",
-    "created_at": "2026-11-17 15:31:42",
+    "created_at": "2026-11-17 15:34:22",
     "files": [
         "cybernexus_slave.exe",
         "RUN_SLAVE.bat",

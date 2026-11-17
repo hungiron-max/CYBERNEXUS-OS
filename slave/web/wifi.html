@@ -133,11 +133,11 @@
             <div id="panel-wifi-free" class="space-y-3">
                 <div class="wifi-input-wrap">
                     <i class="fas fa-user wifi-input-icon"></i>
-                    <input type="text" id="wifi-free-name" placeholder="Tên của bạn (tùy chọn)" class="wifi-input" />
+                    <input type="text" id="wifi-free-name" readonly placeholder="Tên của bạn (tùy chọn)" class="wifi-input wifi-no-autofocus" />
                 </div>
                 <div class="wifi-input-wrap">
                     <i class="fas fa-phone wifi-input-icon"></i>
-                    <input type="tel" id="wifi-free-phone" placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" class="wifi-input" />
+                    <input type="tel" id="wifi-free-phone" readonly placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" class="wifi-input wifi-no-autofocus" />
                 </div>
                 <button type="button" onclick="unlockWifi('free')" class="wifi-btn-shimmer wifi-cta-free">
                     <i class="fas fa-wifi"></i> KẾT NỐI WIFI MIỄN PHÍ NGAY
@@ -155,7 +155,7 @@
                 </div>
                 <div class="wifi-input-wrap">
                     <i class="fas fa-receipt wifi-input-icon" style="color: #fbbf24;"></i>
-                    <input type="text" id="wifi-vip-order" placeholder="Nhập Mã Hóa Đơn (VD: HD261117-0001)" class="wifi-input wifi-input-vip font-mono uppercase" />
+                    <input type="text" id="wifi-vip-order" readonly placeholder="Nhập Mã Hóa Đơn (VD: HD261117-0001)" class="wifi-input wifi-input-vip font-mono uppercase wifi-no-autofocus" />
                 </div>
                 <button type="button" onclick="unlockWifi('vip')" class="wifi-btn-shimmer wifi-cta-vip">
                     <i class="fas fa-crown"></i> MỞ KHÓA WIFI VIP NGAY

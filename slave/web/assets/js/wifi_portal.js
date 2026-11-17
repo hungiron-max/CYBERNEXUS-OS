@@ -215,4 +215,23 @@ async function unlockWifi(mode) {
     }
 }
 
+function preventInitialMobileKeyboard() {
+    const inputs = document.querySelectorAll('.wifi-no-autofocus');
+    inputs.forEach(inp => {
+        const unlockInput = () => {
+            inp.removeAttribute('readonly');
+        };
+        inp.addEventListener('touchstart', unlockInput, { passive: true });
+        inp.addEventListener('pointerdown', unlockInput, { passive: true });
+        inp.addEventListener('mousedown', unlockInput);
+    });
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+    window.scrollTo(0, 0);
+}
+
+document.addEventListener('DOMContentLoaded', preventInitialMobileKeyboard);
+window.addEventListener('pageshow', preventInitialMobileKeyboard);
+
 loadPortalInfo();
