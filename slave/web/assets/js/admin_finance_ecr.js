@@ -831,9 +831,13 @@ Object.assign(Admin, {
     async deleteLocalGeminiKey() {
         if (!confirm('Xóa Gemini API Key dự phòng tại quán để chuyển sang dùng CyberNexus Master AI Proxy?')) return;
         try {
-            const res = await fetch('/api/admin?action=save_settings', {
+            const token = localStorage.getItem('pos_token') || '';
+            const res = await fetch('api/settings.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                },
                 body: JSON.stringify({ gemini_api_key: '__DELETE__' })
             });
             const data = await res.json();
