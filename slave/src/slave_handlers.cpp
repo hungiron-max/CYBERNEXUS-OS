@@ -6256,14 +6256,14 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         std::string search = BodyParser::getParam(req, body, "search");
         std::string cat = BodyParser::getParam(req, body, "category", "all");
         std::string sql = "SELECT * FROM materials WHERE status = 'active'";
-        json params = json::object();
+        std::vector<std::pair<std::string, json>> params;
         if (!search.empty()) {
             sql += " AND (LOWER(name) LIKE LOWER(:q) OR LOWER(code) LIKE LOWER(:q) OR LOWER(COALESCE(supplier,'')) LIKE LOWER(:q))";
-            params[":q"] = "%" + search + "%";
+            params.emplace_back(":q", "%" + search + "%");
         }
         if (!cat.empty() && cat != "all") {
             sql += " AND category = :cat";
-            params[":cat"] = cat;
+            params.emplace_back(":cat", cat);
         }
         sql += " ORDER BY id DESC";
         json mats = db.query(sql, params);
@@ -6452,14 +6452,14 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         try { matId = std::stoll(BodyParser::getParam(req, body, "material_id", "0")); } catch (...) {}
 
         std::string sql = "SELECT * FROM material_transactions WHERE 1=1";
-        json params = json::object();
+        std::vector<std::pair<std::string, json>> params;
         if (type == "import" || type == "export" || type == "adjustment" || type == "loss") {
             sql += " AND trans_type = :tt";
-            params[":tt"] = type;
+            params.emplace_back(":tt", type);
         }
         if (matId > 0) {
             sql += " AND material_id = :mid";
-            params[":mid"] = matId;
+            params.emplace_back(":mid", matId);
         }
         if (period == "today") sql += " AND DATE(created_at) = DATE('now', 'localtime')";
         else if (period == "7d") sql += " AND DATE(created_at) >= DATE('now', 'localtime', '-7 days')";
