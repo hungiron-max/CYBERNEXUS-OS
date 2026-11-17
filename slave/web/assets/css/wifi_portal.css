@@ -366,12 +366,12 @@ body {
    LIGHT THEME (body.wifi-light)
    ===================================================== */
 body.wifi-light {
-    background: #f0f9ff;
-    color: #0f172a;
+    background: #f0f9ff !important;
+    color: #0f172a !important;
 }
 
 body.wifi-light .wifi-bg-canvas {
-    background: radial-gradient(circle at 15% 15%, #e0f2fe 0%, #f8fafc 55%, #ecfdf5 100%);
+    background: radial-gradient(circle at 15% 15%, #e0f2fe 0%, #f8fafc 55%, #ecfdf5 100%) !important;
 }
 
 body.wifi-light .wifi-aurora {
@@ -402,11 +402,11 @@ body.wifi-light .wifi-sparkle {
 }
 
 body.wifi-light .wifi-card {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.82));
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.86)) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
     box-shadow:
         0 18px 40px -12px rgba(15, 23, 42, 0.12),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
 }
 
 body.wifi-light .wifi-card-vip {
@@ -440,8 +440,8 @@ body.wifi-light .wifi-mode-box {
 }
 
 body.wifi-light .wifi-tabs {
-    background: rgba(226, 232, 240, 0.85);
-    border-color: rgba(148, 163, 184, 0.3);
+    background: rgba(226, 232, 240, 0.9) !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
 }
 
 body.wifi-light .wifi-tab-btn {
@@ -449,9 +449,9 @@ body.wifi-light .wifi-tab-btn {
 }
 
 body.wifi-light .wifi-input {
-    background: rgba(255, 255, 255, 0.95);
-    border-color: rgba(148, 163, 184, 0.45);
-    color: #0f172a;
+    background: #ffffff !important;
+    border-color: rgba(148, 163, 184, 0.5) !important;
+    color: #0f172a !important;
 }
 
 body.wifi-light .wifi-input::placeholder {
