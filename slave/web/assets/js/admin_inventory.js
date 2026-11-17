@@ -559,11 +559,15 @@ Object.assign(Admin, {
                         : 'Trí tuệ nhân tạo đang phân tích hình ảnh và bóc tách dữ liệu...';
                 }
 
+                const optimizedB64 = imgItem.isSampleDemo
+                    ? imgItem.base64
+                    : await this.preprocessInvoiceImageForOcr(imgItem.base64, 1600);
+
                 const res = await fetch('api/operations.php?action=ai_parse_invoice', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        image_base64: imgItem.base64,
+                        image_base64: optimizedB64,
                         gemini_api_key: apiKey,
                         is_sample_demo: !!imgItem.isSampleDemo
                     })
@@ -614,6 +618,35 @@ Object.assign(Admin, {
         }
     },
 
+    preprocessInvoiceImageForOcr(dataUrl, maxDim = 1600) {
+        return new Promise((resolve) => {
+            if (!dataUrl || typeof dataUrl !== 'string') return resolve(dataUrl);
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const w = img.naturalWidth || img.width;
+                    const h = img.naturalHeight || img.height;
+                    const scale = Math.min(1, maxDim / Math.max(w, h));
+                    const tw = Math.max(1, Math.round(w * scale));
+                    const th = Math.max(1, Math.round(h * scale));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = tw;
+                    canvas.height = th;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        if ('filter' in ctx) ctx.filter = 'contrast(1.12) brightness(1.03)';
+                        ctx.drawImage(img, 0, 0, tw, th);
+                        resolve(canvas.toDataURL('image/jpeg', 0.88));
+                        return;
+                    }
+                } catch (e) {}
+                resolve(dataUrl);
+            };
+            img.onerror = () => resolve(dataUrl);
+            img.src = dataUrl;
+        });
+    },
+
     renderReviewRows(items) {
         const tbody = document.getElementById('review-items-tbody');
         if (!tbody) return;
@@ -657,7 +690,8 @@ Object.assign(Admin, {
                         <input type="text" value="${it.unit || 'kg'}" class="liquid-input py-1.5 px-2 text-xs w-full font-bold text-slate-200 text-center review-unit" />
                     </td>
                     <td class="py-3 px-2 min-w-[150px]">
-                        <input type="number" step="any" min="0" value="${Math.round((Number(it.unit_price || 0) > 0) ? it.unit_price : ((Number(it.quantity || 0) > 0 && Number(it.total_cost || 0) > 0) ? (Number(it.total_cost) / Number(it.quantity)) : 0))}" class="liquid-input py-1.5 px-2.5 text-xs w-full font-mono font-bold text-emerald-400 text-right review-price" oninput="Admin.onReviewPriceChanged(this)" title="Đơn giá mua" />
+                        <input type="number" step="any" min="0" value="${Math.round((Number(it.unit_price || 0) > 0) ? it.unit_price : ((Number(it.quantity || 0) > 0 && Number(it.total_cost || 0) > 0) ? (Number(it.total_cost) / Number(it.quantity)) : 0))}" class="liquid-input py-1.5 px-2.5 text-xs w-full font-mono font-bold ${it.price_warning ? 'text-amber-300 border-amber-400/50' : 'text-emerald-400'} text-right review-price" oninput="Admin.onReviewPriceChanged(this)" title="Đơn giá mua" />
+                        ${it.price_warning ? `<div class="mt-1 text-[10px] text-amber-300 font-semibold text-right whitespace-nowrap" title="Đơn giá chênh lệch bất thường so với giá vốn cũ"><i class="fas fa-triangle-exclamation mr-1"></i>Lệch giá cũ (${Math.round(it.prev_cost_price || 0).toLocaleString('vi-VN')}đ)</div>` : ''}
                     </td>
                     <td class="py-3 px-2 min-w-[170px]">
                         <input type="number" step="any" min="0" value="${Math.round(it.total_cost || 0)}" class="liquid-input py-1.5 px-2.5 text-xs w-full font-mono font-black text-emerald-300 text-right review-line-total-input" oninput="Admin.onReviewTotalChanged(this)" title="Nhập thành tiền → Tự động tính đơn giá = Thành tiền ÷ Số lượng" />

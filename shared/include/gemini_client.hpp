@@ -354,40 +354,131 @@ inline bool geminiVerifyKey(const std::string& apiKey, int& modelCountOut, std::
     return false;
 }
 
+inline void buildInvoiceOcrPromptAndSchema(const std::string& catalogHint, std::string& promptOut, json& schemaOut) {
+    promptOut =
+        "Bạn là chuyên gia kế toán kho F&B cho nhà hàng/quán cafe. Hãy đọc thật kỹ ảnh chứng từ mua hàng này "
+        "(hóa đơn in nhiệt, phiếu mua hàng, phiếu xuất kho, hoặc giấy viết tay mua hàng) và trích xuất dữ liệu JSON.\n\n"
+        "HƯỚNG DẪN ĐẶC BIỆT KHI ĐỌC CHỮ VIẾT TAY TIẾNG VIỆT:\n"
+        "1. Tự nhận diện chiều ảnh: nếu ảnh bị chụp xoay ngang hoặc ngược, hãy tự đọc theo đúng chiều chữ.\n"
+        "2. Phân biệt thật kỹ SỐ LƯỢNG và ĐƠN VỊ TÍNH viết liền nhau (ví dụ: '2 ổ' là quantity=2, unit='ổ', KHÔNG đọc nhầm thành 25). "
+        "Các đơn vị F&B thường gặp: ổ, cái, ly, chai, lon, kg, g, lít, hộp, bịch, gói, vỉ, quả, bó, túi, thùng.\n"
+        "3. Ví dụ mẫu (few-shot):\n"
+        "   - 'Bánh mì 2 ổ 10.000' -> raw_name: 'Bánh mì', quantity: 2, unit: 'ổ', total_cost: 10000, unit_price: 5000\n"
+        "   - 'Pate 0.5 kg 90.000' -> raw_name: 'Pate', quantity: 0.5, unit: 'kg', total_cost: 90000, unit_price: 180000\n"
+        "   - 'Xúc xích 1 gói 45.000' -> raw_name: 'Xúc xích', quantity: 1, unit: 'gói', total_cost: 45000, unit_price: 45000\n"
+        "4. Tiền VNĐ là số nguyên (10.000 = 10000). Nếu không ghi đơn giá thì tính unit_price = round(total_cost / quantity).\n"
+        "5. Nếu trên giấy KHÔNG có tên nhà cung cấp/cửa hàng hoặc số hóa đơn, BẮT BUỘC để chuỗi rỗng \"\" (không tự bịa).";
+    if (!catalogHint.empty()) {
+        promptOut += "\n6. Danh mục nguyên liệu hiện có trong kho của quán (ưu tiên khớp tên & đơn vị nếu nhận ra chữ viết tắt/ngoáy): " + catalogHint;
+    }
+
+    schemaOut = {
+        {"type", "OBJECT"},
+        {"properties", {
+            {"supplier", {{"type", "STRING"}}},
+            {"invoice_no", {{"type", "STRING"}}},
+            {"items", {
+                {"type", "ARRAY"},
+                {"items", {
+                    {"type", "OBJECT"},
+                    {"properties", {
+                        {"raw_name", {{"type", "STRING"}}},
+                        {"quantity", {{"type", "NUMBER"}}},
+                        {"unit", {{"type", "STRING"}}},
+                        {"unit_price", {{"type", "INTEGER"}}},
+                        {"total_cost", {{"type", "INTEGER"}}}
+                    }},
+                    {"required", json::array({"raw_name", "quantity", "unit", "unit_price", "total_cost"})}
+                }}
+            }}
+        }},
+        {"required", json::array({"supplier", "invoice_no", "items"})}
+    };
+}
+
 inline bool geminiGenerateContentText(const std::string& apiKey, const json& contentsJson, bool jsonMode,
-                                      std::string& textOut, std::string& modelUsedOut, std::string& errOut) {
-    std::vector<std::string> models, imgUnused;
-    resolveGeminiModelsForKey(apiKey, models, imgUnused);
+                                      std::string& textOut, std::string& modelUsedOut, std::string& errOut,
+                                      const json& responseSchema = json(), bool fastOcrMode = false) {
+    static std::mutex pinMu;
+    static std::unordered_map<std::string, std::string> pinnedModels;
+
     std::string rawContents = contentsJson.dump();
     bool hasImage = (rawContents.find("inlineData") != std::string::npos);
-    if (!hasImage) {
-        // Text-only tasks prefer fast/cheap 3.1-flash-lite if available, while image OCR uses full flash first
-        std::stable_sort(models.begin(), models.end(), [](const std::string& a, const std::string& b) {
+    std::string pinKey = apiKey + (hasImage ? ":ocr" : ":text");
+
+    std::vector<std::string> models;
+    {
+        std::lock_guard<std::mutex> lk(pinMu);
+        auto it = pinnedModels.find(pinKey);
+        if (it != pinnedModels.end() && !it->second.empty()) {
+            models.push_back(it->second);
+        }
+    }
+
+    auto appendUnique = [&](const std::string& m) {
+        if (!m.empty() && std::find(models.begin(), models.end(), m) == models.end()) {
+            models.push_back(m);
+        }
+    };
+
+    if (hasImage || fastOcrMode) {
+        // Zero-overhead fast routing for Vision OCR: try proven fast & accurate models directly (no ListModels latency)
+        for (const auto& m : std::vector<std::string>{"gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite"}) {
+            appendUnique(m);
+        }
+    } else {
+        std::vector<std::string> discModels, imgUnused;
+        resolveGeminiModelsForKey(apiKey, discModels, imgUnused);
+        std::stable_sort(discModels.begin(), discModels.end(), [](const std::string& a, const std::string& b) {
             bool aLite = (a.find("3.1-flash-lite") != std::string::npos);
             bool bLite = (b.find("3.1-flash-lite") != std::string::npos);
             return aLite && !bLite;
         });
-    } else {
-        // Vision/handwriting OCR: push "lite" models after full flash/pro models for higher accuracy
-        std::stable_sort(models.begin(), models.end(), [](const std::string& a, const std::string& b) {
-            bool aLite = (a.find("lite") != std::string::npos);
-            bool bLite = (b.find("lite") != std::string::npos);
-            return !aLite && bLite;
-        });
+        for (const auto& m : discModels) appendUnique(m);
     }
-    json reqPayload = {{"contents", contentsJson}};
-    if (jsonMode) {
-        reqPayload["generationConfig"] = {{"responseMimeType", "application/json"}};
-    }
-    std::string bodyStr = reqPayload.dump();
+
+    auto buildBody = [&](bool withOptionalExtras) -> std::string {
+        json reqPayload = {{"contents", contentsJson}};
+        json genCfg = {{"temperature", 0.1}};
+        if (jsonMode) {
+            genCfg["responseMimeType"] = "application/json";
+        }
+        if (withOptionalExtras) {
+            if (!responseSchema.is_null() && !responseSchema.empty()) {
+                genCfg["responseSchema"] = responseSchema;
+            }
+            if (fastOcrMode || hasImage) {
+                genCfg["thinkingConfig"] = {{"thinkingBudget", 0}};
+            }
+        }
+        reqPayload["generationConfig"] = genCfg;
+        return reqPayload.dump();
+    };
+
+    std::string bodyFull = buildBody(true);
+    std::string bodyCompat = buildBody(false);
     std::string primaryErr;
-    for (const auto& mdl : models) {
+    bool triedDiscoveryFallback = false;
+
+    for (size_t idx = 0; idx < models.size(); ++idx) {
+        const std::string mdl = models[idx];
         int st = 0;
         std::string resp;
         if (!winHttpRequest("generativelanguage.googleapis.com", 443, true,
                             "/v1beta/models/" + mdl + ":generateContent?key=" + apiKey,
-                            "POST", bodyStr, st, resp, errOut)) {
+                            "POST", bodyFull, st, resp, errOut)) {
             return false;
+        }
+        // If model rejects thinkingConfig or responseSchema with 400, retry once with clean generationConfig
+        if (st == 400 && bodyFull != bodyCompat) {
+            int st2 = 0;
+            std::string resp2;
+            if (winHttpRequest("generativelanguage.googleapis.com", 443, true,
+                               "/v1beta/models/" + mdl + ":generateContent?key=" + apiKey,
+                               "POST", bodyCompat, st2, resp2, errOut)) {
+                st = st2;
+                resp = resp2;
+            }
         }
         if (st >= 200 && st < 300) {
             try {
@@ -397,6 +488,10 @@ inline bool geminiGenerateContentText(const std::string& apiKey, const json& con
                     if (p.contains("text")) {
                         textOut = p["text"].get<std::string>();
                         modelUsedOut = mdl;
+                        {
+                            std::lock_guard<std::mutex> lk(pinMu);
+                            pinnedModels[pinKey] = mdl;
+                        }
                         return true;
                     }
                 }
@@ -410,6 +505,18 @@ inline bool geminiGenerateContentText(const std::string& apiKey, const json& con
             if (st == 400 || st == 401 || st == 403) {
                 errOut = primaryErr;
                 return false;
+            }
+            // If static fast models hit 404, dynamically discover available models on this key once
+            if (st == 404 && !triedDiscoveryFallback && (hasImage || fastOcrMode)) {
+                triedDiscoveryFallback = true;
+                std::vector<std::string> discModels, imgUnused;
+                resolveGeminiModelsForKey(apiKey, discModels, imgUnused);
+                std::stable_sort(discModels.begin(), discModels.end(), [](const std::string& a, const std::string& b) {
+                    bool aLite = (a.find("lite") != std::string::npos);
+                    bool bLite = (b.find("lite") != std::string::npos);
+                    return !aLite && bLite;
+                });
+                for (const auto& dm : discModels) appendUnique(dm);
             }
         }
     }

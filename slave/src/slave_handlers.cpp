@@ -5882,19 +5882,25 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 }
             }
 
+            json existingMats = db.query("SELECT id, code, name, unit, COALESCE(cost_price, 0) as cost_price FROM materials WHERE status = 'active'");
+            std::string catalogHint;
+            int hintCount = 0;
+            for (const auto& m : existingMats) {
+                std::string mn = m.value("name", "");
+                std::string mu = m.value("unit", "");
+                if (mn.empty()) continue;
+                if (!catalogHint.empty()) catalogHint += ", ";
+                catalogHint += mn + (mu.empty() ? "" : (" (" + mu + ")"));
+                if (++hintCount >= 40) break;
+            }
+
             json parsed;
             std::string modelUsed, err;
             std::string localKey = resolveGeminiApiKey(db, passedKey);
             if (!localKey.empty()) {
-                std::string prompt =
-                    "Bạn là kế toán AI chuyên bóc tách hóa đơn nhập hàng F&B (hóa đơn in nhiệt hoặc giấy viết tay tiếng Việt). "
-                    "Hãy đọc thật kỹ ảnh hóa đơn này và trả về đúng 1 JSON object có cấu trúc sau (không thêm markdown): "
-                    "{\"supplier\": \"Tên nhà cung cấp hoặc chuỗi rỗng\", \"invoice_no\": \"Số hóa đơn hoặc chuỗi rỗng\", "
-                    "\"items\": [{\"raw_name\": \"Tên nguyên liệu\", \"quantity\": 1, \"unit\": \"kg\", \"unit_price\": 0, \"total_cost\": 0}]}. "
-                    "Quy tắc bắt buộc khi đọc chữ viết tay tiếng Việt: "
-                    "1) Số tiền bằng VNĐ (số nguyên, ví dụ 10.000 = 10000, 90.000 = 90000); nếu thiếu đơn giá thì unit_price = total_cost / quantity. "
-                    "2) Phân biệt rõ SỐ LƯỢNG và ĐƠN VỊ viết gần nhau (ví dụ: '2 ổ' là quantity=2, unit='ổ' — KHÔNG đọc nhầm thành 25; '0.5 kg' là quantity=0.5, unit='kg'). Các đơn vị F&B hay gặp: ổ, cái, ly, chai, lon, kg, g, lít, hộp, bịch, gói, vỉ, quả, bó, túi, thùng. "
-                    "3) Tự kiểm tra tính hợp lý giữa quantity và đơn giá theo giá thị trường Việt Nam (ví dụ bánh mì tổng 10.000đ hợp lý là 2 ổ x 5.000đ, không thể là 25 cái x 400đ).";
+                std::string prompt;
+                json schema;
+                SaleApp::AI::buildInvoiceOcrPromptAndSchema(catalogHint, prompt, schema);
                 json contents = json::array({
                     {{"parts", json::array({
                         {{"text", prompt}},
@@ -5902,7 +5908,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                     })}}
                 });
                 std::string textOut;
-                if (!SaleApp::AI::geminiGenerateContentText(localKey, contents, true, textOut, modelUsed, err)) {
+                if (!SaleApp::AI::geminiGenerateContentText(localKey, contents, true, textOut, modelUsed, err, schema, true)) {
                     sendError(res, "Lỗi phân tích AI OCR: " + err, 502);
                     return;
                 }
@@ -5912,7 +5918,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 }
             } else {
                 json proxyResp;
-                if (!callMasterAiProxy({{"action", "parse_invoice"}, {"mime_type", mime}, {"image_base64", pureB64}}, proxyResp, err)) {
+                if (!callMasterAiProxy({{"action", "parse_invoice"}, {"mime_type", mime}, {"image_base64", pureB64}, {"catalog_hint", catalogHint}}, proxyResp, err)) {
                     sendError(res, err, 502);
                     return;
                 }
@@ -5920,7 +5926,6 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 modelUsed = proxyResp.value("ai_engine", "CyberNexus Master AI");
             }
 
-            json existingMats = db.query("SELECT id, code, name, unit FROM materials WHERE status = 'active'");
             auto toLower = [](std::string s) {
                 std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                 return s;
@@ -5931,15 +5936,22 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 for (const auto& it : parsed["items"]) {
                     std::string rawName = it.value("raw_name", it.value("name", ""));
                     double qty = it.value("quantity", 1.0);
+                    if (qty <= 0.0) qty = 1.0;
                     std::string unit = it.value("unit", "kg");
                     double unitPrice = it.value("unit_price", 0.0);
-                    double totalCost = it.value("total_cost", qty * unitPrice);
-                    if (unitPrice <= 0 && qty > 0 && totalCost > 0) unitPrice = std::round(totalCost / qty);
-                    if (totalCost <= 0 && unitPrice > 0) totalCost = std::round(qty * unitPrice);
+                    double totalCost = it.value("total_cost", 0.0);
+                    if (totalCost <= 0.0) totalCost = it.value("total_price", 0.0);
+                    // Chốt công thức kế toán theo chứng từ: có Thành tiền -> Đơn giá = Thành tiền / Số lượng
+                    if (totalCost > 0.0) {
+                        unitPrice = std::round(totalCost / qty);
+                    } else if (unitPrice > 0.0) {
+                        totalCost = std::round(qty * unitPrice);
+                    }
 
                     bool matched = false;
                     int64_t matId = 0;
                     std::string matCode;
+                    double prevCost = 0.0;
                     std::string rawLow = toLower(rawName);
                     for (const auto& m : existingMats) {
                         std::string mLow = toLower(m.value("name", ""));
@@ -5947,9 +5959,16 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                             matched = true;
                             matId = m.value("id", int64_t(0));
                             matCode = m.value("code", "");
+                            prevCost = m.value("cost_price", 0.0);
                             if (unit.empty()) unit = m.value("unit", "kg");
                             break;
                         }
+                    }
+
+                    bool priceWarning = false;
+                    if (matched && prevCost > 0.0 && unitPrice > 0.0) {
+                        double ratio = unitPrice / prevCost;
+                        if (ratio >= 2.5 || ratio <= 0.4) priceWarning = true;
                     }
 
                     itemsOut.push_back({
@@ -5960,7 +5979,9 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                         {"quantity", qty},
                         {"unit", unit},
                         {"unit_price", unitPrice},
-                        {"total_cost", totalCost}
+                        {"total_cost", totalCost},
+                        {"prev_cost_price", prevCost},
+                        {"price_warning", priceWarning}
                     });
                 }
             }

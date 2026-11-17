@@ -3129,22 +3129,16 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                     replyTunnelJson(res, {{"success", false}, {"message", "Thiếu dữ liệu ảnh hóa đơn!"}}, 400);
                     return;
                 }
-                std::string prompt =
-                    "Bạn là kế toán AI chuyên bóc tách hóa đơn nhập hàng F&B (hóa đơn in nhiệt hoặc giấy viết tay tiếng Việt). "
-                    "Hãy đọc thật kỹ ảnh hóa đơn này và trả về đúng 1 JSON object có cấu trúc sau (không thêm markdown): "
-                    "{\"supplier\": \"Tên nhà cung cấp hoặc chuỗi rỗng\", \"invoice_no\": \"Số hóa đơn hoặc chuỗi rỗng\", "
-                    "\"items\": [{\"raw_name\": \"Tên nguyên liệu\", \"quantity\": 1, \"unit\": \"kg\", \"unit_price\": 0, \"total_cost\": 0}]}. "
-                    "Quy tắc bắt buộc khi đọc chữ viết tay tiếng Việt: "
-                    "1) Số tiền bằng VNĐ (số nguyên, ví dụ 10.000 = 10000, 90.000 = 90000); nếu thiếu đơn giá thì unit_price = total_cost / quantity. "
-                    "2) Phân biệt rõ SỐ LƯỢNG và ĐƠN VỊ viết gần nhau (ví dụ: '2 ổ' là quantity=2, unit='ổ' — KHÔNG đọc nhầm thành 25; '0.5 kg' là quantity=0.5, unit='kg'). Các đơn vị F&B hay gặp: ổ, cái, ly, chai, lon, kg, g, lít, hộp, bịch, gói, vỉ, quả, bó, túi, thùng. "
-                    "3) Tự kiểm tra tính hợp lý giữa quantity và đơn giá theo giá thị trường Việt Nam (ví dụ bánh mì tổng 10.000đ hợp lý là 2 ổ x 5.000đ, không thể là 25 cái x 400đ).";
+                std::string prompt;
+                json schema;
+                SaleApp::AI::buildInvoiceOcrPromptAndSchema(getString(body, "catalog_hint"), prompt, schema);
                 json contents = json::array({{{"parts", json::array({
                     {{"text", prompt}},
                     {{"inlineData", {{"mimeType", mime}, {"data", pureB64}}}}
                 })}}});
                 std::string textOut, modelUsed, err;
                 if (!runWithFailover([&](const std::string& k, std::string& e) {
-                        return SaleApp::AI::geminiGenerateContentText(k, contents, true, textOut, modelUsed, e);
+                        return SaleApp::AI::geminiGenerateContentText(k, contents, true, textOut, modelUsed, e, schema, true);
                     }, err)) {
                     logUsage(modelUsed, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI OCR: " + err}}, 502);
