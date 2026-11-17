@@ -207,7 +207,7 @@ inline GeminiModelScore scoreGeminiModel(const std::string& nm) {
         }
     }
     if (nm.find("flash") != std::string::npos) s.tierRank += 20;
-    if (nm.find("3.1-flash-lite") != std::string::npos) s.tierRank += 50;
+    if (nm.find("lite") != std::string::npos) s.tierRank -= 5;
     if (nm.find("preview") == std::string::npos && nm.find("exp") == std::string::npos) s.tierRank += 10;
     if (nm.find("-latest") != std::string::npos) s.tierRank -= 2;
     return s;
@@ -275,9 +275,6 @@ inline void resolveGeminiModelsForKey(const std::string& apiKey,
     }
 
     auto cmpScore = [](const GeminiModelScore& a, const GeminiModelScore& b) {
-        bool aLite31 = (a.name.find("3.1-flash-lite") != std::string::npos);
-        bool bLite31 = (b.name.find("3.1-flash-lite") != std::string::npos);
-        if (aLite31 != bLite31) return aLite31;
         if (a.major != b.major) return a.major > b.major;
         if (a.minor != b.minor) return a.minor > b.minor;
         if (a.tierRank != b.tierRank) return a.tierRank > b.tierRank;
@@ -291,7 +288,7 @@ inline void resolveGeminiModelsForKey(const std::string& apiKey,
         textModelsOut.push_back(s.name);
         if (textModelsOut.size() >= 6) break;
     }
-    for (const auto& fb : std::vector<std::string>{"gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite", "gemini-2.5-flash"}) {
+    for (const auto& fb : std::vector<std::string>{"gemini-2.5-flash", "gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite"}) {
         if (std::find(textModelsOut.begin(), textModelsOut.end(), fb) == textModelsOut.end()) {
             textModelsOut.push_back(fb);
         }
@@ -361,6 +358,23 @@ inline bool geminiGenerateContentText(const std::string& apiKey, const json& con
                                       std::string& textOut, std::string& modelUsedOut, std::string& errOut) {
     std::vector<std::string> models, imgUnused;
     resolveGeminiModelsForKey(apiKey, models, imgUnused);
+    std::string rawContents = contentsJson.dump();
+    bool hasImage = (rawContents.find("inlineData") != std::string::npos);
+    if (!hasImage) {
+        // Text-only tasks prefer fast/cheap 3.1-flash-lite if available, while image OCR uses full flash first
+        std::stable_sort(models.begin(), models.end(), [](const std::string& a, const std::string& b) {
+            bool aLite = (a.find("3.1-flash-lite") != std::string::npos);
+            bool bLite = (b.find("3.1-flash-lite") != std::string::npos);
+            return aLite && !bLite;
+        });
+    } else {
+        // Vision/handwriting OCR: push "lite" models after full flash/pro models for higher accuracy
+        std::stable_sort(models.begin(), models.end(), [](const std::string& a, const std::string& b) {
+            bool aLite = (a.find("lite") != std::string::npos);
+            bool bLite = (b.find("lite") != std::string::npos);
+            return !aLite && bLite;
+        });
+    }
     json reqPayload = {{"contents", contentsJson}};
     if (jsonMode) {
         reqPayload["generationConfig"] = {{"responseMimeType", "application/json"}};

@@ -657,7 +657,7 @@ Object.assign(Admin, {
                         <input type="text" value="${it.unit || 'kg'}" class="liquid-input py-1.5 px-2 text-xs w-full font-bold text-slate-200 text-center review-unit" />
                     </td>
                     <td class="py-3 px-2 min-w-[150px]">
-                        <input type="number" step="any" min="0" value="${Math.round(it.unit_price || 0)}" class="liquid-input py-1.5 px-2.5 text-xs w-full font-mono font-bold text-emerald-400 text-right review-price" oninput="Admin.onReviewPriceChanged(this)" title="Đơn giá mua" />
+                        <input type="number" step="any" min="0" value="${Math.round((Number(it.unit_price || 0) > 0) ? it.unit_price : ((Number(it.quantity || 0) > 0 && Number(it.total_cost || 0) > 0) ? (Number(it.total_cost) / Number(it.quantity)) : 0))}" class="liquid-input py-1.5 px-2.5 text-xs w-full font-mono font-bold text-emerald-400 text-right review-price" oninput="Admin.onReviewPriceChanged(this)" title="Đơn giá mua" />
                     </td>
                     <td class="py-3 px-2 min-w-[170px]">
                         <input type="number" step="any" min="0" value="${Math.round(it.total_cost || 0)}" class="liquid-input py-1.5 px-2.5 text-xs w-full font-mono font-black text-emerald-300 text-right review-line-total-input" oninput="Admin.onReviewTotalChanged(this)" title="Nhập thành tiền → Tự động tính đơn giá = Thành tiền ÷ Số lượng" />
