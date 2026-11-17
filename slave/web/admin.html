@@ -1664,15 +1664,40 @@
         <!-- ========================================== -->
         <section id="tab-settings" class="admin-section hidden flex-1 overflow-y-auto" style="min-height: 0; max-height: calc(100vh - 88px); overflow-y: auto; padding-bottom: 48px;">
             <div class="max-w-4xl mx-auto liquid-glass p-6 rounded-2xl border border-white/10 space-y-5">
-                <div class="border-b border-white/10 pb-3">
-                    <h3 class="font-bold text-base text-sky-400">Cài Đặt Hệ Thống & Thanh Toán VietQR</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Thông tin in trên hóa đơn nhiệt và mã QR thanh toán ngân hàng</p>
+                <div class="border-b border-white/10 pb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="font-bold text-base text-sky-400">Cài Đặt Hệ Thống & Thanh Toán VietQR</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Chọn nhóm chức năng bên dưới để cấu hình nhanh gọn</p>
+                    </div>
+                </div>
+
+                <!-- Sub-tabs nhóm chức năng Cài đặt -->
+                <div class="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-slate-950/70 border border-white/10" id="settings-group-tabs">
+                    <button type="button" onclick="Admin.switchSettingsGroup('store')" data-sg-btn="store" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500/25 text-sky-200 border border-sky-400/40 transition">
+                        <i class="fas fa-store mr-1"></i> Quán &amp; Slide
+                    </button>
+                    <button type="button" onclick="Admin.switchSettingsGroup('vietqr')" data-sg-btn="vietqr" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-transparent transition">
+                        <i class="fas fa-qrcode mr-1"></i> VietQR &amp; Bank
+                    </button>
+                    <button type="button" onclick="Admin.switchSettingsGroup('ai')" data-sg-btn="ai" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-transparent transition">
+                        <i class="fas fa-wand-magic-sparkles mr-1"></i> AI &amp; Telegram
+                    </button>
+                    <button type="button" onclick="Admin.switchSettingsGroup('wifi')" data-sg-btn="wifi" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-transparent transition">
+                        <i class="fas fa-wifi mr-1"></i> WiFi Marketing
+                    </button>
+                    <button type="button" onclick="Admin.switchSettingsGroup('wan')" data-sg-btn="wan" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-transparent transition">
+                        <i class="fas fa-satellite-dish mr-1"></i> Master WAN
+                    </button>
+                    <button type="button" onclick="Admin.switchSettingsGroup('all')" data-sg-btn="all" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white border border-transparent ml-auto transition">
+                        Hiện tất cả
+                    </button>
                 </div>
 
                 <!-- Alert Notification Box -->
                 <div id="settings-alert" class="hidden p-3 rounded-xl text-xs font-semibold flex items-center justify-between"></div>
 
                 <form id="settings-form" onsubmit="saveStoreSettings(event)" class="space-y-4">
+                    <div class="settings-group space-y-4" data-settings-group="store">
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Tên Quán / Cửa hàng:</label>
                         <input type="text" name="store_name" value="Góc Phố Coffee & Tea" class="liquid-input w-full text-sm font-bold text-sky-300" required />
@@ -2106,8 +2131,9 @@
 
                         </div>
                     </div>
+                    </div>
 
-                    <div class="p-4 rounded-xl bg-slate-900/80 border border-sky-500/20 space-y-3">
+                    <div class="settings-group hidden p-4 rounded-xl bg-slate-900/80 border border-sky-500/20 space-y-3" data-settings-group="vietqr">
                         <div class="flex items-center justify-between">
                             <h4 class="font-bold text-xs uppercase tracking-wider text-sky-400"><i class="fas fa-qrcode mr-1"></i> Tích Hợp VietQR Tự Động</h4>
                             <button type="button" onclick="openBankPickerModal()" class="text-xs text-sky-400 hover:text-sky-300 font-semibold underline flex items-center gap-1 cursor-pointer">
@@ -2341,7 +2367,7 @@
                     </div>
 
                     <!-- Tích hợp Trí Tuệ Nhân Tạo (Google Gemini AI) -->
-                    <div class="p-4 rounded-xl bg-slate-900/80 border border-purple-500/30 space-y-3">
+                    <div class="settings-group hidden p-4 rounded-xl bg-slate-900/80 border border-purple-500/30 space-y-3" data-settings-group="ai">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="font-bold text-xs uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
                                 <i class="fas fa-wand-magic-sparkles text-amber-400"></i> Trí Tuệ Nhân Tạo (Google Gemini Vision AI)
@@ -2425,9 +2451,10 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
 
                         <!-- Quản Trị Mạng & WiFi Marketing (Time-Based QoS) -->
-                        <div class="pt-3 border-t border-white/10 space-y-2.5">
+                        <div class="settings-group hidden p-4 rounded-xl bg-slate-900/80 border border-emerald-500/25 space-y-2.5" data-settings-group="wifi">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
                                     <i class="fas fa-network-wired text-emerald-400"></i>
@@ -2481,9 +2508,8 @@
                             </div>
                             <div id="router-qos-devices-list" class="space-y-1.5" style="max-height: 240px; overflow-y: auto; padding-right: 4px;"></div>
                         </div>
-                    </div>
 
-                    <div class="flex justify-end pt-2">
+                    <div id="settings-save-row" class="flex justify-end pt-2">
                         <button type="submit" id="btn-save-settings" class="btn-glass-success text-sm py-2 px-5 font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20">
                             <i class="fas fa-save"></i> <span>Lưu Cấu Hình</span>
                         </button>
@@ -2491,7 +2517,7 @@
                 </form>
 
                 <!-- Kênh Kết Nối Master WAN (Reverse Long-Polling) -->
-                <div class="mt-6 p-4 rounded-xl bg-slate-900/60 border border-sky-500/25 space-y-3">
+                <div class="settings-group hidden mt-2 p-4 rounded-xl bg-slate-900/60 border border-sky-500/25 space-y-3" data-settings-group="wan">
                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
                         <div>
                             <h4 class="text-xs font-bold text-sky-300 flex items-center gap-2">

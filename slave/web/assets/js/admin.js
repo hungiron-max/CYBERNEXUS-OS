@@ -2970,6 +2970,29 @@ const Admin = {
         }
     },
 
+    switchSettingsGroup(group) {
+        const groups = document.querySelectorAll('#tab-settings .settings-group');
+        groups.forEach(el => {
+            const g = el.getAttribute('data-settings-group');
+            el.classList.toggle('hidden', group !== 'all' && g !== group);
+        });
+        const btns = document.querySelectorAll('#settings-group-tabs [data-sg-btn]');
+        btns.forEach(btn => {
+            const active = btn.getAttribute('data-sg-btn') === group;
+            if (btn.getAttribute('data-sg-btn') === 'all') {
+                btn.className = active
+                    ? 'px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-sky-500/25 text-sky-200 border border-sky-400/40 ml-auto transition'
+                    : 'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white border border-transparent ml-auto transition';
+            } else {
+                btn.className = active
+                    ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500/25 text-sky-200 border border-sky-400/40 transition'
+                    : 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-transparent transition';
+            }
+        });
+        const saveRow = document.getElementById('settings-save-row');
+        if (saveRow) saveRow.classList.toggle('hidden', group === 'wan');
+    },
+
     // ========================================================
     async loadWanTunnelStatus() {
         const badge = document.getElementById('wan-tunnel-status-badge');
