@@ -26,6 +26,7 @@ jobs:
 
     - name: Run Regression & API E2E Checks
       run: |
+        python tools/sign_modules.py
         python tests/verify_regression_v1.py
         python tests/test_api_e2e.py
 
@@ -50,5 +51,6 @@ jobs:
 
     - name: Run Regression & API E2E Checks
       run: |
+        python3 tools/sign_modules.py
         python3 tests/verify_regression_v1.py
         python3 tests/test_api_e2e.py
