@@ -179,6 +179,11 @@
                     <span>Nhật Ký Audit Trail</span>
                 </button>
 
+                <button type="button" onclick="SuperAdmin.switchTab('ai-vault')" id="nav-tab-ai-vault" class="saas-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all whitespace-nowrap">
+                    <span class="flex items-center gap-2.5"><i class="fas fa-shield-halved text-purple-400 w-4 text-center shrink-0"></i><span>Master AI Vault</span></span>
+                    <span id="nav-badge-ai-key" class="px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[9px] font-bold">KEY</span>
+                </button>
+
                 <button type="button" onclick="SuperAdmin.switchTab('settings')" id="nav-tab-settings" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all whitespace-nowrap">
                     <i class="fas fa-sliders text-rose-400 w-4 text-center shrink-0"></i>
                     <span>Cài Đặt SaaS & VietQR</span>
@@ -634,69 +639,6 @@
                                 </div>
                             </section>
 
-                            <section class="liquid-glass rounded-3xl border border-purple-500/25 p-5 sm:p-6 space-y-4">
-                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-                                    <div>
-                                        <span class="text-[10px] font-bold uppercase tracking-[.16em] text-purple-300">Master AI Vault • Zero-Exposure</span>
-                                        <h3 class="mt-0.5 text-sm font-bold text-white flex items-center gap-2">
-                                            <i class="fas fa-shield-halved text-purple-400"></i> Kho Bảo Mật Google Gemini API Key (AI Proxy)
-                                        </h3>
-                                        <p class="mt-0.5 text-[11px] text-slate-400">Key chỉ lưu duy nhất trên Master Server — máy quán không bao giờ thấy hoặc chạm vào Key.</p>
-                                    </div>
-                                    <button type="button" id="btn-master-ai-edit" onclick="SuperAdmin.toggleMasterAiKeyBox(true)" class="hidden text-xs py-1.5 px-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 border border-purple-400/30 font-semibold">
-                                        <i class="fas fa-key mr-1"></i> Đổi Key mới
-                                    </button>
-                                </div>
-
-                                <div id="master-ai-configured" class="hidden p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
-                                    <div class="flex items-center gap-2 text-emerald-300 font-semibold">
-                                        <i class="fas fa-lock text-emerald-400"></i>
-                                        <span>Gemini API Key đã được xác thực, lưu &amp; ẩn bảo mật trên Master.</span>
-                                        <span id="master-ai-updated-at" class="text-[10px] text-slate-400 font-mono"></span>
-                                    </div>
-                                    <button type="button" onclick="SuperAdmin.deleteMasterGeminiKey()" class="text-[11px] text-rose-400 hover:text-rose-300 underline">Xóa Key</button>
-                                </div>
-
-                                <div id="master-ai-unconfigured" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300 flex items-center gap-2">
-                                    <i class="fas fa-triangle-exclamation text-amber-400"></i>
-                                    <span>Chưa có Gemini API Key trên Master. Hãy dán Key bên dưới để kích hoạt AI cho toàn bộ chuỗi quán.</span>
-                                </div>
-
-                                <div id="master-ai-input-box" class="space-y-2">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <input type="password" id="cfg-master-gemini-key" value="" placeholder="Dán mã Google Gemini API Key (AIza...) tại đây..." class="liquid-input flex-1 min-w-[220px] text-xs font-mono text-purple-200" autocomplete="off" />
-                                        <button type="button" onclick="SuperAdmin.verifyAndSaveMasterGeminiKey(this)" class="btn-glass text-xs py-2 px-3.5 bg-purple-600/35 hover:bg-purple-600/55 text-purple-100 border-purple-400/40 font-bold whitespace-nowrap">
-                                            <i class="fas fa-wand-magic-sparkles mr-1"></i> Kiểm tra &amp; Lưu (Tự ẩn)
-                                        </button>
-                                    </div>
-                                    <p class="text-[11px] text-slate-400">Hệ thống sẽ kiểm tra trực tiếp với Google Gemini; hợp lệ sẽ tự động lưu và <b>ẩn khung nhập ngay</b>.</p>
-                                </div>
-
-                                <div class="pt-3 border-t border-white/10 space-y-2.5">
-                                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
-                                        <div>
-                                            <span class="font-semibold text-slate-200">Cấp Quota &amp; Giám sát AI Credit theo quán (Tháng này)</span>
-                                            <div class="text-[10px] text-slate-400 mt-0.5">Quy đổi: <span class="text-sky-300">OCR = 1 cr</span> • <span class="text-emerald-300">Ảnh món = 2 cr</span> • <span class="text-purple-300">Tạo Slide = 3 cr</span></div>
-                                        </div>
-                                        <span id="master-ai-total-calls" class="font-mono font-bold text-sky-300 px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-400/25">0 lượt • 0 credit</span>
-                                    </div>
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <div class="relative flex-1 min-w-[180px]">
-                                            <i class="fas fa-magnifying-glass text-[11px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                                            <input type="text" id="master-ai-store-search" oninput="SuperAdmin.filterMasterAiStores()" placeholder="Tìm tên hoặc mã quán..." class="liquid-input w-full py-1.5 pl-8 pr-3 text-xs" />
-                                        </div>
-                                        <select id="master-ai-store-filter" onchange="SuperAdmin.filterMasterAiStores()" class="liquid-input py-1.5 px-2.5 text-xs text-slate-200">
-                                            <option value="all">Tất cả quán</option>
-                                            <option value="used">Đã dùng (&gt;0 cr)</option>
-                                            <option value="low">Sắp hết / Hết cr</option>
-                                            <option value="unlimited">Không giới hạn (∞)</option>
-                                        </select>
-                                        <span id="master-ai-visible-count" class="text-[10px] font-mono text-slate-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10">0 quán</span>
-                                    </div>
-                                    <div id="master-ai-usage-list" class="divide-y divide-white/10 rounded-2xl border border-white/10 bg-slate-950/40 text-[11px] text-slate-300" style="max-height: 360px; overflow-y: auto;"></div>
-                                </div>
-                            </section>
-
                             <section class="liquid-glass rounded-3xl border border-sky-500/25 p-5 sm:p-6 space-y-3.5">
                                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                                     <div>
@@ -721,7 +663,7 @@
                                     </div>
                                     <div class="relative min-w-[200px] sm:w-64">
                                         <i class="fas fa-magnifying-glass text-[11px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                                        <input type="text" id="ota-patch-search" oninput="SuperAdmin.filterOtaPatches()" placeholder="Tìm phiên bản hoặc nội dung..." class="liquid-input w-full py-1.5 pl-8 pr-3 text-xs" />
+                                        <input type="text" id="ota-patch-search" oninput="SuperAdmin.filterOtaPatches()" placeholder="Tìm phiên bản hoặc nội dung..." class="liquid-input w-full py-1.5 pr-3 text-xs" style="padding-left: 2.25rem;" />
                                     </div>
                                 </div>
                                 <div id="ota-patch-archive-list" class="divide-y divide-white/10 rounded-2xl border border-white/10 bg-slate-950/40 text-xs text-slate-300" style="max-height: 360px; overflow-y: auto;"></div>
@@ -820,6 +762,180 @@
                             </form>
                         </div>
                     </section>
+                </div>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- TAB 5B: MASTER AI VAULT (KEY POOL, LIFECYCLE & QUOTA) -->
+            <!-- ============================================== -->
+            <section id="tab-content-ai-vault" class="saas-tab-section hidden space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-[.16em] text-purple-300">Master AI Vault • Zero-Exposure &amp; Auto-Failover</span>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2 mt-0.5">
+                            <i class="fas fa-shield-halved text-purple-400"></i> Quản Lý Kho Gemini API Key &amp; AI Credit
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Quản lý đa Key dự phòng (Failover tự động khi 429/hết hạn), theo dõi hạn mức, thời hạn key, nhật ký xoay vòng và phân bổ quota theo quán.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="SuperAdmin.toggleAddGeminiKeyModal()" class="btn-glass text-xs py-2 px-3.5 bg-purple-600/35 hover:bg-purple-600/55 text-purple-100 border border-purple-400/40 font-bold whitespace-nowrap">
+                            <i class="fas fa-plus mr-1"></i> Nạp Key Mới
+                        </button>
+                        <button type="button" onclick="SuperAdmin.loadMasterAiVault()" class="btn-glass text-xs py-2 px-3 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/15 font-semibold" title="Làm mới dữ liệu AI Vault">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 KPI Overview Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div class="liquid-glass rounded-2xl border border-emerald-500/25 p-4 space-y-1">
+                        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                            <span>Key Chính Đang Chạy</span>
+                            <i class="fas fa-key text-emerald-400"></i>
+                        </div>
+                        <div id="ai-kpi-active-label" class="text-sm font-bold text-white truncate">Chưa cấu hình</div>
+                        <div id="ai-kpi-active-meta" class="text-[11px] font-mono text-emerald-300">--</div>
+                    </div>
+                    <div class="liquid-glass rounded-2xl border border-purple-500/25 p-4 space-y-1">
+                        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                            <span>Kho Key Dự Phòng</span>
+                            <i class="fas fa-layer-group text-purple-400"></i>
+                        </div>
+                        <div id="ai-kpi-pool-count" class="text-sm font-bold text-white font-mono">0 / 0 Key</div>
+                        <div id="ai-kpi-pool-meta" class="text-[11px] text-slate-400">Sẵn sàng Auto-Failover</div>
+                    </div>
+                    <div class="liquid-glass rounded-2xl border border-sky-500/25 p-4 space-y-1">
+                        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                            <span>Sản Lượng Tháng Này</span>
+                            <i class="fas fa-chart-line text-sky-400"></i>
+                        </div>
+                        <div id="master-ai-total-calls" class="text-sm font-bold text-sky-300 font-mono">0 lượt • 0 credit</div>
+                        <div class="text-[10px] text-slate-400">OCR 1cr • Ảnh 2cr • Slide 3cr</div>
+                    </div>
+                    <div class="liquid-glass rounded-2xl border border-amber-500/25 p-4 space-y-1">
+                        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                            <span>Cảnh Báo Sức Khỏe</span>
+                            <i class="fas fa-heart-pulse text-amber-400"></i>
+                        </div>
+                        <div id="ai-kpi-health-status" class="text-sm font-bold text-emerald-300">Ổn định</div>
+                        <div id="ai-kpi-health-meta" class="text-[11px] text-slate-400">Không có key lỗi/sắp hết hạn</div>
+                    </div>
+                </div>
+
+                <!-- Collapsible Add New Key Panel -->
+                <div id="master-ai-input-box" class="hidden liquid-glass rounded-3xl border border-purple-400/35 p-5 space-y-3">
+                    <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+                        <div>
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fas fa-wand-magic-sparkles text-purple-400"></i> Nạp &amp; Xác Thực Google Gemini API Key Mới</h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Hệ thống kiểm tra trực tiếp với Google Gemini trước khi mã hóa lưu trên Master.</p>
+                        </div>
+                        <button type="button" onclick="SuperAdmin.toggleAddGeminiKeyModal(false)" class="text-xs text-slate-400 hover:text-white px-2 py-1"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div class="sm:col-span-2">
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Google Gemini API Key <span class="text-rose-400">*</span></label>
+                            <input type="password" id="cfg-master-gemini-key" value="" placeholder="AIzaSy..." class="liquid-input w-full text-xs font-mono text-purple-200" autocomplete="off" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Nhãn gợi nhớ (Project / Billing)</label>
+                            <input type="text" id="cfg-master-gemini-label" value="" placeholder="VD: Key Chính - Billing PayG" class="liquid-input w-full text-xs" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Gói API (Tier)</label>
+                            <select id="cfg-master-gemini-tier" class="liquid-input w-full text-xs text-slate-200">
+                                <option value="payg">Pay-as-you-go (Trả phí)</option>
+                                <option value="free">Free Tier (Miễn phí)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Hạn mức Credit/tháng (0 = Không giới hạn)</label>
+                            <input type="number" id="cfg-master-gemini-mcl" value="0" min="0" class="liquid-input w-full text-xs font-mono" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Hạn mức Request/ngày (0 = Không giới hạn)</label>
+                            <input type="number" id="cfg-master-gemini-drl" value="0" min="0" class="liquid-input w-full text-xs font-mono" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Ngày hết hạn / Gia hạn (tùy chọn)</label>
+                            <input type="date" id="cfg-master-gemini-exp" class="liquid-input w-full text-xs font-mono" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Thứ tự ưu tiên Failover</label>
+                            <input type="number" id="cfg-master-gemini-pri" value="10" min="1" max="999" class="liquid-input w-full text-xs font-mono" />
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <label class="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="cfg-master-gemini-active" checked class="rounded border-white/20 bg-slate-900 text-purple-500" />
+                            <span>Kích hoạt làm Key chính ngay sau khi xác thực thành công</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="SuperAdmin.toggleAddGeminiKeyModal(false)" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300">Hủy</button>
+                            <button type="button" onclick="SuperAdmin.verifyAndSaveMasterGeminiKey(this)" class="btn-glass text-xs py-2 px-4 bg-purple-600/40 hover:bg-purple-600/60 text-purple-100 border-purple-400/40 font-bold">
+                                <i class="fas fa-check-shield mr-1"></i> Kiểm tra &amp; Lưu Key
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-navigation Tabs inside AI Vault -->
+                <div class="flex flex-wrap items-center gap-2 border-b border-white/10 pb-2">
+                    <button type="button" onclick="SuperAdmin.switchAiVaultSubTab('keys')" id="ai-subtab-btn-keys" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600/30 text-white border border-purple-400/40 transition-all">
+                        <i class="fas fa-key mr-1.5 text-purple-300"></i>Kho Key &amp; Trạng Thái (<span id="ai-subtab-count-keys">0</span>)
+                    </button>
+                    <button type="button" onclick="SuperAdmin.switchAiVaultSubTab('history')" id="ai-subtab-btn-history" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+                        <i class="fas fa-clock-rotate-left mr-1.5 text-amber-300"></i>Lịch Sử Nhập &amp; Xoay Key (<span id="ai-subtab-count-history">0</span>)
+                    </button>
+                    <button type="button" onclick="SuperAdmin.switchAiVaultSubTab('quotas')" id="ai-subtab-btn-quotas" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+                        <i class="fas fa-store mr-1.5 text-sky-300"></i>Cấp Quota Theo Quán (<span id="ai-subtab-count-quotas">0</span>)
+                    </button>
+                </div>
+
+                <!-- SUBTAB 1: KEY POOL & HEALTH -->
+                <div id="ai-subpanel-keys" class="liquid-glass rounded-3xl border border-white/10 p-4 sm:p-5 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span class="font-semibold text-slate-200">Danh sách Gemini API Key trên Master</span>
+                        <span class="text-[11px] text-slate-400">Tự động chuyển sang Key <b class="text-sky-300">Dự phòng</b> có độ ưu tiên nhỏ nhất khi Key chính gặp 429 / hết hạn.</span>
+                    </div>
+                    <div id="master-ai-keys-list" class="divide-y divide-white/10 rounded-2xl border border-white/10 bg-slate-950/40 text-xs text-slate-300" style="max-height: 440px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- SUBTAB 2: KEY AUDIT HISTORY -->
+                <div id="ai-subpanel-history" class="hidden liquid-glass rounded-3xl border border-white/10 p-4 sm:p-5 space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-1 min-w-[200px]">
+                            <i class="fas fa-magnifying-glass text-[11px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="text" id="master-ai-history-search" oninput="SuperAdmin.filterMasterAiHistory()" placeholder="Tìm theo nhãn key, mã key hoặc chi tiết..." class="liquid-input w-full py-1.5 pr-3 text-xs" style="padding-left: 2.25rem;" />
+                        </div>
+                        <select id="master-ai-history-filter" onchange="SuperAdmin.filterMasterAiHistory()" class="liquid-input py-1.5 px-2.5 text-xs text-slate-200">
+                            <option value="all">Tất cả sự kiện</option>
+                            <option value="lifecycle">Thêm / Kích hoạt / Sửa / Xóa</option>
+                            <option value="failover">Auto-Failover</option>
+                            <option value="error">Lỗi 429 / Revoked / Expired</option>
+                            <option value="test">Kiểm tra sức khỏe (Test)</option>
+                        </select>
+                        <span id="master-ai-history-count" class="text-[10px] font-mono text-slate-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10">0 bản ghi</span>
+                    </div>
+                    <div id="master-ai-history-list" class="divide-y divide-white/10 rounded-2xl border border-white/10 bg-slate-950/40 text-xs text-slate-300" style="max-height: 440px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- SUBTAB 3: TENANT QUOTA & MONITORING -->
+                <div id="ai-subpanel-quotas" class="hidden liquid-glass rounded-3xl border border-white/10 p-4 sm:p-5 space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-1 min-w-[200px]">
+                            <i class="fas fa-magnifying-glass text-[11px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="text" id="master-ai-store-search" oninput="SuperAdmin.filterMasterAiStores()" placeholder="Tìm tên hoặc mã quán..." class="liquid-input w-full py-1.5 pr-3 text-xs" style="padding-left: 2.25rem;" />
+                        </div>
+                        <select id="master-ai-store-filter" onchange="SuperAdmin.filterMasterAiStores()" class="liquid-input py-1.5 px-2.5 text-xs text-slate-200">
+                            <option value="all">Tất cả quán</option>
+                            <option value="used">Đã dùng (&gt;0 cr)</option>
+                            <option value="low">Sắp hết / Hết cr</option>
+                            <option value="unlimited">Không giới hạn (∞)</option>
+                        </select>
+                        <span id="master-ai-visible-count" class="text-[10px] font-mono text-slate-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10">0 quán</span>
+                    </div>
+                    <div id="master-ai-usage-list" class="divide-y divide-white/10 rounded-2xl border border-white/10 bg-slate-950/40 text-[11px] text-slate-300" style="max-height: 440px; overflow-y: auto;"></div>
                 </div>
             </section>
 

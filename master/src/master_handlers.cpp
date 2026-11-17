@@ -24,6 +24,35 @@ static int64_t getAiActionCreditCost(const std::string& aiAction) {
     return 1;
 }
 
+static std::string maskGeminiKey(const std::string& key) {
+    if (key.size() <= 8) return "••••";
+    return key.substr(0, 4) + "••••" + key.substr(key.size() - 4);
+}
+
+static void logAiKeyEvent(Database& db, int64_t keyId, const std::string& label, const std::string& masked,
+                          const std::string& eventType, const std::string& detail, const std::string& actor = "SuperAdmin") {
+    try {
+        db.execute(
+            "INSERT INTO master_ai_key_history (key_id, key_label, key_masked, event_type, detail, actor) "
+            "VALUES (:kid, :lbl, :msk, :evt, :dtl, :act)",
+            {{":kid", keyId}, {":lbl", label}, {":msk", masked}, {":evt", eventType}, {":dtl", detail}, {":act", actor}}
+        );
+    } catch (...) {}
+}
+
+static void syncLegacyGeminiSetting(Database& db) {
+    auto active = db.queryRow("SELECT api_key FROM master_ai_keys WHERE status = 'active' ORDER BY priority ASC, id ASC LIMIT 1");
+    if (!active.is_null() && !active.value("api_key", "").empty()) {
+        db.execute(
+            "INSERT INTO master_settings (setting_key, setting_value, updated_at) VALUES ('gemini_api_key', :v, datetime('now', 'localtime')) "
+            "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v, updated_at = datetime('now', 'localtime')",
+            {{":v", active.value("api_key", "")}}
+        );
+    } else {
+        db.execute("DELETE FROM master_settings WHERE setting_key = 'gemini_api_key'");
+    }
+}
+
 static void ensureMasterAiTables(Database& db) {
     static bool checked = false;
     if (checked) return;
@@ -46,13 +75,149 @@ static void ensureMasterAiTables(Database& db) {
             status TEXT DEFAULT 'ok',
             credits_used INTEGER DEFAULT 1,
             quota_bucket TEXT DEFAULT 'monthly',
+            key_id INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS master_ai_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT DEFAULT 'Gemini Key',
+            key_masked TEXT DEFAULT '',
+            api_key TEXT NOT NULL,
+            tier TEXT DEFAULT 'free',
+            status TEXT DEFAULT 'standby',
+            priority INTEGER DEFAULT 100,
+            monthly_credit_limit INTEGER DEFAULT 0,
+            daily_request_limit INTEGER DEFAULT 0,
+            expires_at TEXT DEFAULT '',
+            model_count INTEGER DEFAULT 0,
+            last_checked_at TEXT DEFAULT '',
+            last_used_at TEXT DEFAULT '',
+            last_error TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    )");
+    db.execute(R"(
+        CREATE TABLE IF NOT EXISTS master_ai_key_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key_id INTEGER DEFAULT 0,
+            key_label TEXT DEFAULT '',
+            key_masked TEXT DEFAULT '',
+            event_type TEXT DEFAULT '',
+            detail TEXT DEFAULT '',
+            actor TEXT DEFAULT 'SuperAdmin',
             created_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
     )");
     try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN credits_used INTEGER DEFAULT 1"); } catch (...) {}
     try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN quota_bucket TEXT DEFAULT 'monthly'"); } catch (...) {}
+    try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN key_id INTEGER DEFAULT 0"); } catch (...) {}
     try { db.execute("ALTER TABLE saas_tenants ADD COLUMN ai_monthly_quota INTEGER DEFAULT 50"); } catch (...) {}
     try { db.execute("ALTER TABLE saas_tenants ADD COLUMN ai_bonus_credits INTEGER DEFAULT 0"); } catch (...) {}
+
+    // Migrate legacy single key in master_settings into master_ai_keys if pool is empty
+    try {
+        int64_t keyCount = db.queryScalar("SELECT COUNT(*) FROM master_ai_keys").get<int64_t>();
+        if (keyCount == 0) {
+            auto legacy = db.queryRow("SELECT setting_value, updated_at FROM master_settings WHERE setting_key = 'gemini_api_key'");
+            if (!legacy.is_null() && !legacy.value("setting_value", "").empty()) {
+                std::string k = legacy.value("setting_value", "");
+                std::string masked = maskGeminiKey(k);
+                db.execute(
+                    "INSERT INTO master_ai_keys (label, key_masked, api_key, tier, status, priority, last_checked_at) "
+                    "VALUES ('Gemini Key Chính', :msk, :k, 'free', 'active', 10, COALESCE(:upd, datetime('now', 'localtime')))",
+                    {{":msk", masked}, {":k", k}, {":upd", legacy.value("updated_at", "")}}
+                );
+                int64_t newId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+                logAiKeyEvent(db, newId, "Gemini Key Chính", masked, "ADDED", "Tự động chuyển đổi từ cấu hình Master cũ sang Key Pool.", "System");
+            }
+        }
+    } catch (...) {}
+}
+
+static void expireOutdatedGeminiKeys(Database& db) {
+    auto expiredRows = db.query(
+        "SELECT id, label, key_masked, expires_at FROM master_ai_keys "
+        "WHERE COALESCE(expires_at, '') != '' AND date(expires_at) < date('now', 'localtime') "
+        "AND status IN ('active', 'standby')"
+    );
+    for (const auto& r : expiredRows) {
+        int64_t kid = r.value("id", int64_t(0));
+        db.execute("UPDATE master_ai_keys SET status = 'expired', last_error = 'Key đã quá hạn sử dụng', updated_at = datetime('now', 'localtime') WHERE id = :id", {{":id", kid}});
+        logAiKeyEvent(db, kid, r.value("label", ""), r.value("key_masked", ""), "EXPIRED", "Quá ngày hết hạn: " + r.value("expires_at", ""), "System");
+    }
+}
+
+static json selectActiveGeminiKey(Database& db) {
+    expireOutdatedGeminiKeys(db);
+    auto row = db.queryRow(
+        "SELECT * FROM master_ai_keys WHERE status = 'active' ORDER BY priority ASC, id ASC LIMIT 1"
+    );
+    if (!row.is_null() && !row.value("api_key", "").empty()) return row;
+
+    // Auto-promote highest-priority standby key if no active key exists
+    auto standby = db.queryRow(
+        "SELECT * FROM master_ai_keys WHERE status = 'standby' "
+        "AND (COALESCE(expires_at, '') = '' OR date(expires_at) >= date('now', 'localtime')) "
+        "ORDER BY priority ASC, id ASC LIMIT 1"
+    );
+    if (!standby.is_null()) {
+        int64_t kid = standby.value("id", int64_t(0));
+        db.execute("UPDATE master_ai_keys SET status = 'active', updated_at = datetime('now', 'localtime') WHERE id = :id", {{":id", kid}});
+        logAiKeyEvent(db, kid, standby.value("label", ""), standby.value("key_masked", ""), "AUTO_FAILOVER", "Tự động kích hoạt key dự phòng vì chưa có key chính khả dụng.", "System");
+        syncLegacyGeminiSetting(db);
+        standby["status"] = "active";
+        return standby;
+    }
+    return json();
+}
+
+static bool handleGeminiKeyRuntimeError(Database& db, const json& keyRow, const std::string& errMsg) {
+    if (keyRow.is_null()) return false;
+    int64_t kid = keyRow.value("id", int64_t(0));
+    std::string label = keyRow.value("label", "");
+    std::string masked = keyRow.value("key_masked", "");
+    std::string lower = errMsg;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+    bool isRateLimit = (lower.find("429") != std::string::npos || lower.find("resource_exhausted") != std::string::npos ||
+                        lower.find("quota") != std::string::npos || lower.find("rate") != std::string::npos);
+    bool isAuthFail = (lower.find("401") != std::string::npos || lower.find("403") != std::string::npos ||
+                       lower.find("api_key_invalid") != std::string::npos || lower.find("permission_denied") != std::string::npos ||
+                       lower.find("expired") != std::string::npos);
+
+    if (!isRateLimit && !isAuthFail) {
+        db.execute("UPDATE master_ai_keys SET last_error = :e, updated_at = datetime('now', 'localtime') WHERE id = :id", {{":e", errMsg}, {":id", kid}});
+        return false;
+    }
+
+    std::string newStatus = isAuthFail ? "revoked" : "rate_limited";
+    std::string evtType = isAuthFail ? "REVOKED" : "RATE_LIMITED";
+    db.execute(
+        "UPDATE master_ai_keys SET status = :st, last_error = :e, updated_at = datetime('now', 'localtime') WHERE id = :id",
+        {{":st", newStatus}, {":e", errMsg}, {":id", kid}}
+    );
+    logAiKeyEvent(db, kid, label, masked, evtType, errMsg, "System");
+
+    // Promote next standby key if available
+    auto nextKey = db.queryRow(
+        "SELECT * FROM master_ai_keys WHERE id != :id AND status = 'standby' "
+        "AND (COALESCE(expires_at, '') = '' OR date(expires_at) >= date('now', 'localtime')) "
+        "ORDER BY priority ASC, id ASC LIMIT 1",
+        {{":id", kid}}
+    );
+    if (!nextKey.is_null()) {
+        int64_t nextId = nextKey.value("id", int64_t(0));
+        db.execute("UPDATE master_ai_keys SET status = 'active', updated_at = datetime('now', 'localtime') WHERE id = :id", {{":id", nextId}});
+        logAiKeyEvent(db, nextId, nextKey.value("label", ""), nextKey.value("key_masked", ""), "AUTO_FAILOVER",
+                      "Tự động chuyển tiếp từ key [" + masked + "] do lỗi " + evtType, "System");
+        syncLegacyGeminiSetting(db);
+        return true;
+    }
+    syncLegacyGeminiSetting(db);
+    return false;
 }
 
 static json buildTenantAiQuotaSnapshot(Database& db, const json& tenant) {
@@ -2217,9 +2382,36 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
         if (action == "get_ai_vault") {
             ensureMasterAiTables(db);
-            auto kRow = db.queryRow("SELECT setting_value, updated_at FROM master_settings WHERE setting_key = 'gemini_api_key'");
-            bool hasKey = (!kRow.is_null() && !kRow.value("setting_value", "").empty());
-            std::string updatedAt = (!kRow.is_null()) ? kRow.value("updated_at", "") : "";
+            expireOutdatedGeminiKeys(db);
+            json keys = db.query(R"(
+                SELECT k.id, k.label, k.key_masked, k.tier, k.status, k.priority,
+                       k.monthly_credit_limit, k.daily_request_limit, k.expires_at,
+                       k.model_count, k.last_checked_at, k.last_used_at, k.last_error,
+                       k.created_at, k.updated_at,
+                       CASE WHEN COALESCE(k.expires_at, '') != ''
+                            THEN CAST(julianday(date(k.expires_at)) - julianday(date('now', 'localtime')) AS INTEGER)
+                            ELSE NULL END as days_until_expiry,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND substr(l.created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime') THEN l.credits_used ELSE 0 END), 0) as credits_month,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND substr(l.created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime') THEN 1 ELSE 0 END), 0) as calls_month,
+                       COALESCE(SUM(CASE WHEN l.status = 'ok' AND substr(l.created_at, 1, 10) = date('now', 'localtime') THEN 1 ELSE 0 END), 0) as calls_today,
+                       COALESCE(SUM(CASE WHEN l.status != 'ok' AND substr(l.created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime') THEN 1 ELSE 0 END), 0) as errors_month
+                FROM master_ai_keys k
+                LEFT JOIN ai_usage_logs l ON l.key_id = k.id
+                GROUP BY k.id
+                ORDER BY CASE k.status WHEN 'active' THEN 0 WHEN 'standby' THEN 1 WHEN 'rate_limited' THEN 2 WHEN 'disabled' THEN 3 WHEN 'expired' THEN 4 ELSE 5 END, k.priority ASC, k.id DESC
+            )");
+            json activeKey = json();
+            for (const auto& k : keys) {
+                if (k.value("status", "") == "active") { activeKey = k; break; }
+            }
+            bool hasKey = !activeKey.is_null();
+            std::string updatedAt = hasKey ? activeKey.value("updated_at", "") : "";
+            json keyHistory = db.query(R"(
+                SELECT id, key_id, key_label, key_masked, event_type, detail, actor, created_at
+                FROM master_ai_key_history
+                ORDER BY id DESC
+                LIMIT 80
+            )");
             int64_t totalMonth = db.queryScalar(
                 "SELECT COUNT(*) FROM ai_usage_logs WHERE status = 'ok' AND substr(created_at, 1, 7) = strftime('%Y-%m', 'now', 'localtime')"
             ).get<int64_t>();
@@ -2259,7 +2451,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             sendJson(res, {
                 {"success", true},
                 {"has_gemini_key", hasKey},
+                {"active_key", activeKey},
                 {"updated_at", updatedAt},
+                {"keys", keys},
+                {"key_history", keyHistory},
                 {"total_calls_month", totalMonth},
                 {"total_credits_month", totalCreditsMonth},
                 {"credit_costs", {{"parse_invoice", 1}, {"generate_dish_image", 2}, {"generate_slide", 3}}},
@@ -2320,23 +2515,185 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 sendError(res, "Key không hợp lệ hoặc bị Google từ chối: " + err, 400);
                 return;
             }
+            std::string label = getString(body, "label", "Gemini Key");
+            if (label.empty()) label = "Gemini Key";
+            std::string tier = getString(body, "tier", "free");
+            if (tier != "payg" && tier != "free") tier = "free";
+            int64_t monthlyLimit = std::max<int64_t>(0, getInt(body, "monthly_credit_limit", 0));
+            int64_t dailyReqLimit = std::max<int64_t>(0, getInt(body, "daily_request_limit", 0));
+            std::string expiresAt = getString(body, "expires_at", "");
+            int64_t priority = getInt(body, "priority", 100);
+            bool setActive = body.contains("set_active") ? body.value("set_active", true) : true;
+            std::string masked = maskGeminiKey(apiKey);
+
+            // Prevent exact duplicate key
+            auto dup = db.queryRow("SELECT id, label FROM master_ai_keys WHERE api_key = :k LIMIT 1", {{":k", apiKey}});
+            if (!dup.is_null()) {
+                int64_t dupId = dup.value("id", int64_t(0));
+                if (setActive) {
+                    db.execute("UPDATE master_ai_keys SET status = 'standby' WHERE status = 'active' AND id != :id", {{":id", dupId}});
+                }
+                db.execute(
+                    "UPDATE master_ai_keys SET label = :lbl, tier = :tr, monthly_credit_limit = :mcl, daily_request_limit = :drl, "
+                    "expires_at = :exp, priority = :pri, status = :st, model_count = :mc, last_checked_at = datetime('now', 'localtime'), "
+                    "last_error = '', updated_at = datetime('now', 'localtime') WHERE id = :id",
+                    {{":lbl", label}, {":tr", tier}, {":mcl", monthlyLimit}, {":drl", dailyReqLimit},
+                     {":exp", expiresAt}, {":pri", priority}, {":st", setActive ? "active" : "standby"},
+                     {":mc", modelCount}, {":id", dupId}}
+                );
+                logAiKeyEvent(db, dupId, label, masked, "UPDATED", "Xác thực lại & cập nhật cấu hình key (" + std::to_string(modelCount) + " models).");
+                syncLegacyGeminiSetting(db);
+                sendJson(res, {
+                    {"success", true},
+                    {"key_id", dupId},
+                    {"model_count", modelCount},
+                    {"sample_models", samples},
+                    {"message", "Key đã tồn tại — đã xác thực lại (" + std::to_string(modelCount) + " models) & cập nhật thông tin!"}
+                });
+                return;
+            }
+
+            int64_t existingActive = db.queryScalar("SELECT COUNT(*) FROM master_ai_keys WHERE status = 'active'").get<int64_t>();
+            bool makeActive = setActive || (existingActive == 0);
+            if (makeActive) {
+                db.execute("UPDATE master_ai_keys SET status = 'standby' WHERE status = 'active'");
+            }
             db.execute(
-                "INSERT INTO master_settings (setting_key, setting_value, updated_at) VALUES ('gemini_api_key', :v, datetime('now', 'localtime')) "
-                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v, updated_at = datetime('now', 'localtime')",
-                {{":v", apiKey}}
+                "INSERT INTO master_ai_keys (label, key_masked, api_key, tier, status, priority, monthly_credit_limit, daily_request_limit, expires_at, model_count, last_checked_at) "
+                "VALUES (:lbl, :msk, :k, :tr, :st, :pri, :mcl, :drl, :exp, :mc, datetime('now', 'localtime'))",
+                {{":lbl", label}, {":msk", masked}, {":k", apiKey}, {":tr", tier},
+                 {":st", makeActive ? "active" : "standby"}, {":pri", priority},
+                 {":mcl", monthlyLimit}, {":drl", dailyReqLimit}, {":exp", expiresAt}, {":mc", modelCount}}
             );
+            int64_t newId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
+            logAiKeyEvent(db, newId, label, masked, "ADDED",
+                          "Thêm key [" + tier + "]" + (makeActive ? " (Kích hoạt chính)" : " (Dự phòng)") + " • " + std::to_string(modelCount) + " models.");
+            syncLegacyGeminiSetting(db);
             sendJson(res, {
                 {"success", true},
+                {"key_id", newId},
                 {"model_count", modelCount},
                 {"sample_models", samples},
-                {"message", "Xác thực Gemini thành công (" + std::to_string(modelCount) + " models)! Key đã được khóa bảo mật trên Master."}
+                {"message", "Xác thực Gemini thành công (" + std::to_string(modelCount) + " models)! Key [" + label + "] đã được lưu bảo mật trên Master."}
             });
+            return;
+        }
+
+        if (action == "test_gemini_key") {
+            ensureMasterAiTables(db);
+            int64_t kid = getInt(body, "key_id", 0);
+            auto row = db.queryRow("SELECT * FROM master_ai_keys WHERE id = :id LIMIT 1", {{":id", kid}});
+            if (row.is_null()) {
+                sendError(res, "Không tìm thấy API Key!", 404);
+                return;
+            }
+            int modelCount = 0;
+            std::vector<std::string> samples;
+            std::string err;
+            bool ok = SaleApp::AI::geminiVerifyKey(row.value("api_key", ""), modelCount, samples, err);
+            std::string curStatus = row.value("status", "standby");
+            if (ok) {
+                std::string nextStatus = (curStatus == "rate_limited" || curStatus == "revoked") ? "standby" : curStatus;
+                db.execute(
+                    "UPDATE master_ai_keys SET status = :st, model_count = :mc, last_checked_at = datetime('now', 'localtime'), "
+                    "last_error = '', updated_at = datetime('now', 'localtime') WHERE id = :id",
+                    {{":st", nextStatus}, {":mc", modelCount}, {":id", kid}}
+                );
+                logAiKeyEvent(db, kid, row.value("label", ""), row.value("key_masked", ""), "TEST_OK", "Kiểm tra thành công (" + std::to_string(modelCount) + " models).");
+                sendJson(res, {{"success", true}, {"model_count", modelCount}, {"message", "Key hoạt động bình thường (" + std::to_string(modelCount) + " models)."}});
+            } else {
+                std::string lower = err;
+                std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+                std::string nextStatus = (lower.find("429") != std::string::npos || lower.find("quota") != std::string::npos) ? "rate_limited" : "revoked";
+                db.execute(
+                    "UPDATE master_ai_keys SET status = :st, last_checked_at = datetime('now', 'localtime'), "
+                    "last_error = :e, updated_at = datetime('now', 'localtime') WHERE id = :id",
+                    {{":st", nextStatus}, {":e", err}, {":id", kid}}
+                );
+                logAiKeyEvent(db, kid, row.value("label", ""), row.value("key_masked", ""), "TEST_FAIL", err);
+                syncLegacyGeminiSetting(db);
+                sendError(res, "Key lỗi khi kiểm tra: " + err, 400);
+            }
+            return;
+        }
+
+        if (action == "activate_gemini_key") {
+            ensureMasterAiTables(db);
+            int64_t kid = getInt(body, "key_id", 0);
+            auto row = db.queryRow("SELECT * FROM master_ai_keys WHERE id = :id LIMIT 1", {{":id", kid}});
+            if (row.is_null()) {
+                sendError(res, "Không tìm thấy API Key!", 404);
+                return;
+            }
+            db.execute("UPDATE master_ai_keys SET status = 'standby', updated_at = datetime('now', 'localtime') WHERE status = 'active'");
+            db.execute("UPDATE master_ai_keys SET status = 'active', last_error = '', updated_at = datetime('now', 'localtime') WHERE id = :id", {{":id", kid}});
+            logAiKeyEvent(db, kid, row.value("label", ""), row.value("key_masked", ""), "ACTIVATED", "Đặt làm Key chính đang phục vụ AI Proxy.");
+            syncLegacyGeminiSetting(db);
+            sendJson(res, {{"success", true}, {"message", "Đã chuyển sang Key [" + row.value("label", "") + "] làm Key chính!"}});
+            return;
+        }
+
+        if (action == "toggle_gemini_key") {
+            ensureMasterAiTables(db);
+            int64_t kid = getInt(body, "key_id", 0);
+            auto row = db.queryRow("SELECT * FROM master_ai_keys WHERE id = :id LIMIT 1", {{":id", kid}});
+            if (row.is_null()) {
+                sendError(res, "Không tìm thấy API Key!", 404);
+                return;
+            }
+            std::string cur = row.value("status", "standby");
+            std::string next = (cur == "disabled") ? "standby" : "disabled";
+            db.execute("UPDATE master_ai_keys SET status = :st, updated_at = datetime('now', 'localtime') WHERE id = :id", {{":st", next}, {":id", kid}});
+            logAiKeyEvent(db, kid, row.value("label", ""), row.value("key_masked", ""), next == "disabled" ? "DISABLED" : "ENABLED",
+                          next == "disabled" ? "Tạm tắt key khỏi pool" : "Bật lại key ở chế độ dự phòng (standby)");
+            syncLegacyGeminiSetting(db);
+            sendJson(res, {{"success", true}, {"status", next}, {"message", next == "disabled" ? "Đã tạm tắt Key." : "Đã bật lại Key (Standby)."}});
+            return;
+        }
+
+        if (action == "update_gemini_key_meta") {
+            ensureMasterAiTables(db);
+            int64_t kid = getInt(body, "key_id", 0);
+            auto row = db.queryRow("SELECT * FROM master_ai_keys WHERE id = :id LIMIT 1", {{":id", kid}});
+            if (row.is_null()) {
+                sendError(res, "Không tìm thấy API Key!", 404);
+                return;
+            }
+            std::string label = getString(body, "label", row.value("label", "Gemini Key"));
+            std::string tier = getString(body, "tier", row.value("tier", "free"));
+            if (tier != "payg" && tier != "free") tier = "free";
+            int64_t monthlyLimit = std::max<int64_t>(0, getInt(body, "monthly_credit_limit", row.value("monthly_credit_limit", int64_t(0))));
+            int64_t dailyReqLimit = std::max<int64_t>(0, getInt(body, "daily_request_limit", row.value("daily_request_limit", int64_t(0))));
+            std::string expiresAt = body.contains("expires_at") ? getString(body, "expires_at", "") : row.value("expires_at", "");
+            int64_t priority = getInt(body, "priority", row.value("priority", int64_t(100)));
+            db.execute(
+                "UPDATE master_ai_keys SET label = :lbl, tier = :tr, monthly_credit_limit = :mcl, daily_request_limit = :drl, "
+                "expires_at = :exp, priority = :pri, updated_at = datetime('now', 'localtime') WHERE id = :id",
+                {{":lbl", label}, {":tr", tier}, {":mcl", monthlyLimit}, {":drl", dailyReqLimit},
+                 {":exp", expiresAt}, {":pri", priority}, {":id", kid}}
+            );
+            logAiKeyEvent(db, kid, label, row.value("key_masked", ""), "UPDATED",
+                          "Cập nhật metadata (Tier: " + tier + ", Limit tháng: " + std::to_string(monthlyLimit) + ", Hết hạn: " + (expiresAt.empty() ? "Không" : expiresAt) + ").");
+            sendJson(res, {{"success", true}, {"message", "Đã cập nhật cấu hình Key!"}});
             return;
         }
 
         if (action == "delete_gemini_key") {
             ensureMasterAiTables(db);
-            db.execute("DELETE FROM master_settings WHERE setting_key = 'gemini_api_key'");
+            int64_t kid = getInt(body, "key_id", 0);
+            json target = (kid > 0)
+                ? db.queryRow("SELECT * FROM master_ai_keys WHERE id = :id LIMIT 1", {{":id", kid}})
+                : db.queryRow("SELECT * FROM master_ai_keys WHERE status = 'active' LIMIT 1");
+            if (!target.is_null()) {
+                int64_t delId = target.value("id", int64_t(0));
+                bool wasActive = (target.value("status", "") == "active");
+                db.execute("DELETE FROM master_ai_keys WHERE id = :id", {{":id", delId}});
+                logAiKeyEvent(db, delId, target.value("label", ""), target.value("key_masked", ""), "DELETED", "Đã xóa key khỏi Master Vault.");
+                if (wasActive) {
+                    selectActiveGeminiKey(db);
+                }
+            }
+            syncLegacyGeminiSetting(db);
             sendJson(res, {{"success", true}, {"message", "Đã xóa Gemini API Key khỏi Master Vault."}});
             return;
         }
@@ -2670,10 +3027,11 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 return;
             }
 
-            auto kRow = db.queryRow("SELECT setting_value FROM master_settings WHERE setting_key = 'gemini_api_key'");
-            std::string apiKey = (!kRow.is_null()) ? kRow.value("setting_value", "") : "";
+            json activeKeyRow = selectActiveGeminiKey(db);
+            std::string apiKey = (!activeKeyRow.is_null()) ? activeKeyRow.value("api_key", "") : "";
+            int64_t activeKeyId = (!activeKeyRow.is_null()) ? activeKeyRow.value("id", int64_t(0)) : 0;
             if (apiKey.empty()) {
-                replyTunnelJson(res, {{"success", false}, {"message", "Master Server chưa cấu hình Gemini API Key! Vui lòng vào Super Admin -> Cài Đặt SaaS để nhập Key."}}, 503);
+                replyTunnelJson(res, {{"success", false}, {"message", "Master Server chưa có Gemini API Key khả dụng! Vui lòng vào Super Admin -> Master AI Vault để cấu hình Key."}}, 503);
                 return;
             }
 
@@ -2704,26 +3062,29 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             auto logUsage = [&](const std::string& modelUsed, const std::string& st) -> json {
                 if (st != "ok") {
                     db.execute(
-                        "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
-                        "VALUES (:tid, :tc, :sn, :act, :mdl, :st, 0, 'error')",
-                        {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":st", st}}
+                        "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket, key_id) "
+                        "VALUES (:tid, :tc, :sn, :act, :mdl, :st, 0, 'error', :kid)",
+                        {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":st", st}, {":kid", activeKeyId}}
                     );
                     return quotaSnap;
                 }
+                if (activeKeyId > 0) {
+                    db.execute("UPDATE master_ai_keys SET last_used_at = datetime('now', 'localtime'), last_error = '' WHERE id = :id", {{":id", activeKeyId}});
+                }
                 if (isUnlimited) {
                     db.execute(
-                        "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
-                        "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'unlimited')",
-                        {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", actionCost}}
+                        "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket, key_id) "
+                        "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'unlimited', :kid)",
+                        {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", actionCost}, {":kid", activeKeyId}}
                     );
                 } else {
                     int64_t fromMonthly = std::min<int64_t>(remMonthly, actionCost);
                     int64_t fromBonus = actionCost - fromMonthly;
                     if (fromMonthly > 0) {
                         db.execute(
-                            "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
-                            "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'monthly')",
-                            {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", fromMonthly}}
+                            "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket, key_id) "
+                            "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'monthly', :kid)",
+                            {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", fromMonthly}, {":kid", activeKeyId}}
                         );
                     }
                     if (fromBonus > 0) {
@@ -2732,14 +3093,30 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                             {{":fb", fromBonus}, {":tid", tid}}
                         );
                         db.execute(
-                            "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket) "
-                            "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'bonus')",
-                            {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", fromBonus}}
+                            "INSERT INTO ai_usage_logs (tenant_id, tenant_code, store_name, action, model_used, status, credits_used, quota_bucket, key_id) "
+                            "VALUES (:tid, :tc, :sn, :act, :mdl, 'ok', :cr, 'bonus', :kid)",
+                            {{":tid", tid}, {":tc", tCode}, {":sn", sName}, {":act", aiAction}, {":mdl", modelUsed}, {":cr", fromBonus}, {":kid", activeKeyId}}
                         );
                     }
                 }
                 auto freshTenant = db.queryRow("SELECT * FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
                 return freshTenant.is_null() ? quotaSnap : buildTenantAiQuotaSnapshot(db, freshTenant);
+            };
+
+            auto runWithFailover = [&](auto&& fn, std::string& errOut) -> bool {
+                if (fn(apiKey, errOut)) return true;
+                logUsage("", "error");
+                if (handleGeminiKeyRuntimeError(db, activeKeyRow, errOut)) {
+                    json nextRow = selectActiveGeminiKey(db);
+                    if (!nextRow.is_null() && !nextRow.value("api_key", "").empty()) {
+                        activeKeyRow = nextRow;
+                        apiKey = nextRow.value("api_key", "");
+                        activeKeyId = nextRow.value("id", int64_t(0));
+                        errOut.clear();
+                        return fn(apiKey, errOut);
+                    }
+                }
+                return false;
             };
 
             if (aiAction == "parse_invoice") {
@@ -2763,7 +3140,9 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                     {{"inlineData", {{"mimeType", mime}, {"data", pureB64}}}}
                 })}}});
                 std::string textOut, modelUsed, err;
-                if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, true, textOut, modelUsed, err)) {
+                if (!runWithFailover([&](const std::string& k, std::string& e) {
+                        return SaleApp::AI::geminiGenerateContentText(k, contents, true, textOut, modelUsed, e);
+                    }, err)) {
                     logUsage(modelUsed, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI OCR: " + err}}, 502);
                     return;
@@ -2797,7 +3176,9 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
 
                 std::string imgB64, mime, modelUsed, err;
-                if (!SaleApp::AI::geminiGenerateImageBase64(apiKey, prompt, imgB64, mime, modelUsed, err)) {
+                if (!runWithFailover([&](const std::string& k, std::string& e) {
+                        return SaleApp::AI::geminiGenerateImageBase64(k, prompt, imgB64, mime, modelUsed, e);
+                    }, err)) {
                     logUsage(modelUsed, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Không thể tạo ảnh AI: " + err}}, 502);
                     return;
@@ -2823,7 +3204,9 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                     "\"image_prompt\": \"Detailed English prompt for widescreen 16:9 commercial cafe/food promotional background photography, warm lighting, vibrant, no text, no watermark\"}.";
                 json contents = json::array({{{"parts", json::array({{{"text", copyPrompt}}})}}});
                 std::string textOut, textModel, err;
-                if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, true, textOut, textModel, err)) {
+                if (!runWithFailover([&](const std::string& k, std::string& e) {
+                        return SaleApp::AI::geminiGenerateContentText(k, contents, true, textOut, textModel, e);
+                    }, err)) {
                     logUsage(textModel, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI viết nội dung slide: " + err}}, 502);
                     return;
@@ -2835,7 +3218,9 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 std::string imgPrompt = copyJson.value("image_prompt", "Widescreen 16:9 commercial cafe beverage and pastry promotional photography, warm moody lighting, photorealistic, no text");
 
                 std::string imgB64, mime, imgModel, imgErr;
-                if (!SaleApp::AI::geminiGenerateImageBase64(apiKey, imgPrompt, imgB64, mime, imgModel, imgErr)) {
+                if (!runWithFailover([&](const std::string& k, std::string& e) {
+                        return SaleApp::AI::geminiGenerateImageBase64(k, imgPrompt, imgB64, mime, imgModel, e);
+                    }, imgErr)) {
                     logUsage(textModel, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Không thể tạo ảnh slide: " + imgErr}}, 502);
                     return;
@@ -2862,7 +3247,9 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 }
                 json contents = json::array({{{"parts", json::array({{{"text", prompt}}})}}});
                 std::string textOut, modelUsed, err;
-                if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, false, textOut, modelUsed, err)) {
+                if (!runWithFailover([&](const std::string& k, std::string& e) {
+                        return SaleApp::AI::geminiGenerateContentText(k, contents, false, textOut, modelUsed, e);
+                    }, err)) {
                     logUsage(modelUsed, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Lỗi AI Copilot: " + err}}, 502);
                     return;
@@ -2903,8 +3290,8 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 replyTunnelJson(res, {{"success", false}, {"message", "Machine ID không khớp!"}}, 403);
                 return;
             }
-            auto kRow = db.queryRow("SELECT setting_value FROM master_settings WHERE setting_key = 'gemini_api_key'");
-            bool masterHasKey = (!kRow.is_null() && !kRow.value("setting_value", "").empty());
+            json activeKeyRow = selectActiveGeminiKey(db);
+            bool masterHasKey = (!activeKeyRow.is_null() && !activeKeyRow.value("api_key", "").empty());
             replyTunnelJson(res, {
                 {"success", true},
                 {"master_has_key", masterHasKey},

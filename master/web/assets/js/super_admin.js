@@ -57,9 +57,10 @@ const SuperAdmin = {
             this.loadStaffUsers();
         } else if (tabId === 'audit') {
             this.loadAuditLogs();
+        } else if (tabId === 'ai-vault') {
+            this.loadMasterAiVault();
         } else if (tabId === 'settings') {
             this.loadSaasSettings();
-            this.loadMasterAiVault();
             this.loadOtaPatchArchive();
         } else if (tabId === 'resellers') {
             this.loadResellers();
@@ -2836,11 +2837,6 @@ const SuperAdmin = {
         }
     },
 
-    toggleMasterAiKeyBox(show) {
-        const box = document.getElementById('master-ai-input-box');
-        if (box) box.classList.toggle('hidden', !show);
-    },
-
     _escHtml(str) {
         return String(str ?? '')
             .replace(/&/g, '&amp;')
@@ -2850,24 +2846,346 @@ const SuperAdmin = {
             .replace(/'/g, '&#39;');
     },
 
+    switchAiVaultSubTab(tab) {
+        const tabs = ['keys', 'history', 'quotas'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`ai-subtab-btn-${t}`);
+            const panel = document.getElementById(`ai-subpanel-${t}`);
+            const active = (t === tab);
+            if (panel) panel.classList.toggle('hidden', !active);
+            if (btn) {
+                btn.classList.toggle('bg-purple-600/30', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('border-purple-400/40', active);
+                btn.classList.toggle('font-bold', active);
+                btn.classList.toggle('text-slate-300', !active);
+                btn.classList.toggle('border-transparent', !active);
+            }
+        });
+    },
+
+    toggleAddGeminiKeyModal(forceState) {
+        const box = document.getElementById('master-ai-input-box');
+        if (!box) return;
+        if (typeof forceState === 'boolean') box.classList.toggle('hidden', !forceState);
+        else box.classList.toggle('hidden');
+    },
+
     async loadMasterAiVault() {
         try {
             const res = await fetch('api/super_admin.php?action=get_ai_vault').then(r => r.json());
             if (!res || !res.success) return;
-            const hasKey = Boolean(res.has_gemini_key);
-            document.getElementById('master-ai-configured')?.classList.toggle('hidden', !hasKey);
-            document.getElementById('master-ai-unconfigured')?.classList.toggle('hidden', hasKey);
-            document.getElementById('master-ai-input-box')?.classList.toggle('hidden', hasKey);
-            document.getElementById('btn-master-ai-edit')?.classList.toggle('hidden', !hasKey);
-            const updEl = document.getElementById('master-ai-updated-at');
-            if (updEl) updEl.textContent = res.updated_at ? `(Cập nhật: ${res.updated_at})` : '';
-            const totEl = document.getElementById('master-ai-total-calls');
-            if (totEl) totEl.textContent = `${res.total_calls_month || 0} lượt • ${res.total_credits_month || 0} credit`;
-            this._aiStoreRows = Array.isArray(res.store_quotas)
+
+            const keys = Array.isArray(res.keys) ? res.keys : [];
+            const history = Array.isArray(res.key_history) ? res.key_history : [];
+            const rows = Array.isArray(res.store_quotas)
                 ? res.store_quotas
                 : (Array.isArray(res.usage_by_store) ? res.usage_by_store : []);
+
+            this._aiKeys = keys;
+            this._aiKeyHistory = history;
+            this._aiStoreRows = rows;
+
+            const cKeys = document.getElementById('ai-subtab-count-keys');
+            if (cKeys) cKeys.textContent = String(keys.length);
+            const cHist = document.getElementById('ai-subtab-count-history');
+            if (cHist) cHist.textContent = String(history.length);
+            const cQuotas = document.getElementById('ai-subtab-count-quotas');
+            if (cQuotas) cQuotas.textContent = String(rows.length);
+
+            const activeKey = res.active_key || keys.find(k => k.status === 'active') || null;
+            const navBadge = document.getElementById('nav-badge-ai-key');
+            if (navBadge) {
+                navBadge.textContent = activeKey ? 'ON' : 'OFF';
+                navBadge.className = activeKey
+                    ? 'px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] font-bold'
+                    : 'px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[9px] font-bold';
+            }
+
+            const kpiActLabel = document.getElementById('ai-kpi-active-label');
+            const kpiActMeta = document.getElementById('ai-kpi-active-meta');
+            if (kpiActLabel && kpiActMeta) {
+                if (activeKey) {
+                    kpiActLabel.textContent = activeKey.label || 'Gemini Key';
+                    kpiActMeta.textContent = `${activeKey.key_masked || '••••'} • ${activeKey.model_count || 0} models`;
+                    kpiActMeta.className = 'text-[11px] font-mono text-emerald-300';
+                } else {
+                    kpiActLabel.textContent = 'Chưa có Key hoạt động';
+                    kpiActMeta.textContent = 'Hãy nạp Key mới để bật AI';
+                    kpiActMeta.className = 'text-[11px] font-mono text-rose-300';
+                }
+            }
+
+            const standbyCount = keys.filter(k => k.status === 'standby').length;
+            const kpiPoolCount = document.getElementById('ai-kpi-pool-count');
+            const kpiPoolMeta = document.getElementById('ai-kpi-pool-meta');
+            if (kpiPoolCount) kpiPoolCount.textContent = `${standbyCount} dự phòng / ${keys.length} Key`;
+            if (kpiPoolMeta) {
+                kpiPoolMeta.textContent = standbyCount > 0 ? 'Auto-Failover đã sẵn sàng' : 'Nên thêm ít nhất 1 Key dự phòng';
+            }
+
+            const totEl = document.getElementById('master-ai-total-calls');
+            if (totEl) totEl.textContent = `${res.total_calls_month || 0} lượt • ${res.total_credits_month || 0} credit`;
+
+            const warnKeys = keys.filter(k => {
+                if (k.status === 'rate_limited' || k.status === 'revoked' || k.status === 'expired') return true;
+                if (k.days_until_expiry !== null && k.days_until_expiry !== undefined && Number(k.days_until_expiry) <= 7) return true;
+                const mcl = Number(k.monthly_credit_limit || 0);
+                const cm = Number(k.credits_month || 0);
+                return mcl > 0 && (cm / mcl) >= 0.8;
+            });
+            const kpiHealth = document.getElementById('ai-kpi-health-status');
+            const kpiHealthMeta = document.getElementById('ai-kpi-health-meta');
+            if (kpiHealth && kpiHealthMeta) {
+                if (!activeKey) {
+                    kpiHealth.textContent = 'Chưa kích hoạt';
+                    kpiHealth.className = 'text-sm font-bold text-rose-300';
+                    kpiHealthMeta.textContent = 'Cần nạp ít nhất 1 Gemini Key';
+                } else if (warnKeys.length > 0) {
+                    kpiHealth.textContent = `${warnKeys.length} cảnh báo`;
+                    kpiHealth.className = 'text-sm font-bold text-amber-300';
+                    kpiHealthMeta.textContent = 'Có key lỗi, chạm ngưỡng hoặc sắp hết hạn';
+                } else {
+                    kpiHealth.textContent = 'Ổn định';
+                    kpiHealth.className = 'text-sm font-bold text-emerald-300';
+                    kpiHealthMeta.textContent = 'Tất cả key đều trong ngưỡng an toàn';
+                }
+            }
+
+            this.renderMasterAiKeys();
+            this.filterMasterAiHistory();
             this.filterMasterAiStores();
         } catch (e) {}
+    },
+
+    renderMasterAiKeys() {
+        const listEl = document.getElementById('master-ai-keys-list');
+        if (!listEl) return;
+        const keys = Array.isArray(this._aiKeys) ? this._aiKeys : [];
+        if (keys.length === 0) {
+            listEl.innerHTML = '<div class="p-6 text-center text-slate-400">Chưa có Gemini API Key nào trong Master Vault. Hãy bấm <b class="text-purple-300">+ Nạp Key Mới</b> ở góc trên.</div>';
+            return;
+        }
+
+        const statusBadge = (st) => {
+            switch (st) {
+                case 'active': return '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/35 text-[10px] font-bold">ĐANG CHẠY</span>';
+                case 'standby': return '<span class="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-[10px] font-semibold">DỰ PHÒNG</span>';
+                case 'rate_limited': return '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">CHẠM 429</span>';
+                case 'expired': return '<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-bold">HẾT HẠN</span>';
+                case 'revoked': return '<span class="px-2 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-400/40 text-[10px] font-bold">BỊ KHÓA</span>';
+                default: return '<span class="px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 border border-white/10 text-[10px]">TẠM TẮT</span>';
+            }
+        };
+
+        listEl.innerHTML = keys.map(k => {
+            const id = Number(k.id || 0);
+            const isActive = k.status === 'active';
+            const isDisabled = k.status === 'disabled';
+            const mcl = Number(k.monthly_credit_limit || 0);
+            const drl = Number(k.daily_request_limit || 0);
+            const creditsMonth = Number(k.credits_month || 0);
+            const callsToday = Number(k.calls_today || 0);
+            const pctMonth = mcl > 0 ? Math.min(100, Math.round((creditsMonth / mcl) * 100)) : 0;
+            const daysExp = k.days_until_expiry;
+            let expBadge = '<span class="text-slate-400">Không thời hạn</span>';
+            if (k.expires_at) {
+                const d = Number(daysExp);
+                if (d < 0) expBadge = `<span class="text-rose-300 font-semibold">Quá hạn (${this._escHtml(k.expires_at)})</span>`;
+                else if (d <= 7) expBadge = `<span class="text-amber-300 font-semibold">HSD: ${this._escHtml(k.expires_at)} (còn ${d} ngày)</span>`;
+                else expBadge = `<span class="text-slate-300">HSD: ${this._escHtml(k.expires_at)} (còn ${d} ngày)</span>`;
+            }
+
+            return `
+            <div class="p-3.5 ${isActive ? 'bg-emerald-950/20' : 'hover:bg-white/[0.03]'} transition-colors space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex flex-wrap items-center gap-2 min-w-0">
+                        ${statusBadge(k.status)}
+                        <span class="font-bold text-white text-xs truncate">${this._escHtml(k.label || 'Gemini Key')}</span>
+                        <span class="font-mono text-[11px] text-purple-300 px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20">${this._escHtml(k.key_masked || '••••')}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] uppercase font-mono text-slate-300">${this._escHtml(k.tier || 'free')}</span>
+                        <span class="text-[10px] font-mono text-slate-400">Ưu tiên #${Number(k.priority || 100)}</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" onclick="SuperAdmin.testGeminiKey(${id}, this)" class="px-2 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border border-sky-400/30 text-[10px] font-semibold" title="Kiểm tra kết nối trực tiếp Google Gemini">
+                            <i class="fas fa-stethoscope mr-1"></i>Test
+                        </button>
+                        ${!isActive ? `<button type="button" onclick="SuperAdmin.activateGeminiKey(${id})" class="px-2 py-1 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-bold"><i class="fas fa-bolt mr-1"></i>Đặt chính</button>` : ''}
+                        <button type="button" onclick="SuperAdmin.toggleKeyMetaEditor(${id})" class="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 border border-purple-400/30 text-[10px] font-semibold" title="Sửa nhãn, hạn mức, thời hạn">
+                            <i class="fas fa-sliders"></i>
+                        </button>
+                        ${!isActive ? `<button type="button" onclick="SuperAdmin.toggleGeminiKey(${id})" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-[10px]" title="${isDisabled ? 'Bật lại Dự phòng' : 'Tạm tắt'}"><i class="fas ${isDisabled ? 'fa-play' : 'fa-pause'}"></i></button>` : ''}
+                        <button type="button" onclick="SuperAdmin.deleteMasterGeminiKey(${id})" class="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 text-[10px]" title="Xóa Key"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-slate-400">
+                    <div>
+                        Hạn mức tháng: <b class="font-mono text-sky-300">${creditsMonth}${mcl > 0 ? '/' + mcl : ''} cr</b>
+                        ${mcl > 0 ? `<div class="w-full h-1 rounded-full bg-slate-800 mt-1 overflow-hidden"><div class="h-full ${pctMonth >= 80 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width:${pctMonth}%"></div></div>` : ''}
+                    </div>
+                    <div>
+                        Hôm nay: <b class="font-mono text-slate-200">${callsToday}${drl > 0 ? '/' + drl : ''} lượt</b> • Tháng: <b class="font-mono text-slate-200">${k.calls_month || 0}</b> lượt • <span class="${Number(k.errors_month || 0) > 0 ? 'text-rose-300 font-semibold' : ''}">${k.errors_month || 0} lỗi</span>
+                    </div>
+                    <div class="sm:text-right">
+                        ${expBadge} • <span class="font-mono">${k.model_count || 0} models</span>
+                    </div>
+                </div>
+
+                ${k.last_error ? `<div class="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/25 rounded-lg px-2.5 py-1.5 font-mono truncate" title="${this._escHtml(k.last_error)}"><i class="fas fa-circle-exclamation mr-1"></i>${this._escHtml(k.last_error)}</div>` : ''}
+
+                <div id="key-meta-editor-${id}" class="hidden pt-2.5 mt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2 bg-slate-900/50 p-2.5 rounded-xl items-end">
+                    <div class="sm:col-span-2">
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Nhãn gợi nhớ</label>
+                        <input type="text" id="key-edit-label-${id}" value="${this._escHtml(k.label || '')}" class="liquid-input w-full py-1 px-2 text-xs" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Gói</label>
+                        <select id="key-edit-tier-${id}" class="liquid-input w-full py-1 px-2 text-xs">
+                            <option value="free" ${k.tier === 'free' ? 'selected' : ''}>Free</option>
+                            <option value="payg" ${k.tier === 'payg' ? 'selected' : ''}>PayG</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Limit cr/tháng</label>
+                        <input type="number" id="key-edit-mcl-${id}" value="${mcl}" min="0" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Ngày hết hạn</label>
+                        <input type="date" id="key-edit-exp-${id}" value="${this._escHtml(k.expires_at || '')}" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="flex-1">
+                            <label class="block text-[10px] text-slate-400 mb-0.5">Ưu tiên</label>
+                            <input type="number" id="key-edit-pri-${id}" value="${Number(k.priority || 100)}" min="1" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
+                        </div>
+                        <button type="button" onclick="SuperAdmin.saveGeminiKeyMeta(${id}, this)" class="px-3 py-1.5 rounded-lg bg-emerald-600/85 hover:bg-emerald-500 text-white text-[11px] font-bold">Lưu</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    filterMasterAiHistory() {
+        const listEl = document.getElementById('master-ai-history-list');
+        if (!listEl) return;
+        const rows = Array.isArray(this._aiKeyHistory) ? this._aiKeyHistory : [];
+        const q = (document.getElementById('master-ai-history-search')?.value || '').trim().toLowerCase();
+        const mode = document.getElementById('master-ai-history-filter')?.value || 'all';
+
+        const filtered = rows.filter(r => {
+            const evt = String(r.event_type || '');
+            if (mode === 'lifecycle' && !['ADDED', 'ACTIVATED', 'UPDATED', 'DISABLED', 'ENABLED', 'DELETED'].includes(evt)) return false;
+            if (mode === 'failover' && evt !== 'AUTO_FAILOVER') return false;
+            if (mode === 'error' && !['RATE_LIMITED', 'REVOKED', 'EXPIRED'].includes(evt)) return false;
+            if (mode === 'test' && !['TEST_OK', 'TEST_FAIL'].includes(evt)) return false;
+            if (q) {
+                const hay = `${r.key_label || ''} ${r.key_masked || ''} ${r.event_type || ''} ${r.detail || ''} ${r.actor || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+
+        const countEl = document.getElementById('master-ai-history-count');
+        if (countEl) countEl.textContent = `${filtered.length} bản ghi`;
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div class="p-5 text-center italic text-slate-500">Chưa có nhật ký sự kiện Key phù hợp.</div>';
+            return;
+        }
+
+        const evtBadge = (evt) => {
+            if (['ADDED', 'ACTIVATED', 'TEST_OK', 'ENABLED'].includes(evt)) return `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold">${evt}</span>`;
+            if (evt === 'AUTO_FAILOVER') return `<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30 text-[10px] font-mono font-bold">${evt}</span>`;
+            if (['RATE_LIMITED', 'REVOKED', 'EXPIRED', 'TEST_FAIL', 'DELETED'].includes(evt)) return `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-mono font-bold">${evt}</span>`;
+            return `<span class="px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-300 border border-white/10 text-[10px] font-mono font-bold">${this._escHtml(evt)}</span>`;
+        };
+
+        listEl.innerHTML = filtered.map(r => `
+            <div class="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 hover:bg-white/[0.03]">
+                <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                    ${evtBadge(r.event_type)}
+                    <span class="font-semibold text-white">${this._escHtml(r.key_label || 'Key')}</span>
+                    <span class="font-mono text-[10px] text-purple-300">${this._escHtml(r.key_masked || '')}</span>
+                    <span class="text-[11px] text-slate-300 truncate" title="${this._escHtml(r.detail || '')}">${this._escHtml(r.detail || '')}</span>
+                </div>
+                <div class="text-[10px] font-mono text-slate-400 shrink-0">
+                    <span class="text-slate-500">${this._escHtml(r.actor || 'System')}</span> • ${this._escHtml(r.created_at || '--')}
+                </div>
+            </div>
+        `).join('');
+    },
+
+    toggleKeyMetaEditor(id) {
+        const el = document.getElementById(`key-meta-editor-${id}`);
+        if (el) el.classList.toggle('hidden');
+    },
+
+    async saveGeminiKeyMeta(id, btn) {
+        if (btn) btn.disabled = true;
+        try {
+            const payload = {
+                key_id: id,
+                label: document.getElementById(`key-edit-label-${id}`)?.value.trim() || 'Gemini Key',
+                tier: document.getElementById(`key-edit-tier-${id}`)?.value || 'free',
+                monthly_credit_limit: Number(document.getElementById(`key-edit-mcl-${id}`)?.value || 0),
+                expires_at: document.getElementById(`key-edit-exp-${id}`)?.value || '',
+                priority: Number(document.getElementById(`key-edit-pri-${id}`)?.value || 100)
+            };
+            const res = await fetch('api/super_admin.php?action=update_gemini_key_meta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+            if (res.success) await this.loadMasterAiVault();
+            else alert(res.message || 'Không thể cập nhật thông tin Key!');
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async testGeminiKey(id, btn) {
+        const orig = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+        try {
+            const res = await fetch('api/super_admin.php?action=test_gemini_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key_id: id })
+            }).then(r => r.json());
+            await this.loadMasterAiVault();
+            alert(res.message || (res.success ? 'Key hoạt động tốt!' : 'Key gặp lỗi!'));
+        } catch (e) {
+            alert('Lỗi: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        }
+    },
+
+    async activateGeminiKey(id) {
+        try {
+            const res = await fetch('api/super_admin.php?action=activate_gemini_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key_id: id })
+            }).then(r => r.json());
+            if (res.success) await this.loadMasterAiVault();
+            else alert(res.message || 'Không thể kích hoạt Key!');
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    },
+
+    async toggleGeminiKey(id) {
+        try {
+            const res = await fetch('api/super_admin.php?action=toggle_gemini_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key_id: id })
+            }).then(r => r.json());
+            if (res.success) await this.loadMasterAiVault();
+            else alert(res.message || 'Không thể đổi trạng thái Key!');
+        } catch (e) { alert('Lỗi: ' + e.message); }
     },
 
     filterMasterAiStores() {
@@ -3019,17 +3337,29 @@ const SuperAdmin = {
             alert('Vui lòng dán mã Gemini API Key trước khi kiểm tra!');
             return;
         }
+        const payload = {
+            gemini_api_key: keyVal,
+            label: document.getElementById('cfg-master-gemini-label')?.value.trim() || 'Gemini Key',
+            tier: document.getElementById('cfg-master-gemini-tier')?.value || 'payg',
+            monthly_credit_limit: Number(document.getElementById('cfg-master-gemini-mcl')?.value || 0),
+            daily_request_limit: Number(document.getElementById('cfg-master-gemini-drl')?.value || 0),
+            expires_at: document.getElementById('cfg-master-gemini-exp')?.value || '',
+            priority: Number(document.getElementById('cfg-master-gemini-pri')?.value || 10),
+            set_active: Boolean(document.getElementById('cfg-master-gemini-active')?.checked ?? true)
+        };
         const origHtml = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang kiểm tra...'; }
         try {
             const res = await fetch('api/super_admin.php?action=verify_save_gemini_key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gemini_api_key: keyVal })
+                body: JSON.stringify(payload)
             }).then(r => r.json());
             if (res.success) {
                 if (inp) inp.value = '';
-                this.toggleMasterAiKeyBox(false);
+                const lblInp = document.getElementById('cfg-master-gemini-label');
+                if (lblInp) lblInp.value = '';
+                this.toggleAddGeminiKeyModal(false);
                 await this.loadMasterAiVault();
                 alert(res.message || 'Xác thực & khóa Key thành công!');
             } else {
@@ -3042,13 +3372,13 @@ const SuperAdmin = {
         }
     },
 
-    async deleteMasterGeminiKey() {
-        if (!confirm('Xóa Gemini API Key khỏi Master? Các quán sẽ không thể gọi AI qua Master cho tới khi cấu hình Key mới.')) return;
+    async deleteMasterGeminiKey(keyId) {
+        if (!confirm('Xóa Gemini API Key này khỏi Master Vault? Nếu đây là Key chính, hệ thống sẽ tự chuyển sang Key dự phòng (nếu có).')) return;
         try {
             const res = await fetch('api/super_admin.php?action=delete_gemini_key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: '{}'
+                body: JSON.stringify({ key_id: Number(keyId || 0) })
             }).then(r => r.json());
             if (res.success) await this.loadMasterAiVault();
             else alert(res.message || 'Không thể xóa Key');
