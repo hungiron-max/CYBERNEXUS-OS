@@ -1,6 +1,6 @@
 {
   "file": "libmod_network_qos.dll",
-  "sha256": "42b3357d7e0e939443e921b547a9c52f5149e0c0beb68d7497ac2b6dd80c4e23",
-  "sig": "7a4c47f580fc6adfda862f22662e5af936e1cc6a96803c34cf8d6545e8a1d41d",
+  "sha256": "0eb3026ef07ddacb9dcbe3a3701040e33b6aa05bee86bb56bfb8ab45b92e072b",
+  "sig": "fcfd0ca8ba0f3ae4d6f2661e0604a9db8e95813e285c3562eac8fd1aff288ae4",
   "signed_by": "CyberNexus-SuperAdmin"
 }

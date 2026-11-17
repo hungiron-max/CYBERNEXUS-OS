@@ -176,11 +176,17 @@ class NetworkQosPlugin : public IModulePlugin {
         return false;
     }
 
-    bool applyUnifiGuestCmd(const std::string& mac, const std::string& cmdName, int minutes, int downKbps, int upKbps, std::string& msgOut) {
-        if (mac.empty() || !isSafeHostOrIp(mac)) {
-            msgOut = "Thiếu MAC thiết bị để gọi UniFi Controller!";
-            return false;
+    static std::string escapeCmdArg(const std::string& s) {
+        std::string out;
+        out.reserve(s.size() + 8);
+        for (char c : s) {
+            if (c == '"') out += "\\\"";
+            else out += c;
         }
+        return out;
+    }
+
+    bool unifiLogin(std::string& baseUrlOut, std::string& sitePrefixOut, std::string& cookieFileOut, std::string& errOut) {
         std::string host, user, pass, site;
         int port = 443;
         {
@@ -192,43 +198,103 @@ class NetworkQosPlugin : public IModulePlugin {
             site = m_cfg.value("unifi_site", "default");
         }
         if (!isSafeHostOrIp(host) || !isSafeHostOrIp(site)) {
-            msgOut = "Cấu hình Host/Site UniFi không hợp lệ!";
+            errOut = "Cấu hình Host/Site UniFi không hợp lệ!";
             return false;
         }
-
-        std::string cookieFile = "config/unifi_cookie.txt";
+        cookieFileOut = "config/unifi_cookie.txt";
         fs::create_directories("config");
-        std::string baseUrl = "https://" + host + ":" + std::to_string(port);
-        json loginPayload = {{"username", user}, {"password", pass}};
+        baseUrlOut = "https://" + host + ":" + std::to_string(port);
+        std::string escLogin = escapeCmdArg(json({{"username", user}, {"password", pass}}).dump());
 
-        // Try UniFi OS (/api/auth/login) then legacy (/api/login)
-        std::string loginCmd = "curl -sk -c \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
-            + [&]() {
-                std::string s = loginPayload.dump();
-                std::string out;
-                for (char c : s) {
-                    if (c == '"') out += "\\\"";
-                    else out += c;
-                }
-                return out;
-            }() + "\" \"" + baseUrl + "/api/auth/login\"";
         int rc = 0;
-        std::string lRes = execCapture(loginCmd, &rc);
-        std::string apiPrefix = "/proxy/network/api/s/" + site + "/cmd/stamgr";
-        if (lRes.find("\"unique_id\"") == std::string::npos && lRes.find("\"username\"") == std::string::npos) {
-            std::string legCmd = "curl -sk -c \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
-                + [&]() {
-                    std::string s = loginPayload.dump();
-                    std::string out;
-                    for (char c : s) {
-                        if (c == '"') out += "\\\"";
-                        else out += c;
-                    }
-                    return out;
-                }() + "\" \"" + baseUrl + "/api/login\"";
-            execCapture(legCmd, &rc);
-            apiPrefix = "/api/s/" + site + "/cmd/stamgr";
+        std::string lRes = execCapture("curl -sk -c \"" + cookieFileOut + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrlOut + "/api/auth/login\"", &rc);
+        if (lRes.find("\"unique_id\"") != std::string::npos || lRes.find("\"username\"") != std::string::npos) {
+            sitePrefixOut = "/proxy/network/api/s/" + site;
+            return true;
         }
+        std::string legRes = execCapture("curl -sk -c \"" + cookieFileOut + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrlOut + "/api/login\"", &rc);
+        if (legRes.find("\"ok\"") != std::string::npos || legRes.find("\"rc\":\"ok\"") != std::string::npos) {
+            sitePrefixOut = "/api/s/" + site;
+            return true;
+        }
+        errOut = "Không đăng nhập được UniFi Controller (" + host + ":" + std::to_string(port) + ")";
+        return false;
+    }
+
+    bool fetchUnifiClients(json& devsOut, std::string& errOut) {
+        std::string baseUrl, sitePrefix, cookieFile;
+        if (!unifiLogin(baseUrl, sitePrefix, cookieFile, errOut)) return false;
+
+        int rc = 0;
+        std::string raw = execCapture("curl -sk -b \"" + cookieFile + "\" \"" + baseUrl + sitePrefix + "/stat/sta\"", &rc);
+        json parsed = json::parse(raw, nullptr, false);
+        if (parsed.is_discarded() || !parsed.contains("data") || !parsed["data"].is_array()) {
+            errOut = "Không đọc được danh sách client từ UniFi Controller!";
+            return false;
+        }
+        devsOut = json::array();
+        std::time_t now = std::time(nullptr);
+        for (const auto& c : parsed["data"]) {
+            if (!c.is_object()) continue;
+            std::string ip = c.value("ip", "");
+            std::string mac = c.value("mac", "");
+            std::string name = c.value("hostname", c.value("name", c.value("oui", "Khách WiFi")));
+            if (ip.empty() || mac.empty()) continue;
+
+            bool wl = isWhitelisted(ip);
+            std::string tier = wl ? "whitelist" : "free";
+            int remainingSec = 0, stage = 0;
+            {
+                std::lock_guard<std::mutex> lk(m_mtx);
+                auto it = m_sessions.find(ip);
+                if (it != m_sessions.end()) {
+                    if (!wl) tier = it->second.tier;
+                    stage = it->second.stage;
+                    if (it->second.duration_sec > 0) {
+                        remainingSec = std::max(0, static_cast<int>((it->second.start_epoch + it->second.duration_sec) - now));
+                    }
+                    if (it->second.mac.empty()) it->second.mac = mac;
+                }
+            }
+            devsOut.push_back({
+                {"mac", mac},
+                {"ip", ip},
+                {"name", name},
+                {"tier", tier},
+                {"whitelisted", wl},
+                {"remaining_sec", remainingSec},
+                {"stage", stage},
+                {"status", "active"}
+            });
+        }
+        return true;
+    }
+
+    std::string resolveMacFromUnifi(const std::string& targetIp) {
+        if (targetIp.empty()) return "";
+        json devs;
+        std::string err;
+        if (fetchUnifiClients(devs, err)) {
+            for (const auto& d : devs) {
+                if (d.value("ip", "") == targetIp) {
+                    return d.value("mac", "");
+                }
+            }
+        }
+        return "";
+    }
+
+    bool applyUnifiGuestCmd(const std::string& ip, const std::string& macIn, const std::string& cmdName, int minutes, int downKbps, int upKbps, std::string& msgOut) {
+        std::string mac = macIn;
+        if (mac.empty()) {
+            mac = resolveMacFromUnifi(ip);
+        }
+        if (mac.empty() || !isSafeHostOrIp(mac)) {
+            msgOut = "Không tìm thấy MAC cho IP " + ip + " trên UniFi Controller!";
+            return false;
+        }
+        std::string baseUrl, sitePrefix, cookieFile;
+        if (!unifiLogin(baseUrl, sitePrefix, cookieFile, msgOut)) return false;
 
         json payload = {{"cmd", cmdName}, {"mac", mac}};
         if (cmdName == "authorize-guest") {
@@ -236,19 +302,15 @@ class NetworkQosPlugin : public IModulePlugin {
             if (downKbps > 0) payload["down"] = downKbps;
             if (upKbps > 0) payload["up"] = upKbps;
         }
-        std::string escPayload;
-        for (char c : payload.dump()) {
-            if (c == '"') escPayload += "\\\"";
-            else escPayload += c;
-        }
+        int rc = 0;
         std::string execCmd = "curl -sk -b \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \""
-            + escPayload + "\" \"" + baseUrl + apiPrefix + "\"";
+            + escapeCmdArg(payload.dump()) + "\" \"" + baseUrl + sitePrefix + "/cmd/stamgr\"";
         std::string resStr = execCapture(execCmd, &rc);
         if (resStr.find("\"ok\"") != std::string::npos || resStr.find("\"rc\":\"ok\"") != std::string::npos) {
             msgOut = "UniFi Controller đã thực thi " + cmdName + " cho " + mac;
             return true;
         }
-        msgOut = "UniFi Controller không phản hồi hoặc sai tài khoản (" + host + ":" + std::to_string(port) + ")";
+        msgOut = "UniFi Controller từ chối lệnh " + cmdName + " cho " + mac;
         return false;
     }
 
@@ -259,7 +321,7 @@ class NetworkQosPlugin : public IModulePlugin {
             rType = m_cfg.value("router_type", "simulation");
         }
         if (rType == "unifi") {
-            return applyUnifiGuestCmd(mac, unauthorize ? "unauthorize-guest" : "authorize-guest", minutes, downKbps, upKbps, msgOut);
+            return applyUnifiGuestCmd(ip, mac, unauthorize ? "unauthorize-guest" : "authorize-guest", minutes, downKbps, upKbps, msgOut);
         }
         if (rType == "edgerouter") {
             std::string rate = unauthorize ? "8kbit" : (downKbps <= 0 ? "50mbit" : (std::to_string(std::max(1, downKbps / 1024)) + "mbit"));
@@ -636,25 +698,12 @@ public:
             }
             if (rType == "unifi") {
                 json devs = json::array();
-                std::time_t now = std::time(nullptr);
-                {
-                    std::lock_guard<std::mutex> lk(m_mtx);
-                    for (const auto& kv : m_sessions) {
-                        const auto& s = kv.second;
-                        int rem = s.duration_sec > 0 ? std::max(0, static_cast<int>((s.start_epoch + s.duration_sec) - now)) : 0;
-                        devs.push_back({
-                            {"mac", s.mac},
-                            {"ip", s.ip},
-                            {"name", s.name.empty() ? "Khách WiFi" : s.name},
-                            {"tier", s.tier},
-                            {"whitelisted", false},
-                            {"remaining_sec", rem},
-                            {"stage", s.stage},
-                            {"status", "active"}
-                        });
-                    }
+                std::string errMsg;
+                if (fetchUnifiClients(devs, errMsg)) {
+                    res.set_content(json({{"status", "success"}, {"mode", "unifi"}, {"devices", devs}, {"message", devs.empty() ? "Chưa có thiết bị WiFi nào đang kết nối." : ""}}).dump(2), "application/json; charset=utf-8");
+                } else {
+                    res.set_content(json({{"status", "error"}, {"mode", "unifi"}, {"devices", json::array()}, {"message", errMsg}}).dump(2), "application/json; charset=utf-8");
                 }
-                res.set_content(json({{"status", "success"}, {"mode", "unifi"}, {"devices", devs}, {"message", devs.empty() ? "Chưa có phiên khách WiFi nào đang hoạt động." : ""}}).dump(2), "application/json; charset=utf-8");
                 return;
             }
             res.set_content(json({
