@@ -24,9 +24,15 @@ function toggleWifiTheme() {
 }
 
 (function initWifiTheme() {
-    let saved = 'dark';
-    try { saved = localStorage.getItem('wifi_portal_theme') || 'dark'; } catch (e) {}
-    applyWifiTheme(saved);
+    let saved = null;
+    try { saved = localStorage.getItem('wifi_portal_theme'); } catch (e) {}
+    if (saved === 'light' || saved === 'dark') {
+        applyWifiTheme(saved);
+        return;
+    }
+    const hour = new Date().getHours();
+    const isDaylight = hour >= 6 && hour < 18;
+    applyWifiTheme(isDaylight ? 'light' : 'dark');
 })();
 
 function formatVipDuration(mins) {
