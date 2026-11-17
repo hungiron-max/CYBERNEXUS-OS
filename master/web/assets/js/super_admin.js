@@ -2841,6 +2841,15 @@ const SuperAdmin = {
         if (box) box.classList.toggle('hidden', !show);
     },
 
+    _escHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
     async loadMasterAiVault() {
         try {
             const res = await fetch('api/super_admin.php?action=get_ai_vault').then(r => r.json());
@@ -2854,69 +2863,114 @@ const SuperAdmin = {
             if (updEl) updEl.textContent = res.updated_at ? `(Cập nhật: ${res.updated_at})` : '';
             const totEl = document.getElementById('master-ai-total-calls');
             if (totEl) totEl.textContent = `${res.total_calls_month || 0} lượt • ${res.total_credits_month || 0} credit`;
-            const listEl = document.getElementById('master-ai-usage-list');
-            if (listEl) {
-                const rows = Array.isArray(res.store_quotas) ? res.store_quotas : (Array.isArray(res.usage_by_store) ? res.usage_by_store : []);
-                listEl.innerHTML = rows.length === 0
-                    ? '<div class="italic text-slate-500">Chưa có quán nào trên hệ thống.</div>'
-                    : rows.map(r => {
-                        const mq = Number(r.ai_monthly_quota ?? 50);
-                        const bonus = Number(r.ai_bonus_credits ?? 0);
-                        const mUsed = Number(r.monthly_used ?? 0);
-                        const totCr = Number(r.total_credits_month ?? 0);
-                        const calls = Number(r.calls_month ?? r.calls ?? 0);
-                        const isUnlim = mq < 0;
-                        const isBlocked = mq === 0 && bonus === 0;
-                        const remMonthly = isUnlim ? Infinity : Math.max(0, mq - mUsed);
-                        const remTotal = isUnlim ? Infinity : (remMonthly + bonus);
-                        const pct = isUnlim ? 15 : (mq > 0 ? Math.min(100, Math.round((mUsed / mq) * 100)) : 100);
-                        const barColor = isUnlim ? 'bg-purple-400' : (remTotal <= 0 ? 'bg-rose-500' : (pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'));
-                        const badgeHtml = isUnlim
-                            ? '<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30 text-[10px]">Không giới hạn</span>'
-                            : (isBlocked
-                                ? '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px]">Đã tắt AI (0)</span>'
-                                : `<span class="px-1.5 py-0.5 rounded ${remTotal <= 0 ? 'bg-rose-500/20 text-rose-300 border-rose-400/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-400/25'} border text-[10px]">Còn ${remTotal} cr</span>`);
-                        const quotaLabel = isUnlim ? `Đã dùng ${totCr} cr (∞)` : `${mUsed}/${mq} cr tháng${bonus > 0 ? ` + ${bonus} bonus` : ''}`;
-                        const tid = Number(r.tenant_id || 0);
-                        return `
-                        <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/10 space-y-1.5">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <span class="text-slate-100 font-semibold truncate">${r.store_name || r.tenant_code}</span>
-                                    <span class="text-[10px] font-mono text-slate-400">(${r.tenant_code})</span>
-                                    ${badgeHtml}
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-mono text-sky-300 text-[11px]">${quotaLabel}</span>
-                                    ${tid > 0 ? `<button type="button" onclick="SuperAdmin.toggleStoreQuotaRow(${tid})" class="px-2 py-0.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 border border-purple-400/30 text-[10px] font-semibold"><i class="fas fa-sliders mr-1"></i>Cấp Quota</button>` : ''}
-                                </div>
-                            </div>
+            this._aiStoreRows = Array.isArray(res.store_quotas)
+                ? res.store_quotas
+                : (Array.isArray(res.usage_by_store) ? res.usage_by_store : []);
+            this.filterMasterAiStores();
+        } catch (e) {}
+    },
+
+    filterMasterAiStores() {
+        const listEl = document.getElementById('master-ai-usage-list');
+        if (!listEl) return;
+        const rows = Array.isArray(this._aiStoreRows) ? this._aiStoreRows : [];
+        const query = (document.getElementById('master-ai-store-search')?.value || '').trim().toLowerCase();
+        const mode = document.getElementById('master-ai-store-filter')?.value || 'all';
+
+        const filtered = rows.filter(r => {
+            const name = String(r.store_name || '').toLowerCase();
+            const code = String(r.tenant_code || '').toLowerCase();
+            if (query && !name.includes(query) && !code.includes(query)) return false;
+
+            const mq = Number(r.ai_monthly_quota ?? 50);
+            const bonus = Number(r.ai_bonus_credits ?? 0);
+            const mUsed = Number(r.monthly_used ?? 0);
+            const calls = Number(r.calls_month ?? r.calls ?? 0);
+            const isUnlim = mq < 0;
+            const remTotal = isUnlim ? Infinity : (Math.max(0, mq - mUsed) + bonus);
+
+            if (mode === 'used') return calls > 0 || mUsed > 0;
+            if (mode === 'low') return !isUnlim && (remTotal <= 5 || (mq > 0 && (mUsed / mq) >= 0.8));
+            if (mode === 'unlimited') return isUnlim;
+            return true;
+        });
+
+        const countEl = document.getElementById('master-ai-visible-count');
+        if (countEl) {
+            countEl.textContent = filtered.length === rows.length
+                ? `${rows.length} quán`
+                : `${filtered.length}/${rows.length} quán`;
+        }
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = `<div class="p-4 text-center italic text-slate-500">${rows.length === 0 ? 'Chưa có quán nào trên hệ thống.' : 'Không tìm thấy quán phù hợp bộ lọc.'}</div>`;
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(r => {
+            const mq = Number(r.ai_monthly_quota ?? 50);
+            const bonus = Number(r.ai_bonus_credits ?? 0);
+            const mUsed = Number(r.monthly_used ?? 0);
+            const totCr = Number(r.total_credits_month ?? 0);
+            const calls = Number(r.calls_month ?? r.calls ?? 0);
+            const isUnlim = mq < 0;
+            const isBlocked = mq === 0 && bonus === 0;
+            const remMonthly = isUnlim ? Infinity : Math.max(0, mq - mUsed);
+            const remTotal = isUnlim ? Infinity : (remMonthly + bonus);
+            const pct = isUnlim ? 18 : (mq > 0 ? Math.min(100, Math.round((mUsed / mq) * 100)) : 100);
+            const barColor = isUnlim ? 'bg-purple-400' : (remTotal <= 0 ? 'bg-rose-500' : (pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'));
+            const badgeHtml = isUnlim
+                ? '<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30 text-[10px] font-semibold whitespace-nowrap">∞ Không giới hạn</span>'
+                : (isBlocked
+                    ? '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-semibold whitespace-nowrap">Đã tắt AI</span>'
+                    : `<span class="px-1.5 py-0.5 rounded ${remTotal <= 0 ? 'bg-rose-500/20 text-rose-300 border-rose-400/30' : (pct >= 80 ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-400/25')} border text-[10px] font-semibold whitespace-nowrap">Còn ${remTotal} cr</span>`);
+            const quotaLabel = isUnlim ? `${totCr} cr (∞)` : `${mUsed}/${mq}${bonus > 0 ? `+${bonus}` : ''} cr`;
+            const tid = Number(r.tenant_id || 0);
+            const usageSummary = calls > 0
+                ? `${calls} lượt (OCR ${r.ocr_calls || 0} • Món ${r.dish_calls || 0} • Slide ${r.slide_calls || 0})`
+                : 'Chưa dùng tháng này';
+            const storeName = this._escHtml(r.store_name || r.tenant_code || '');
+            const tenantCode = this._escHtml(r.tenant_code || '');
+            return `
+            <div class="px-3 py-2.5 hover:bg-white/[0.03] transition-colors">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <span class="text-slate-100 font-semibold truncate">${storeName}</span>
+                        <span class="text-[10px] font-mono text-slate-400 shrink-0">${tenantCode}</span>
+                        ${badgeHtml}
+                    </div>
+                    <div class="flex items-center gap-2.5 shrink-0">
+                        <div class="hidden sm:flex flex-col items-end w-24" title="${this._escHtml(usageSummary)}">
+                            <span class="font-mono text-[10px] text-sky-300 leading-none mb-1">${quotaLabel}</span>
                             <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
                                 <div class="h-full ${barColor} transition-all" style="width:${pct}%"></div>
                             </div>
-                            <div class="flex flex-wrap items-center justify-between text-[10px] text-slate-400">
-                                <span>Tháng này: ${calls} lượt (OCR ${r.ocr_calls || 0} • Món ${r.dish_calls || 0} • Slide ${r.slide_calls || 0})</span>
-                                <span>${r.last_used_at ? 'Dùng gần nhất: ' + r.last_used_at : 'Chưa dùng tháng này'}</span>
-                            </div>
-                            ${tid > 0 ? `
-                            <div id="quota-editor-${tid}" class="hidden pt-2 mt-1 border-t border-white/10 flex flex-wrap items-end gap-2">
-                                <div>
-                                    <label class="block text-[10px] text-slate-400 mb-0.5">Quota tháng (-1 = ∞, 0 = Tắt)</label>
-                                    <input type="number" id="inp-mq-${tid}" value="${mq}" min="-1" class="liquid-input w-28 py-1 px-2 text-xs font-mono text-white" />
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-400 mb-0.5">Credit nạp thêm (Bonus)</label>
-                                    <input type="number" id="inp-bc-${tid}" value="${bonus}" min="0" class="liquid-input w-28 py-1 px-2 text-xs font-mono text-emerald-300" />
-                                </div>
-                                <button type="button" onclick="SuperAdmin.saveStoreAiQuota(${tid}, this)" class="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold">Lưu</button>
-                                <button type="button" onclick="SuperAdmin.quickPresetQuota(${tid}, -1)" class="px-2 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 text-[10px]">∞ Không giới hạn</button>
-                                <button type="button" onclick="SuperAdmin.quickAddBonus(${tid}, 50)" class="px-2 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 text-[10px]">+50 Bonus</button>
-                                <button type="button" onclick="SuperAdmin.quickPresetQuota(${tid}, 0)" class="px-2 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 text-[10px]">Tắt (0)</button>
-                            </div>` : ''}
-                        </div>`;
-                    }).join('');
-            }
-        } catch (e) {}
+                        </div>
+                        <span class="sm:hidden font-mono text-[10px] text-sky-300">${quotaLabel}</span>
+                        ${tid > 0 ? `<button type="button" onclick="SuperAdmin.toggleStoreQuotaRow(${tid})" class="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 border border-purple-400/30 text-[10px] font-semibold whitespace-nowrap"><i class="fas fa-sliders mr-1"></i>Quota</button>` : ''}
+                    </div>
+                </div>
+                <div class="mt-1 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
+                    <span>${this._escHtml(usageSummary)}</span>
+                    <span>${r.last_used_at ? 'Gần nhất: ' + this._escHtml(r.last_used_at) : ''}</span>
+                </div>
+                ${tid > 0 ? `
+                <div id="quota-editor-${tid}" class="hidden pt-2 mt-2 border-t border-white/10 flex flex-wrap items-end gap-2 bg-slate-900/50 p-2 rounded-xl">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Quota tháng (-1 = ∞, 0 = Tắt)</label>
+                        <input type="number" id="inp-mq-${tid}" value="${mq}" min="-1" class="liquid-input w-28 py-1 px-2 text-xs font-mono text-white" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Credit nạp thêm (Bonus)</label>
+                        <input type="number" id="inp-bc-${tid}" value="${bonus}" min="0" class="liquid-input w-28 py-1 px-2 text-xs font-mono text-emerald-300" />
+                    </div>
+                    <button type="button" onclick="SuperAdmin.saveStoreAiQuota(${tid}, this)" class="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[11px] font-bold">Lưu</button>
+                    <button type="button" onclick="SuperAdmin.quickPresetQuota(${tid}, -1)" class="px-2 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 text-[10px]">∞ Không giới hạn</button>
+                    <button type="button" onclick="SuperAdmin.quickAddBonus(${tid}, 50)" class="px-2 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 text-[10px]">+50 Bonus</button>
+                    <button type="button" onclick="SuperAdmin.quickPresetQuota(${tid}, 0)" class="px-2 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 text-[10px]">Tắt (0)</button>
+                </div>` : ''}
+            </div>`;
+        }).join('');
     },
 
     toggleStoreQuotaRow(tid) {
@@ -3005,6 +3059,7 @@ const SuperAdmin = {
 
     async loadOtaPatchArchive() {
         const listEl = document.getElementById('ota-patch-archive-list');
+        const activeEl = document.getElementById('ota-active-release-card');
         const badgeEl = document.getElementById('ota-active-version-badge');
         if (!listEl) return;
         try {
@@ -3014,37 +3069,103 @@ const SuperAdmin = {
                 badgeEl.textContent = res.active_version ? `Đang phát hành: v${res.active_version}` : 'Chưa có bản vá phát hành';
             }
             const patches = Array.isArray(res.patches) ? res.patches : [];
-            if (patches.length === 0) {
-                listEl.innerHTML = '<div class="italic text-slate-500">Chưa có bản vá nào trong kho lưu trữ (updates/archive).</div>';
-                return;
-            }
-            listEl.innerHTML = patches.map(p => {
-                const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
-                const isActive = Boolean(p.is_active);
-                return `
-                    <div class="p-3 rounded-xl ${isActive ? 'bg-emerald-950/25 border border-emerald-500/40' : 'bg-slate-900/65 border border-white/10'} space-y-1.5">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div class="flex items-center gap-2">
-                                <span class="font-mono font-black text-sky-300">v${p.version}</span>
-                                ${isActive
-                                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">ĐANG PHÁT HÀNH</span>'
-                                    : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/10 text-[10px]">Lưu trữ</span>'}
-                                <span class="text-[10px] font-mono text-slate-400">${mb} MB • ${p.files_count || 0} files</span>
+            this._otaPatches = patches;
+
+            if (activeEl) {
+                const activePatch = patches.find(p => Boolean(p.is_active));
+                if (activePatch) {
+                    const mb = (Number(activePatch.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+                    const ver = this._escHtml(activePatch.version);
+                    activeEl.innerHTML = `
+                        <div class="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/35 text-[10px] font-bold tracking-wide">ĐANG PHÁT HÀNH</span>
+                                    <span class="font-mono font-black text-sky-300 text-xs">v${ver}</span>
+                                    <span class="text-[10px] font-mono text-slate-400">${mb} MB • ${activePatch.files_count || 0} files</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="SuperAdmin.pushArchivedPatch('${ver}')" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border border-sky-400/30 text-[10px] font-bold"><i class="fas fa-paper-plane mr-1"></i>Đẩy xuống quán</button>
+                                    <a href="/api/updates/download?version=${encodeURIComponent(activePatch.version || '')}" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-[10px]" title="Tải gói OTA"><i class="fas fa-download"></i></a>
+                                </div>
                             </div>
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                ${!isActive ? `<button type="button" onclick="SuperAdmin.activateOtaPatch('${p.version}')" class="px-2.5 py-1 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-bold"><i class="fas fa-check mr-1"></i>Kích hoạt / Rollback</button>` : ''}
-                                <button type="button" onclick="SuperAdmin.pushArchivedPatch('${p.version}')" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border border-sky-400/30 text-[10px] font-bold"><i class="fas fa-paper-plane mr-1"></i>Đẩy xuống quán</button>
-                                <a href="/api/updates/download?version=${encodeURIComponent(p.version)}" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-[10px]"><i class="fas fa-download"></i></a>
-                                ${!isActive ? `<button type="button" onclick="SuperAdmin.deleteOtaPatch('${p.version}')" class="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 text-[10px]"><i class="fas fa-trash"></i></button>` : ''}
-                            </div>
+                            <div class="text-xs font-semibold text-white">${this._escHtml(activePatch.title || 'Bản phát hành hiện tại')}</div>
+                            ${activePatch.notes ? `<div class="text-[11px] text-slate-300/90 leading-snug">${this._escHtml(activePatch.notes)}</div>` : ''}
+                            <div class="text-[10px] text-slate-400 font-mono">Tạo lúc: ${this._escHtml(activePatch.created_at || '--')}</div>
                         </div>
-                        <div class="text-xs font-semibold text-white">${p.title || ''}</div>
-                        ${p.notes ? `<div class="text-[11px] text-slate-400 leading-snug">${p.notes}</div>` : ''}
-                        <div class="text-[10px] text-slate-500 font-mono">Tạo lúc: ${p.created_at || '--'}</div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                } else {
+                    activeEl.innerHTML = '';
+                }
+            }
+
+            this.filterOtaPatches();
         } catch (e) {}
+    },
+
+    filterOtaPatches() {
+        const listEl = document.getElementById('ota-patch-archive-list');
+        if (!listEl) return;
+        const patches = Array.isArray(this._otaPatches) ? this._otaPatches : [];
+        const archived = patches.filter(p => !p.is_active);
+        const query = (document.getElementById('ota-patch-search')?.value || '').trim().toLowerCase();
+
+        const filtered = archived.filter(p => {
+            if (!query) return true;
+            const hay = `${p.version || ''} ${p.title || ''} ${p.notes || ''}`.toLowerCase();
+            return hay.includes(query);
+        });
+
+        const countEl = document.getElementById('ota-archive-count');
+        if (countEl) {
+            countEl.textContent = filtered.length === archived.length
+                ? `${archived.length} bản`
+                : `${filtered.length}/${archived.length} bản`;
+        }
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = `<div class="p-4 text-center italic text-slate-500">${archived.length === 0 ? 'Chưa có bản vá lưu trữ nào khác.' : 'Không tìm thấy bản vá phù hợp.'}</div>`;
+            return;
+        }
+
+        listEl.innerHTML = filtered.map((p, idx) => {
+            const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+            const ver = this._escHtml(p.version);
+            const safeId = `ota-detail-${idx}-${String(p.version || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            return `
+                <div class="hover:bg-white/[0.03] transition-colors">
+                    <div onclick="SuperAdmin.toggleOtaPatchDetail('${safeId}')" class="px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <i id="${safeId}-icon" class="fas fa-chevron-right text-[10px] text-slate-500 transition-transform w-3 text-center shrink-0"></i>
+                            <span class="font-mono font-bold text-sky-300 text-[11px] shrink-0">v${ver}</span>
+                            <span class="text-[11px] text-slate-200 truncate" title="${this._escHtml(p.title || '')}">${this._escHtml(p.title || 'Bản vá OTA')}</span>
+                            <span class="hidden sm:inline text-[10px] font-mono text-slate-500 shrink-0">• ${mb} MB</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
+                            <button type="button" onclick="SuperAdmin.activateOtaPatch('${ver}')" class="px-2 py-1 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-bold whitespace-nowrap" title="Kích hoạt / Rollback về bản này"><i class="fas fa-check mr-1"></i>Rollback</button>
+                            <button type="button" onclick="SuperAdmin.pushArchivedPatch('${ver}')" class="px-2 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border border-sky-400/30 text-[10px] font-bold" title="Đẩy xuống quán"><i class="fas fa-paper-plane"></i></button>
+                            <a href="/api/updates/download?version=${encodeURIComponent(p.version || '')}" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-[10px]" title="Tải gói OTA"><i class="fas fa-download"></i></a>
+                            <button type="button" onclick="SuperAdmin.deleteOtaPatch('${ver}')" class="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 text-[10px]" title="Xóa bản vá"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div id="${safeId}" class="hidden px-3 pb-2.5 pt-1 pl-8 text-[11px] text-slate-400 space-y-1 bg-slate-900/40 border-t border-white/5">
+                        ${p.notes ? `<div class="text-slate-300 leading-snug">${this._escHtml(p.notes)}</div>` : ''}
+                        <div class="text-[10px] font-mono text-slate-500">${mb} MB • ${p.files_count || 0} files • Tạo lúc: ${this._escHtml(p.created_at || '--')}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    toggleOtaPatchDetail(id) {
+        const el = document.getElementById(id);
+        const icon = document.getElementById(`${id}-icon`);
+        if (!el) return;
+        const isHidden = el.classList.toggle('hidden');
+        if (icon) {
+            icon.classList.toggle('fa-chevron-right', isHidden);
+            icon.classList.toggle('fa-chevron-down', !isHidden);
+        }
     },
 
     async activateOtaPatch(version) {
