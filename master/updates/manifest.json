@@ -2,7 +2,7 @@
     "version": "2026.11.16.21",
     "title": "v2.0 Release: Kiến trúc 5 lõi Native DLL, Bảo mật Auth/CSP/XSS, WiFi Marketing Mobile-First & Smart Jukebox",
     "notes": "Phiên bản lớn v2.0.0: 5 lõi C++ DLL đã ký .sig (gồm mod_finance_admin.dll), khóa bảo mật POST /api/settings + CSP + security_utils.js, tách module admin.js, giao diện WiFi Marketing Mobile-First và Jukebox giới hạn 5 bài/thiết bị & 1 vote/bài.",
-    "created_at": "2026-11-16 19:50:15",
+    "created_at": "2026-11-17 11:26:22",
     "files": [
         "cybernexus_slave.exe",
         "RUN_SLAVE.bat",
