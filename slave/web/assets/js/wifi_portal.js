@@ -4,6 +4,31 @@ let _freeMinutes = 10;
 let _vipMinutes = 180;
 let _countdownTimer = null;
 
+function applyWifiTheme(theme) {
+    const isLight = theme === 'light';
+    document.body.classList.toggle('wifi-light', isLight);
+    const icon = document.getElementById('wifi-theme-icon');
+    const btn = document.getElementById('wifi-theme-toggle');
+    if (icon) {
+        icon.className = isLight ? 'fas fa-moon text-sm' : 'fas fa-sun text-sm';
+    }
+    if (btn) {
+        btn.title = isLight ? 'Chuyển sang giao diện Tối' : 'Chuyển sang giao diện Sáng';
+    }
+}
+
+function toggleWifiTheme() {
+    const next = document.body.classList.contains('wifi-light') ? 'dark' : 'light';
+    try { localStorage.setItem('wifi_portal_theme', next); } catch (e) {}
+    applyWifiTheme(next);
+}
+
+(function initWifiTheme() {
+    let saved = 'dark';
+    try { saved = localStorage.getItem('wifi_portal_theme') || 'dark'; } catch (e) {}
+    applyWifiTheme(saved);
+})();
+
 function formatVipDuration(mins) {
     if (mins >= 60 && mins % 60 === 0) return `${mins / 60} giờ`;
     if (mins > 60) return `${Math.floor(mins / 60)}g ${mins % 60}p`;

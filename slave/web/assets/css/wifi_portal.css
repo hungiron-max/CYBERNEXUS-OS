@@ -336,10 +336,179 @@ body {
 
 /* Rainbow Gradient Text */
 .wifi-title-glow {
-    background: linear-gradient(120deg, #f8fafc 0%, #7dd3fc 45%, #fde68a 100%);
+    background: linear-gradient(120deg, #ffffff 0%, #bae6fd 50%, #fde68a 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+/* Theme Toggle Button (Sun / Moon) */
+.wifi-theme-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(15, 23, 42, 0.72);
+    color: #fde047;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.wifi-theme-btn:active {
+    transform: scale(0.92);
+}
+
+/* =====================================================
+   LIGHT THEME (body.wifi-light)
+   ===================================================== */
+body.wifi-light {
+    background: #f0f9ff;
+    color: #0f172a;
+}
+
+body.wifi-light .wifi-bg-canvas {
+    background: radial-gradient(circle at 15% 15%, #e0f2fe 0%, #f8fafc 55%, #ecfdf5 100%);
+}
+
+body.wifi-light .wifi-aurora {
+    opacity: 0.55;
+}
+
+body.wifi-light .wifi-aurora-1 {
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.45), rgba(186, 230, 253, 0.15));
+}
+
+body.wifi-light .wifi-aurora-2 {
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.4), rgba(167, 243, 208, 0.12));
+}
+
+body.wifi-light .wifi-aurora-3 {
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.3), rgba(221, 214, 254, 0.2));
+}
+
+body.wifi-light .wifi-grid-overlay {
+    background-image:
+        linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+}
+
+body.wifi-light .wifi-sparkle {
+    background: #0284c7;
+    box-shadow: 0 0 10px 2px rgba(14, 165, 233, 0.45);
+}
+
+body.wifi-light .wifi-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.82));
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow:
+        0 18px 40px -12px rgba(15, 23, 42, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+body.wifi-light .wifi-card-vip {
+    border-color: rgba(245, 158, 11, 0.6) !important;
+    box-shadow:
+        0 18px 40px -12px rgba(245, 158, 11, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+body.wifi-light .wifi-title-glow {
+    background: linear-gradient(120deg, #0f172a 0%, #0284c7 55%, #059669 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+body.wifi-light .wifi-theme-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #4f46e5;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+body.wifi-light .wifi-ad-box {
+    background: linear-gradient(135deg, #0ea5e9 0%, #1e293b 60%, #0f766e 100%);
+}
+
+body.wifi-light .wifi-mode-box {
+    background: rgba(241, 245, 249, 0.9) !important;
+    border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+body.wifi-light .wifi-tabs {
+    background: rgba(226, 232, 240, 0.85);
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+body.wifi-light .wifi-tab-btn {
+    color: #475569;
+}
+
+body.wifi-light .wifi-input {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(148, 163, 184, 0.45);
+    color: #0f172a;
+}
+
+body.wifi-light .wifi-input::placeholder {
+    color: #94a3b8;
+}
+
+body.wifi-light .wifi-subtitle-text {
+    color: #0369a1 !important;
+}
+
+body.wifi-light .wifi-ip-badge {
+    background: #e2e8f0 !important;
+    color: #0369a1 !important;
+    border-color: rgba(14, 165, 233, 0.3) !important;
+}
+
+body.wifi-light .wifi-qr-hint {
+    color: #334155 !important;
+}
+
+body.wifi-light .wifi-qr-hint b,
+body.wifi-light .wifi-qr-hint .text-emerald-300 {
+    color: #047857 !important;
+}
+
+body.wifi-light .wifi-footer-text {
+    color: #64748b !important;
+}
+
+body.wifi-light .wifi-footer-text span {
+    color: #0f172a !important;
+}
+
+body.wifi-light .wifi-vip-note {
+    background: rgba(254, 243, 199, 0.9) !important;
+    color: #78350f !important;
+}
+
+body.wifi-light .wifi-vip-note .text-amber-300 {
+    color: #b45309 !important;
+}
+
+body.wifi-light .wifi-vip-note .text-amber-100\/85 {
+    color: #92400e !important;
+}
+
+body.wifi-light #wifi-speed-label {
+    color: #0284c7 !important;
+}
+
+body.wifi-light #wifi-speed-label .text-slate-400 {
+    color: #475569 !important;
+}
+
+body.wifi-light #wifi-tier-pill {
+    color: #0369a1 !important;
+    background: rgba(14, 165, 233, 0.14) !important;
 }
 
 @media (max-width: 640px) {

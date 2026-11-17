@@ -41,12 +41,17 @@
                         Sẵn sàng kết nối
                     </span>
                     <h1 id="wifi-store-name" class="text-base font-black uppercase tracking-wide truncate wifi-title-glow mt-0.5">CYBERNEXUS COFFEE &amp; TEA</h1>
-                    <p class="text-[11px] text-sky-200/80 font-medium truncate">Cổng WiFi Tốc Độ Cao &amp; Ưu Đãi Thành Viên</p>
+                    <p class="wifi-subtitle-text text-[11px] text-sky-200/80 font-medium truncate">Cổng WiFi Tốc Độ Cao &amp; Ưu Đãi Thành Viên</p>
                 </div>
             </div>
-            <div class="text-right shrink-0">
-                <span class="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">IP Thiết Bị</span>
-                <span id="wifi-client-ip" class="inline-block text-[10px] font-mono px-2.5 py-1 rounded-xl bg-slate-900/90 border border-sky-400/25 text-sky-300">LAN</span>
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="text-right">
+                    <span class="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">IP Thiết Bị</span>
+                    <span id="wifi-client-ip" class="wifi-ip-badge inline-block text-[10px] font-mono px-2.5 py-1 rounded-xl bg-slate-900/90 border border-sky-400/25 text-sky-300">LAN</span>
+                </div>
+                <button type="button" id="wifi-theme-toggle" onclick="toggleWifiTheme()" class="wifi-theme-btn" title="Đổi giao diện Sáng / Tối" aria-label="Đổi giao diện Sáng / Tối">
+                    <i id="wifi-theme-icon" class="fas fa-sun text-sm"></i>
+                </button>
             </div>
         </header>
 
@@ -94,7 +99,7 @@
         <!-- Khối 2: Cổng Kích Hoạt WiFi + Đồng Hồ Tốc Độ Trực Quan -->
         <section id="wifi-portal-card" class="wifi-card p-4 space-y-3.5 transition-all duration-300">
             <!-- Animated Speedometer & Mode Header -->
-            <div class="flex items-center justify-between gap-3 rounded-2xl p-3" style="background: rgba(2,6,23,0.65); border: 1px solid rgba(255,255,255,0.08);">
+            <div class="wifi-mode-box flex items-center justify-between gap-3 rounded-2xl p-3" style="background: rgba(2,6,23,0.65); border: 1px solid rgba(255,255,255,0.08);">
                 <div class="flex items-center gap-3">
                     <svg width="76" height="46" viewBox="0 0 140 86" class="shrink-0 overflow-visible">
                         <path d="M 18 72 A 52 52 0 0 1 122 72" fill="none" stroke="rgba(148,163,184,0.22)" stroke-width="10" stroke-linecap="round"/>
@@ -141,7 +146,7 @@
 
             <!-- Panel VIP WiFi -->
             <div id="panel-wifi-vip" class="hidden space-y-3">
-                <div class="text-[11px] text-amber-100 rounded-2xl p-3 flex items-start gap-2.5" style="background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(251, 191, 36, 0.35);">
+                <div class="wifi-vip-note text-[11px] text-amber-100 rounded-2xl p-3 flex items-start gap-2.5" style="background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(251, 191, 36, 0.35);">
                     <i class="fas fa-crown text-amber-400 text-sm mt-0.5"></i>
                     <div>
                         <div class="font-black text-amber-300 mb-0.5">Đặc quyền khách hàng tại quán</div>
@@ -162,7 +167,7 @@
         </section>
 
         <!-- Nhắc nhẹ quét QR tại bàn (không đặt link trực tiếp trong Captive Portal để tránh mất giỏ hàng khi bấm Done) -->
-        <div class="wifi-card p-3.5 flex items-center gap-3 text-xs text-slate-300" style="border-color: rgba(16, 185, 129, 0.28);">
+        <div class="wifi-card wifi-qr-hint p-3.5 flex items-center gap-3 text-xs text-slate-300" style="border-color: rgba(16, 185, 129, 0.28);">
             <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background: rgba(16, 185, 129, 0.16); color: #34d399;">
                 <i class="fas fa-qrcode text-base"></i>
             </div>
@@ -171,7 +176,7 @@
             </div>
         </div>
 
-        <footer class="text-center text-[11px] text-slate-400 pt-1">
+        <footer class="wifi-footer-text text-center text-[11px] text-slate-400 pt-1">
             <i class="fas fa-shield-alt text-emerald-400 mr-1"></i>
             Powered by <span class="text-slate-200 font-bold">CyberNexus OS</span> • Smart WiFi Marketing &amp; QoS
         </footer>
