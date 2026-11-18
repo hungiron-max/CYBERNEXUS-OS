@@ -698,14 +698,24 @@ inline bool generateImageViaProvider(const std::string& provider, const std::str
         return false;
     }
     if (provider == "pollinations") {
-        std::string path = "/image/" + urlEncode(prompt) + "?model=flux&width=800&height=600&nologo=true";
-        if (!winHttpRequestEx("gen.pollinations.ai", 443, true, path, "GET", "", apiKey, st, resp, errOut)) {
+        if (!apiKey.empty() && apiKey != "free") {
+            std::string path = "/image/" + urlEncode(prompt) + "?model=flux&width=800&height=600&nologo=true";
+            if (winHttpRequestEx("gen.pollinations.ai", 443, true, path, "GET", "", apiKey, st, resp, errOut) &&
+                st >= 200 && st < 300 && resp.size() > 512 && resp[0] != '{') {
+                outMime = detectImageMime(resp);
+                outB64 = base64Encode(resp);
+                modelUsedOut = "pollinations/flux";
+                return !outB64.empty();
+            }
+        }
+        std::string freePath = "/prompt/" + urlEncode(prompt) + "?width=800&height=600&nologo=true";
+        if (!winHttpRequestEx("image.pollinations.ai", 443, true, freePath, "GET", "", "", st, resp, errOut)) {
             return false;
         }
         if (st >= 200 && st < 300 && resp.size() > 512 && resp[0] != '{') {
             outMime = detectImageMime(resp);
             outB64 = base64Encode(resp);
-            modelUsedOut = "pollinations/flux";
+            modelUsedOut = "pollinations/free";
             return !outB64.empty();
         }
         errOut = extractGeminiError(resp, st);

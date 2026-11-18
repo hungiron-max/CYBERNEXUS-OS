@@ -3180,6 +3180,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                              priority ASC, id ASC
                 )");
                 std::string firstErr;
+                std::string nonGeminiErr;
                 for (const auto& kr : poolKeys) {
                     std::string prov = kr.value("provider", "gemini");
                     std::string kVal = kr.value("api_key", "");
@@ -3191,13 +3192,24 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                         return true;
                     }
                     if (firstErr.empty()) firstErr = curErr;
+                    if (prov != "gemini" && !curErr.empty()) nonGeminiErr = curErr;
                     // Only mark non-gemini or revoked keys; do NOT disable Gemini key for OCR/Chat when Free Tier limits image=0
                     if (prov != "gemini" || curErr.find("API_KEY_INVALID") != std::string::npos || curErr.find("401") != std::string::npos) {
                         handleGeminiKeyRuntimeError(db, kr, curErr);
                     }
                 }
-                if (firstErr.find("free_tier") != std::string::npos || firstErr.find("limit: 0") != std::string::npos) {
-                    outErr = "Key Gemini Free bị Google khóa tạo ảnh (limit: 0). Vui lòng bật Billing PayG hoặc nạp thêm Key tạo ảnh miễn phí (HuggingFace hf_... / Pollinations) vào Master AI Vault!";
+                // Built-in zero-key fallback via image.pollinations.ai when paid/quota image keys fail
+                {
+                    std::string pollErr;
+                    if (SaleApp::AI::generateImageViaProvider("pollinations", "", imgPrompt, outB64, outMime, outModel, pollErr)) {
+                        return true;
+                    }
+                    if (!pollErr.empty()) nonGeminiErr = pollErr;
+                }
+                if (!nonGeminiErr.empty()) {
+                    outErr = nonGeminiErr;
+                } else if (firstErr.find("free_tier") != std::string::npos || firstErr.find("limit: 0") != std::string::npos) {
+                    outErr = "Key Gemini Free bị Google khóa tạo ảnh (limit: 0). Vui lòng bật Billing PayG hoặc nạp thêm Key tạo ảnh miễn phí (Pollinations / OpenAI) vào Master AI Vault!";
                 } else {
                     outErr = firstErr.empty() ? "Chưa có API Key tạo ảnh khả dụng trong Master AI Vault!" : firstErr;
                 }
