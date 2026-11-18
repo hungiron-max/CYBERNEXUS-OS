@@ -101,6 +101,50 @@ public:
             };
             res.set_content(out.dump(2), "application/json; charset=utf-8");
         });
+
+        // POST /api/pos/vietqr-payload - Sinh chuỗi Napas247 EMVCo VietQR + CRC16-CCITT phía Native DLL
+        svr.Post("/api/pos/vietqr-payload", [](const httplib::Request& req, httplib::Response& res) {
+            json body = json::parse(req.body, nullptr, false);
+            if (body.is_discarded() || !body.is_object()) {
+                res.status = 400;
+                res.set_content(json({{"success", false}, {"message", "Payload JSON không hợp lệ"}}).dump(), "application/json; charset=utf-8");
+                return;
+            }
+            std::string bin = body.value("bank_bin", "");
+            std::string acct = body.value("account_no", "");
+            if (bin.empty() || acct.empty()) {
+                res.status = 400;
+                res.set_content(json({{"success", false}, {"message", "Thiếu bank_bin hoặc account_no"}}).dump(), "application/json; charset=utf-8");
+                return;
+            }
+            long long amount = static_cast<long long>(std::max(0.0, std::round(body.value("amount", 0.0))));
+            std::string desc = body.value("description", "");
+            auto tlv = [](const std::string& tag, const std::string& val) -> std::string {
+                char lenBuf[4];
+                std::snprintf(lenBuf, sizeof(lenBuf), "%02zu", val.size());
+                return tag + std::string(lenBuf) + val;
+            };
+            std::string merchantInfo = tlv("00", "A000000727") + tlv("01", tlv("00", bin) + tlv("01", acct)) + tlv("02", "QRIBFTTA");
+            std::string payload = tlv("00", "01") + tlv("01", amount > 0 ? "12" : "11") + tlv("38", merchantInfo) + tlv("53", "704");
+            if (amount > 0) payload += tlv("54", std::to_string(amount));
+            payload += tlv("58", "VN");
+            if (!desc.empty()) payload += tlv("62", tlv("08", desc.substr(0, 50)));
+            payload += "6304";
+            unsigned short crc = 0xFFFF;
+            for (unsigned char c : payload) {
+                crc ^= static_cast<unsigned short>(c) << 8;
+                for (int i = 0; i < 8; ++i) {
+                    crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+                }
+            }
+            char crcBuf[8];
+            std::snprintf(crcBuf, sizeof(crcBuf), "%04X", crc & 0xFFFF);
+            res.set_content(json({
+                {"success", true},
+                {"engine", "mod_pos_core.dll"},
+                {"qr_payload", payload + std::string(crcBuf)}
+            }).dump(2), "application/json; charset=utf-8");
+        });
     }
 };
 

@@ -37,4 +37,21 @@
     if (typeof global.escapeHtml !== 'function') {
         global.escapeHtml = escapeHtml;
     }
+
+    async function postDll(endpoint, payload) {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload || {})
+        });
+        return res.json();
+    }
+
+    global.CyberNexusNative = {
+        calcCart: function (p) { return postDll('/api/pos/calculate-cart', p); },
+        buildVietQr: function (p) { return postDll('/api/pos/vietqr-payload', p); },
+        summarizeFinance: function (p) { return postDll('/api/finance/summarize', p); },
+        calcPnl: function (p) { return postDll('/api/finance/pnl-metrics', p); },
+        calcPayroll: function (p) { return postDll('/api/hr/calculate-payroll', p); }
+    };
 })(window);
