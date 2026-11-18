@@ -184,6 +184,24 @@ int main(int argc, char* argv[]) {
     };
 
     // Master Routes
+    auto serveFavicon = [webDir](const char* fname, const char* mime) {
+        return [webDir, fname, mime](const httplib::Request&, httplib::Response& res) {
+            fs::path fp = webDir / fname;
+            if (fs::exists(fp)) {
+                std::ifstream ifs(fp, std::ios::binary);
+                if (ifs) {
+                    std::stringstream buf;
+                    buf << ifs.rdbuf();
+                    res.set_header("Cache-Control", "public, max-age=3600");
+                    res.set_content(buf.str(), mime);
+                    return;
+                }
+            }
+            res.status = 404;
+        };
+    };
+    svr.Get("/favicon.ico", serveFavicon("favicon.ico", "image/x-icon"));
+    svr.Get("/favicon.png", serveFavicon("favicon.png", "image/png"));
     svr.Get("/", serveMasterView);
     svr.Get("/super_admin", serveMasterView);
     svr.Get("/super_admin.html", serveMasterView);

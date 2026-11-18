@@ -133,7 +133,10 @@ void openVaultWindow() {
     };
     for (const char* ep : edgePaths) {
         if (fs::exists(ep)) {
-            std::string args = "--app=" + url + " --window-size=1140,780";
+            char localApp[MAX_PATH] = {0};
+            GetEnvironmentVariableA("LOCALAPPDATA", localApp, MAX_PATH);
+            std::string profileDir = std::string(localApp[0] ? localApp : "C:\\Temp") + "\\CyberNexusVaultEdge";
+            std::string args = "--app=" + url + " --window-size=1140,780 --user-data-dir=\"" + profileDir + "\"";
             ShellExecuteA(nullptr, "open", ep, args.c_str(), nullptr, SW_SHOWNORMAL);
             return;
         }
@@ -147,7 +150,8 @@ std::string buildVaultHtml() {
 <head>
 <meta charset="UTF-8">
 <title>CyberNexus Vault Admin (Developer Only)</title>
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" href="/favicon.png?v=20261118">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261118">
 <style>
 :root{color-scheme:dark;--bg:#090d16;--card:rgba(20,27,45,.86);--border:rgba(255,255,255,.1);--text:#f1f5f9;--muted:#94a3b8;}
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -313,6 +317,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     svr.Get("/favicon.ico", [](const httplib::Request&, httplib::Response& res) {
         res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::VAULT_FAVICON_ICO),
                         CyberNexus::Icons::VAULT_FAVICON_ICO_len, "image/x-icon");
+    });
+
+    svr.Get("/favicon.png", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::VAULT_FAVICON_PNG),
+                        CyberNexus::Icons::VAULT_FAVICON_PNG_len, "image/png");
     });
 
     svr.Get("/api/vault/status", [](const httplib::Request&, httplib::Response& res) {

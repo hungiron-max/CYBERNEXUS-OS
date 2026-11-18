@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.13",
-  "title": "Cập nhật bộ Icon & Favicon chuẩn Apple Liquid Glass (CN Geometric Cut)",
-  "notes": "Tích hợp bộ icon & favicon squircle mới cho Control Center, cybexus_slave.exe và toàn bộ giao diện Web quán.",
-  "created_at": "2026-11-18 13:30:26",
+  "version": "2026.11.18.14",
+  "title": "Sửa triệt để route /favicon.ico & /favicon.png trên Slave + Cache-buster HTML",
+  "notes": "Bổ sung route /favicon.ico và /favicon.png trong cybernexus_slave.exe và cập nhật thẻ link icon ?v=20261118 trên toàn bộ trang web.",
+  "created_at": "2026-11-18 14:19:06",
   "files": [
     "cybernexus_slave.exe",
     "web/web_integrity.json",

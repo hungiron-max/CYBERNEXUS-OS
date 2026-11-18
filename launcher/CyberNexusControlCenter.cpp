@@ -391,7 +391,10 @@ void openControlCenterWindow() {
     };
     for (const char* ep : edgePaths) {
         if (fs::exists(ep)) {
-            std::string args = "--app=" + url + " --window-size=1160,790";
+            char localApp[MAX_PATH] = {0};
+            GetEnvironmentVariableA("LOCALAPPDATA", localApp, MAX_PATH);
+            std::string profileDir = std::string(localApp[0] ? localApp : "C:\\Temp") + "\\CyberNexusControlEdge";
+            std::string args = "--app=" + url + " --window-size=1160,790 --user-data-dir=\"" + profileDir + "\"";
             ShellExecuteA(nullptr, "open", ep, args.c_str(), nullptr, SW_SHOWNORMAL);
             return;
         }
@@ -449,7 +452,8 @@ std::string buildControlCenterHtml() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CyberNexus OS — Control Center</title>
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" href="/favicon.png?v=20261118">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261118">
 <style>
 :root{color-scheme:dark;--bg:#0b0f19;--card:rgba(22,29,46,.78);--border:rgba(255,255,255,.09);--text:#f1f5f9;--muted:#94a3b8;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--sky:#38bdf8;}
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
@@ -642,6 +646,15 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         } else {
             res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::STORE_FAVICON_ICO),
                             CyberNexus::Icons::STORE_FAVICON_ICO_len, "image/x-icon");
+        }
+    });
+    svr.Get("/favicon.png", [](const httplib::Request&, httplib::Response& res) {
+        if (g_master.available && !g_slave.available) {
+            res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::MASTER_FAVICON_PNG),
+                            CyberNexus::Icons::MASTER_FAVICON_PNG_len, "image/png");
+        } else {
+            res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::STORE_FAVICON_PNG),
+                            CyberNexus::Icons::STORE_FAVICON_PNG_len, "image/png");
         }
     });
 
