@@ -79,7 +79,13 @@ fs::path pickInstallFolder(HWND owner, const fs::path& initial) {
     wchar_t pathBuf[MAX_PATH] = {0};
     fs::path out = initial;
     if (SHGetPathFromIDListW(pidl, pathBuf)) {
-        out = fs::path(pathBuf) / L"CyberNexus_POS";
+        fs::path chosen(pathBuf);
+        std::wstring fname = chosen.filename().wstring();
+        if (fname == L"CyberNexus_POS" || fname == L"cybernexus_pos") {
+            out = chosen;
+        } else {
+            out = chosen / L"CyberNexus_POS";
+        }
     }
     CoTaskMemFree(pidl);
     return out;
@@ -195,8 +201,16 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         }
         return out;
     };
-    std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '"
-        + psEscape(tempZip.wstring()) + L"' -DestinationPath '" + psEscape(installDir.wstring()) + L"' -Force\"";
+    // Stop any running CyberNexus services in target folder before overwriting
+    runHiddenProcess(L"taskkill /F /IM CyberNexus_Control_Center.exe /IM cybernexus_slave.exe /IM cybernexus_master.exe");
+
+    fs::path errLog = fs::path(tempBuf) / L"cnx_setup_err.log";
+    fs::remove(errLog, ec);
+    std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \""
+        L"$ErrorActionPreference='Stop'; "
+        L"try { Expand-Archive -LiteralPath '" + psEscape(tempZip.wstring()) +
+        L"' -DestinationPath '" + psEscape(installDir.wstring()) + L"' -Force } "
+        L"catch { $_.Exception.Message | Out-File -FilePath '" + psEscape(errLog.wstring()) + L"' -Encoding utf8; exit 1 }\"";
 
     std::atomic<bool> extractDone{false};
     std::atomic<bool> extracted{false};
@@ -214,9 +228,25 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     extThread.join();
     fs::remove(tempZip, ec);
 
-    if (!extracted) {
+    bool hasMainExe = fs::exists(installDir / L"CyberNexus_Control_Center.exe") ||
+                      fs::exists(installDir / L"cybernexus_slave.exe") ||
+                      fs::exists(installDir / L"cybernexus_master.exe");
+    if (!extracted || !hasMainExe) {
         DestroyWindow(hProgWnd);
-        MessageBoxW(nullptr, L"Giải nén bộ cài thất bại. Vui lòng thử chạy quyền Administrator.", L"CyberNexus Setup", MB_ICONERROR);
+        std::wstring msg = L"Giải nén bộ cài thất bại vào:\n" + installDir.wstring();
+        if (fs::exists(errLog)) {
+            std::ifstream efs(errLog);
+            std::string eStr((std::istreambuf_iterator<char>(efs)), std::istreambuf_iterator<char>());
+            if (!eStr.empty()) {
+                int wlen = MultiByteToWideChar(CP_UTF8, 0, eStr.c_str(), -1, nullptr, 0);
+                if (wlen > 0) {
+                    std::wstring wErr(wlen, L'\0');
+                    MultiByteToWideChar(CP_UTF8, 0, eStr.c_str(), -1, wErr.data(), wlen);
+                    msg += L"\n\nChi tiết: " + wErr;
+                }
+            }
+        }
+        MessageBoxW(nullptr, msg.c_str(), L"CyberNexus Setup", MB_ICONERROR);
         return 1;
     }
 
