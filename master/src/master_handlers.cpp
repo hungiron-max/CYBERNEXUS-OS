@@ -4,6 +4,7 @@
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
 #include "gemini_client.hpp"
+#include "pin_vault.hpp"
 #include "sqlite3.h"
 #include <iostream>
 #include <fstream>
@@ -944,9 +945,6 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     if (!storedPass.empty()) {
                         valid = (pass == storedPass) || (pos_bcrypt_checkpw(pass.c_str(), storedPass.c_str()) == 0);
                     }
-                    if (!valid && (pass == "admin123" || pass == "123456" || pass == "superadmin")) {
-                        valid = true;
-                    }
 
                     if (valid) {
                         int64_t sId = getInt(staffRow, "id", 0);
@@ -1005,8 +1003,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 if (lowerUser == lowerStored || lowerUser == "superadmin") {
                     if (!storedHash.empty()) {
                         valid = (pos_bcrypt_checkpw(pass.c_str(), storedHash.c_str()) == 0);
-                    }
-                    if (!valid && (pass == "admin123" || pass == "123456" || pass == "superadmin")) {
+                    } else if (pass == "superadmin") {
                         valid = true;
                     }
                 }
@@ -1164,7 +1161,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 return;
             }
 
-            if (action == "reset_hardware_lock") {
+                if (action == "reset_hardware_lock") {
                 std::string tcode = getVal("tenant_code", "");
                 int64_t tid = getValInt("tenant_id", 0);
                 db.execute(R"(
@@ -1174,6 +1171,44 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 )", {{":tc", tcode}, {":id", tid}});
                 recordAuditLog(db, 0, "Kỹ Thuật", "technical", "RESET_HARDWARE_LOCK", tcode, "Mở khóa ràng buộc phần cứng (Hardware Node-Lock) cho quán " + tcode, "{}", req.remote_addr);
                 sendJson(res, {{"success", true}, {"message", "Đã mở khóa phần cứng thành công! Quán có thể kích hoạt máy trạm mới."}});
+                return;
+            }
+
+            if (action == "reset_store_owner_pin") {
+                int64_t tid = getValInt("tenant_id", 0);
+                std::string tcode = getVal("tenant_code", "");
+                auto tRow = db.queryRow("SELECT id, tenant_code, store_name, license_key, default_pin_sha256, default_pin_enc FROM saas_tenants WHERE id = :id OR tenant_code = :tc LIMIT 1",
+                                        {{":id", tid}, {":tc", tcode}});
+                if (tRow.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy hồ sơ quán!"}}, 404);
+                    return;
+                }
+                int64_t realTid = getInt(tRow, "id", 0);
+                std::string realTc = getString(tRow, "tenant_code", tcode);
+                std::string sName = getString(tRow, "store_name", realTc);
+                std::string lk = getString(tRow, "license_key", "");
+                std::string pin6 = CyberNexus::PinVault::decryptPinForLicense(getString(tRow, "default_pin_enc", ""), lk);
+                if (!CyberNexus::PinVault::isValidPin6(pin6)) {
+                    pin6 = CyberNexus::PinVault::generateRandomPin6();
+                    db.execute("UPDATE saas_tenants SET default_pin_sha256 = :psha, default_pin_enc = :penc WHERE id = :id",
+                               {{":psha", AuthService::sha256(pin6)}, {":penc", CyberNexus::PinVault::encryptPinForLicense(pin6, lk)}, {":id", realTid}});
+                }
+                db.execute("UPDATE saas_tenants SET pin_reset_pending = 1 WHERE id = :id", {{":id", realTid}});
+                bool isOnline = StoreTunnelManager::instance().enqueueCommand(realTid, "RESET_OWNER_PIN", {
+                    {"pin6", pin6},
+                    {"pin_sha256", AuthService::sha256(pin6)},
+                    {"store_name", sName},
+                    {"store_code", realTc}
+                }, true);
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "RESET_OWNER_PIN", realTc,
+                               "Reset PIN 6 số chủ quán về mặc định và gửi file PIN xuống máy quán " + sName, "{}", req.remote_addr);
+                sendJson(res, {
+                    {"success", true},
+                    {"online_delivered", isOnline},
+                    {"message", isOnline
+                        ? ("Đã reset PIN mặc định 6 số & gửi file về Control Center của quán " + sName + " ngay lập tức!")
+                        : ("Đã xếp hàng lệnh Reset PIN mặc định cho quán " + sName + " (sẽ tự nhận ngay khi quán kết nối Master).")}
+                });
                 return;
             }
 
@@ -1317,17 +1352,20 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         return s;
                     };
                     std::string newKey = "LIC-" + randHex(4) + "-" + randHex(4) + "-" + randHex(4) + "-" + randHex(4);
+                    std::string pin6 = CyberNexus::PinVault::generateRandomPin6();
+                    std::string pinSha = AuthService::sha256(pin6);
+                    std::string pinEnc = CyberNexus::PinVault::encryptPinForLicense(pin6, newKey);
 
                     int64_t newId = db.execute(
                         "INSERT INTO saas_tenants (tenant_code, store_name, owner_name, phone, email, address, "
                         "plan_id, plan_name, billing_cycle, subscription_status, start_date, expire_date, "
-                        "enabled_modules, license_key, note, logo_path) "
-                        "VALUES (:tc, :sn, :on, :ph, :em, :ad, :pid, :pn, 'yearly', 'active', date('now'), :ed, :emods, :lk, :note, :logo)",
+                        "enabled_modules, license_key, note, logo_path, default_pin_sha256, default_pin_enc) "
+                        "VALUES (:tc, :sn, :on, :ph, :em, :ad, :pid, :pn, 'yearly', 'active', date('now'), :ed, :emods, :lk, :note, :logo, :psha, :penc)",
                         {
                             {":tc", tenant_code}, {":sn", store_name}, {":on", owner_name}, {":ph", phone},
                             {":em", email}, {":ad", address}, {":pid", plan_id}, {":pn", plan_name},
                             {":ed", expire_date}, {":emods", default_mods}, {":lk", newKey}, {":note", note},
-                            {":logo", savedLogoPath}
+                            {":logo", savedLogoPath}, {":psha", pinSha}, {":penc", pinEnc}
                         }
                     );
                     sendJson(res, {
@@ -1768,6 +1806,16 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     fs::path projectRoot = baseDir.parent_path();
                     fs::path slaveDir = projectRoot / "slave";
 
+                    // Đảm bảo quán có PIN mặc định 6 số ngẫu nhiên & xuất file DEFAULT_OWNER_PIN.txt
+                    std::string licKey = getString(tenant, "license_key", "");
+                    std::string ownerPin6 = CyberNexus::PinVault::decryptPinForLicense(getString(tenant, "default_pin_enc", ""), licKey);
+                    if (!CyberNexus::PinVault::isValidPin6(ownerPin6)) {
+                        ownerPin6 = CyberNexus::PinVault::generateRandomPin6();
+                        db.execute("UPDATE saas_tenants SET default_pin_sha256 = :psha, default_pin_enc = :penc WHERE id = :id",
+                                   {{":psha", AuthService::sha256(ownerPin6)}, {":penc", CyberNexus::PinVault::encryptPinForLicense(ownerPin6, licKey)}, {":id", realTid}});
+                    }
+                    CyberNexus::PinVault::writeDefaultOwnerPinFile(stagingDir, storeName, realTcode, ownerPin6, false);
+
                     // Khởi tạo Database sạch riêng cho quán (4 users + 3 món ăn mẫu + clean orders)
                     fs::path stageDbDir = stagingDir / "database";
                     fs::create_directories(stageDbDir);
@@ -1777,13 +1825,15 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         fs::copy_file(tmplDbPath, stageDbPath, fs::copy_options::overwrite_existing);
                         sqlite3* sdb = nullptr;
                         if (sqlite3_open(stageDbPath.string().c_str(), &sdb) == SQLITE_OK) {
+                            sqlite3_exec(sdb, "ALTER TABLE users ADD COLUMN default_pin_sha256 TEXT DEFAULT '';", nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "ALTER TABLE users ADD COLUMN pin_must_change INTEGER DEFAULT 0;", nullptr, nullptr, nullptr);
                             sqlite3_exec(sdb, "DELETE FROM orders; DELETE FROM order_items; DELETE FROM attendances; DELETE FROM kitchen_service_logs; DELETE FROM material_transactions; DELETE FROM app_notifications; DELETE FROM media_jukebox_queue;", nullptr, nullptr, nullptr);
                             sqlite3_exec(sdb, "DELETE FROM users;", nullptr, nullptr, nullptr);
-                            std::string sqlUsers = "INSERT INTO users (id, username, password, fullname, role, pin_code, status, created_at) VALUES "
-                                "(1, 'admin', 'Admin@2026', 'Quản Trị Viên (" + storeName + ")', 'admin', '9999', 'active', datetime('now')),"
-                                "(2, 'bep01', 'Bep@2026', 'Bếp Trưởng / Pha Chế', 'kitchen', '1111', 'active', datetime('now')),"
-                                "(3, 'thungan01', 'ThuNgan@2026', 'Thu Ngân Điểm Bán', 'cashier', '2222', 'active', datetime('now')),"
-                                "(4, 'phucvu01', 'PhucVu@2026', 'Nhân Viên Phục Vụ 01', 'waiter', '3333', 'active', datetime('now'));";
+                            std::string sqlUsers = "INSERT INTO users (id, username, password, fullname, role, pin_code, default_pin_sha256, pin_must_change, status, created_at) VALUES "
+                                "(1, 'admin', 'Admin@2026', 'Quản Trị Viên (" + storeName + ")', 'admin', '" + ownerPin6 + "', '" + AuthService::sha256(ownerPin6) + "', 1, 'active', datetime('now')),"
+                                "(2, 'bep01', 'Bep@2026', 'Bếp Trưởng / Pha Chế', 'kitchen', '111111', '', 0, 'active', datetime('now')),"
+                                "(3, 'thungan01', 'ThuNgan@2026', 'Thu Ngân Điểm Bán', 'cashier', '222222', '', 0, 'active', datetime('now')),"
+                                "(4, 'phucvu01', 'PhucVu@2026', 'Nhân Viên Phục Vụ 01', 'waiter', '333333', '', 0, 'active', datetime('now'));";
                             sqlite3_exec(sdb, sqlUsers.c_str(), nullptr, nullptr, nullptr);
                             sqlite3_exec(sdb, "DELETE FROM products;", nullptr, nullptr, nullptr);
                             std::string sqlProducts = "INSERT INTO products (id, category_id, code, name, unit, cost_price, sale_price, status, description, created_at) VALUES "

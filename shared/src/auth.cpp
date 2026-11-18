@@ -311,12 +311,21 @@ json AuthService::login(const std::string& usernameOrCode, const std::string& pa
     sUser.is_super_admin = false;
 
     std::string token = createSession(sUser);
+    int pinMustChange = 0;
+    try { pinMustChange = user.value("pin_must_change", 0); } catch (...) {}
 
-    // Update user online status
-    db.execute(
-        "UPDATE users SET is_online = 1, last_active_at = datetime('now') WHERE id = :id",
-        {{":id", sUser.id}}
-    );
+    // Update user online status & consume one-time default PIN if flagged
+    if (pinMustChange == 1) {
+        db.execute(
+            "UPDATE users SET is_online = 1, last_active_at = datetime('now'), pin_code = '__USED_ONETIME__', pin_must_change = 2 WHERE id = :id",
+            {{":id", sUser.id}}
+        );
+    } else {
+        db.execute(
+            "UPDATE users SET is_online = 1, last_active_at = datetime('now') WHERE id = :id",
+            {{":id", sUser.id}}
+        );
+    }
 
     std::string redirect = "index.html";
     if (sUser.role == "customer") {
@@ -333,6 +342,7 @@ json AuthService::login(const std::string& usernameOrCode, const std::string& pa
         {"success", true},
         {"token", token},
         {"redirect", redirect},
+        {"must_change_pin", pinMustChange == 1},
         {"user", {
             {"id", sUser.id},
             {"user_code", sUser.user_code},
@@ -367,12 +377,21 @@ json AuthService::loginPin(const std::string& pin) {
     sUser.is_super_admin = (sUser.role == "admin");
 
     std::string token = createSession(sUser);
+    int pinMustChange = 0;
+    try { pinMustChange = user.value("pin_must_change", 0); } catch (...) {}
 
-    // Update user online status
-    db.execute(
-        "UPDATE users SET is_online = 1, last_active_at = datetime('now') WHERE id = :id",
-        {{":id", sUser.id}}
-    );
+    // Update user online status & consume one-time default PIN if flagged
+    if (pinMustChange == 1) {
+        db.execute(
+            "UPDATE users SET is_online = 1, last_active_at = datetime('now'), pin_code = '__USED_ONETIME__', pin_must_change = 2 WHERE id = :id",
+            {{":id", sUser.id}}
+        );
+    } else {
+        db.execute(
+            "UPDATE users SET is_online = 1, last_active_at = datetime('now') WHERE id = :id",
+            {{":id", sUser.id}}
+        );
+    }
 
     std::string redirect = "index.html";
     if (sUser.role == "customer") {
@@ -389,6 +408,7 @@ json AuthService::loginPin(const std::string& pin) {
         {"success", true},
         {"token", token},
         {"redirect", redirect},
+        {"must_change_pin", pinMustChange == 1},
         {"user", {
             {"id", sUser.id},
             {"user_code", sUser.user_code},

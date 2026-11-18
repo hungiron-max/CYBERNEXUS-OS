@@ -544,7 +544,7 @@ async function refresh(){
   grid.innerHTML = avail.map(s => `
     <div class="card">
       <div class="row">
-        <div><div class="title" style="font-size:15px">${s.name}</div><div class="sub">${s.work_dir}</div></div>
+        <div><div class="title" style="font-size:15px">${s.pin_reset_ready ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;margin-right:6px" title="Đã nhận file PIN 6 số mặc định từ Master"></span>' : ''}${s.name}</div><div class="sub">${s.work_dir}</div></div>
         <span class="pill ${s.running ? 'on' : 'off'}">${s.running ? 'ĐANG CHẠY' : 'ĐÃ DỪNG'}</span>
       </div>
       <div class="meta">
@@ -559,6 +559,7 @@ async function refresh(){
              <button class="btn-primary" onclick="window.open('${s.web_url}','_blank')">🌐 Mở Web</button>`
           : `<button class="btn-green" onclick="act('/api/control/start',{id:'${s.id}'})">▶ Khởi chạy</button>`
         }
+        ${s.pin_reset_ready ? `<button class="btn-green" onclick="act('/api/control/open-pin-file')">● Mở File PIN 6 Số</button>` : ''}
       </div>
     </div>`).join('');
   allLogs = st.logs || [];
@@ -637,6 +638,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         refreshServiceStatus(g_master);
         refreshServiceStatus(g_slave);
         auto makeSvc = [](const ServiceState& s) {
+            bool pinReady = (s.id == "slave" && s.available && fs::exists(s.workDir / "owner_pin_reset.flag"));
             return json{
                 {"id", s.id},
                 {"name", s.name},
@@ -644,6 +646,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
                 {"available", s.available},
                 {"running", s.running},
                 {"pid", s.pid},
+                {"pin_reset_ready", pinReady},
                 {"work_dir", s.workDir.string()},
                 {"web_url", s.id == "master" ? "http://localhost:8500/super_admin" : "http://localhost:8501/admin.html"}
             };
@@ -738,6 +741,18 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         std::lock_guard<std::mutex> lk(g_mtx);
         g_logs.clear();
         res.set_content("{\"success\":true}", "application/json");
+    });
+
+    svr.Post("/api/control/open-pin-file", [](const httplib::Request&, httplib::Response& res) {
+        std::error_code ec;
+        fs::path pinFile = g_slave.workDir / "DEFAULT_OWNER_PIN.txt";
+        fs::remove(g_slave.workDir / "owner_pin_reset.flag", ec);
+        if (fs::exists(pinFile)) {
+            ShellExecuteW(nullptr, L"open", pinFile.wstring().c_str(), nullptr, g_slave.workDir.wstring().c_str(), SW_SHOWNORMAL);
+            res.set_content("{\"success\":true}", "application/json");
+        } else {
+            res.set_content("{\"success\":false,\"message\":\"Không tìm thấy file DEFAULT_OWNER_PIN.txt\"}", "application/json");
+        }
     });
 
     svr.Post("/api/control/quit", [](const httplib::Request&, httplib::Response& res) {

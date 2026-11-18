@@ -10,6 +10,7 @@
 #include "ConfigManager.hpp"
 #include "PluginManager.hpp"
 #include "gemini_client.hpp"
+#include "pin_vault.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -921,13 +922,36 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         return;
     }
 
+    if (action == "change_my_pin") {
+        auto userOpt = auth.authenticate(req);
+        if (!userOpt.has_value()) {
+            sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập!"}}, 401);
+            return;
+        }
+        std::string newPin = BodyParser::getParam(req, body, "new_pin");
+        if (!CyberNexus::PinVault::isValidPin6(newPin)) {
+            sendJson(res, {{"success", false}, {"message", "Mã PIN mới phải gồm đúng 6 chữ số!"}}, 400);
+            return;
+        }
+        auto uRow = db.queryRow("SELECT default_pin_sha256 FROM users WHERE id = :id", {{":id", userOpt->id}});
+        std::string defSha = uRow.is_null() ? "" : uRow.value("default_pin_sha256", "");
+        if (!defSha.empty() && AuthService::sha256(newPin) == defSha) {
+            sendJson(res, {{"success", false}, {"message", "Không được phép đặt mã PIN mới trùng với PIN mặc định 6 số ban đầu!"}}, 400);
+            return;
+        }
+        db.execute("UPDATE users SET pin_code = :p, pin_must_change = 0 WHERE id = :id",
+                   {{":p", newPin}, {":id", userOpt->id}});
+        sendJson(res, {{"success", true}, {"message", "Đã cập nhật mã PIN 6 số mới thành công!"}});
+        return;
+    }
+
     // 1.3 Action: pin_login (hoặc login_pin cho thu ngân / nhân viên phục vụ)
     if (action == "pin_login" || action == "login_pin") {
         std::string pin = BodyParser::getParam(req, body, "pin_code");
         if (pin.empty()) pin = BodyParser::getParam(req, body, "pin");
 
-        if (pin.empty()) {
-            sendJson(res, {{"success", false}, {"message", "Vui lòng nhập mã PIN 4 số!"}}, 400);
+        if (!CyberNexus::PinVault::isValidPin6(pin)) {
+            sendJson(res, {{"success", false}, {"message", "Vui lòng nhập đúng mã PIN 6 chữ số!"}}, 400);
             return;
         }
 
@@ -943,6 +967,29 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         } else {
             sendJson(res, result, 401);
         }
+        return;
+    }
+
+    if (action == "change_my_pin") {
+        auto userOpt = auth.authenticate(req);
+        if (!userOpt.has_value()) {
+            sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập!"}}, 401);
+            return;
+        }
+        std::string newPin = BodyParser::getParam(req, body, "new_pin");
+        if (!CyberNexus::PinVault::isValidPin6(newPin)) {
+            sendJson(res, {{"success", false}, {"message", "Mã PIN mới phải gồm đúng 6 chữ số!"}}, 400);
+            return;
+        }
+        auto uRow = db.queryRow("SELECT default_pin_sha256 FROM users WHERE id = :id", {{":id", userOpt->id}});
+        std::string defSha = uRow.is_null() ? "" : uRow.value("default_pin_sha256", "");
+        if (!defSha.empty() && AuthService::sha256(newPin) == defSha) {
+            sendJson(res, {{"success", false}, {"message", "Không được phép đặt mã PIN mới trùng với PIN mặc định 6 số ban đầu!"}}, 400);
+            return;
+        }
+        db.execute("UPDATE users SET pin_code = :p, pin_must_change = 0 WHERE id = :id",
+                   {{":p", newPin}, {":id", userOpt->id}});
+        sendJson(res, {{"success", true}, {"message", "Đã cập nhật mã PIN 6 số mới thành công!"}});
         return;
     }
 
@@ -5608,7 +5655,17 @@ void ApiHandlers::handleUsers(const httplib::Request& req, httplib::Response& re
                 }
 
                 if (!newPin.empty()) {
-                    db.execute("UPDATE users SET pin_code = :p WHERE id = :id", {{":p", newPin}, {":id", id}});
+                    if (!CyberNexus::PinVault::isValidPin6(newPin)) {
+                        sendJson(res, {{"success", false}, {"message", "Mã PIN phải gồm đúng 6 chữ số!"}}, 400);
+                        return;
+                    }
+                    auto uRow = db.queryRow("SELECT default_pin_sha256 FROM users WHERE id = :id", {{":id", id}});
+                    std::string defSha = uRow.is_null() ? "" : uRow.value("default_pin_sha256", "");
+                    if (!defSha.empty() && AuthService::sha256(newPin) == defSha) {
+                        sendJson(res, {{"success", false}, {"message", "Không được phép đặt mã PIN mới trùng với PIN mặc định 6 số ban đầu!"}}, 400);
+                        return;
+                    }
+                    db.execute("UPDATE users SET pin_code = :p, pin_must_change = 0 WHERE id = :id", {{":p", newPin}, {":id", id}});
                 }
 
                 sendJson(res, {{"success", true}, {"message", "Đặt lại mật khẩu/mã PIN thành công!"}});

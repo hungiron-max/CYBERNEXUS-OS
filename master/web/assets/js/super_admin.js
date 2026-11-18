@@ -378,6 +378,9 @@ const SuperAdmin = {
                             <button type="button" onclick="SuperAdmin.resetHardwareLock(${t.id}, '${t.tenant_code}')" class="w-7 h-7 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 flex items-center justify-center text-[11px] transition" title="Reset Machine ID">
                                 <i class="fas fa-microchip text-[10px]"></i>
                             </button>
+                            <button type="button" onclick="SuperAdmin.resetOwnerPin(${t.id}, '${t.tenant_code}')" class="w-7 h-7 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 flex items-center justify-center text-[11px] transition" title="Reset PIN 6 số mặc định & gửi file về Control Center quán">
+                                <i class="fas fa-shield-halved text-[10px]"></i>
+                            </button>
                             <button type="button" onclick="SuperAdmin.openQuickExtend(${t.id}, '${t.store_name}', '${t.plan_name}', '${t.expire_date}')" class="w-7 h-7 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-[11px] transition" title="Gia hạn gói">
                                 <i class="fas fa-calendar-plus text-[10px]"></i>
                             </button>
@@ -1951,6 +1954,22 @@ const SuperAdmin = {
             }
         } catch (e) {
             console.error('resetHardwareLock error:', e);
+            alert('Lỗi kết nối máy chủ');
+        }
+    },
+
+    async resetOwnerPin(tenantId, tenantCode) {
+        if (!confirm(`Xác nhận RESET PIN 6 SỐ MẶC ĐỊNH cho quán [${tenantCode}]?\n\n• Hệ thống sẽ đặt lại PIN chủ quán về 6 số mặc định (dùng 1 lần, bắt buộc đổi).\n• Tự động gửi lại file DEFAULT_OWNER_PIN.txt và bật chấm xanh thông báo trên Control Center của quán.`)) return;
+        try {
+            const res = await fetch('api/super_admin.php?action=reset_store_owner_pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_id: tenantId, tenant_code: tenantCode })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? 'Đã gửi lệnh Reset PIN mặc định!' : 'Lỗi reset PIN'));
+        } catch (e) {
+            console.error('resetOwnerPin error:', e);
             alert('Lỗi kết nối máy chủ');
         }
     },

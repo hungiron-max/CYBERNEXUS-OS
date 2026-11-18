@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.11",
-  "title": "Phát hành v2.2.0: Thay thế .bat bằng CyberNexus_Control_Center.exe & Web Integrity",
-  "notes": "Loại bỏ các file .bat khởi chạy CMD thừa; tích hợp CyberNexus_Control_Center.exe và web_integrity.json vào gói OTA chuẩn.",
-  "created_at": "2026-11-18 12:02:28",
+  "version": "2026.11.18.12",
+  "title": "PIN 6 số mặc định dùng 1 lần, Reset từ Master + Chấm xanh Control Center",
+  "notes": "Chuẩn hóa PIN 6 số toàn hệ thống; hỗ trợ nhận lệnh RESET_OWNER_PIN từ Master, ghi DEFAULT_OWNER_PIN.txt và bật chấm xanh trên CyberNexus_Control_Center.exe.",
+  "created_at": "2026-11-18 13:18:48",
   "files": [
     "cybernexus_slave.exe",
     "web/web_integrity.json",

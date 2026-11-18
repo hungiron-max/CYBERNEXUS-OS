@@ -11,6 +11,7 @@
 #include "auth.hpp"
 #include "slave_handlers.hpp"
 #include "slave_tunnel.h"
+#include "pin_vault.hpp"
 #include "slave_net_info.h"
 #include "slave_updater.h"
 #include "ConfigManager.hpp"
@@ -507,6 +508,34 @@ int main(int argc, char* argv[]) {
                                         std::thread([masterUrl, dlPath]() {
                                             SlaveUpdateManager::instance().applyPatchFromMaster(masterUrl, dlPath);
                                         }).detach();
+                                    }
+                                } else if (cmdType == "RESET_OWNER_PIN") {
+                                    json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
+                                    std::string pin6 = payload.value("pin6", "");
+                                    std::string pinSha = payload.value("pin_sha256", "");
+                                    std::string sName = payload.value("store_name", "CYBERNEXUS STORE");
+                                    std::string sCode = payload.value("store_code", "STORE");
+                                    if (CyberNexus::PinVault::isValidPin6(pin6)) {
+                                        if (pinSha.empty()) pinSha = SaleApp::Backend::AuthService::sha256(pin6);
+                                        auto& dbLocal = SaleApp::Backend::Database::instance();
+                                        auto uCols = dbLocal.query("PRAGMA table_info(users)");
+                                        auto hasU = [&](const std::string& c) {
+                                            for (const auto& r : uCols) if (r.value("name", "") == c) return true;
+                                            return false;
+                                        };
+                                        if (!hasU("default_pin_sha256")) try { dbLocal.execute("ALTER TABLE users ADD COLUMN default_pin_sha256 TEXT DEFAULT ''"); } catch (...) {}
+                                        if (!hasU("pin_must_change")) try { dbLocal.execute("ALTER TABLE users ADD COLUMN pin_must_change INTEGER DEFAULT 0"); } catch (...) {}
+                                        dbLocal.execute(
+                                            "UPDATE users SET pin_code = :p, default_pin_sha256 = :h, pin_must_change = 1 WHERE id = 1 OR role = 'admin'",
+                                            {{":p", pin6}, {":h", pinSha}}
+                                        );
+                                        fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir();
+                                        CyberNexus::PinVault::writeDefaultOwnerPinFile(baseDir, sName, sCode, pin6, true);
+                                        std::ofstream flagOut(baseDir / "owner_pin_reset.flag", std::ios::trunc);
+                                        if (flagOut) {
+                                            flagOut << "DEFAULT_OWNER_PIN.txt";
+                                        }
+                                        std::cout << "[PinVault] Da nhan lenh RESET_OWNER_PIN tu Master va tao file DEFAULT_OWNER_PIN.txt" << std::endl;
                                     }
                                 }
                             }

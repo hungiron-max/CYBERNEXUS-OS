@@ -117,4 +117,16 @@ if(WIN32)
     if(MINGW)
         target_link_options(CyberNexus_Setup_Stub PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
     endif()
+
+    add_executable(CyberNexus_Vault_Admin WIN32
+        shared/src/sqlite3.c
+        shared/src/pos_bcrypt.c
+        shared/src/db.cpp
+        shared/src/auth.cpp
+        launcher/CyberNexusVaultAdmin.cpp
+    )
+    target_link_libraries(CyberNexus_Vault_Admin PRIVATE ws2_32 crypt32 wsock32 shell32)
+    if(MINGW)
+        target_link_options(CyberNexus_Vault_Admin PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
+    endif()
 endif()

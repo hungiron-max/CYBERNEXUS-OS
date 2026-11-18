@@ -102,7 +102,10 @@ int main(int argc, char* argv[]) {
                 {"geo_lat", "REAL DEFAULT 0"},
                 {"geo_lng", "REAL DEFAULT 0"},
                 {"geo_label", "TEXT DEFAULT ''"},
-                {"geo_source", "TEXT DEFAULT 'ip'"}
+                {"geo_source", "TEXT DEFAULT 'ip'"},
+                {"default_pin_sha256", "TEXT DEFAULT ''"},
+                {"default_pin_enc", "TEXT DEFAULT ''"},
+                {"pin_reset_pending", "INTEGER DEFAULT 0"}
             };
             for (const auto& [col, def] : extraCols) {
                 if (!hasCol(col)) {
