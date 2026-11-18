@@ -3760,6 +3760,17 @@ const Admin = {
     },
 
     // 8.2 Inventory & Material Costs
+    toggleLowStockFilter() {
+        this._lowStockFilterOnly = !this._lowStockFilterOnly;
+        const card = document.getElementById('inv-card-low-stock');
+        if (card) {
+            card.classList.toggle('ring-2', this._lowStockFilterOnly);
+            card.classList.toggle('ring-rose-400/70', this._lowStockFilterOnly);
+            card.classList.toggle('bg-rose-500/10', this._lowStockFilterOnly);
+        }
+        this.loadMaterials();
+    },
+
     async loadMaterials() {
         try {
             const search = document.getElementById('inv-search-input')?.value.trim() || '';
@@ -3769,17 +3780,40 @@ const Admin = {
             const data = await res.json();
             if (!data.success) return;
 
-            this.materialsList = data.materials || [];
+            this.materialsList = (data.materials || []).map(m => {
+                const qty = Number(m.quantity || 0);
+                const minQty = Number(m.min_quantity || 0);
+                const cost = Number(m.cost_price || 0);
+                return {
+                    ...m,
+                    is_low: m.is_low !== undefined ? Boolean(m.is_low) : (qty <= minQty),
+                    stock_value: (m.stock_value !== undefined && m.stock_value !== null) ? Number(m.stock_value) : Math.round(qty * cost)
+                };
+            });
 
             // Update KPI
             const summary = data.summary || {};
             const totalItemsEl = document.getElementById('inv-stat-total-items');
             const totalValueEl = document.getElementById('inv-stat-total-value');
             const lowStockEl = document.getElementById('inv-stat-low-stock');
+            const lowNamesEl = document.getElementById('inv-stat-low-stock-names');
 
-            if (totalItemsEl) totalItemsEl.innerText = summary.total_items || 0;
-            if (totalValueEl) totalValueEl.innerText = this.formatMoney(summary.total_stock_value) + ' đ';
-            if (lowStockEl) lowStockEl.innerText = summary.low_stock_count || 0;
+            const lowItems = this.materialsList.filter(m => m.is_low);
+            if (totalItemsEl) totalItemsEl.innerText = summary.total_items ?? this.materialsList.length;
+            if (totalValueEl) totalValueEl.innerText = this.formatMoney(summary.total_stock_value || 0) + ' đ';
+            if (lowStockEl) lowStockEl.innerText = summary.low_stock_count ?? lowItems.length;
+            if (lowNamesEl) {
+                if (lowItems.length === 0) {
+                    lowNamesEl.innerText = 'Tồn kho an toàn';
+                    lowNamesEl.className = 'text-[10px] text-emerald-300 mt-1 block truncate';
+                } else {
+                    const preview = lowItems.slice(0, 2).map(x => `${x.name} (${x.quantity}/${x.min_quantity} ${x.unit})`).join(', ');
+                    const extra = lowItems.length > 2 ? ` +${lowItems.length - 2} món` : '';
+                    lowNamesEl.innerText = preview + extra;
+                    lowNamesEl.title = lowItems.map(x => `${x.name}: còn ${x.quantity} ${x.unit} (định mức ${x.min_quantity})`).join('\n');
+                    lowNamesEl.className = 'text-[10px] text-rose-300 mt-1 block truncate';
+                }
+            }
 
             // Load month expense for materials
             this.loadMonthMaterialExpense();
@@ -3799,33 +3833,34 @@ const Admin = {
             const tbody = document.getElementById('inv-materials-tbody');
             if (!tbody) return;
 
-            if (this.materialsList.length === 0) {
-                tbody.innerHTML = this.renderEmptyState(10, 'fa-boxes-stacked', 'Kho nguyên vật liệu trống', 'Chưa có nguyên vật liệu nào trong kho phù hợp với bộ lọc tìm kiếm.');
+            const displayList = this._lowStockFilterOnly ? lowItems : this.materialsList;
+            if (displayList.length === 0) {
+                tbody.innerHTML = this.renderEmptyState(10, 'fa-boxes-stacked', 'Kho nguyên vật liệu trống', this._lowStockFilterOnly ? 'Không có nguyên liệu nào dưới định mức tối thiểu.' : 'Chưa có nguyên vật liệu nào trong kho phù hợp với bộ lọc tìm kiếm.');
                 return;
             }
 
-            tbody.innerHTML = this.materialsList.map(m => {
+            tbody.innerHTML = displayList.map(m => {
                 const isLow = m.is_low;
                 const stockBadge = isLow 
-                    ? `<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 font-mono text-xs flex items-center gap-1 w-max"><i class="fas fa-triangle-exclamation text-[10px]"></i> ${m.quantity} ${m.unit}</span>`
-                    : `<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 font-mono text-xs w-max block">${m.quantity} ${m.unit}</span>`;
+                    ? `<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 font-mono text-xs inline-flex items-center justify-center gap-1 mx-auto"><i class="fas fa-triangle-exclamation text-[10px]"></i> ${m.quantity} ${m.unit}</span>`
+                    : `<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 font-mono text-xs inline-block mx-auto">${m.quantity} ${m.unit}</span>`;
 
                 return `
                     <tr class="hover:bg-white/5 transition-colors ${isLow ? 'bg-rose-500/5' : ''}">
-                        <td class="py-2.5 px-3 font-mono font-bold text-amber-400">${m.code}</td>
-                        <td class="py-2.5 px-3">
+                        <td class="py-2.5 px-3 font-mono font-bold text-amber-400 text-center">${m.code}</td>
+                        <td class="py-2.5 px-3 text-left">
                             <div class="font-bold text-slate-100 text-xs">${m.name}</div>
                             ${m.note ? `<div class="text-[10px] text-slate-400 truncate max-w-xs">${m.note}</div>` : ''}
                         </td>
-                        <td class="py-2.5 px-3">
-                            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold border border-white/5">${m.category}</span>
+                        <td class="py-2.5 px-3 text-center">
+                            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold border border-white/5 inline-block">${m.category}</span>
                         </td>
-                        <td class="py-2.5 px-3 text-slate-300 font-medium">${m.unit}</td>
-                        <td class="py-2.5 px-3">${stockBadge}</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-400 text-xs">${m.min_quantity} ${m.unit}</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-300">${Admin.formatMoney(m.cost_price)} đ</td>
-                        <td class="py-2.5 px-3 font-mono font-bold text-emerald-400">${Admin.formatMoney(m.stock_value)} đ</td>
-                        <td class="py-2.5 px-3 text-[11px] text-slate-400">${m.supplier || 'Chưa có'}</td>
+                        <td class="py-2.5 px-3 text-slate-300 font-medium text-center">${m.unit}</td>
+                        <td class="py-2.5 px-3 text-center">${stockBadge}</td>
+                        <td class="py-2.5 px-3 font-mono text-slate-400 text-xs text-center">${m.min_quantity} ${m.unit}</td>
+                        <td class="py-2.5 px-3 font-mono text-slate-300 text-right">${Admin.formatMoney(m.cost_price)} đ</td>
+                        <td class="py-2.5 px-3 font-mono font-bold text-emerald-400 text-right">${Admin.formatMoney(m.stock_value)} đ</td>
+                        <td class="py-2.5 px-3 text-[11px] text-slate-400 text-center">${m.supplier || 'Chưa có'}</td>
                         <td class="py-2.5 px-3 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 <button type="button" onclick="Admin.openStockTransactionModal('import', ${m.id})" class="p-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/30 text-xs" title="Nhập kho nhanh cho món này">
@@ -3834,7 +3869,7 @@ const Admin = {
                                 <button type="button" onclick="Admin.editMaterial(${m.id})" class="p-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/30 text-xs" title="Sửa thông tin">
                                     <i class="fas fa-pen"></i>
                                 </button>
-                                <button type="button" onclick="Admin.deleteMaterial(${m.id}, '${m.name}')" class="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-xs" title="Xóa">
+                                <button type="button" onclick="Admin.deleteMaterial(${m.id}, '${String(m.name || '').replace(/'/g, "\\'")}')" class="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-xs" title="Xóa">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>

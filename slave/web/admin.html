@@ -1026,10 +1026,10 @@
                             <div id="inv-stat-total-value" class="text-2xl font-black text-emerald-400 font-mono mt-1">0 đ</div>
                             <span class="text-[10px] text-slate-400 mt-1 block">Tính theo giá nhập gần nhất</span>
                         </div>
-                        <div class="liquid-glass-card p-3 border-l-4 border-rose-400">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cảnh Báo Tồn Kho Thấp</span>
+                        <div id="inv-card-low-stock" onclick="Admin.toggleLowStockFilter()" class="liquid-glass-card p-3 border-l-4 border-rose-400 cursor-pointer hover:bg-white/[0.04] transition-all" title="Bấm để lọc danh sách các món sắp hết hàng">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between"><span>Cảnh Báo Tồn Kho Thấp</span><i class="fas fa-filter text-[9px] text-rose-300 opacity-70"></i></span>
                             <div id="inv-stat-low-stock" class="text-2xl font-black text-rose-400 font-mono mt-1">0</div>
-                            <span class="text-[10px] text-rose-300 mt-1 block">Cần nhập thêm hàng ngay</span>
+                            <span id="inv-stat-low-stock-names" class="text-[10px] text-rose-300 mt-1 block truncate">Tồn kho an toàn</span>
                         </div>
                         <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chi Phí Mua Vật Liệu Tháng Này</span>
@@ -1086,15 +1086,15 @@
                             <table class="w-full min-w-[1080px] text-left border-collapse">
                                 <thead>
                                     <tr class="border-b border-white/10 text-[11px] text-slate-300 bg-slate-900/80 uppercase tracking-wider font-bold">
-                                        <th class="py-3 px-3 whitespace-nowrap">Mã NVL</th>
-                                        <th class="py-3 px-3 whitespace-nowrap">Tên Nguyên Vật Liệu</th>
-                                        <th class="py-3 px-3 whitespace-nowrap">Nhóm</th>
+                                        <th class="py-3 px-3 whitespace-nowrap text-center">Mã NVL</th>
+                                        <th class="py-3 px-3 whitespace-nowrap text-left">Tên Nguyên Vật Liệu</th>
+                                        <th class="py-3 px-3 whitespace-nowrap text-center">Nhóm</th>
                                         <th class="py-3 px-3 whitespace-nowrap text-center">Đơn Vị</th>
                                         <th class="py-3 px-3 whitespace-nowrap text-center">Tồn Kho Hiện Tại</th>
                                         <th class="py-3 px-3 whitespace-nowrap text-center">Định Mức Tối Thiểu</th>
                                         <th class="py-3 px-3 whitespace-nowrap text-right">Đơn Giá Nhập Gần Nhất</th>
                                         <th class="py-3 px-3 whitespace-nowrap text-right">Giá Trị Tồn</th>
-                                        <th class="py-3 px-3 whitespace-nowrap">Nhà Cung Cấp</th>
+                                        <th class="py-3 px-3 whitespace-nowrap text-center">Nhà Cung Cấp</th>
                                         <th class="py-3 px-3 whitespace-nowrap text-right">Thao Tác</th>
                                     </tr>
                                 </thead>
@@ -1289,18 +1289,19 @@
                             <table class="w-full text-left border-collapse">
                                 <thead class="sticky top-0 bg-slate-900 z-10">
                                     <tr class="border-b border-white/10 text-[11px] text-slate-400 uppercase">
-                                        <th class="py-2.5 px-3">Ngày Làm</th>
-                                        <th class="py-2.5 px-3">Nhân Viên</th>
-                                        <th class="py-2.5 px-3">Giờ Vào (Check-in)</th>
-                                        <th class="py-2.5 px-3">Giờ Ra (Check-out)</th>
-                                        <th class="py-2.5 px-3">Số Giờ Làm</th>
-                                        <th class="py-2.5 px-3">Lương / Giờ</th>
+                                        <th class="py-2.5 px-3 text-center">Ngày Làm</th>
+                                        <th class="py-2.5 px-3 text-left">Nhân Viên</th>
+                                        <th class="py-2.5 px-3 text-center">Tổ / Bộ Phận</th>
+                                        <th class="py-2.5 px-3 text-center">Giờ Vào (Check-in)</th>
+                                        <th class="py-2.5 px-3 text-center">Giờ Ra (Check-out)</th>
+                                        <th class="py-2.5 px-3 text-center">Số Giờ Làm</th>
+                                        <th class="py-2.5 px-3 text-right">Lương / Giờ</th>
                                         <th class="py-2.5 px-3 text-right">Tiền Ca (VNĐ)</th>
                                         <th class="py-2.5 px-3 text-center">Trạng Thái</th>
                                     </tr>
                                 </thead>
                                 <tbody id="payroll-records-tbody" class="divide-y divide-white/5 text-xs">
-                                    <tr><td colspan="8" class="text-center py-6 text-slate-400">Chọn bộ lọc để xem nhật ký chấm công.</td></tr>
+                                    <tr><td colspan="9" class="text-center py-6 text-slate-400">Chọn bộ lọc để xem nhật ký chấm công.</td></tr>
                                 </tbody>
                             </table>
                         </div>

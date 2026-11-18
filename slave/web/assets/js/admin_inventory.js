@@ -1417,41 +1417,190 @@ Object.assign(Admin, {
                 }
             }
 
-            // Render Detailed Attendance Log
-            const recTbody = document.getElementById('payroll-records-tbody');
-            if (recTbody) {
-                const records = data.attendance_records || [];
-                if (records.length === 0) {
-                    recTbody.innerHTML = this.renderEmptyState(8, 'fa-calendar-check', 'Không có lượt chấm công', `Không có lượt chấm công nào trong tháng ${month}.`);
-                    return;
-                }
-
-                recTbody.innerHTML = records.map(r => {
-                    const isWorking = r.status === 'working';
-                    const inTime = r.check_in_time ? r.check_in_time.split(' ')[1] : '';
-                    const outTime = r.check_out_time ? r.check_out_time.split(' ')[1] : (isWorking ? '---' : '');
-
-                    return `
-                        <tr class="hover:bg-white/5 transition-colors">
-                            <td class="py-2 px-3 font-mono text-slate-300">${window.formatDateDDMMYY(r.work_date, false)}</td>
-                            <td class="py-2 px-3 font-bold text-slate-200">${r.user_name}</td>
-                            <td class="py-2 px-3 font-mono text-sky-400"><i class="fas fa-arrow-right-to-bracket text-[10px] mr-1"></i>${inTime}</td>
-                            <td class="py-2 px-3 font-mono text-amber-300">${outTime ? `<i class="fas fa-arrow-right-from-bracket text-[10px] mr-1"></i>${outTime}` : '---'}</td>
-                            <td class="py-2 px-3 font-mono font-bold text-slate-100">${r.work_hours || 0} h</td>
-                            <td class="py-2 px-3 font-mono text-slate-400">${Admin.formatMoney(r.hourly_rate)} đ</td>
-                            <td class="py-2 px-3 text-right font-mono font-bold text-emerald-400">${Admin.formatMoney(r.total_pay)} đ</td>
-                            <td class="py-2 px-3 text-center">
-                                ${isWorking 
-                                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">🟢 Đang trong ca</span>'
-                                    : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5 text-[10px]">Đã tan ca</span>'}
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            }
+            // Cache payroll summary & attendance records for filtering and clean dept/name display
+            this._payrollSummaryList = data.payroll_summary || [];
+            this._allAttendanceRecords = data.attendance_records || [];
+            this._attPage = 1;
+            this.populateAttendanceUserFilter();
+            this.applyAttendanceFilter();
         } catch (e) {
             console.error('loadPayroll error:', e);
         }
+    },
+
+    _splitStaffNameAndDept(rawName, roleHint) {
+        const raw = String(rawName || '').trim();
+        let name = raw;
+        let dept = '';
+
+        const parenMatch = raw.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+        if (parenMatch) {
+            name = parenMatch[1].trim();
+            dept = parenMatch[2].trim();
+        }
+
+        if (!dept) {
+            const low = raw.toLowerCase();
+            if (low.includes('pha chế') || low.includes('bếp')) dept = 'Tổ Pha Chế & Bếp';
+            else if (low.includes('thu ngân')) dept = 'Thu Ngân';
+            else if (low.includes('chạy bàn') || low.includes('phục vụ')) dept = 'Phục Vụ';
+            else if (roleHint) {
+                const roleDeptMap = {
+                    admin: 'Quản Lý',
+                    cashier: 'Thu Ngân',
+                    waiter: 'Phục Vụ',
+                    kitchen: 'Tổ Pha Chế & Bếp'
+                };
+                dept = roleDeptMap[roleHint] || roleHint;
+            } else {
+                dept = 'Vận Hành';
+            }
+        }
+        return { name: name || raw || 'Nhân viên', dept };
+    },
+
+    populateAttendanceUserFilter() {
+        const sel = document.getElementById('att-filter-user');
+        if (!sel) return;
+        const curVal = sel.value;
+        const userRoleMap = {};
+        (this._payrollSummaryList || []).forEach(ps => {
+            if (ps.user_id) userRoleMap[String(ps.user_id)] = ps.role || '';
+        });
+
+        const uniqueNames = new Map();
+        (this._payrollSummaryList || []).forEach(ps => {
+            const { name } = this._splitStaffNameAndDept(ps.fullname, ps.role);
+            if (name) uniqueNames.set(name, name);
+        });
+        (this._allAttendanceRecords || []).forEach(r => {
+            const { name } = this._splitStaffNameAndDept(r.user_name, userRoleMap[String(r.user_id)] || r.role || '');
+            if (name) uniqueNames.set(name, name);
+        });
+
+        const sorted = Array.from(uniqueNames.keys()).sort((a, b) => a.localeCompare(b, 'vi'));
+        sel.innerHTML = '<option value="0">Tất cả nhân viên</option>' +
+            sorted.map(n => `<option value="${this._escInvHtml(n)}">${this._escInvHtml(n)}</option>`).join('');
+        if (curVal && (curVal === '0' || uniqueNames.has(curVal))) {
+            sel.value = curVal;
+        }
+    },
+
+    applyAttendanceFilter() {
+        const recTbody = document.getElementById('payroll-records-tbody');
+        if (!recTbody) return;
+        const records = Array.isArray(this._allAttendanceRecords) ? this._allAttendanceRecords : [];
+        const userRoleMap = {};
+        (this._payrollSummaryList || []).forEach(ps => {
+            if (ps.user_id) userRoleMap[String(ps.user_id)] = ps.role || '';
+        });
+
+        const selectedName = document.getElementById('att-filter-user')?.value || '0';
+        const q = (document.getElementById('att-filter-q')?.value || '').trim().toLowerCase();
+        const fromDate = document.getElementById('att-filter-from')?.value || '';
+        const toDate = document.getElementById('att-filter-to')?.value || '';
+        const statusFilter = document.getElementById('att-filter-status')?.value || '';
+
+        const filtered = records.filter(r => {
+            const roleHint = userRoleMap[String(r.user_id)] || r.role || '';
+            const { name, dept } = this._splitStaffNameAndDept(r.user_name, roleHint);
+            if (selectedName && selectedName !== '0' && name !== selectedName) return false;
+            if (q && !`${name} ${dept} ${r.user_name || ''} ${r.user_code || ''}`.toLowerCase().includes(q)) return false;
+            const wd = String(r.work_date || '').slice(0, 10);
+            if (fromDate && wd < fromDate) return false;
+            if (toDate && wd > toDate) return false;
+            if (statusFilter && r.status !== statusFilter) return false;
+            return true;
+        });
+
+        const sumEl = document.getElementById('att-summary');
+        if (sumEl) {
+            const totalHrs = filtered.reduce((s, r) => s + Number(r.work_hours || 0), 0);
+            const totalPay = filtered.reduce((s, r) => s + Number(r.total_pay || 0), 0);
+            sumEl.innerHTML = `${filtered.length} lượt • <b class="text-sky-300 font-mono">${totalHrs.toFixed(2)}h</b> • <b class="text-emerald-300 font-mono">${this.formatMoney(totalPay)} đ</b>`;
+        }
+
+        const pdfBtn = document.getElementById('att-export-btn');
+        if (pdfBtn) {
+            pdfBtn.disabled = filtered.length === 0;
+            pdfBtn.style.opacity = filtered.length === 0 ? '.4' : '1';
+        }
+
+        const pageSize = 25;
+        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        this._attPage = Math.max(1, Math.min(this._attPage || 1, totalPages));
+        const pageRows = filtered.slice((this._attPage - 1) * pageSize, this._attPage * pageSize);
+
+        const pagerEl = document.getElementById('att-pager');
+        if (pagerEl) {
+            pagerEl.style.display = filtered.length > pageSize ? 'flex' : 'none';
+            const infoEl = document.getElementById('att-page-info');
+            if (infoEl) infoEl.textContent = `Trang ${this._attPage}/${totalPages}`;
+            const prevBtn = document.getElementById('att-prev');
+            const nextBtn = document.getElementById('att-next');
+            if (prevBtn) prevBtn.disabled = this._attPage <= 1;
+            if (nextBtn) nextBtn.disabled = this._attPage >= totalPages;
+        }
+
+        if (pageRows.length === 0) {
+            recTbody.innerHTML = this.renderEmptyState(9, 'fa-calendar-check', 'Không có lượt chấm công', 'Không có lượt chấm công nào phù hợp bộ lọc.');
+            return;
+        }
+
+        const deptBadgeCls = (d) => {
+            const dl = d.toLowerCase();
+            if (dl.includes('bếp') || dl.includes('pha chế')) return 'bg-orange-500/15 text-orange-300 border-orange-500/30';
+            if (dl.includes('thu ngân')) return 'bg-sky-500/15 text-sky-300 border-sky-500/30';
+            if (dl.includes('phục vụ') || dl.includes('chạy bàn')) return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+            if (dl.includes('quản lý') || dl.includes('quản trị')) return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+            return 'bg-slate-800 text-slate-300 border-white/10';
+        };
+
+        recTbody.innerHTML = pageRows.map(r => {
+            const isWorking = r.status === 'working';
+            const inTime = r.check_in_time ? r.check_in_time.split(' ')[1] : '';
+            const outTime = r.check_out_time ? r.check_out_time.split(' ')[1] : (isWorking ? '---' : '');
+            const roleHint = userRoleMap[String(r.user_id)] || r.role || '';
+            const { name, dept } = this._splitStaffNameAndDept(r.user_name, roleHint);
+
+            return `
+                <tr class="hover:bg-white/5 transition-colors">
+                    <td class="py-2 px-3 font-mono text-slate-300 text-center">${window.formatDateDDMMYY(r.work_date, false)}</td>
+                    <td class="py-2 px-3 font-bold text-slate-200 text-left">${this._escInvHtml(name)}</td>
+                    <td class="py-2 px-3 text-center"><span class="px-2 py-0.5 rounded-md border text-[10px] font-semibold inline-block ${deptBadgeCls(dept)}">${this._escInvHtml(dept)}</span></td>
+                    <td class="py-2 px-3 font-mono text-sky-400 text-center"><i class="fas fa-arrow-right-to-bracket text-[10px] mr-1"></i>${inTime}</td>
+                    <td class="py-2 px-3 font-mono text-amber-300 text-center">${outTime ? `<i class="fas fa-arrow-right-from-bracket text-[10px] mr-1"></i>${outTime}` : '---'}</td>
+                    <td class="py-2 px-3 font-mono font-bold text-slate-100 text-center">${r.work_hours || 0} h</td>
+                    <td class="py-2 px-3 font-mono text-slate-400 text-right">${Admin.formatMoney(r.hourly_rate)} đ</td>
+                    <td class="py-2 px-3 text-right font-mono font-bold text-emerald-400">${Admin.formatMoney(r.total_pay)} đ</td>
+                    <td class="py-2 px-3 text-center">
+                        ${isWorking
+                            ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold inline-block">🟢 Đang trong ca</span>'
+                            : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5 text-[10px] inline-block">Đã tan ca</span>'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    resetAttendanceFilter() {
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        setVal('att-filter-user', '0');
+        setVal('att-filter-q', '');
+        setVal('att-filter-from', '');
+        setVal('att-filter-to', '');
+        setVal('att-filter-status', '');
+        this._attPage = 1;
+        this.applyAttendanceFilter();
+    },
+
+    attendancePage(delta) {
+        this._attPage = (this._attPage || 1) + delta;
+        this.applyAttendanceFilter();
+    },
+
+    exportAttendancePdf() {
+        window.print();
     },
 
     openSalaryModal(userId, fullname, role, currentRate) {
