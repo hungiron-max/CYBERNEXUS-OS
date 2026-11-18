@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.14",
-  "title": "Sửa triệt để route /favicon.ico & /favicon.png trên Slave + Cache-buster HTML",
-  "notes": "Bổ sung route /favicon.ico và /favicon.png trong cybernexus_slave.exe và cập nhật thẻ link icon ?v=20261118 trên toàn bộ trang web.",
-  "created_at": "2026-11-18 14:19:06",
+  "version": "2026.11.18.15",
+  "title": "Cập nhật giao diện đăng nhập & quản lý nhân viên chuẩn PIN 6 số",
+  "notes": "Nâng cấp login.html từ 4 chấm sang 6 chấm PIN, cập nhật nhãn 6 số trong admin.html và bắt buộc đổi PIN khi đăng nhập bằng PIN mặc định 1 lần.",
+  "created_at": "2026-11-18 14:42:54",
   "files": [
     "cybernexus_slave.exe",
     "web/web_integrity.json",

@@ -73,12 +73,14 @@
             <!-- TAB 1: PIN LOGIN (Dành riêng cho Màn hình cảm ứng POS) -->
             <div id="tab-pane-pin">
                 <div style="text-align: center;">
-                    <p style="font-size: 12px; color: #cbd5e1; font-weight: 600;">Nhập mã PIN cá nhân 4 số</p>
+                    <p style="font-size: 12px; color: #cbd5e1; font-weight: 600;">Nhập mã PIN cá nhân 6 số</p>
                     <div class="pin-dots-container">
                         <div class="pin-dot" id="dot-0"></div>
                         <div class="pin-dot" id="dot-1"></div>
                         <div class="pin-dot" id="dot-2"></div>
                         <div class="pin-dot" id="dot-3"></div>
+                        <div class="pin-dot" id="dot-4"></div>
+                        <div class="pin-dot" id="dot-5"></div>
                     </div>
                 </div>
 
@@ -241,7 +243,7 @@
         }
 
         function updatePinDots() {
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 6; i++) {
                 const dot = document.getElementById(`dot-${i}`);
                 if (dot) {
                     if (i < currentPin.length) {
@@ -254,10 +256,10 @@
         }
 
         function pressPin(digit) {
-            if (currentPin.length >= 4) return;
+            if (currentPin.length >= 6) return;
             currentPin += digit;
             updatePinDots();
-            if (currentPin.length === 4) {
+            if (currentPin.length === 6) {
                 setTimeout(submitPinLogin, 150);
             }
         }
@@ -306,7 +308,7 @@
         }
 
         async function submitPinLogin() {
-            if (currentPin.length !== 4) return;
+            if (currentPin.length !== 6) return;
             hideError();
 
             try {
@@ -317,6 +319,11 @@
                 });
                 const data = await res.json();
                 if (data.success && data.user) {
+                    if (data.must_change_pin) {
+                        localStorage.setItem('cnx_must_change_pin', '1');
+                    } else {
+                        localStorage.removeItem('cnx_must_change_pin');
+                    }
                     localStorage.setItem('pos_user', JSON.stringify(data.user));
                     if (data.token) {
                         localStorage.setItem('pos_token', data.token);

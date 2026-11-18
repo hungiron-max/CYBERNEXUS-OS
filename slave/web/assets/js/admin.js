@@ -4175,5 +4175,35 @@ const Admin = {
 
 document.addEventListener('DOMContentLoaded', () => {
     Admin.init();
+    if (localStorage.getItem('cnx_must_change_pin') === '1') {
+        (async function forcePinChange() {
+            while (true) {
+                const np = prompt('Bạn vừa đăng nhập bằng PIN mặc định 1 lần.\nVui lòng nhập mã PIN 6 số MỚI (không được trùng PIN mặc định):');
+                if (np === null) continue;
+                const trimmed = np.trim();
+                if (!/^\d{6}$/.test(trimmed)) {
+                    alert('Mã PIN mới phải gồm đúng 6 chữ số!');
+                    continue;
+                }
+                try {
+                    const r = await fetch('api/auth.php?action=change_my_pin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ new_pin: trimmed })
+                    });
+                    const d = await r.json();
+                    if (d.success) {
+                        localStorage.removeItem('cnx_must_change_pin');
+                        alert(d.message || 'Đã cập nhật mã PIN 6 số mới thành công!');
+                        break;
+                    }
+                    alert(d.message || 'Không thể đổi PIN, vui lòng thử PIN khác!');
+                } catch (e) {
+                    alert('Lỗi kết nối: ' + e.message);
+                    break;
+                }
+            }
+        })();
+    }
 });
 
