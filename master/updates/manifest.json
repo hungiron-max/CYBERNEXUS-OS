@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.5",
-  "title": "Smart Menu Studio: Tìm & đồng bộ ảnh món thật (0 AI Token) + Menu Style DNA",
-  "notes": "Bổ sung nút Tìm & Đồng Bộ Ảnh (0 AI Token) gợi ý 6 ảnh món thật, tự phân tích tông nền menu (sáng/ấm/tối), auto-crop 640x480 và cân bằng sáng đồng bộ. AI Tạo Ảnh cũng tự điều chỉnh prompt theo tông nền của menu.",
-  "created_at": "2026-11-18 09:27:36",
+  "version": "2026.11.18.6",
+  "title": "Sửa lỗi lưu ảnh khi chọn từ Smart Menu Studio / Cắt 4:3 (upload_image)",
+  "notes": "Bổ sung xử lý action upload_image trên Slave để lưu ảnh chuẩn 4:3 (640x480) khi chọn từ Tìm & Đồng Bộ Ảnh, Tải & Cắt Chuẩn hoặc Cắt 4:3.",
+  "created_at": "2026-11-18 09:36:23",
   "files": [
     "cybernexus_slave.exe",
     "RUN_SLAVE.bat",

@@ -1395,6 +1395,39 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         return;
     }
 
+    auto saveDishImageToUploads = [&](const std::string& rawB64OrDataUri, const std::string& nameHint,
+                                      const std::string& mimeHint, int64_t prodId,
+                                      std::string& webUrlOut, std::string& errOut) -> bool {
+        std::string mime = mimeHint.empty() ? "image/jpeg" : mimeHint;
+        std::string pureB64 = rawB64OrDataUri;
+        if (rawB64OrDataUri.rfind("data:", 0) == 0) {
+            SaleApp::AI::parseDataUriImage(rawB64OrDataUri, mime, pureB64);
+        }
+        std::string imgBytes = SaleApp::AI::base64Decode(pureB64);
+        if (imgBytes.empty()) {
+            errOut = "Dữ liệu ảnh không hợp lệ!";
+            return false;
+        }
+        std::string ext = (mime.find("jpeg") != std::string::npos || mime.find("jpg") != std::string::npos) ? ".jpg" : ".png";
+        auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
+        std::string saveName = "dish_" + AuthService::sha256(nameHint + std::to_string(nowMs)).substr(0, 20) + ext;
+        namespace fs = std::filesystem;
+        fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "products";
+        fs::create_directories(targetDir);
+        std::ofstream ofs(targetDir / saveName, std::ios::binary);
+        if (!ofs) {
+            errOut = "Không thể lưu file ảnh trên server!";
+            return false;
+        }
+        ofs.write(imgBytes.data(), imgBytes.size());
+        ofs.close();
+        webUrlOut = "uploads/products/" + saveName;
+        if (prodId > 0) {
+            db.execute("UPDATE products SET image = :img WHERE id = :id", {{":img", webUrlOut}, {":id", prodId}});
+        }
+        return true;
+    };
+
     // 1.5 AI Tạo Ảnh Món Ăn Tự Động (ai_dish_studio) — ưu tiên Master AI Proxy bảo mật
     if (action == "ai_generate_dish_image") {
         if (!requireModule(res, "ai_dish_studio", "AI Tạo Ảnh Món Ăn Tự Động")) return;
@@ -1427,34 +1460,37 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             modelUsed = proxyResp.value("ai_engine", "CyberNexus Master AI");
         }
 
-        std::string imgBytes = SaleApp::AI::base64Decode(imgB64);
-        if (imgBytes.empty()) {
-            sendError(res, "Dữ liệu ảnh AI trả về không hợp lệ!", 502);
+        std::string webUrl, saveErr;
+        if (!saveDishImageToUploads(imgB64, name, mime, id, webUrl, saveErr)) {
+            sendError(res, saveErr, 500);
             return;
-        }
-        std::string ext = (mime.find("jpeg") != std::string::npos || mime.find("jpg") != std::string::npos) ? ".jpg" : ".png";
-        auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
-        std::string saveName = "dish_" + AuthService::sha256(name + std::to_string(nowMs)).substr(0, 20) + ext;
-        namespace fs = std::filesystem;
-        fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "products";
-        fs::create_directories(targetDir);
-        std::ofstream ofs(targetDir / saveName, std::ios::binary);
-        if (!ofs) {
-            sendError(res, "Không thể lưu file ảnh trên server!", 500);
-            return;
-        }
-        ofs.write(imgBytes.data(), imgBytes.size());
-        ofs.close();
-
-        std::string webUrl = "uploads/products/" + saveName;
-        if (id > 0) {
-            db.execute("UPDATE products SET image = :img WHERE id = :id", {{":img", webUrl}, {":id", id}});
         }
         sendJson(res, {
             {"success", true},
             {"image_url", webUrl},
             {"ai_engine", modelUsed},
             {"message", "AI (" + modelUsed + ") đã tạo ảnh món ăn thành công!"}
+        });
+        return;
+    }
+
+    if (action == "upload_image") {
+        std::string b64 = BodyParser::getParam(req, body, "image_base64");
+        int64_t prodId = 0;
+        try { prodId = std::stoll(BodyParser::getParam(req, body, "product_id", "0")); } catch (...) {}
+        if (b64.empty()) {
+            sendError(res, "Thiếu dữ liệu ảnh upload!", 400);
+            return;
+        }
+        std::string webUrl, saveErr;
+        if (!saveDishImageToUploads(b64, "upload_" + std::to_string(prodId), "image/jpeg", prodId, webUrl, saveErr)) {
+            sendError(res, saveErr, 400);
+            return;
+        }
+        sendJson(res, {
+            {"success", true},
+            {"image_url", webUrl},
+            {"message", "Đã lưu và đồng bộ ảnh món ăn chuẩn 4:3 thành công!"}
         });
         return;
     }
