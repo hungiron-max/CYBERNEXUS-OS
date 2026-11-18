@@ -69,14 +69,25 @@ static std::string resolveGeminiApiKey(Database& db, const std::string& passedKe
     return "";
 }
 
+static std::string resolveRawLicenseKey() {
+    try {
+        auto row = Database::instance().queryRow("SELECT license_key FROM local_license_cache WHERE id = 1");
+        if (!row.is_null() && row.contains("license_key") && row["license_key"].is_string()) {
+            std::string k = row["license_key"].get<std::string>();
+            if (!k.empty()) return k;
+        }
+    } catch (...) {}
+    json licInfo = LicenseService::instance().getLicenseStatus();
+    return licInfo.value("license_key", "");
+}
+
 static bool callMasterAiProxy(const json& payload, json& respJsonOut, std::string& errOut) {
     std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
     if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
     while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
 
     json reqJson = payload;
-    json licInfo = LicenseService::instance().getLicenseStatus();
-    reqJson["license_key"] = licInfo.value("license_key", "");
+    reqJson["license_key"] = resolveRawLicenseKey();
     reqJson["machine_id"] = LicenseService::instance().getMachineId();
 
     int st = 0;
@@ -102,8 +113,7 @@ static bool fetchMasterAiQuota(json& quotaOut) {
     std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
     if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
     while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
-    json licInfo = LicenseService::instance().getLicenseStatus();
-    std::string licKey = licInfo.value("license_key", "");
+    std::string licKey = resolveRawLicenseKey();
     if (licKey.empty()) return false;
     json reqJson = {
         {"license_key", licKey},
@@ -1398,20 +1408,19 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             return;
         }
 
-        std::string imgB64, mime, modelUsed, err;
+        std::string imgB64, mime, modelUsed, err, localErr;
         std::string localKey = resolveGeminiApiKey(db, passedKey);
+        bool generatedLocally = false;
         if (!localKey.empty()) {
             std::string prompt = "Professional commercial food and beverage studio photography of Vietnamese cafe/restaurant dish: \"" + name + "\"";
             if (!catName.empty()) prompt += " (Category: " + catName + ")";
             prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
-            if (!SaleApp::AI::geminiGenerateImageBase64(localKey, prompt, imgB64, mime, modelUsed, err)) {
-                sendError(res, "Không thể tạo ảnh AI: " + err, 502);
-                return;
-            }
-        } else {
+            generatedLocally = SaleApp::AI::geminiGenerateImageBase64(localKey, prompt, imgB64, mime, modelUsed, localErr);
+        }
+        if (!generatedLocally) {
             json proxyResp;
             if (!callMasterAiProxy({{"action", "generate_dish_image"}, {"name", name}, {"category_name", catName}}, proxyResp, err)) {
-                sendError(res, err, 502);
+                sendError(res, localErr.empty() ? err : (err + " (" + localErr + ")"), 502);
                 return;
             }
             imgB64 = proxyResp.value("image_base64", "");
