@@ -3090,7 +3090,6 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             json quotaSnap = buildTenantAiQuotaSnapshot(db, tenant);
             bool isUnlimited = quotaSnap.value("unlimited", false);
             int64_t remMonthly = quotaSnap.value("remaining_monthly", int64_t(0));
-            int64_t bonusCreds = quotaSnap.value("bonus_credits", int64_t(0));
             int64_t remTotal = quotaSnap.value("remaining_total", int64_t(0));
 
             if (!isUnlimited && remTotal < actionCost) {

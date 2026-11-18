@@ -1001,4 +1001,11 @@ body {
     letter-spacing: 0.05em !important;
     margin-top: 3px !important;
 }
+.bottom-sheet {
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bottom-sheet.open {
+    transform: translateY(0);
+}
 
