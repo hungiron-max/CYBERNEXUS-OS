@@ -1,11 +1,12 @@
 {
-  "version": "2026.11.18.10",
-  "title": "Sửa log DB Error giả & đồng bộ Control Center / Smart Menu Studio",
-  "notes": "Cập nhật cybernexus_slave.exe kiểm tra PRAGMA table_info trước khi ALTER TABLE promo_* và kiểm tra tồn tại bảng ad_slides.",
-  "created_at": "2026-11-18 11:41:18",
+  "version": "2026.11.18.11",
+  "title": "Phát hành v2.2.0: Thay thế .bat bằng CyberNexus_Control_Center.exe & Web Integrity",
+  "notes": "Loại bỏ các file .bat khởi chạy CMD thừa; tích hợp CyberNexus_Control_Center.exe và web_integrity.json vào gói OTA chuẩn.",
+  "created_at": "2026-11-18 12:02:28",
   "files": [
     "cybernexus_slave.exe",
-    "RUN_SLAVE.bat",
+    "web/web_integrity.json",
+    "CyberNexus_Control_Center.exe",
     "modules/libmod_pos_core.dll",
     "modules/libmod_finance_admin.dll",
     "modules/libmod_media_stream.dll",
