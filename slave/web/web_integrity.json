@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-18 12:02:28",
+  "generated_at": "2026-11-18 13:30:26",
   "count": 41,
   "files": {
     "admin.html": "9202e2a7a829f0b8f382c07867242664f5b94cb58575dc8c1aeab7cb26e25b63",
@@ -11,7 +11,7 @@
     "online_orders.html": "65d937fb68cd4fad738cdaf105a7d8e5c016df8316d5fee644237ea5cb601426",
     "order.html": "70cfce7897edf3a6e54b25e253f14a36c1b36a9e5f32ff131600b5de3e180db5",
     "sw.js": "8902fa89c57b81ebf5b61383f28d3de0c66b2e9d75141755ab35fdec3c0c6fd9",
-    "wifi.html": "44c2e6deaef46f5fd913ebbabb6f54297c5e44b3c48466f5dfe415bea3197c9d",
+    "wifi.html": "f8f87eaf2dcf9ada30d0e3abc6621463f0067219563e24c6c95ad3dc2bc3a7ea",
     "assets/css/admin.css": "5dc55823b564e01349d28af1d40eec0f52097be7220af3b0fba50f1ca1e5ffcc",
     "assets/css/app-tailwind.min.css": "afec2615c92285a789cf6a803ac2c55967e40f5698c47021fd2aa91abdb09964",
     "assets/css/customer.css": "9ecb869a2fa6f098642b6ecee1107e346243f93397112cec97e34e829db4bbb4",

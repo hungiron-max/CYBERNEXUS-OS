@@ -52,6 +52,7 @@ add_executable(cybernexus_master ${MASTER_SRCS})
 target_compile_definitions(cybernexus_master PRIVATE CYBERNEXUS_ROLE_MASTER=1)
 
 if(WIN32)
+    target_sources(cybernexus_master PRIVATE launcher/icons/master_app.rc)
     target_link_libraries(cybernexus_master PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp)
     if(MINGW)
         target_link_options(cybernexus_master PRIVATE -static -static-libgcc -static-libstdc++)
@@ -77,6 +78,7 @@ add_executable(cybernexus_slave ${SLAVE_SRCS})
 target_compile_definitions(cybernexus_slave PRIVATE CYBERNEXUS_ROLE_SLAVE=1)
 
 if(WIN32)
+    target_sources(cybernexus_slave PRIVATE launcher/icons/store_app.rc)
     target_link_libraries(cybernexus_slave PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp)
     if(MINGW)
         target_link_options(cybernexus_slave PRIVATE -static -static-libgcc -static-libstdc++)
@@ -104,14 +106,33 @@ if(WIN32)
         shared/src/db.cpp
         shared/src/auth.cpp
         launcher/CyberNexusControlCenter.cpp
+        launcher/icons/store_app.rc
     )
     target_link_libraries(CyberNexus_Control_Center PRIVATE ws2_32 crypt32 wsock32 iphlpapi shell32 psapi)
     if(MINGW)
         target_link_options(CyberNexus_Control_Center PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
     endif()
 
+    add_executable(CyberNexus_Control_Center_Master WIN32
+        shared/src/sqlite3.c
+        shared/src/pos_bcrypt.c
+        shared/src/db.cpp
+        shared/src/auth.cpp
+        launcher/CyberNexusControlCenter.cpp
+        launcher/icons/master_app.rc
+    )
+    set_target_properties(CyberNexus_Control_Center_Master PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/master_launcher"
+        OUTPUT_NAME "CyberNexus_Control_Center"
+    )
+    target_link_libraries(CyberNexus_Control_Center_Master PRIVATE ws2_32 crypt32 wsock32 iphlpapi shell32 psapi)
+    if(MINGW)
+        target_link_options(CyberNexus_Control_Center_Master PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
+    endif()
+
     add_executable(CyberNexus_Setup_Stub WIN32
         launcher/CyberNexusSetupStub.cpp
+        launcher/icons/store_app.rc
     )
     target_link_libraries(CyberNexus_Setup_Stub PRIVATE shell32 ole32 uuid)
     if(MINGW)
@@ -124,6 +145,7 @@ if(WIN32)
         shared/src/db.cpp
         shared/src/auth.cpp
         launcher/CyberNexusVaultAdmin.cpp
+        launcher/icons/vault_app.rc
     )
     target_link_libraries(CyberNexus_Vault_Admin PRIVATE ws2_32 crypt32 wsock32 shell32)
     if(MINGW)

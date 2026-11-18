@@ -13,6 +13,7 @@
 #include "httplib.h"
 #include "nlohmann/json.hpp"
 #include "auth.hpp"
+#include "embedded_favicons.hpp"
 #include "sqlite3.h"
 
 #include <atomic>
@@ -448,6 +449,7 @@ std::string buildControlCenterHtml() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CyberNexus OS — Control Center</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <style>
 :root{color-scheme:dark;--bg:#0b0f19;--card:rgba(22,29,46,.78);--border:rgba(255,255,255,.09);--text:#f1f5f9;--muted:#94a3b8;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--sky:#38bdf8;}
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
@@ -633,6 +635,16 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         res.set_content(buildControlCenterHtml(), "text/html; charset=utf-8");
     });
 
+    svr.Get("/favicon.ico", [](const httplib::Request&, httplib::Response& res) {
+        if (g_master.available && !g_slave.available) {
+            res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::MASTER_FAVICON_ICO),
+                            CyberNexus::Icons::MASTER_FAVICON_ICO_len, "image/x-icon");
+        } else {
+            res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::STORE_FAVICON_ICO),
+                            CyberNexus::Icons::STORE_FAVICON_ICO_len, "image/x-icon");
+        }
+    });
+
     svr.Get("/api/control/status", [](const httplib::Request&, httplib::Response& res) {
         std::lock_guard<std::mutex> lk(g_mtx);
         refreshServiceStatus(g_master);
@@ -782,7 +794,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     g_nid.uID = 1;
     g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_nid.uCallbackMessage = WM_TRAYICON;
-    g_nid.hIcon = LoadIconW(nullptr, MAKEINTRESOURCEW(32512));
+    HICON hAppIcon = LoadIconW(hInst, MAKEINTRESOURCEW(101));
+    g_nid.hIcon = hAppIcon ? hAppIcon : LoadIconW(nullptr, MAKEINTRESOURCEW(32512));
     wcscpy_s(g_nid.szTip, L"CyberNexus OS Control Center");
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 

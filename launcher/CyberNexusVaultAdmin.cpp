@@ -14,6 +14,7 @@
 #include "auth.hpp"
 #include "pos_bcrypt.h"
 #include "pin_vault.hpp"
+#include "embedded_favicons.hpp"
 #include "sqlite3.h"
 
 #include <atomic>
@@ -146,6 +147,7 @@ std::string buildVaultHtml() {
 <head>
 <meta charset="UTF-8">
 <title>CyberNexus Vault Admin (Developer Only)</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <style>
 :root{color-scheme:dark;--bg:#090d16;--card:rgba(20,27,45,.86);--border:rgba(255,255,255,.1);--text:#f1f5f9;--muted:#94a3b8;}
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -306,6 +308,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 
     svr.Get("/", [](const httplib::Request&, httplib::Response& res) {
         res.set_content(buildVaultHtml(), "text/html; charset=utf-8");
+    });
+
+    svr.Get("/favicon.ico", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::VAULT_FAVICON_ICO),
+                        CyberNexus::Icons::VAULT_FAVICON_ICO_len, "image/x-icon");
     });
 
     svr.Get("/api/vault/status", [](const httplib::Request&, httplib::Response& res) {

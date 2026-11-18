@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.12",
-  "title": "PIN 6 số mặc định dùng 1 lần, Reset từ Master + Chấm xanh Control Center",
-  "notes": "Chuẩn hóa PIN 6 số toàn hệ thống; hỗ trợ nhận lệnh RESET_OWNER_PIN từ Master, ghi DEFAULT_OWNER_PIN.txt và bật chấm xanh trên CyberNexus_Control_Center.exe.",
-  "created_at": "2026-11-18 13:18:48",
+  "version": "2026.11.18.13",
+  "title": "Cập nhật bộ Icon & Favicon chuẩn Apple Liquid Glass (CN Geometric Cut)",
+  "notes": "Tích hợp bộ icon & favicon squircle mới cho Control Center, cybexus_slave.exe và toàn bộ giao diện Web quán.",
+  "created_at": "2026-11-18 13:30:26",
   "files": [
     "cybernexus_slave.exe",
     "web/web_integrity.json",
@@ -45,6 +45,8 @@
     "web/assets/js/kitchen_kds.js",
     "web/assets/js/wifi_portal.js",
     "web/assets/js/date_format_ddmmyy.js",
-    "web/assets/css/liquid-glass.css"
+    "web/assets/css/liquid-glass.css",
+    "web/favicon.ico",
+    "web/favicon.png"
   ]
 }
