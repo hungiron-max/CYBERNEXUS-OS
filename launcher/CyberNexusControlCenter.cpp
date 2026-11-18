@@ -594,7 +594,17 @@ async function runDiag(){
 }
 async function checkUpdates(){
   const r = await api('/api/control/updates');
-  alert(r.summary || 'Đã kiểm tra phiên bản OTA.');
+  if(r.has_update){
+    if(confirm(r.summary + '\n\nBạn có muốn tải và cập nhật OTA ngay không?')){
+      document.getElementById('diag-status').textContent = 'Đang tải & cập nhật OTA ' + r.latest_version + '...';
+      const ap = await api('/api/control/apply-update','POST');
+      alert(ap.message || 'Đã cập nhật xong!');
+      document.getElementById('diag-status').textContent = ap.message || 'Hoàn tất cập nhật';
+      await refresh();
+    }
+    return;
+  }
+  alert(r.summary || 'Hệ thống đang ở phiên bản mới nhất.');
 }
 async function clearLogs(){ await api('/api/control/clear-logs','POST'); await refresh(); }
 async function quitAll(){
@@ -746,6 +756,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
 
     svr.Get("/api/control/updates", [](const httplib::Request&, httplib::Response& res) {
         std::string summary = "Không tìm thấy manifest OTA cục bộ.";
+        bool hasUpdate = false;
+        std::string curVer = "v2.3.0";
+        std::string latestVer;
         if (g_master.available) {
             fs::path mp = g_master.workDir / "updates" / "manifest.json";
             if (fs::exists(mp)) {
@@ -755,11 +768,122 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
             }
         } else if (g_slave.available) {
             fs::path vp = g_slave.workDir / "version.txt";
-            std::string cur = "v2.1.0";
-            if (fs::exists(vp)) { std::ifstream ifs(vp); std::getline(ifs, cur); }
-            summary = "Slave Store hiện tại: " + cur + ". Mở Trang Quản Trị Quán → Cập nhật OTA để kiểm tra từ Master.";
+            if (fs::exists(vp)) { std::ifstream ifs(vp); std::getline(ifs, curVer); }
+            std::string masterUrl = "http://127.0.0.1:8500";
+            fs::path cfgPath = g_slave.workDir / "config.json";
+            if (fs::exists(cfgPath)) {
+                std::ifstream cfs(cfgPath);
+                json cfg = json::parse(cfs, nullptr, false);
+                if (cfg.is_object() && !cfg.value("master_server_url", "").empty()) {
+                    masterUrl = cfg.value("master_server_url", masterUrl);
+                }
+            }
+            fs::path dbPath = g_slave.workDir / "database" / "store_local.db";
+            if (fs::exists(dbPath)) {
+                sqlite3* db = nullptr;
+                if (sqlite3_open_v2(dbPath.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
+                    sqlite3_stmt* stmt = nullptr;
+                    if (sqlite3_prepare_v2(db, "SELECT setting_value FROM store_settings WHERE setting_key='master_url' LIMIT 1", -1, &stmt, nullptr) == SQLITE_OK) {
+                        if (sqlite3_step(stmt) == SQLITE_ROW) {
+                            const unsigned char* u = sqlite3_column_text(stmt, 0);
+                            if (u && u[0]) masterUrl = reinterpret_cast<const char*>(u);
+                        }
+                        sqlite3_finalize(stmt);
+                    }
+                    sqlite3_close(db);
+                }
+            }
+            while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
+            httplib::Client cli(masterUrl);
+            cli.set_connection_timeout(4, 0);
+            cli.set_read_timeout(6, 0);
+            if (auto r = cli.Get("/api/updates/manifest")) {
+                if (r->status == 200) {
+                    json m = json::parse(r->body, nullptr, false);
+                    latestVer = m.value("version", "");
+                    std::string title = m.value("title", "");
+                    if (!latestVer.empty() && curVer != latestVer && curVer != ("v" + latestVer)) {
+                        hasUpdate = true;
+                        summary = "Có bản cập nhật OTA mới: v" + latestVer + " (Hiện tại: " + curVer + ")\n" + title;
+                    } else {
+                        summary = "Máy quán đang ở bản mới nhất (" + curVer + ").";
+                    }
+                } else {
+                    summary = "Master trả HTTP " + std::to_string(r->status) + " khi kiểm tra OTA tại " + masterUrl;
+                }
+            } else {
+                summary = "Không kết nối được Master tại " + masterUrl + " để kiểm tra OTA (Hiện tại: " + curVer + ").";
+            }
         }
-        res.set_content(json({{"success", true}, {"summary", summary}}).dump(), "application/json; charset=utf-8");
+        res.set_content(json({{"success", true}, {"has_update", hasUpdate}, {"current_version", curVer}, {"latest_version", latestVer}, {"summary", summary}}).dump(), "application/json; charset=utf-8");
+    });
+
+    svr.Post("/api/control/apply-update", [](const httplib::Request&, httplib::Response& res) {
+        if (!g_slave.available) {
+            res.set_content("{\"success\":false,\"message\":\"Chỉ áp dụng cho máy Store\"}", "application/json; charset=utf-8");
+            return;
+        }
+        std::string masterUrl = "http://127.0.0.1:8500";
+        fs::path cfgPath = g_slave.workDir / "config.json";
+        if (fs::exists(cfgPath)) {
+            std::ifstream cfs(cfgPath);
+            json cfg = json::parse(cfs, nullptr, false);
+            if (cfg.is_object() && !cfg.value("master_server_url", "").empty()) masterUrl = cfg.value("master_server_url", masterUrl);
+        }
+        fs::path dbPath = g_slave.workDir / "database" / "store_local.db";
+        if (fs::exists(dbPath)) {
+            sqlite3* db = nullptr;
+            if (sqlite3_open_v2(dbPath.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
+                sqlite3_stmt* stmt = nullptr;
+                if (sqlite3_prepare_v2(db, "SELECT setting_value FROM store_settings WHERE setting_key='master_url' LIMIT 1", -1, &stmt, nullptr) == SQLITE_OK) {
+                    if (sqlite3_step(stmt) == SQLITE_ROW) {
+                        const unsigned char* u = sqlite3_column_text(stmt, 0);
+                        if (u && u[0]) masterUrl = reinterpret_cast<const char*>(u);
+                    }
+                    sqlite3_finalize(stmt);
+                }
+                sqlite3_close(db);
+            }
+        }
+        while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
+        httplib::Client cli(masterUrl);
+        cli.set_connection_timeout(5, 0);
+        cli.set_read_timeout(60, 0);
+        auto mr = cli.Get("/api/updates/manifest");
+        auto zr = cli.Get("/api/updates/download");
+        if (!zr || zr->status != 200 || zr->body.size() < 512) {
+            res.set_content(json({{"success", false}, {"message", "Không tải được gói OTA từ " + masterUrl}}).dump(), "application/json; charset=utf-8");
+            return;
+        }
+        std::string latestVer = (mr && mr->status == 200) ? json::parse(mr->body, nullptr, false).value("version", "") : "";
+        wchar_t tmpBuf[MAX_PATH] = {0};
+        GetTempPathW(MAX_PATH, tmpBuf);
+        fs::path tmpZip = fs::path(tmpBuf) / L"cnx_ota_patch.zip";
+        {
+            std::ofstream ofs(tmpZip, std::ios::binary | std::ios::trunc);
+            ofs.write(zr->body.data(), zr->body.size());
+        }
+        stopService(g_slave);
+        Sleep(600);
+        std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '"
+            + tmpZip.wstring() + L"' -DestinationPath '" + g_slave.workDir.wstring() + L"' -Force\"";
+        STARTUPINFOW si{}; si.cb = sizeof(si); si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_HIDE;
+        PROCESS_INFORMATION pi{};
+        BOOL ok = CreateProcessW(nullptr, psCmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+        DWORD ec = 1;
+        if (ok) {
+            WaitForSingleObject(pi.hProcess, 120000);
+            GetExitCodeProcess(pi.hProcess, &ec);
+            CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
+        }
+        std::error_code ecode; fs::remove(tmpZip, ecode);
+        if (!latestVer.empty() && ec == 0) {
+            std::ofstream vfs(g_slave.workDir / "version.txt", std::ios::trunc);
+            vfs << latestVer;
+        }
+        std::string startErr;
+        startService(g_slave, startErr);
+        res.set_content(json({{"success", ec == 0}, {"message", ec == 0 ? ("Đã cập nhật OTA " + latestVer + " và khởi động lại Slave thành công!") : "Giải nén OTA thất bại!"}}).dump(), "application/json; charset=utf-8");
     });
 
     svr.Post("/api/control/clear-logs", [](const httplib::Request&, httplib::Response& res) {

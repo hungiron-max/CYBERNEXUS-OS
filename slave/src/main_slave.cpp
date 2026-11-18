@@ -176,6 +176,18 @@ int main(int argc, char* argv[]) {
         std::cout << "[Slave Static] Mount /img -> " << (webDir / "img").string() << std::endl;
     }
 
+    // Chống cache JS/CSS trên trình duyệt/điện thoại máy trạm để tự nhận bản vá OTA ngay không cần Ctrl+F5
+    svr.set_post_routing_handler([](const httplib::Request& req, httplib::Response& res) {
+        auto endsWith = [&](const char* ext) {
+            size_t elen = std::strlen(ext);
+            return req.path.size() >= elen && req.path.compare(req.path.size() - elen, elen, ext) == 0;
+        };
+        if (endsWith(".js") || endsWith(".css")) {
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_header("Pragma", "no-cache");
+        }
+    });
+
     auto serveFavicon = [webDir](const char* fname, const char* mime) {
         return [webDir, fname, mime](const httplib::Request&, httplib::Response& res) {
             fs::path fp = webDir / fname;

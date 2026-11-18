@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.15",
-  "title": "Cập nhật giao diện đăng nhập & quản lý nhân viên chuẩn PIN 6 số",
-  "notes": "Nâng cấp login.html từ 4 chấm sang 6 chấm PIN, cập nhật nhãn 6 số trong admin.html và bắt buộc đổi PIN khi đăng nhập bằng PIN mặc định 1 lần.",
-  "created_at": "2026-11-18 14:42:54",
+  "version": "2026.11.18.16",
+  "title": "Chống cache JS/CSS tự động + Nút Kiểm tra & Cập nhật OTA 1 chạm trên Control Center",
+  "notes": "Tự động gửi header no-cache cho JS/CSS trên Slave (không cần Ctrl+F5) và cho phép cập nhật OTA trực tiếp từ CyberNexus_Control_Center.exe.",
+  "created_at": "2026-11-18 14:50:41",
   "files": [
     "cybernexus_slave.exe",
     "web/web_integrity.json",
