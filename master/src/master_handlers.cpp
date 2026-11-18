@@ -1855,9 +1855,6 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     if (fs::exists(slaveDir / "cybernexus_slave.exe")) {
                         fs::copy_file(slaveDir / "cybernexus_slave.exe", stagingDir / "cybernexus_slave.exe", fs::copy_options::overwrite_existing);
                     }
-                    if (fs::exists(projectRoot / "Mo_Tuong_Lua_LAN.bat")) {
-                        fs::copy_file(projectRoot / "Mo_Tuong_Lua_LAN.bat", stagingDir / "Mo_Tuong_Lua_LAN.bat", fs::copy_options::overwrite_existing);
-                    }
 
                     // Copy giao diện Web
                     if (fs::exists(slaveDir / "web")) {

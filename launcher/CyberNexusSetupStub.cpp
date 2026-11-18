@@ -105,9 +105,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 
     fs::path installDir = (GetDriveTypeW(L"D:\\") == DRIVE_FIXED) ? L"D:\\CyberNexus_POS" : L"C:\\CyberNexus_POS";
     std::wstring prompt =
-        L"Cài đặt CyberNexus OS POS?\n\n"
+        L"Cài đặt CyberNexus OS v2.3?\n\n"
         L"Thư mục mặc định: " + installDir.wstring() + L"\n"
-        L"• Tự động mở Windows Firewall cổng 8501\n"
+        L"• Tự động mở Windows Firewall cổng dịch vụ\n"
         L"• Tạo biểu tượng ngoài Desktop\n"
         L"• Khởi chạy CyberNexus Control Center ngay sau khi cài\n\n"
         L"Bấm YES để cài ngay, NO để chọn thư mục khác, CANCEL để hủy.";
@@ -150,9 +150,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
-    // Open Windows Firewall for LAN QR & POS (port 8501)
-    runHiddenProcess(L"netsh advfirewall firewall delete rule name=\"CyberNexus POS 8501\"");
-    runHiddenProcess(L"netsh advfirewall firewall add rule name=\"CyberNexus POS 8501\" dir=in action=allow protocol=TCP localport=8501");
+    // Open Windows Firewall for Master (8500) and/or Store POS (8501)
+    if (fs::exists(installDir / L"cybernexus_master.exe")) {
+        runHiddenProcess(L"netsh advfirewall firewall delete rule name=\"CyberNexus Master 8500\"");
+        runHiddenProcess(L"netsh advfirewall firewall add rule name=\"CyberNexus Master 8500\" dir=in action=allow protocol=TCP localport=8500");
+    }
+    if (fs::exists(installDir / L"cybernexus_slave.exe")) {
+        runHiddenProcess(L"netsh advfirewall firewall delete rule name=\"CyberNexus POS 8501\"");
+        runHiddenProcess(L"netsh advfirewall firewall add rule name=\"CyberNexus POS 8501\" dir=in action=allow protocol=TCP localport=8501");
+    }
 
     fs::path controlExe = installDir / L"CyberNexus_Control_Center.exe";
     if (!fs::exists(controlExe)) controlExe = installDir / L"cybernexus_slave.exe";
