@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.17.13",
-  "title": "Sửa cache-buster CSS & ép hiển thị chuẩn Light Mode trên di động",
-  "notes": "Cập nhật cache-buster CSS và tinh chỉnh độ tương phản chuẩn cho Light Mode di động.",
-  "created_at": "2026-11-17 15:36:13",
+  "version": "2026.11.18.1",
+  "title": "AI OCR 4 lớp, Kho/Công nợ NCC, P&L vs Cashflow, Audit Filter & Lọc Hóa đơn 7/14/30 ngày",
+  "notes": "Nâng cấp AI OCR 4 lớp (Canvas preprocessing, Zero-Overhead Routing, responseSchema + ngữ cảnh kho), bổ sung API Kho/Xuất kho/Nhà cung cấp & Công nợ, chuẩn hóa Tài chính P&L & Dòng tiền, lọc KPI Audit, lọc 7/14/30 ngày Lịch sử hóa đơn, sửa bảng Thực đơn và nút Xóa Key dự phòng.",
+  "created_at": "2026-11-18 07:56:51",
   "files": [
     "cybernexus_slave.exe",
     "RUN_SLAVE.bat",
@@ -43,6 +43,7 @@
     "web/assets/js/order_waiter.js",
     "web/assets/js/kitchen_kds.js",
     "web/assets/js/wifi_portal.js",
-    "web/assets/js/date_format_ddmmyy.js"
+    "web/assets/js/date_format_ddmmyy.js",
+    "web/assets/css/liquid-glass.css"
   ]
 }
