@@ -1977,6 +1977,34 @@ const Admin = {
     },
 
     // 5. Order History
+    clearOrderHistoryPreset() {
+        document.querySelectorAll('.order-range-btn').forEach(b => {
+            b.classList.remove('bg-sky-500/25', 'text-sky-200', 'border-sky-400/50');
+            b.classList.add('bg-white/5', 'text-slate-300', 'border-white/10');
+        });
+    },
+
+    setOrderHistoryRange(preset, btn) {
+        const now = new Date();
+        const toIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (preset === '7d') from.setDate(from.getDate() - 6);
+        else if (preset === '14d') from.setDate(from.getDate() - 13);
+        else if (preset === '1m') from.setMonth(from.getMonth() - 1);
+
+        const fromEl = document.getElementById('history-date-from');
+        const toEl = document.getElementById('history-date-to');
+        if (fromEl) fromEl.value = toIso(from);
+        if (toEl) toEl.value = toIso(now);
+
+        this.clearOrderHistoryPreset();
+        if (btn) {
+            btn.classList.remove('bg-white/5', 'text-slate-300', 'border-white/10');
+            btn.classList.add('bg-sky-500/25', 'text-sky-200', 'border-sky-400/50');
+        }
+        this.loadOrderHistory();
+    },
+
     async loadOrderHistory() {
         try {
             const dateFromEl = document.getElementById('history-date-from');

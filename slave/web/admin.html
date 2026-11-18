@@ -650,11 +650,16 @@
                 <div class="order-filter-bar text-xs">
                     <div class="order-filter-item">
                         <span class="text-xs text-slate-400 shrink-0">Từ ngày:</span>
-                        <input type="date" id="history-date-from" value="" class="liquid-input text-xs py-1.5 px-2" />
+                        <input type="date" id="history-date-from" value="" oninput="Admin.clearOrderHistoryPreset()" class="liquid-input text-xs py-1.5 px-2" />
                     </div>
                     <div class="order-filter-item">
                         <span class="text-xs text-slate-400 shrink-0">Đến:</span>
-                        <input type="date" id="history-date-to" value="" class="liquid-input text-xs py-1.5 px-2" />
+                        <input type="date" id="history-date-to" value="" oninput="Admin.clearOrderHistoryPreset()" class="liquid-input text-xs py-1.5 px-2" />
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" onclick="Admin.setOrderHistoryRange('7d', this)" class="order-range-btn px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-sky-500/20 text-slate-300 border border-white/10 text-[11px] font-semibold transition-colors whitespace-nowrap">7 ngày</button>
+                        <button type="button" onclick="Admin.setOrderHistoryRange('14d', this)" class="order-range-btn px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-sky-500/20 text-slate-300 border border-white/10 text-[11px] font-semibold transition-colors whitespace-nowrap">14 ngày</button>
+                        <button type="button" onclick="Admin.setOrderHistoryRange('1m', this)" class="order-range-btn px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-sky-500/20 text-slate-300 border border-white/10 text-[11px] font-semibold transition-colors whitespace-nowrap">1 tháng</button>
                     </div>
                     <div class="order-filter-actions">
                         <select id="history-status" class="liquid-input text-xs py-1.5 px-2 bg-slate-900">
