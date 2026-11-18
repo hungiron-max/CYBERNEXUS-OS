@@ -4,15 +4,18 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <commctrl.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <shobjidl.h>
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -122,19 +125,55 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     GetTempPathW(MAX_PATH, tempBuf);
     fs::path tempZip = fs::path(tempBuf) / L"cybernexus_setup_pkg.zip";
 
+    // Create native Win32 Progress Window
+    INITCOMMONCONTROLSEX icex{sizeof(icex), ICC_PROGRESS_CLASS};
+    InitCommonControlsEx(&icex);
+    HWND hProgWnd = CreateWindowExW(
+        WS_EX_TOPMOST, L"#32770", L"CyberNexus OS v2.3 — Đang Cài Đặt",
+        WS_POPUP | WS_CAPTION | WS_VISIBLE,
+        (GetSystemMetrics(SM_CXSCREEN) - 460) / 2,
+        (GetSystemMetrics(SM_CYSCREEN) - 150) / 2,
+        460, 150, nullptr, nullptr, nullptr, nullptr
+    );
+    HWND hLbl = CreateWindowExW(0, L"STATIC", L"Đang chuẩn bị gói cài đặt...",
+        WS_CHILD | WS_VISIBLE, 20, 22, 410, 24, hProgWnd, nullptr, nullptr, nullptr);
+    HWND hBar = CreateWindowExW(0, PROGRESS_CLASSW, nullptr,
+        WS_CHILD | WS_VISIBLE | PBS_SMOOTH, 20, 56, 410, 24, hProgWnd, nullptr, nullptr, nullptr);
+    HFONT hFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    SendMessageW(hLbl, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
+    SendMessageW(hBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
+
+    auto setProg = [&](int pct, const wchar_t* text) {
+        SetWindowTextW(hLbl, text);
+        SendMessageW(hBar, PBM_SETPOS, pct, 0);
+        MSG m{};
+        while (PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&m);
+            DispatchMessageW(&m);
+        }
+    };
+
+    setProg(10, L"Đang trích xuất dữ liệu bộ cài...");
     ifs.seekg(totalSize - 16 - static_cast<std::streamoff>(zipSize));
     std::ofstream ofs(tempZip, std::ios::binary);
     if (!ofs) {
+        DestroyWindow(hProgWnd);
         MessageBoxW(nullptr, L"Không thể ghi file tạm để giải nén!", L"CyberNexus Setup", MB_ICONERROR);
         return 1;
     }
     std::vector<char> buf(65536);
     uint64_t remaining = zipSize;
+    uint64_t written = 0;
     while (remaining > 0) {
         std::streamsize chunk = static_cast<std::streamsize>((remaining < buf.size()) ? remaining : buf.size());
         ifs.read(buf.data(), chunk);
         ofs.write(buf.data(), chunk);
         remaining -= static_cast<uint64_t>(chunk);
+        written += static_cast<uint64_t>(chunk);
+        if ((written % (1024 * 1024)) < 65536) {
+            int pct = 10 + static_cast<int>((written * 25) / zipSize);
+            setProg(pct, L"Đang trích xuất dữ liệu bộ cài...");
+        }
     }
     ofs.close();
     ifs.close();
@@ -151,15 +190,30 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     };
     std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '"
         + psEscape(tempZip.wstring()) + L"' -DestinationPath '" + psEscape(installDir.wstring()) + L"' -Force\"";
-    bool extracted = runHiddenProcess(psCmd);
+
+    std::atomic<bool> extractDone{false};
+    std::atomic<bool> extracted{false};
+    std::thread extThread([&]() {
+        extracted = runHiddenProcess(psCmd);
+        extractDone = true;
+    });
+
+    int simPct = 36;
+    while (!extractDone) {
+        setProg(simPct, (L"Đang giải nén vào " + installDir.wstring() + L" ...").c_str());
+        if (simPct < 88) simPct++;
+        Sleep(250);
+    }
+    extThread.join();
     fs::remove(tempZip, ec);
 
     if (!extracted) {
+        DestroyWindow(hProgWnd);
         MessageBoxW(nullptr, L"Giải nén bộ cài thất bại. Vui lòng thử chạy quyền Administrator.", L"CyberNexus Setup", MB_ICONERROR);
         return 1;
     }
 
-    // Open Windows Firewall for Master (8500) and/or Store POS (8501)
+    setProg(92, L"Đang mở Windows Firewall & tạo Shortcut Desktop...");
     if (fs::exists(installDir / L"cybernexus_master.exe")) {
         runHiddenProcess(L"netsh advfirewall firewall delete rule name=\"CyberNexus Master 8500\"");
         runHiddenProcess(L"netsh advfirewall firewall add rule name=\"CyberNexus Master 8500\" dir=in action=allow protocol=TCP localport=8500");
@@ -172,6 +226,10 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     fs::path controlExe = installDir / L"CyberNexus_Control_Center.exe";
     if (!fs::exists(controlExe)) controlExe = installDir / L"cybernexus_slave.exe";
     createDesktopShortcut(controlExe, installDir);
+
+    setProg(100, L"Hoàn tất! Đang khởi chạy CyberNexus Control Center...");
+    Sleep(350);
+    DestroyWindow(hProgWnd);
 
     ShellExecuteW(nullptr, L"open", controlExe.wstring().c_str(), nullptr, installDir.wstring().c_str(), SW_SHOWNORMAL);
     MessageBoxW(nullptr, (L"Đã cài đặt thành công CyberNexus OS POS tại:\n" + installDir.wstring()).c_str(),

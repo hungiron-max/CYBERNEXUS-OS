@@ -134,7 +134,7 @@ if(WIN32)
         launcher/CyberNexusSetupStub.cpp
         launcher/icons/store_app.rc
     )
-    target_link_libraries(CyberNexus_Setup_Stub PRIVATE shell32 ole32 uuid)
+    target_link_libraries(CyberNexus_Setup_Stub PRIVATE shell32 ole32 uuid comctl32 gdi32)
     if(MINGW)
         target_link_options(CyberNexus_Setup_Stub PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
     endif()
