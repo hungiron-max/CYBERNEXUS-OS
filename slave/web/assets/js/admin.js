@@ -1203,6 +1203,196 @@ const Admin = {
         document.getElementById('product-modal').classList.add('open');
     },
 
+    async analyzeMenuStyleDNA() {
+        if (this._menuStyleDNA) return this._menuStyleDNA;
+        const samples = (this.products || [])
+            .map(p => p.image || '')
+            .filter(src => src && !src.includes('default_dish'))
+            .slice(0, 8);
+        if (!samples.length) {
+            this._menuStyleDNA = { tone: 'bright', avgLuma: 175, warmth: 4, count: 0 };
+            return this._menuStyleDNA;
+        }
+        const measureOne = (src) => new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                try {
+                    const w = 48, h = 36;
+                    const cv = document.createElement('canvas');
+                    cv.width = w; cv.height = h;
+                    const ctx = cv.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const data = ctx.getImageData(0, 0, w, h).data;
+                    let sumL = 0, sumW = 0, n = 0;
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            if (x < 7 || x >= w - 7 || y < 6 || y >= h - 6) {
+                                const i = (y * w + x) * 4;
+                                const r = data[i], g = data[i + 1], b = data[i + 2];
+                                sumL += 0.299 * r + 0.587 * g + 0.114 * b;
+                                sumW += (r - b);
+                                n++;
+                            }
+                        }
+                    }
+                    resolve(n ? { luma: sumL / n, warmth: sumW / n } : null);
+                } catch (_) { resolve(null); }
+            };
+            img.onerror = () => resolve(null);
+            img.src = src;
+        });
+        const stats = (await Promise.all(samples.map(measureOne))).filter(Boolean);
+        if (!stats.length) {
+            this._menuStyleDNA = { tone: 'bright', avgLuma: 175, warmth: 4, count: 0 };
+            return this._menuStyleDNA;
+        }
+        const avgLuma = stats.reduce((s, x) => s + x.luma, 0) / stats.length;
+        const warmth = stats.reduce((s, x) => s + x.warmth, 0) / stats.length;
+        const tone = avgLuma >= 145 ? 'bright' : (avgLuma >= 95 ? 'warm' : 'dark');
+        this._menuStyleDNA = { tone, avgLuma, warmth, count: stats.length };
+        return this._menuStyleDNA;
+    },
+
+    async getEffectiveDishStyleTone() {
+        const dna = await this.analyzeMenuStyleDNA();
+        const sel = document.getElementById('dish-style-tone-select');
+        const manual = sel ? sel.value : 'auto';
+        const tone = (manual && manual !== 'auto') ? manual : dna.tone;
+        return { tone, dna };
+    },
+
+    async smartSearchDishImages() {
+        const name = document.getElementById('modal-prod-name').value.trim();
+        const catSelect = document.getElementById('modal-product-category');
+        const category_name = catSelect.options[catSelect.selectedIndex]?.text || '';
+        if (!name) {
+            alert('Vui lòng nhập tên món ăn trước khi tìm ảnh!');
+            return;
+        }
+        const picker = document.getElementById('dish-smart-picker');
+        const grid = document.getElementById('dish-smart-grid');
+        const badge = document.getElementById('dish-style-dna-badge');
+        if (!picker || !grid) return;
+
+        picker.classList.remove('hidden');
+        grid.innerHTML = '<div class="col-span-3 py-4 text-center text-xs text-slate-400 animate-pulse">Đang phân tích tông menu & tìm ảnh món thật (0 AI token)...</div>';
+
+        const { tone, dna } = await this.getEffectiveDishStyleTone();
+        const toneLabel = tone === 'bright' ? 'Nền sáng' : (tone === 'warm' ? 'Gỗ ấm' : 'Nền tối');
+        if (badge) {
+            badge.textContent = `Menu Style DNA: ${toneLabel} (${dna.count} ảnh mẫu) • Tự cân sáng & cắt 4:3`;
+        }
+
+        try {
+            const res = await fetch('api/products.php?action=search_dish_images', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category_name, style_tone: tone })
+            });
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.candidates) || !data.candidates.length) {
+                grid.innerHTML = `<div class="col-span-3 py-3 text-center text-xs text-rose-300">${data.message || 'Không tìm thấy ảnh phù hợp.'}</div>`;
+                return;
+            }
+            grid.innerHTML = '';
+            data.candidates.forEach((c) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'group relative aspect-[4/3] rounded-lg overflow-hidden border border-white/15 hover:border-emerald-400 bg-slate-950 transition-all';
+                btn.title = 'Chọn ảnh này & tự chuẩn hóa 640×480 theo tông menu';
+                btn.onclick = () => this.applySmartDishCandidate(c.full_url, c.thumb_url);
+
+                const img = document.createElement('img');
+                img.src = c.thumb_url;
+                img.alt = name;
+                img.className = 'w-full h-full object-cover group-hover:scale-105 transition-transform duration-200';
+
+                const ov = document.createElement('span');
+                ov.className = 'absolute inset-x-0 bottom-0 bg-slate-950/75 text-[10px] text-emerald-300 py-0.5 text-center opacity-0 group-hover:opacity-100 transition-opacity';
+                ov.textContent = 'Chọn & Đồng bộ';
+
+                btn.appendChild(img);
+                btn.appendChild(ov);
+                grid.appendChild(btn);
+            });
+        } catch (e) {
+            grid.innerHTML = `<div class="col-span-3 py-3 text-center text-xs text-rose-300">Lỗi tìm ảnh: ${e.message}</div>`;
+        }
+    },
+
+    async applySmartDishCandidate(fullUrl, thumbUrl) {
+        const preview = document.getElementById('modal-prod-img-preview');
+        const picker = document.getElementById('dish-smart-picker');
+        if (preview) preview.classList.add('animate-pulse');
+        try {
+            const res = await fetch('api/products.php?action=fetch_dish_image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_url: fullUrl, thumb_url: thumbUrl })
+            });
+            const data = await res.json();
+            if (!data.success || !data.data_url) {
+                if (preview) preview.classList.remove('animate-pulse');
+                alert(data.message || 'Không tải được ảnh đã chọn!');
+                return;
+            }
+            const { dna } = await this.getEffectiveDishStyleTone();
+            const normalizedB64 = await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const outW = 640, outH = 480;
+                    const cv = document.createElement('canvas');
+                    cv.width = outW; cv.height = outH;
+                    const ctx = cv.getContext('2d');
+                    const srcRatio = img.width / img.height;
+                    const dstRatio = outW / outH;
+                    let sx = 0, sy = 0, sw = img.width, sh = img.height;
+                    if (srcRatio > dstRatio) {
+                        sw = img.height * dstRatio;
+                        sx = (img.width - sw) / 2;
+                    } else {
+                        sh = img.width / dstRatio;
+                        sy = (img.height - sh) / 2;
+                    }
+                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+                    // Measure candidate border luminance and gently align exposure toward Menu Style DNA
+                    const px = ctx.getImageData(0, 0, outW, outH).data;
+                    let sumL = 0, n = 0;
+                    for (let y = 0; y < outH; y += 8) {
+                        for (let x = 0; x < outW; x += 8) {
+                            if (x < 96 || x > outW - 96 || y < 72 || y > outH - 72) {
+                                const i = (y * outW + x) * 4;
+                                sumL += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+                                n++;
+                            }
+                        }
+                    }
+                    const curLuma = n ? (sumL / n) : dna.avgLuma;
+                    const delta = Math.max(-28, Math.min(28, (dna.avgLuma - curLuma) * 0.45));
+                    if (Math.abs(delta) > 4) {
+                        const brightPct = Math.round(100 + delta * 0.65);
+                        const tmp = document.createElement('canvas');
+                        tmp.width = outW; tmp.height = outH;
+                        const tctx = tmp.getContext('2d');
+                        tctx.filter = `brightness(${brightPct}%) contrast(103%) saturate(104%)`;
+                        tctx.drawImage(cv, 0, 0);
+                        resolve(tmp.toDataURL('image/jpeg', 0.9));
+                        return;
+                    }
+                    resolve(cv.toDataURL('image/jpeg', 0.9));
+                };
+                img.onerror = () => reject(new Error('Không đọc được dữ liệu ảnh!'));
+                img.src = data.data_url;
+            });
+            if (picker) picker.classList.add('hidden');
+            await this.uploadCroppedDishImage(normalizedB64);
+        } catch (e) {
+            if (preview) preview.classList.remove('animate-pulse');
+            alert('Lỗi xử lý ảnh: ' + e.message);
+        }
+    },
+
     async aiGenerateDishImage() {
         const name = document.getElementById('modal-prod-name').value.trim();
         const catSelect = document.getElementById('modal-product-category');
@@ -1216,16 +1406,16 @@ const Admin = {
 
         const preview = document.getElementById('modal-prod-img-preview');
         const input = document.getElementById('modal-prod-image');
-        const originalSrc = preview.src;
 
         // Visual loading state
         preview.classList.add('animate-pulse');
 
         try {
+            const { tone } = await this.getEffectiveDishStyleTone();
             const res = await fetch('api/products.php?action=ai_generate_dish_image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, category_name, id: id ? parseInt(id) : 0 })
+                body: JSON.stringify({ name, category_name, style_tone: tone, id: id ? parseInt(id) : 0 })
             });
             const data = await res.json();
             preview.classList.remove('animate-pulse');

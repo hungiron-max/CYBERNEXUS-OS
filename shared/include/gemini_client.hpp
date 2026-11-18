@@ -744,4 +744,108 @@ inline bool generateImageViaProvider(const std::string& provider, const std::str
     return false;
 }
 
+inline std::string buildDishImagePrompt(const std::string& name, const std::string& catName, const std::string& styleTone) {
+    std::string prompt = "Professional commercial food and beverage studio photography of Vietnamese cafe/restaurant dish: \"" + name + "\"";
+    if (!catName.empty()) prompt += " (Category: " + catName + ")";
+    if (styleTone == "bright") {
+        prompt += ". Appetizing close-up shot on a bright clean light wood or white marble table, airy natural daylight, crisp bright background, shallow depth of field, high detail, photorealistic, no text, no watermark.";
+    } else if (styleTone == "warm") {
+        prompt += ". Appetizing close-up shot on a warm natural wood cafe table, soft daylight, balanced warm tones, shallow depth of field, high detail, photorealistic, no text, no watermark.";
+    } else {
+        prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
+    }
+    return prompt;
+}
+
+inline bool parseHttpUrlParts(const std::string& url, std::string& hostOut, int& portOut, bool& tlsOut, std::string& pathOut) {
+    tlsOut = (url.rfind("https://", 0) == 0);
+    size_t start = tlsOut ? 8 : (url.rfind("http://", 0) == 0 ? 7 : std::string::npos);
+    if (start == std::string::npos) return false;
+    size_t slash = url.find('/', start);
+    std::string hostPort = (slash == std::string::npos) ? url.substr(start) : url.substr(start, slash - start);
+    pathOut = (slash == std::string::npos) ? "/" : url.substr(slash);
+    size_t colon = hostPort.find(':');
+    if (colon != std::string::npos) {
+        hostOut = hostPort.substr(0, colon);
+        try { portOut = std::stoi(hostPort.substr(colon + 1)); } catch (...) { portOut = tlsOut ? 443 : 80; }
+    } else {
+        hostOut = hostPort;
+        portOut = tlsOut ? 443 : 80;
+    }
+    return !hostOut.empty();
+}
+
+inline bool fetchImageAsBase64(const std::string& url, std::string& outB64, std::string& outMime, std::string& errOut) {
+    std::string host, path, resp;
+    int port = 443, st = 0;
+    bool tls = true;
+    if (!parseHttpUrlParts(url, host, port, tls, path)) {
+        errOut = "URL ảnh không hợp lệ.";
+        return false;
+    }
+    if (!winHttpRequestEx(host, port, tls, path, "GET", "", "", st, resp, errOut)) {
+        return false;
+    }
+    if (st >= 200 && st < 300 && resp.size() > 512 && resp[0] != '<' && resp[0] != '{') {
+        outMime = detectImageMime(resp);
+        outB64 = base64Encode(resp);
+        return !outB64.empty();
+    }
+    errOut = "Không tải được ảnh (HTTP " + std::to_string(st) + ")";
+    return false;
+}
+
+struct FoodImageCandidate {
+    std::string thumbUrl;
+    std::string fullUrl;
+};
+
+inline bool searchFoodImagesBing(const std::string& dishName, const std::string& catName, const std::string& styleTone,
+                                 std::vector<FoodImageCandidate>& resultsOut, std::string& errOut) {
+    resultsOut.clear();
+    std::string q = dishName;
+    if (!catName.empty() && catName.find("Tất cả") == std::string::npos) {
+        q += " " + catName;
+    }
+    if (styleTone == "bright") q += " nền sáng";
+    else if (styleTone == "dark") q += " nền tối";
+
+    std::string path = "/images/async?q=" + urlEncode(q) + "&first=1&count=12&adlt=strict";
+    int st = 0;
+    std::string html;
+    if (!winHttpRequestEx("www.bing.com", 443, true, path, "GET", "", "", st, html, errOut)) {
+        return false;
+    }
+    if (st < 200 || st >= 300 || html.empty()) {
+        errOut = "Lỗi tìm kiếm ảnh (HTTP " + std::to_string(st) + ")";
+        return false;
+    }
+    size_t pos = 0;
+    while (resultsOut.size() < 6) {
+        size_t mKey = html.find("murl&quot;:&quot;", pos);
+        if (mKey == std::string::npos) break;
+        size_t mStart = mKey + 17;
+        size_t mEnd = html.find("&quot;", mStart);
+        if (mEnd == std::string::npos) break;
+        std::string murl = html.substr(mStart, mEnd - mStart);
+
+        std::string turl;
+        size_t tKey = html.find("turl&quot;:&quot;", mEnd);
+        if (tKey != std::string::npos && tKey - mEnd < 600) {
+            size_t tStart = tKey + 17;
+            size_t tEnd = html.find("&quot;", tStart);
+            if (tEnd != std::string::npos) turl = html.substr(tStart, tEnd - tStart);
+        }
+        if (murl.rfind("http", 0) == 0) {
+            resultsOut.push_back({turl.empty() ? murl : turl, murl});
+        }
+        pos = mEnd + 6;
+    }
+    if (resultsOut.empty()) {
+        errOut = "Không tìm thấy ảnh phù hợp cho món \"" + dishName + "\"";
+        return false;
+    }
+    return true;
+}
+
 } // namespace SaleApp::AI

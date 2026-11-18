@@ -1400,6 +1400,7 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         if (!requireModule(res, "ai_dish_studio", "AI Tạo Ảnh Món Ăn Tự Động")) return;
         std::string name = BodyParser::getParam(req, body, "name");
         std::string catName = BodyParser::getParam(req, body, "category_name");
+        std::string styleTone = BodyParser::getParam(req, body, "style_tone", "bright");
         std::string passedKey = BodyParser::getParam(req, body, "gemini_api_key");
         int64_t id = 0;
         try { id = std::stoll(BodyParser::getParam(req, body, "id", "0")); } catch (...) {}
@@ -1412,14 +1413,12 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         std::string localKey = resolveGeminiApiKey(db, passedKey);
         bool generatedLocally = false;
         if (!localKey.empty()) {
-            std::string prompt = "Professional commercial food and beverage studio photography of Vietnamese cafe/restaurant dish: \"" + name + "\"";
-            if (!catName.empty()) prompt += " (Category: " + catName + ")";
-            prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
+            std::string prompt = SaleApp::AI::buildDishImagePrompt(name, catName, styleTone);
             generatedLocally = SaleApp::AI::geminiGenerateImageBase64(localKey, prompt, imgB64, mime, modelUsed, localErr);
         }
         if (!generatedLocally) {
             json proxyResp;
-            if (!callMasterAiProxy({{"action", "generate_dish_image"}, {"name", name}, {"category_name", catName}}, proxyResp, err)) {
+            if (!callMasterAiProxy({{"action", "generate_dish_image"}, {"name", name}, {"category_name", catName}, {"style_tone", styleTone}}, proxyResp, err)) {
                 sendError(res, localErr.empty() ? err : (err + " (" + localErr + ")"), 502);
                 return;
             }
@@ -1456,6 +1455,42 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             {"image_url", webUrl},
             {"ai_engine", modelUsed},
             {"message", "AI (" + modelUsed + ") đã tạo ảnh món ăn thành công!"}
+        });
+        return;
+    }
+
+    if (action == "search_dish_images") {
+        std::string name = BodyParser::getParam(req, body, "name");
+        std::string catName = BodyParser::getParam(req, body, "category_name");
+        std::string styleTone = BodyParser::getParam(req, body, "style_tone", "bright");
+        if (name.empty()) {
+            sendError(res, "Vui lòng nhập tên món ăn để tìm ảnh!", 400);
+            return;
+        }
+        json proxyResp;
+        std::string err;
+        if (!callMasterAiProxy({{"action", "search_dish_images"}, {"name", name}, {"category_name", catName}, {"style_tone", styleTone}}, proxyResp, err)) {
+            sendError(res, err, 502);
+            return;
+        }
+        sendJson(res, proxyResp);
+        return;
+    }
+
+    if (action == "fetch_dish_image") {
+        std::string fullUrl = BodyParser::getParam(req, body, "full_url");
+        std::string thumbUrl = BodyParser::getParam(req, body, "thumb_url");
+        json proxyResp;
+        std::string err;
+        if (!callMasterAiProxy({{"action", "fetch_dish_image"}, {"full_url", fullUrl}, {"thumb_url", thumbUrl}}, proxyResp, err)) {
+            sendError(res, err, 502);
+            return;
+        }
+        std::string b64 = proxyResp.value("image_base64", "");
+        std::string mime = proxyResp.value("mime_type", "image/jpeg");
+        sendJson(res, {
+            {"success", !b64.empty()},
+            {"data_url", "data:" + mime + ";base64," + b64}
         });
         return;
     }

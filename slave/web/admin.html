@@ -3131,7 +3131,9 @@
                         <div class="flex-1 space-y-2">
                             <input type="text" id="modal-prod-image" placeholder="assets/images/dishes/..." class="liquid-input w-full text-xs font-mono" oninput="document.getElementById('modal-prod-img-preview').src = this.value || 'assets/images/dishes/default_dish.jpg'" />
                             <div class="flex flex-wrap items-center gap-1.5">
-                                
+                                <button type="button" onclick="Admin.smartSearchDishImages()" class="btn-glass text-xs py-1.5 px-2.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white border border-emerald-500/30 flex items-center gap-1 shadow" title="Tìm ảnh món thật (0 AI Token) & tự đồng bộ màu sắc menu">
+                                    <i class="fas fa-magnifying-glass text-emerald-300"></i> Tìm & Đồng Bộ Ảnh
+                                </button>
                                 <button type="button" onclick="Admin.aiGenerateDishImage()" class="btn-glass text-xs py-1.5 px-2.5 bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30 flex items-center gap-1 shadow">
                                     <i class="fas fa-wand-magic-sparkles text-amber-400"></i> AI Tạo Ảnh
                                 </button>
@@ -3145,6 +3147,21 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
+                    <div id="dish-smart-picker" class="hidden pt-2 border-t border-white/10 space-y-2">
+                        <div class="flex items-center justify-between gap-2 text-[11px]">
+                            <span id="dish-style-dna-badge" class="text-emerald-300 font-medium"></span>
+                            <div class="flex items-center gap-1.5">
+                                <select id="dish-style-tone-select" onchange="Admin.smartSearchDishImages(true)" class="bg-slate-950/90 border border-white/15 rounded-lg px-2 py-0.5 text-[11px] text-slate-200">
+                                    <option value="auto">Tự động theo menu</option>
+                                    <option value="bright">Ưu tiên nền sáng</option>
+                                    <option value="warm">Ưu tiên gỗ ấm</option>
+                                    <option value="dark">Ưu tiên nền tối</option>
+                                </select>
+                                <button type="button" onclick="document.getElementById('dish-smart-picker').classList.add('hidden')" class="text-slate-400 hover:text-white px-1">&times;</button>
+                            </div>
+                        </div>
+                        <div id="dish-smart-grid" class="grid grid-cols-3 gap-2"></div>
                     </div>
                 </div>
 

@@ -17,6 +17,7 @@ namespace SaleApp::Backend {
 namespace fs = std::filesystem;
 
 static int64_t getAiActionCreditCost(const std::string& aiAction) {
+    if (aiAction == "search_dish_images" || aiAction == "fetch_dish_image") return 0;
     if (aiAction == "parse_invoice") return 1;
     if (aiAction == "copilot_chat") return 1;
     if (aiAction == "generate_dish_image") return 2;
@@ -3022,6 +3023,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             std::string reqModule;
             if (aiAction == "parse_invoice") reqModule = "ai_invoice_ocr";
             else if (aiAction == "generate_dish_image") reqModule = "ai_dish_studio";
+            else if (aiAction == "search_dish_images" || aiAction == "fetch_dish_image") reqModule = "pos_core";
             else if (aiAction == "generate_slide") reqModule = "advertising_promotions";
             else if (aiAction == "copilot_chat") reqModule = "pos_core";
             else {
@@ -3031,6 +3033,44 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
 
             if (!checkTenantModuleAllowed(tenant, reqModule)) {
                 replyTunnelJson(res, {{"success", false}, {"locked", true}, {"message", "Quán chưa được cấp phép module [" + reqModule + "] trên Master!"}}, 403);
+                return;
+            }
+
+            int64_t actionCost = getAiActionCreditCost(aiAction);
+            if (aiAction == "search_dish_images") {
+                std::string name = getString(body, "name");
+                std::string catName = getString(body, "category_name");
+                std::string styleTone = getString(body, "style_tone", "bright");
+                if (name.empty()) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Thiếu tên món ăn!"}}, 400);
+                    return;
+                }
+                std::vector<SaleApp::AI::FoodImageCandidate> candidates;
+                std::string err;
+                if (!SaleApp::AI::searchFoodImagesBing(name, catName, styleTone, candidates, err)) {
+                    replyTunnelJson(res, {{"success", false}, {"message", err}}, 502);
+                    return;
+                }
+                json arr = json::array();
+                for (const auto& c : candidates) {
+                    arr.push_back({{"thumb_url", c.thumbUrl}, {"full_url", c.fullUrl}});
+                }
+                replyTunnelJson(res, {{"success", true}, {"candidates", arr}});
+                return;
+            }
+            if (aiAction == "fetch_dish_image") {
+                std::string fullUrl = getString(body, "full_url");
+                std::string thumbUrl = getString(body, "thumb_url");
+                std::string imgB64, mime, err;
+                bool ok = (!fullUrl.empty() && SaleApp::AI::fetchImageAsBase64(fullUrl, imgB64, mime, err));
+                if (!ok && !thumbUrl.empty() && thumbUrl != fullUrl) {
+                    ok = SaleApp::AI::fetchImageAsBase64(thumbUrl, imgB64, mime, err);
+                }
+                if (!ok) {
+                    replyTunnelJson(res, {{"success", false}, {"message", err.empty() ? "Không tải được ảnh đã chọn!" : err}}, 502);
+                    return;
+                }
+                replyTunnelJson(res, {{"success", true}, {"image_base64", imgB64}, {"mime_type", mime}});
                 return;
             }
 
@@ -3045,7 +3085,6 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             int64_t tid = getInt(tenant, "id", 0);
             std::string tCode = getString(tenant, "tenant_code", "");
             std::string sName = getString(tenant, "store_name", "");
-            int64_t actionCost = getAiActionCreditCost(aiAction);
             json quotaSnap = buildTenantAiQuotaSnapshot(db, tenant);
             bool isUnlimited = quotaSnap.value("unlimited", false);
             int64_t remMonthly = quotaSnap.value("remaining_monthly", int64_t(0));
@@ -3219,13 +3258,12 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             if (aiAction == "generate_dish_image") {
                 std::string name = getString(body, "name");
                 std::string catName = getString(body, "category_name");
+                std::string styleTone = getString(body, "style_tone", "bright");
                 if (name.empty()) {
                     replyTunnelJson(res, {{"success", false}, {"message", "Thiếu tên món ăn!"}}, 400);
                     return;
                 }
-                std::string prompt = "Professional commercial food and beverage studio photography of Vietnamese cafe/restaurant dish: \"" + name + "\"";
-                if (!catName.empty()) prompt += " (Category: " + catName + ")";
-                prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
+                std::string prompt = SaleApp::AI::buildDishImagePrompt(name, catName, styleTone);
 
                 std::string imgB64, mime, modelUsed, err;
                 if (!runImageWithPool(prompt, imgB64, mime, modelUsed, err)) {
