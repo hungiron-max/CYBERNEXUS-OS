@@ -1262,14 +1262,20 @@ const Admin = {
         return { tone, dna };
     },
 
-    async smartSearchDishImages() {
+    async smartSearchDishImages(page = 0, keepQuery = false) {
         const name = document.getElementById('modal-prod-name').value.trim();
         const catSelect = document.getElementById('modal-product-category');
         const category_name = catSelect.options[catSelect.selectedIndex]?.text || '';
-        if (!name) {
-            alert('Vui lòng nhập tên món ăn trước khi tìm ảnh!');
+        const queryInput = document.getElementById('dish-smart-query');
+        if (!keepQuery && queryInput) {
+            queryInput.value = name;
+        }
+        const custom_query = queryInput ? queryInput.value.trim() : '';
+        if (!name && !custom_query) {
+            alert('Vui lòng nhập tên món ăn hoặc từ khóa trước khi tìm ảnh!');
             return;
         }
+        this._smartSearchPage = Math.max(0, Number(page) || 0);
         const picker = document.getElementById('dish-smart-picker');
         const grid = document.getElementById('dish-smart-grid');
         const badge = document.getElementById('dish-style-dna-badge');
@@ -1281,14 +1287,15 @@ const Admin = {
         const { tone, dna } = await this.getEffectiveDishStyleTone();
         const toneLabel = tone === 'bright' ? 'Nền sáng' : (tone === 'warm' ? 'Gỗ ấm' : 'Nền tối');
         if (badge) {
-            badge.textContent = `Menu Style DNA: ${toneLabel} (${dna.count} ảnh mẫu) • Tự cân sáng & cắt 4:3`;
+            const pageTxt = this._smartSearchPage > 0 ? ` • Trang ${this._smartSearchPage + 1}` : '';
+            badge.textContent = `Menu Style DNA: ${toneLabel} (${dna.count} ảnh mẫu)${pageTxt}`;
         }
 
         try {
             const res = await fetch('api/products.php?action=search_dish_images', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, category_name, style_tone: tone })
+                body: JSON.stringify({ name, category_name, style_tone: tone, page: this._smartSearchPage, custom_query })
             });
             const data = await res.json();
             if (!data.success || !Array.isArray(data.candidates) || !data.candidates.length) {

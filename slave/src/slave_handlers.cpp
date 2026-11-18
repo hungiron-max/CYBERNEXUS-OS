@@ -1499,13 +1499,16 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
         std::string name = BodyParser::getParam(req, body, "name");
         std::string catName = BodyParser::getParam(req, body, "category_name");
         std::string styleTone = BodyParser::getParam(req, body, "style_tone", "bright");
-        if (name.empty()) {
+        std::string customQuery = BodyParser::getParam(req, body, "custom_query");
+        int page = 0;
+        try { page = std::stoi(BodyParser::getParam(req, body, "page", "0")); } catch (...) {}
+        if (name.empty() && customQuery.empty()) {
             sendError(res, "Vui lòng nhập tên món ăn để tìm ảnh!", 400);
             return;
         }
         json proxyResp;
         std::string err;
-        if (!callMasterAiProxy({{"action", "search_dish_images"}, {"name", name}, {"category_name", catName}, {"style_tone", styleTone}}, proxyResp, err)) {
+        if (!callMasterAiProxy({{"action", "search_dish_images"}, {"name", name}, {"category_name", catName}, {"style_tone", styleTone}, {"page", page}, {"custom_query", customQuery}}, proxyResp, err)) {
             sendError(res, err, 502);
             return;
         }

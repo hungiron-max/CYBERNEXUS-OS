@@ -801,16 +801,21 @@ struct FoodImageCandidate {
 };
 
 inline bool searchFoodImagesBing(const std::string& dishName, const std::string& catName, const std::string& styleTone,
-                                 std::vector<FoodImageCandidate>& resultsOut, std::string& errOut) {
+                                 std::vector<FoodImageCandidate>& resultsOut, std::string& errOut,
+                                 int page = 0, const std::string& customQuery = "") {
     resultsOut.clear();
-    std::string q = dishName;
-    if (!catName.empty() && catName.find("Tất cả") == std::string::npos) {
-        q += " " + catName;
+    std::string q = customQuery;
+    if (q.empty()) {
+        q = dishName;
+        if (!catName.empty() && catName.find("Tất cả") == std::string::npos) {
+            q += " " + catName;
+        }
     }
     if (styleTone == "bright") q += " nền sáng";
     else if (styleTone == "dark") q += " nền tối";
 
-    std::string path = "/images/async?q=" + urlEncode(q) + "&first=1&count=12&adlt=strict";
+    int first = 1 + (page > 0 ? page * 6 : 0);
+    std::string path = "/images/async?q=" + urlEncode(q) + "&first=" + std::to_string(first) + "&count=12&adlt=strict";
     int st = 0;
     std::string html;
     if (!winHttpRequestEx("www.bing.com", 443, true, path, "GET", "", "", st, html, errOut)) {

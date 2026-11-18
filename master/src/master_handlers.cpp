@@ -3041,13 +3041,15 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 std::string name = getString(body, "name");
                 std::string catName = getString(body, "category_name");
                 std::string styleTone = getString(body, "style_tone", "bright");
-                if (name.empty()) {
+                std::string customQuery = getString(body, "custom_query");
+                int page = body.value("page", 0);
+                if (name.empty() && customQuery.empty()) {
                     replyTunnelJson(res, {{"success", false}, {"message", "Thiếu tên món ăn!"}}, 400);
                     return;
                 }
                 std::vector<SaleApp::AI::FoodImageCandidate> candidates;
                 std::string err;
-                if (!SaleApp::AI::searchFoodImagesBing(name, catName, styleTone, candidates, err)) {
+                if (!SaleApp::AI::searchFoodImagesBing(name, catName, styleTone, candidates, err, page, customQuery)) {
                     replyTunnelJson(res, {{"success", false}, {"message", err}}, 502);
                     return;
                 }

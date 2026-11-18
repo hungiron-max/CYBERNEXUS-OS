@@ -3152,7 +3152,7 @@
                         <div class="flex items-center justify-between gap-2 text-[11px]">
                             <span id="dish-style-dna-badge" class="text-emerald-300 font-medium"></span>
                             <div class="flex items-center gap-1.5">
-                                <select id="dish-style-tone-select" onchange="Admin.smartSearchDishImages(true)" class="bg-slate-950/90 border border-white/15 rounded-lg px-2 py-0.5 text-[11px] text-slate-200">
+                                <select id="dish-style-tone-select" onchange="Admin.smartSearchDishImages(0, true)" class="bg-slate-950/90 border border-white/15 rounded-lg px-2 py-0.5 text-[11px] text-slate-200">
                                     <option value="auto">Tự động theo menu</option>
                                     <option value="bright">Ưu tiên nền sáng</option>
                                     <option value="warm">Ưu tiên gỗ ấm</option>
@@ -3160,6 +3160,15 @@
                                 </select>
                                 <button type="button" onclick="document.getElementById('dish-smart-picker').classList.add('hidden')" class="text-slate-400 hover:text-white px-1">&times;</button>
                             </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="dish-smart-query" placeholder="Từ khóa tìm ảnh (vd: ly trà sữa trân châu)..." class="liquid-input flex-1 text-xs py-1 px-2" onkeydown="if(event.key==='Enter'){event.preventDefault();Admin.smartSearchDishImages(0,true);}" />
+                            <button type="button" onclick="Admin.smartSearchDishImages(0, true)" class="btn-glass text-[11px] py-1 px-2 bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500 hover:text-white shrink-0">
+                                <i class="fas fa-search"></i> Tìm
+                            </button>
+                            <button type="button" onclick="Admin.smartSearchDishImages((Admin._smartSearchPage||0)+1, true)" class="btn-glass text-[11px] py-1 px-2 bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500 hover:text-white shrink-0" title="Tải 6 ảnh tiếp theo nếu chưa ưng">
+                                <i class="fas fa-rotate"></i> Ảnh khác
+                            </button>
                         </div>
                         <div id="dish-smart-grid" class="grid grid-cols-3 gap-2"></div>
                     </div>

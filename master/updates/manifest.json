@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.6",
-  "title": "Sửa lỗi lưu ảnh khi chọn từ Smart Menu Studio / Cắt 4:3 (upload_image)",
-  "notes": "Bổ sung xử lý action upload_image trên Slave để lưu ảnh chuẩn 4:3 (640x480) khi chọn từ Tìm & Đồng Bộ Ảnh, Tải & Cắt Chuẩn hoặc Cắt 4:3.",
-  "created_at": "2026-11-18 09:36:23",
+  "version": "2026.11.18.7",
+  "title": "Smart Menu Studio: Bổ sung ô từ khóa tùy chỉnh & nút Ảnh khác (phân trang)",
+  "notes": "Cho phép nhập lại từ khóa tìm kiếm ảnh món ăn tùy ý và bấm Ảnh khác để tải 6 ảnh tiếp theo nếu kết quả đầu chưa ưng ý.",
+  "created_at": "2026-11-18 09:44:03",
   "files": [
     "cybernexus_slave.exe",
     "RUN_SLAVE.bat",
