@@ -111,6 +111,7 @@ static void ensureMasterAiTables(Database& db) {
             created_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
     )");
+    try { db.execute("ALTER TABLE master_ai_keys ADD COLUMN provider TEXT DEFAULT 'gemini'"); } catch (...) {}
     try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN credits_used INTEGER DEFAULT 1"); } catch (...) {}
     try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN quota_bucket TEXT DEFAULT 'monthly'"); } catch (...) {}
     try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN key_id INTEGER DEFAULT 0"); } catch (...) {}
@@ -153,13 +154,13 @@ static void expireOutdatedGeminiKeys(Database& db) {
 static json selectActiveGeminiKey(Database& db) {
     expireOutdatedGeminiKeys(db);
     auto row = db.queryRow(
-        "SELECT * FROM master_ai_keys WHERE status = 'active' ORDER BY priority ASC, id ASC LIMIT 1"
+        "SELECT * FROM master_ai_keys WHERE status = 'active' AND COALESCE(provider, 'gemini') = 'gemini' ORDER BY priority ASC, id ASC LIMIT 1"
     );
     if (!row.is_null() && !row.value("api_key", "").empty()) return row;
 
-    // Auto-promote highest-priority standby key if no active key exists
+    // Auto-promote highest-priority standby Gemini key if no active key exists
     auto standby = db.queryRow(
-        "SELECT * FROM master_ai_keys WHERE status = 'standby' "
+        "SELECT * FROM master_ai_keys WHERE status = 'standby' AND COALESCE(provider, 'gemini') = 'gemini' "
         "AND (COALESCE(expires_at, '') = '' OR date(expires_at) >= date('now', 'localtime')) "
         "ORDER BY priority ASC, id ASC LIMIT 1"
     );
@@ -2384,7 +2385,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             ensureMasterAiTables(db);
             expireOutdatedGeminiKeys(db);
             json keys = db.query(R"(
-                SELECT k.id, k.label, k.key_masked, k.tier, k.status, k.priority,
+                SELECT k.id, k.label, k.key_masked, COALESCE(k.provider, 'gemini') as provider, k.tier, k.status, k.priority,
                        k.monthly_credit_limit, k.daily_request_limit, k.expires_at,
                        k.model_count, k.last_checked_at, k.last_used_at, k.last_error,
                        k.created_at, k.updated_at,
@@ -2508,15 +2509,19 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 sendError(res, "Vui lòng dán mã Gemini API Key hợp lệ!", 400);
                 return;
             }
+            std::string provider = getString(body, "provider", "gemini");
+            if (provider != "gemini" && provider != "huggingface" && provider != "pollinations" && provider != "openai") {
+                provider = "gemini";
+            }
             int modelCount = 0;
             std::vector<std::string> samples;
             std::string err;
-            if (!SaleApp::AI::geminiVerifyKey(apiKey, modelCount, samples, err)) {
-                sendError(res, "Key không hợp lệ hoặc bị Google từ chối: " + err, 400);
+            if (!SaleApp::AI::verifyProviderKey(provider, apiKey, modelCount, samples, err)) {
+                sendError(res, "Key không hợp lệ hoặc bị từ chối: " + err, 400);
                 return;
             }
-            std::string label = getString(body, "label", "Gemini Key");
-            if (label.empty()) label = "Gemini Key";
+            std::string label = getString(body, "label", provider == "gemini" ? "Gemini Key" : ("Image Key (" + provider + ")"));
+            if (label.empty()) label = "AI Key";
             std::string tier = getString(body, "tier", "free");
             if (tier != "payg" && tier != "free") tier = "free";
             int64_t monthlyLimit = std::max<int64_t>(0, getInt(body, "monthly_credit_limit", 0));
@@ -2524,6 +2529,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             std::string expiresAt = getString(body, "expires_at", "");
             int64_t priority = getInt(body, "priority", 100);
             bool setActive = body.contains("set_active") ? body.value("set_active", true) : true;
+            if (provider != "gemini") setActive = false; // Non-Gemini keys serve as standby image providers
             std::string masked = maskGeminiKey(apiKey);
 
             // Prevent exact duplicate key
@@ -2531,17 +2537,17 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             if (!dup.is_null()) {
                 int64_t dupId = dup.value("id", int64_t(0));
                 if (setActive) {
-                    db.execute("UPDATE master_ai_keys SET status = 'standby' WHERE status = 'active' AND id != :id", {{":id", dupId}});
+                    db.execute("UPDATE master_ai_keys SET status = 'standby' WHERE status = 'active' AND COALESCE(provider, 'gemini') = 'gemini' AND id != :id", {{":id", dupId}});
                 }
                 db.execute(
-                    "UPDATE master_ai_keys SET label = :lbl, tier = :tr, monthly_credit_limit = :mcl, daily_request_limit = :drl, "
+                    "UPDATE master_ai_keys SET label = :lbl, provider = :prv, tier = :tr, monthly_credit_limit = :mcl, daily_request_limit = :drl, "
                     "expires_at = :exp, priority = :pri, status = :st, model_count = :mc, last_checked_at = datetime('now', 'localtime'), "
                     "last_error = '', updated_at = datetime('now', 'localtime') WHERE id = :id",
-                    {{":lbl", label}, {":tr", tier}, {":mcl", monthlyLimit}, {":drl", dailyReqLimit},
+                    {{":lbl", label}, {":prv", provider}, {":tr", tier}, {":mcl", monthlyLimit}, {":drl", dailyReqLimit},
                      {":exp", expiresAt}, {":pri", priority}, {":st", setActive ? "active" : "standby"},
                      {":mc", modelCount}, {":id", dupId}}
                 );
-                logAiKeyEvent(db, dupId, label, masked, "UPDATED", "Xác thực lại & cập nhật cấu hình key (" + std::to_string(modelCount) + " models).");
+                logAiKeyEvent(db, dupId, label, masked, "UPDATED", "Xác thực lại [" + provider + "] & cập nhật cấu hình key.");
                 syncLegacyGeminiSetting(db);
                 sendJson(res, {
                     {"success", true},
@@ -2553,15 +2559,15 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 return;
             }
 
-            int64_t existingActive = db.queryScalar("SELECT COUNT(*) FROM master_ai_keys WHERE status = 'active'").get<int64_t>();
-            bool makeActive = setActive || (existingActive == 0);
+            int64_t existingActive = db.queryScalar("SELECT COUNT(*) FROM master_ai_keys WHERE status = 'active' AND COALESCE(provider, 'gemini') = 'gemini'").get<int64_t>();
+            bool makeActive = (provider == "gemini") && (setActive || (existingActive == 0));
             if (makeActive) {
-                db.execute("UPDATE master_ai_keys SET status = 'standby' WHERE status = 'active'");
+                db.execute("UPDATE master_ai_keys SET status = 'standby' WHERE status = 'active' AND COALESCE(provider, 'gemini') = 'gemini'");
             }
             db.execute(
-                "INSERT INTO master_ai_keys (label, key_masked, api_key, tier, status, priority, monthly_credit_limit, daily_request_limit, expires_at, model_count, last_checked_at) "
-                "VALUES (:lbl, :msk, :k, :tr, :st, :pri, :mcl, :drl, :exp, :mc, datetime('now', 'localtime'))",
-                {{":lbl", label}, {":msk", masked}, {":k", apiKey}, {":tr", tier},
+                "INSERT INTO master_ai_keys (label, key_masked, api_key, provider, tier, status, priority, monthly_credit_limit, daily_request_limit, expires_at, model_count, last_checked_at) "
+                "VALUES (:lbl, :msk, :k, :prv, :tr, :st, :pri, :mcl, :drl, :exp, :mc, datetime('now', 'localtime'))",
+                {{":lbl", label}, {":msk", masked}, {":k", apiKey}, {":prv", provider}, {":tr", tier},
                  {":st", makeActive ? "active" : "standby"}, {":pri", priority},
                  {":mcl", monthlyLimit}, {":drl", dailyReqLimit}, {":exp", expiresAt}, {":mc", modelCount}}
             );
@@ -2590,7 +2596,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             int modelCount = 0;
             std::vector<std::string> samples;
             std::string err;
-            bool ok = SaleApp::AI::geminiVerifyKey(row.value("api_key", ""), modelCount, samples, err);
+            std::string prov = row.value("provider", "gemini");
+            bool ok = SaleApp::AI::verifyProviderKey(prov, row.value("api_key", ""), modelCount, samples, err);
             std::string curStatus = row.value("status", "standby");
             if (ok) {
                 std::string nextStatus = (curStatus == "rate_limited" || curStatus == "revoked") ? "standby" : curStatus;
@@ -3161,6 +3168,42 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 return;
             }
 
+            auto runImageWithPool = [&](const std::string& imgPrompt, std::string& outB64, std::string& outMime, std::string& outModel, std::string& outErr) -> bool {
+                // 1. Try Gemini keys (active/standby), then dedicated image providers (huggingface/pollinations/openai)
+                json poolKeys = db.query(R"(
+                    SELECT id, label, key_masked, api_key, COALESCE(provider, 'gemini') as provider, status
+                    FROM master_ai_keys
+                    WHERE status IN ('active', 'standby')
+                      AND (COALESCE(expires_at, '') = '' OR date(expires_at) >= date('now', 'localtime'))
+                    ORDER BY CASE WHEN COALESCE(provider, 'gemini') = 'gemini' THEN 0 ELSE 1 END,
+                             CASE status WHEN 'active' THEN 0 ELSE 1 END,
+                             priority ASC, id ASC
+                )");
+                std::string firstErr;
+                for (const auto& kr : poolKeys) {
+                    std::string prov = kr.value("provider", "gemini");
+                    std::string kVal = kr.value("api_key", "");
+                    int64_t kId = kr.value("id", int64_t(0));
+                    if (kVal.empty()) continue;
+                    std::string curErr;
+                    if (SaleApp::AI::generateImageViaProvider(prov, kVal, imgPrompt, outB64, outMime, outModel, curErr)) {
+                        activeKeyId = kId;
+                        return true;
+                    }
+                    if (firstErr.empty()) firstErr = curErr;
+                    // Only mark non-gemini or revoked keys; do NOT disable Gemini key for OCR/Chat when Free Tier limits image=0
+                    if (prov != "gemini" || curErr.find("API_KEY_INVALID") != std::string::npos || curErr.find("401") != std::string::npos) {
+                        handleGeminiKeyRuntimeError(db, kr, curErr);
+                    }
+                }
+                if (firstErr.find("free_tier") != std::string::npos || firstErr.find("limit: 0") != std::string::npos) {
+                    outErr = "Key Gemini Free bị Google khóa tạo ảnh (limit: 0). Vui lòng bật Billing PayG hoặc nạp thêm Key tạo ảnh miễn phí (HuggingFace hf_... / Pollinations) vào Master AI Vault!";
+                } else {
+                    outErr = firstErr.empty() ? "Chưa có API Key tạo ảnh khả dụng trong Master AI Vault!" : firstErr;
+                }
+                return false;
+            };
+
             if (aiAction == "generate_dish_image") {
                 std::string name = getString(body, "name");
                 std::string catName = getString(body, "category_name");
@@ -3173,9 +3216,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 prompt += ". Appetizing close-up shot, warm moody cafe lighting, shallow depth of field, high detail, photorealistic, clean aesthetic, no text, no watermark.";
 
                 std::string imgB64, mime, modelUsed, err;
-                if (!runWithFailover([&](const std::string& k, std::string& e) {
-                        return SaleApp::AI::geminiGenerateImageBase64(k, prompt, imgB64, mime, modelUsed, e);
-                    }, err)) {
+                if (!runImageWithPool(prompt, imgB64, mime, modelUsed, err)) {
                     logUsage(modelUsed, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Không thể tạo ảnh AI: " + err}}, 502);
                     return;
@@ -3215,9 +3256,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 std::string imgPrompt = copyJson.value("image_prompt", "Widescreen 16:9 commercial cafe beverage and pastry promotional photography, warm moody lighting, photorealistic, no text");
 
                 std::string imgB64, mime, imgModel, imgErr;
-                if (!runWithFailover([&](const std::string& k, std::string& e) {
-                        return SaleApp::AI::geminiGenerateImageBase64(k, imgPrompt, imgB64, mime, imgModel, e);
-                    }, imgErr)) {
+                if (!runImageWithPool(imgPrompt, imgB64, mime, imgModel, imgErr)) {
                     logUsage(textModel, "error");
                     replyTunnelJson(res, {{"success", false}, {"message", "Không thể tạo ảnh slide: " + imgErr}}, 502);
                     return;

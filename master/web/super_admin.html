@@ -833,9 +833,18 @@
                         <button type="button" onclick="SuperAdmin.toggleAddGeminiKeyModal(false)" class="text-xs text-slate-400 hover:text-white px-2 py-1"><i class="fas fa-xmark"></i></button>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div class="sm:col-span-2">
-                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Google Gemini API Key <span class="text-rose-400">*</span></label>
-                            <input type="password" id="cfg-master-gemini-key" value="" placeholder="AIzaSy..." class="liquid-input w-full text-xs font-mono text-purple-200" autocomplete="off" />
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">Nhà cung cấp (Provider)</label>
+                            <select id="cfg-master-gemini-provider" class="liquid-input w-full text-xs text-slate-200">
+                                <option value="gemini">Google Gemini (OCR + Chat + Ảnh)</option>
+                                <option value="huggingface">HuggingFace (Tạo Ảnh Miễn Phí - hf_...)</option>
+                                <option value="pollinations">Pollinations AI (Tạo Ảnh - Flux)</option>
+                                <option value="openai">OpenAI (Tạo Ảnh - gpt-image-1)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-300 font-semibold mb-1">API Key / Token <span class="text-rose-400">*</span></label>
+                            <input type="password" id="cfg-master-gemini-key" value="" placeholder="AIza... / hf_... / sk-..." class="liquid-input w-full text-xs font-mono text-purple-200" autocomplete="off" />
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-300 font-semibold mb-1">Nhãn gợi nhớ (Project / Billing)</label>

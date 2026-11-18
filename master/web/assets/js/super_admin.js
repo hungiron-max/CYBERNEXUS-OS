@@ -3001,7 +3001,8 @@ const SuperAdmin = {
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="flex flex-wrap items-center gap-2 min-w-0">
                         ${statusBadge(k.status)}
-                        <span class="font-bold text-white text-xs truncate">${this._escHtml(k.label || 'Gemini Key')}</span>
+                        <span class="font-bold text-white text-xs truncate">${this._escHtml(k.label || 'AI Key')}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/25 text-[10px] uppercase font-mono text-sky-300">${this._escHtml(k.provider || 'gemini')}</span>
                         <span class="font-mono text-[11px] text-purple-300 px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20">${this._escHtml(k.key_masked || '••••')}</span>
                         <span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] uppercase font-mono text-slate-300">${this._escHtml(k.tier || 'free')}</span>
                         <span class="text-[10px] font-mono text-slate-400">Ưu tiên #${Number(k.priority || 100)}</span>
@@ -3338,8 +3339,9 @@ const SuperAdmin = {
             return;
         }
         const payload = {
+            provider: document.getElementById('cfg-master-gemini-provider')?.value || 'gemini',
             gemini_api_key: keyVal,
-            label: document.getElementById('cfg-master-gemini-label')?.value.trim() || 'Gemini Key',
+            label: document.getElementById('cfg-master-gemini-label')?.value.trim() || 'AI Key',
             tier: document.getElementById('cfg-master-gemini-tier')?.value || 'payg',
             monthly_credit_limit: Number(document.getElementById('cfg-master-gemini-mcl')?.value || 0),
             daily_request_limit: Number(document.getElementById('cfg-master-gemini-drl')?.value || 0),

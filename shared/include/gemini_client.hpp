@@ -69,10 +69,55 @@ inline void parseDataUriImage(const std::string& input, std::string& outMime, st
     }
 }
 
-inline bool winHttpRequest(const std::string& host, int port, bool useHttps,
-                           const std::string& path, const std::string& method,
-                           const std::string& bodyUtf8, int& statusOut,
-                           std::string& respOut, std::string& errOut) {
+inline std::string base64Encode(const std::string& in) {
+    static const char* B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve(((in.size() + 2) / 3) * 4);
+    int val = 0, valb = -6;
+    for (unsigned char c : in) {
+        val = (val << 8) + c;
+        valb += 8;
+        while (valb >= 0) {
+            out.push_back(B64[(val >> valb) & 0x3F]);
+            valb -= 6;
+        }
+    }
+    if (valb > -6) out.push_back(B64[((val << 8) >> (valb + 8)) & 0x3F]);
+    while (out.size() % 4) out.push_back('=');
+    return out;
+}
+
+inline std::string urlEncode(const std::string& value) {
+    static const char* HEX = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(value.size() * 2);
+    for (unsigned char c : value) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '~') {
+            out.push_back(static_cast<char>(c));
+        } else {
+            out.push_back('%');
+            out.push_back(HEX[(c >> 4) & 0x0F]);
+            out.push_back(HEX[c & 0x0F]);
+        }
+    }
+    return out;
+}
+
+inline std::string detectImageMime(const std::string& bytes) {
+    if (bytes.size() >= 4 && static_cast<unsigned char>(bytes[0]) == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
+        return "image/png";
+    }
+    if (bytes.size() >= 12 && bytes.substr(0, 4) == "RIFF" && bytes.substr(8, 4) == "WEBP") {
+        return "image/webp";
+    }
+    return "image/jpeg";
+}
+
+inline bool winHttpRequestEx(const std::string& host, int port, bool useHttps,
+                             const std::string& path, const std::string& method,
+                             const std::string& bodyUtf8, const std::string& bearerToken,
+                             int& statusOut, std::string& respOut, std::string& errOut) {
 #ifdef _WIN32
     statusOut = 0;
     respOut.clear();
@@ -106,10 +151,13 @@ inline bool winHttpRequest(const std::string& host, int port, bool useHttps,
         return false;
     }
 
-    const wchar_t* hdr = L"Content-Type: application/json; charset=utf-8\r\n";
+    std::wstring hdrs = L"Content-Type: application/json; charset=utf-8\r\n";
+    if (!bearerToken.empty()) {
+        hdrs += L"Authorization: Bearer " + toWide(bearerToken) + L"\r\n";
+    }
     BOOL sent = WinHttpSendRequest(
         hReq,
-        hdr,
+        hdrs.c_str(),
         static_cast<DWORD>(-1L),
         bodyUtf8.empty() ? WINHTTP_NO_REQUEST_DATA : const_cast<char*>(bodyUtf8.data()),
         static_cast<DWORD>(bodyUtf8.size()),
@@ -147,6 +195,13 @@ inline bool winHttpRequest(const std::string& host, int port, bool useHttps,
     errOut = "WinHTTP only supported on Windows";
     return false;
 #endif
+}
+
+inline bool winHttpRequest(const std::string& host, int port, bool useHttps,
+                           const std::string& path, const std::string& method,
+                           const std::string& bodyUtf8, int& statusOut,
+                           std::string& respOut, std::string& errOut) {
+    return winHttpRequestEx(host, port, useHttps, path, method, bodyUtf8, "", statusOut, respOut, errOut);
 }
 
 inline bool winHttpUrlPostJson(const std::string& fullUrl, const std::string& bodyUtf8,
@@ -568,6 +623,114 @@ inline bool geminiGenerateImageBase64(const std::string& apiKey, const std::stri
         }
     }
     errOut = primaryErr.empty() ? "Không có model tạo ảnh Gemini khả dụng cho API Key này." : primaryErr;
+    return false;
+}
+
+inline bool verifyProviderKey(const std::string& provider, const std::string& apiKey,
+                              int& modelCountOut, std::vector<std::string>& sampleOut, std::string& errOut) {
+    if (provider.empty() || provider == "gemini") {
+        return geminiVerifyKey(apiKey, modelCountOut, sampleOut, errOut);
+    }
+    if (apiKey.empty()) { errOut = "Chưa nhập API Key!"; return false; }
+
+    int st = 0;
+    std::string resp;
+    if (provider == "huggingface") {
+        if (!winHttpRequestEx("huggingface.co", 443, true, "/api/whoami-v2", "GET", "", apiKey, st, resp, errOut)) {
+            return false;
+        }
+        if (st >= 200 && st < 300) {
+            modelCountOut = 1;
+            sampleOut = {"black-forest-labs/FLUX.1-schnell"};
+            return true;
+        }
+        errOut = "HuggingFace từ chối Token (HTTP " + std::to_string(st) + ")";
+        return false;
+    }
+    if (provider == "pollinations") {
+        if (!winHttpRequestEx("gen.pollinations.ai", 443, true, "/image/coffee?model=flux&width=64&height=64&nologo=true", "GET", "", apiKey, st, resp, errOut)) {
+            return false;
+        }
+        if (st >= 200 && st < 300 && resp.size() > 100) {
+            modelCountOut = 2;
+            sampleOut = {"flux", "turbo"};
+            return true;
+        }
+        errOut = "Pollinations từ chối Key (HTTP " + std::to_string(st) + ")";
+        return false;
+    }
+    if (provider == "openai") {
+        if (!winHttpRequestEx("api.openai.com", 443, true, "/v1/models", "GET", "", apiKey, st, resp, errOut)) {
+            return false;
+        }
+        if (st >= 200 && st < 300) {
+            modelCountOut = 2;
+            sampleOut = {"gpt-image-1", "dall-e-3"};
+            return true;
+        }
+        errOut = "OpenAI từ chối Key (HTTP " + std::to_string(st) + ")";
+        return false;
+    }
+    errOut = "Nhà cung cấp không được hỗ trợ: " + provider;
+    return false;
+}
+
+inline bool generateImageViaProvider(const std::string& provider, const std::string& apiKey, const std::string& prompt,
+                                     std::string& outB64, std::string& outMime, std::string& modelUsedOut, std::string& errOut) {
+    if (provider.empty() || provider == "gemini") {
+        return geminiGenerateImageBase64(apiKey, prompt, outB64, outMime, modelUsedOut, errOut);
+    }
+    int st = 0;
+    std::string resp;
+    if (provider == "huggingface") {
+        json payload = {{"inputs", prompt}};
+        if (!winHttpRequestEx("router.huggingface.co", 443, true, "/hf-inference/models/black-forest-labs/FLUX.1-schnell",
+                              "POST", payload.dump(), apiKey, st, resp, errOut)) {
+            return false;
+        }
+        if (st >= 200 && st < 300 && resp.size() > 512 && resp[0] != '{') {
+            outMime = detectImageMime(resp);
+            outB64 = base64Encode(resp);
+            modelUsedOut = "hf/FLUX.1-schnell";
+            return !outB64.empty();
+        }
+        errOut = extractGeminiError(resp, st);
+        return false;
+    }
+    if (provider == "pollinations") {
+        std::string path = "/image/" + urlEncode(prompt) + "?model=flux&width=800&height=600&nologo=true";
+        if (!winHttpRequestEx("gen.pollinations.ai", 443, true, path, "GET", "", apiKey, st, resp, errOut)) {
+            return false;
+        }
+        if (st >= 200 && st < 300 && resp.size() > 512 && resp[0] != '{') {
+            outMime = detectImageMime(resp);
+            outB64 = base64Encode(resp);
+            modelUsedOut = "pollinations/flux";
+            return !outB64.empty();
+        }
+        errOut = extractGeminiError(resp, st);
+        return false;
+    }
+    if (provider == "openai") {
+        json payload = {{"model", "gpt-image-1"}, {"prompt", prompt}, {"size", "1024x1024"}};
+        if (!winHttpRequestEx("api.openai.com", 443, true, "/v1/images/generations", "POST", payload.dump(), apiKey, st, resp, errOut)) {
+            return false;
+        }
+        if (st >= 200 && st < 300) {
+            try {
+                json j = json::parse(resp);
+                if (j.contains("data") && !j["data"].empty() && j["data"][0].contains("b64_json")) {
+                    outB64 = j["data"][0]["b64_json"].get<std::string>();
+                    outMime = "image/png";
+                    modelUsedOut = "openai/gpt-image-1";
+                    return !outB64.empty();
+                }
+            } catch (...) {}
+        }
+        errOut = extractGeminiError(resp, st);
+        return false;
+    }
+    errOut = "Provider tạo ảnh không hợp lệ: " + provider;
     return false;
 }
 
