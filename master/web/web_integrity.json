@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-18 12:02:27",
+  "generated_at": "2026-11-18 12:11:35",
   "count": 14,
   "files": {
     "admin.html": "eb8e412c88e7bdd17faa41e7c4627c9c188de68b95ab8442610796227774e8f4",
-    "super_admin.html": "49f0b5f9ce6c79071dddfbc1a79de8011d7c4670cbe201fe94b9155a63584f5f",
+    "super_admin.html": "cb1fef165336b7b5a82eb9ed189804608e2b5f9e6a669d2195902b9e43330c6b",
     "assets/css/app-tailwind.min.css": "afec2615c92285a789cf6a803ac2c55967e40f5698c47021fd2aa91abdb09964",
     "assets/css/liquid-glass.css": "9b3510fb710513a2a3b4a609893dbb79756730213654527b5a4ad2ca5291a71d",
     "assets/css/super_admin.css": "7fdeef7af0e03dd05622d3bdbabf021a4da92ecd524e68ee4e0f760e364cb8b7",

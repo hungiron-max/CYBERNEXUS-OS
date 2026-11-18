@@ -1798,12 +1798,12 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         }
                     }
 
-                    // Copy binary thực thi và script khởi động
+                    // Copy binary thực thi và Control Center (không cần .bat CMD)
+                    if (fs::exists(slaveDir / "CyberNexus_Control_Center.exe")) {
+                        fs::copy_file(slaveDir / "CyberNexus_Control_Center.exe", stagingDir / "CyberNexus_Control_Center.exe", fs::copy_options::overwrite_existing);
+                    }
                     if (fs::exists(slaveDir / "cybernexus_slave.exe")) {
                         fs::copy_file(slaveDir / "cybernexus_slave.exe", stagingDir / "cybernexus_slave.exe", fs::copy_options::overwrite_existing);
-                    }
-                    if (fs::exists(slaveDir / "RUN_SLAVE.bat")) {
-                        fs::copy_file(slaveDir / "RUN_SLAVE.bat", stagingDir / "RUN_SLAVE.bat", fs::copy_options::overwrite_existing);
                     }
                     if (fs::exists(projectRoot / "Mo_Tuong_Lua_LAN.bat")) {
                         fs::copy_file(projectRoot / "Mo_Tuong_Lua_LAN.bat", stagingDir / "Mo_Tuong_Lua_LAN.bat", fs::copy_options::overwrite_existing);
@@ -1818,11 +1818,17 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     fs::path stageModDir = stagingDir / "modules";
                     fs::create_directories(stageModDir);
 
-                    // Lõi POS Core luôn được cấp phép
+                    // Lõi POS Core & Finance Admin luôn được cấp phép
                     if (fs::exists(slaveDir / "modules" / "libmod_pos_core.dll")) {
                         fs::copy_file(slaveDir / "modules" / "libmod_pos_core.dll", stageModDir / "libmod_pos_core.dll", fs::copy_options::overwrite_existing);
                         if (fs::exists(slaveDir / "modules" / "libmod_pos_core.dll.sig")) {
                             fs::copy_file(slaveDir / "modules" / "libmod_pos_core.dll.sig", stageModDir / "libmod_pos_core.dll.sig", fs::copy_options::overwrite_existing);
+                        }
+                    }
+                    if (fs::exists(slaveDir / "modules" / "libmod_finance_admin.dll")) {
+                        fs::copy_file(slaveDir / "modules" / "libmod_finance_admin.dll", stageModDir / "libmod_finance_admin.dll", fs::copy_options::overwrite_existing);
+                        if (fs::exists(slaveDir / "modules" / "libmod_finance_admin.dll.sig")) {
+                            fs::copy_file(slaveDir / "modules" / "libmod_finance_admin.dll.sig", stageModDir / "libmod_finance_admin.dll.sig", fs::copy_options::overwrite_existing);
                         }
                     }
 
@@ -1870,6 +1876,48 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 }
 
                 int64_t zipSize = fs::exists(zipPath) ? fs::file_size(zipPath) : 1024;
+
+                // 4. Đóng gói thêm file Setup 1-Click (.EXE) nếu có CyberNexus_Setup_Stub.exe
+                std::string setupFileName = "CyberNexus_POS_Setup_" + realTcode + ".exe";
+                fs::path setupExePath = releaseDir / setupFileName;
+                std::string relSetupPath = "packages/" + realTcode + "/release/" + setupFileName;
+                fs::path stubPath = baseDir / "CyberNexus_Setup_Stub.exe";
+                bool hasSetupExe = false;
+                if (fs::exists(stubPath) && fs::exists(zipPath) && zipSize > 256) {
+                    std::ifstream stubIn(stubPath, std::ios::binary);
+                    std::ifstream zipIn(zipPath, std::ios::binary);
+                    std::ofstream exeOut(setupExePath, std::ios::binary);
+                    if (stubIn && zipIn && exeOut) {
+                        exeOut << stubIn.rdbuf() << zipIn.rdbuf();
+                        uint64_t zSz = static_cast<uint64_t>(zipSize);
+                        exeOut.write(reinterpret_cast<const char*>(&zSz), sizeof(zSz));
+                        exeOut.write("CNXSETUP", 8);
+                        exeOut.close();
+                        hasSetupExe = fs::exists(setupExePath) && fs::file_size(setupExePath) > static_cast<uint64_t>(zipSize);
+                    }
+                }
+                if (hasSetupExe) {
+                    int64_t setupSize = static_cast<int64_t>(fs::file_size(setupExePath));
+                    auto exSetup = db.queryRow(
+                        "SELECT id FROM saas_tenant_documents WHERE tenant_code = :tc AND category = 'setup_exe' LIMIT 1",
+                        {{":tc", realTcode}}
+                    );
+                    if (exSetup.is_null()) {
+                        db.execute(R"(
+                            INSERT INTO saas_tenant_documents
+                            (tenant_id, tenant_code, category, file_name, file_path, file_size, file_ext, title, notes, status, uploaded_by)
+                            VALUES (:tid, :tc, 'setup_exe', :fn, :fp, :fs, 'exe', :ti, :no, 'valid', 'SuperAdmin')
+                        )", {
+                            {":tid", realTid}, {":tc", realTcode}, {":fn", setupFileName},
+                            {":fp", relSetupPath}, {":fs", setupSize},
+                            {":ti", "Bộ Cài Setup 1-Click (.EXE) " + realTcode},
+                            {":no", "Bấm đúp cài đặt tự động: giải nén, mở Firewall 8501, tạo Shortcut Desktop & chạy Control Center."}
+                        });
+                    } else {
+                        db.execute("UPDATE saas_tenant_documents SET file_size = :fs, updated_at = datetime('now') WHERE id = :id",
+                            {{":fs", setupSize}, {":id", getInt(exSetup, "id", 0)}});
+                    }
+                }
 
                 auto existing = db.queryRow(
                     "SELECT id FROM saas_tenant_documents WHERE tenant_code = :tc AND category = 'release' LIMIT 1",

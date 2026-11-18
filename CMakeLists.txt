@@ -109,4 +109,12 @@ if(WIN32)
     if(MINGW)
         target_link_options(CyberNexus_Control_Center PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
     endif()
+
+    add_executable(CyberNexus_Setup_Stub WIN32
+        launcher/CyberNexusSetupStub.cpp
+    )
+    target_link_libraries(CyberNexus_Setup_Stub PRIVATE shell32 ole32 uuid)
+    if(MINGW)
+        target_link_options(CyberNexus_Setup_Stub PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
+    endif()
 endif()
