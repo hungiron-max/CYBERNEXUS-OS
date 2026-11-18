@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.3",
-  "title": "Hỗ trợ Multi-Provider tạo ảnh AI (Gemini / HuggingFace FLUX / Pollinations / OpenAI)",
-  "notes": "Cập nhật cybernexus_slave.exe đồng bộ với Master AI Vault Multi-Provider Image Pool (không khóa Key Gemini Free khi tạo ảnh limit 0, tự chuyển sang HuggingFace FLUX / Pollinations / OpenAI).",
-  "created_at": "2026-11-18 08:41:48",
+  "version": "2026.11.18.4",
+  "title": "Sửa lỗi AI Tạo Ảnh qua Master AI Proxy & tự động chuyển nguồn khi key local hết quota",
+  "notes": "Cập nhật cybernexus_slave.exe lấy đúng license_key thực từ local_license_cache khi gọi Master AI Proxy / Quota và tự động fallback sang Master AI Proxy (HuggingFace FLUX / Pollinations / OpenAI) nếu Gemini API Key local gặp lỗi hoặc hết quota.",
+  "created_at": "2026-11-18 09:00:16",
   "files": [
     "cybernexus_slave.exe",
     "RUN_SLAVE.bat",
