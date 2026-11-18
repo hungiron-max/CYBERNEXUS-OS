@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.7",
-  "title": "Smart Menu Studio: Bổ sung ô từ khóa tùy chỉnh & nút Ảnh khác (phân trang)",
-  "notes": "Cho phép nhập lại từ khóa tìm kiếm ảnh món ăn tùy ý và bấm Ảnh khác để tải 6 ảnh tiếp theo nếu kết quả đầu chưa ưng ý.",
-  "created_at": "2026-11-18 09:44:03",
+  "version": "2026.11.18.8",
+  "title": "Sửa lỗi modal Chỉnh Sửa Mặt Hàng bị che khuất phía trên khi mở lưới chọn ảnh",
+  "notes": "Giới hạn chiều cao modal sản phẩm trong 90vh và bật cuộn dọc (overflow-y-auto) để tiêu đề modal luôn hiển thị rõ ràng.",
+  "created_at": "2026-11-18 09:49:17",
   "files": [
     "cybernexus_slave.exe",
     "RUN_SLAVE.bat",
