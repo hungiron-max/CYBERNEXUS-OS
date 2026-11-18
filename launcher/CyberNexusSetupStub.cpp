@@ -45,13 +45,19 @@ void createDesktopShortcut(const fs::path& targetExe, const fs::path& workDir) {
     wchar_t desktopBuf[MAX_PATH] = {0};
     if (FAILED(SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr, 0, desktopBuf))) return;
     fs::path lnkPath = fs::path(desktopBuf) / L"CyberNexus Control Center.lnk";
+    fs::path favIco = workDir / L"web" / L"favicon.ico";
 
     if (FAILED(CoInitialize(nullptr))) return;
     IShellLinkW* psl = nullptr;
     if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void**>(&psl)))) {
         psl->SetPath(targetExe.wstring().c_str());
         psl->SetWorkingDirectory(workDir.wstring().c_str());
-        psl->SetDescription(L"CyberNexus OS POS Control Center");
+        psl->SetDescription(L"CyberNexus OS Control Center");
+        if (fs::exists(favIco)) {
+            psl->SetIconLocation(favIco.wstring().c_str(), 0);
+        } else {
+            psl->SetIconLocation(targetExe.wstring().c_str(), 0);
+        }
         IPersistFile* ppf = nullptr;
         if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&ppf)))) {
             ppf->Save(lnkPath.wstring().c_str(), TRUE);
@@ -60,6 +66,7 @@ void createDesktopShortcut(const fs::path& targetExe, const fs::path& workDir) {
         psl->Release();
     }
     CoUninitialize();
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 }
 
 fs::path pickInstallFolder(HWND owner, const fs::path& initial) {
