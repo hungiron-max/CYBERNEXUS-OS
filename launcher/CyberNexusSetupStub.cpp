@@ -30,7 +30,7 @@ bool runHiddenProcess(const std::wstring& cmdLine, const std::wstring& workDir =
                              CREATE_NO_WINDOW, nullptr,
                              workDir.empty() ? nullptr : workDir.c_str(), &si, &pi);
     if (!ok) return false;
-    WaitForSingleObject(pi.hProcess, 120000);
+    WaitForSingleObject(pi.hProcess, 300000);
     DWORD exitCode = 1;
     GetExitCodeProcess(pi.hProcess, &exitCode);
     CloseHandle(pi.hProcess);
@@ -141,8 +141,17 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 
     std::error_code ec;
     fs::create_directories(installDir, ec);
-    std::wstring tarCmd = L"tar.exe -xf \"" + tempZip.wstring() + L"\" -C \"" + installDir.wstring() + L"\"";
-    bool extracted = runHiddenProcess(tarCmd);
+    auto psEscape = [](const std::wstring& s) {
+        std::wstring out;
+        for (wchar_t c : s) {
+            if (c == L'\'') out += L"''";
+            else out.push_back(c);
+        }
+        return out;
+    };
+    std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '"
+        + psEscape(tempZip.wstring()) + L"' -DestinationPath '" + psEscape(installDir.wstring()) + L"' -Force\"";
+    bool extracted = runHiddenProcess(psCmd);
     fs::remove(tempZip, ec);
 
     if (!extracted) {
