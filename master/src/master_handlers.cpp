@@ -112,12 +112,19 @@ static void ensureMasterAiTables(Database& db) {
             created_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
     )");
-    try { db.execute("ALTER TABLE master_ai_keys ADD COLUMN provider TEXT DEFAULT 'gemini'"); } catch (...) {}
-    try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN credits_used INTEGER DEFAULT 1"); } catch (...) {}
-    try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN quota_bucket TEXT DEFAULT 'monthly'"); } catch (...) {}
-    try { db.execute("ALTER TABLE ai_usage_logs ADD COLUMN key_id INTEGER DEFAULT 0"); } catch (...) {}
-    try { db.execute("ALTER TABLE saas_tenants ADD COLUMN ai_monthly_quota INTEGER DEFAULT 50"); } catch (...) {}
-    try { db.execute("ALTER TABLE saas_tenants ADD COLUMN ai_bonus_credits INTEGER DEFAULT 0"); } catch (...) {}
+    auto ensureCol = [&](const char* tbl, const char* col, const char* def) {
+        auto cols = db.query(std::string("PRAGMA table_info(") + tbl + ")");
+        for (const auto& c : cols) {
+            if (c.value("name", "") == col) return;
+        }
+        try { db.execute(std::string("ALTER TABLE ") + tbl + " ADD COLUMN " + col + " " + def); } catch (...) {}
+    };
+    ensureCol("master_ai_keys", "provider", "TEXT DEFAULT 'gemini'");
+    ensureCol("ai_usage_logs", "credits_used", "INTEGER DEFAULT 1");
+    ensureCol("ai_usage_logs", "quota_bucket", "TEXT DEFAULT 'monthly'");
+    ensureCol("ai_usage_logs", "key_id", "INTEGER DEFAULT 0");
+    ensureCol("saas_tenants", "ai_monthly_quota", "INTEGER DEFAULT 50");
+    ensureCol("saas_tenants", "ai_bonus_credits", "INTEGER DEFAULT 0");
 
     // Migrate legacy single key in master_settings into master_ai_keys if pool is empty
     try {

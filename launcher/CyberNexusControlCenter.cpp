@@ -390,7 +390,7 @@ void openControlCenterWindow() {
     };
     for (const char* ep : edgePaths) {
         if (fs::exists(ep)) {
-            std::string args = "--app=" + url + " --window-size=1080,760";
+            std::string args = "--app=" + url + " --window-size=1160,790";
             ShellExecuteA(nullptr, "open", ep, args.c_str(), nullptr, SW_SHOWNORMAL);
             return;
         }
@@ -452,14 +452,15 @@ std::string buildControlCenterHtml() {
 :root{color-scheme:dark;--bg:#0b0f19;--card:rgba(22,29,46,.78);--border:rgba(255,255,255,.09);--text:#f1f5f9;--muted:#94a3b8;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--sky:#38bdf8;}
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
 body{margin:0;background:radial-gradient(circle at 15% 10%,#172554 0%,#0b0f19 52%,#05070d 100%);color:var(--text);min-height:100vh;padding:20px}
-.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-radius:18px;background:var(--card);border:1px solid var(--border);backdrop-filter:blur(18px)}
-.brand{display:flex;align-items:center;gap:12px}
-.logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#38bdf8,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;box-shadow:0 8px 20px rgba(56,189,248,.25)}
-.title{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 18px;border-radius:18px;background:var(--card);border:1px solid var(--border);backdrop-filter:blur(18px)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#38bdf8,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;box-shadow:0 8px 20px rgba(56,189,248,.25);flex-shrink:0}
+.title{font-size:16px;font-weight:700;letter-spacing:-.2px;white-space:nowrap}
 .sub{font-size:12px;color:var(--muted)}
-.toolbar{display:flex;gap:8px;flex-wrap:wrap}
-button{cursor:pointer;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);padding:8px 13px;border-radius:11px;font-size:12.5px;font-weight:600;transition:.16s}
+.toolbar{display:flex;gap:8px;flex-wrap:nowrap;align-items:center;flex-shrink:0}
+@media(max-width:900px){.topbar{flex-wrap:wrap}.toolbar{flex-wrap:wrap}}
+button{cursor:pointer;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);padding:8px 12px;border-radius:11px;font-size:12.5px;font-weight:600;transition:.16s;white-space:nowrap}
 button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .btn-primary{background:linear-gradient(135deg,#0ea5e9,#2563eb);border-color:transparent}
 .btn-danger{background:rgba(239,68,68,.16);color:#fca5a5;border-color:rgba(239,68,68,.3)}
@@ -539,11 +540,12 @@ async function act(url, body){
 async function refresh(){
   const st = await api('/api/control/status');
   const grid = document.getElementById('services-grid');
-  grid.innerHTML = st.services.map(s => `
+  const avail = (st.services || []).filter(s => s.available);
+  grid.innerHTML = avail.map(s => `
     <div class="card">
       <div class="row">
-        <div><div class="title" style="font-size:15px">${s.name}</div><div class="sub">${s.available ? s.work_dir : 'Không cài đặt trên máy này'}</div></div>
-        <span class="pill ${s.running ? 'on' : 'off'}">${s.running ? 'ĐANG CHẠY' : (s.available ? 'ĐÃ DỪNG' : 'KHÔNG CÓ')}</span>
+        <div><div class="title" style="font-size:15px">${s.name}</div><div class="sub">${s.work_dir}</div></div>
+        <span class="pill ${s.running ? 'on' : 'off'}">${s.running ? 'ĐANG CHẠY' : 'ĐÃ DỪNG'}</span>
       </div>
       <div class="meta">
         <div><span>PORT</span><b>${s.port}</b></div>
@@ -551,12 +553,12 @@ async function refresh(){
         <div><span>TRẠNG THÁI</span><b>${s.running ? 'Online' : 'Offline'}</b></div>
       </div>
       <div class="actions">
-        ${s.available ? (s.running
+        ${s.running
           ? `<button class="btn-danger" onclick="act('/api/control/stop',{id:'${s.id}'})">■ Dừng</button>
              <button onclick="act('/api/control/restart',{id:'${s.id}'})">↻ Khởi động lại</button>
              <button class="btn-primary" onclick="window.open('${s.web_url}','_blank')">🌐 Mở Web</button>`
           : `<button class="btn-green" onclick="act('/api/control/start',{id:'${s.id}'})">▶ Khởi chạy</button>`
-        ) : ''}
+        }
       </div>
     </div>`).join('');
   allLogs = st.logs || [];
@@ -689,7 +691,11 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
 
     svr.Get("/api/control/ports", [](const httplib::Request&, httplib::Response& res) {
         json arr = json::array();
-        for (int p : {8500, 8501, CONTROL_PORT}) {
+        std::vector<int> portsToCheck;
+        if (g_master.available) portsToCheck.push_back(8500);
+        if (g_slave.available) portsToCheck.push_back(8501);
+        portsToCheck.push_back(CONTROL_PORT);
+        for (int p : portsToCheck) {
             PortOwner po = inspectTcpPort(p);
             bool isCn = po.processName.find("cybernexus") != std::string::npos ||
                         po.processName.find("CyberNexus") != std::string::npos;
