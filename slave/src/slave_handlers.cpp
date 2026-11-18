@@ -400,9 +400,16 @@ static void ensurePromotionSchema(Database& db) {
             created_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
     )");
-    try { db.execute("ALTER TABLE orders ADD COLUMN promo_id INTEGER DEFAULT 0"); } catch (...) {}
-    try { db.execute("ALTER TABLE orders ADD COLUMN promo_code TEXT DEFAULT ''"); } catch (...) {}
-    try { db.execute("ALTER TABLE orders ADD COLUMN promo_name TEXT DEFAULT ''"); } catch (...) {}
+    auto orderCols = db.query("PRAGMA table_info(orders)");
+    auto hasOrderCol = [&](const std::string& col) {
+        for (const auto& c : orderCols) {
+            if (c.value("name", "") == col) return true;
+        }
+        return false;
+    };
+    if (!hasOrderCol("promo_id")) try { db.execute("ALTER TABLE orders ADD COLUMN promo_id INTEGER DEFAULT 0"); } catch (...) {}
+    if (!hasOrderCol("promo_code")) try { db.execute("ALTER TABLE orders ADD COLUMN promo_code TEXT DEFAULT ''"); } catch (...) {}
+    if (!hasOrderCol("promo_name")) try { db.execute("ALTER TABLE orders ADD COLUMN promo_name TEXT DEFAULT ''"); } catch (...) {}
 }
 
 static double computePromoDiscount(const json& promo, double subtotal) {
@@ -8076,9 +8083,12 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         auto ssRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'store_wifi_ssid'");
         if (!ssRow.is_null() && !ssRow.value("setting_value", "").empty()) wifiSsid = ssRow.value("setting_value", "");
         json slides = json::array();
-        try {
-            slides = db.query("SELECT id, title, subtitle, badge_text, image_url FROM ad_slides WHERE is_active = 1 ORDER BY sort_order ASC, id ASC LIMIT 6");
-        } catch (...) {}
+        auto tblAd = db.queryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='ad_slides'");
+        if (!tblAd.is_null()) {
+            try {
+                slides = db.query("SELECT id, title, subtitle, badge_text, image_url FROM ad_slides WHERE is_active = 1 ORDER BY sort_order ASC, id ASC LIMIT 6");
+            } catch (...) {}
+        }
         json pol = readWifiPolicy();
         sendJson(res, {
             {"success", true},

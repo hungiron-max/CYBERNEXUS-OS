@@ -93,3 +93,20 @@ add_subdirectory(modules/mod_network_qos)
 add_subdirectory(modules/mod_media_stream)
 add_subdirectory(modules/mod_card_payment)
 add_subdirectory(modules/mod_finance_admin)
+
+# ========================================================
+# 4. TARGET CONTROL CENTER: CyberNexus_Control_Center.exe (Windows GUI)
+# ========================================================
+if(WIN32)
+    add_executable(CyberNexus_Control_Center WIN32
+        shared/src/sqlite3.c
+        shared/src/pos_bcrypt.c
+        shared/src/db.cpp
+        shared/src/auth.cpp
+        launcher/CyberNexusControlCenter.cpp
+    )
+    target_link_libraries(CyberNexus_Control_Center PRIVATE ws2_32 crypt32 wsock32 iphlpapi shell32 psapi)
+    if(MINGW)
+        target_link_options(CyberNexus_Control_Center PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
+    endif()
+endif()

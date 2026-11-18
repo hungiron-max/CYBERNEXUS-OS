@@ -83,17 +83,33 @@ int main(int argc, char* argv[]) {
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             )
         )");
-        // Đảm bảo bảng saas_tenants có cột reseller_id, price_charged, blocked_modules, card_fee_percent
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN reseller_id INTEGER DEFAULT 0"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN price_charged REAL DEFAULT 0.0"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN lan_ip TEXT DEFAULT ''"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN wan_ip TEXT DEFAULT ''"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_lat REAL DEFAULT 0"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_lng REAL DEFAULT 0"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_label TEXT DEFAULT ''"); } catch (...) {}
-        try { Database::instance().execute("ALTER TABLE saas_tenants ADD COLUMN geo_source TEXT DEFAULT 'ip'"); } catch (...) {}
+        // Đảm bảo bảng saas_tenants có đủ cột mở rộng mà không gây log duplicate column name
+        {
+            auto cols = Database::instance().query("PRAGMA table_info(saas_tenants)");
+            auto hasCol = [&](const std::string& name) {
+                for (const auto& c : cols) {
+                    if (c.value("name", "") == name) return true;
+                }
+                return false;
+            };
+            const std::pair<const char*, const char*> extraCols[] = {
+                {"reseller_id", "INTEGER DEFAULT 0"},
+                {"price_charged", "REAL DEFAULT 0.0"},
+                {"blocked_modules", "TEXT DEFAULT '[]'"},
+                {"card_fee_percent", "REAL DEFAULT 0.0"},
+                {"lan_ip", "TEXT DEFAULT ''"},
+                {"wan_ip", "TEXT DEFAULT ''"},
+                {"geo_lat", "REAL DEFAULT 0"},
+                {"geo_lng", "REAL DEFAULT 0"},
+                {"geo_label", "TEXT DEFAULT ''"},
+                {"geo_source", "TEXT DEFAULT 'ip'"}
+            };
+            for (const auto& [col, def] : extraCols) {
+                if (!hasCol(col)) {
+                    try { Database::instance().execute(std::string("ALTER TABLE saas_tenants ADD COLUMN ") + col + " " + def); } catch (...) {}
+                }
+            }
+        }
 
         // Đảm bảo cửa hàng mặc định GP001 (id=1) có kích hoạt sẵn mod_card_payment nếu chưa có trong enabled_modules / blocked_modules
         try {
