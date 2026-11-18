@@ -1,8 +1,8 @@
 {
-  "version": "2026.11.18.2",
-  "title": "Hiển thị món tồn kho thấp, chuẩn hóa căn lề & Giá trị tồn, tách cột Tổ/Bộ phận & lọc Nhân viên",
-  "notes": "Thẻ Cảnh báo tồn kho thấp hiển thị tên món & bấm lọc trực tiếp; chuẩn hóa căn lề text/tiền và tính đúng Giá trị tồn; tách cột Tổ / Bộ phận và nạp đúng danh sách tên nhân viên trong bộ lọc chấm công.",
-  "created_at": "2026-11-18 08:20:40",
+  "version": "2026.11.18.3",
+  "title": "Hỗ trợ Multi-Provider tạo ảnh AI (Gemini / HuggingFace FLUX / Pollinations / OpenAI)",
+  "notes": "Cập nhật cybernexus_slave.exe đồng bộ với Master AI Vault Multi-Provider Image Pool (không khóa Key Gemini Free khi tạo ảnh limit 0, tự chuyển sang HuggingFace FLUX / Pollinations / OpenAI).",
+  "created_at": "2026-11-18 08:41:48",
   "files": [
     "cybernexus_slave.exe",
     "RUN_SLAVE.bat",
