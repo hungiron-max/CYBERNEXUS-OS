@@ -701,3 +701,56 @@ Hệ thống đã được nạp và tính toán cấu hình âm học chi tiế
 ### 23.4. Phát Hành `v1.1.0` & OTA `2026.11.16.17`
 - **Slave OTA:** `2026.11.16.17` (bao gồm `cybernexus_slave.exe`, `libmod_network_qos.dll`, 4 file `.sig` và toàn bộ giao diện web mới).
 - **GitHub Release Tag:** `v1.1.0` trên `origin/main`.
+
+---
+
+## 24. Cột Mốc `v1.2.0` → `v2.0.0`: 5 Module DLL Ký Số, Bảo Mật CSP/XSS, Tách CSS/JS & Jukebox (`16/11/2026 – 17/11/2026`)
+
+- **Tách CSS/JS & Chuẩn hóa CI (`slave/web/`, `.github/workflows/build-test.yml`):**
+  - Tách toàn bộ CSS/JS nội tuyến ra các file độc lập (`admin.js`, `admin_inventory.js`, `admin_media_dsp.js`, `admin_finance_ecr.js`, `admin_inline_ext.js`, `wifi_portal.css`...).
+  - Ghi log ra file trong CI Windows MSVC để tránh deadlock 4KB pipe; tự động kiểm tra chữ ký `.sig` và cú pháp JS/HTML trong `verify_regression_v1.py`.
+- **5 Module DLL Ký Số & Bảo Mật:**
+  - Bổ sung module thứ 5 `libmod_finance_admin.dll` và chuyển tính toán giỏ hàng POS native vào `libmod_pos_core.dll` (đủ 5/5 DLL ký số `.sig`).
+  - Áp dụng xác thực Bearer Auth cho `/api/settings`, tăng cường CSP và `escapeHtml()` (`security_utils.js`).
+- **Jukebox & Đánh dấu Mốc Restore:** Giới hạn 5 bài chờ phát và 1 lượt vote/bài theo IP/thiết bị; đánh dấu các mốc restore `v1.2.0`, `v1.3.0`, `v2.0.0` trên GitHub.
+
+---
+
+## 25. WiFi Marketing UniFi/EdgeRouter, Tách Nhóm Cài Đặt, AI OCR 4 Lớp & AI Vault Đa Key (`17/11/2026`)
+
+- **WiFi Marketing & Router QoS (`modules/mod_network_qos/`, `slave/web/wifi.html`, `wifi_portal.css`):**
+  - Hỗ trợ quét MAC/IP thật từ UniFi (`/stat/sta`, `X-CSRF-Token`, `kick-sta`) và EdgeRouter SSH (`dhcpd.leases`), bỏ thiết bị giả lập.
+  - Hỗ trợ khung giờ cao điểm (`peak_windows`), ngưỡng mềm 70%/90%, silent reset, whitelist và mở khóa WiFi VIP bằng mã hóa đơn.
+  - Trang `wifi.html` tự chuyển Sáng/Tối theo giờ (`06:00–18:00`) kèm nút chuyển Sun/Moon, chống iOS tự bật bàn phím khi mở Captive Portal và điều hướng thẳng `/customer.html`.
+- **Quản Trị Quán, Kho & Tài Chính (`admin.html`, `admin.js`, `slave_handlers.cpp`):**
+  - Gom tab Cài đặt thành 5 sub-tab gọn gàng (`Cửa hàng`, `VietQR & ECR`, `AI`, `WiFi`, `Master WAN`), đưa cấu hình SmartPOS ECR vào nhóm VietQR.
+  - Hoàn thiện API & giao diện vật tư, nhập kho thông minh hàng loạt (`batch_import_materials`), công nợ nhà cung cấp, tách P&L vs Cashflow, lọc nhanh Audit KPI và lịch sử đơn (`7d / 14d / 1m`).
+- **AI OCR 4 Lớp & Master AI Vault Đa Key (`gemini_client.hpp`, `master_handlers.cpp`, `super_admin.html`):**
+  - Kiến trúc OCR 4 lớp (tiền xử lý Canvas, ưu tiên `gemini-3.1-flash-lite` + `thinkingBudget=0`, `responseSchema` + catalog quán, kiểm tra toán học/bất thường giá).
+  - Bổ sung tab **Master AI Vault** riêng trên Super Admin quản lý đa key pool, thời hạn, hạn mức, healthcheck, auto-failover và lịch sử xoay key.
+
+---
+
+## 26. Hoàn Thiện UI Kho/Nhân Sự & Multi-Provider Tạo Ảnh AI (`v2026.11.18.1` – `v2026.11.18.4`, `18/11/2026`)
+
+- **Cảnh báo tồn kho, căn lề & Nhân sự (`v2026.11.18.1` – `v2026.11.18.2`):**
+  - Hiển thị rõ tên mặt hàng cảnh báo tồn kho thấp, căn lề chuẩn (tiền căn phải, đơn vị căn giữa), tính đúng `stock_value`.
+  - Tách riêng **Tên nhân viên** và **Tổ / Bộ phận** trong bảng chấm công và nạp đầy đủ danh sách nhân viên vào dropdown bộ lọc.
+- **Sửa lỗi AI Tạo Ảnh & Pool Đa Nguồn (`v2026.11.18.3` – `v2026.11.18.4`):**
+  - `slave_handlers.cpp` (`resolveRawLicenseKey`) đọc đúng `license_key` gốc từ `local_license_cache` khi gọi Master AI Proxy và tự động fallback sang Master khi key Gemini local hết hạn mức.
+  - Master hỗ trợ pool đa nguồn tạo ảnh (Gemini → HuggingFace / Pollinations / OpenAI) mà không khóa nhầm key Gemini Free dùng cho OCR/Chat, đồng thời tự động fallback sang `image.pollinations.ai` miễn phí khi endpoint cũ `hf-inference` trả về `HTTP 410`.
+
+---
+
+## 27. Smart Menu Studio (0 AI Token), Sửa iOS Wi-Fi Captive Portal & Phát Hành `v2.1.0` (`18/11/2026`)
+
+- **Smart Menu Studio (`v2026.11.18.5` – `v2026.11.18.8`):**
+  - **Menu Style DNA (`admin.js`):** Tự động phân tích viền ảnh menu hiện có của quán (`bright` / `warm` / `dark`) để đồng bộ tông màu cho cả tìm ảnh và prompt `AI Tạo Ảnh`.
+  - **Tìm & Đồng Bộ Ảnh (`0 AI Token`, `0 Credit`):** Hỗ trợ tìm 6 ảnh món thật trên Master (`search_dish_images`), nhập từ khóa tùy chỉnh (`#dish-smart-query`), bấm **Ảnh khác** phân trang tải 6 ảnh tiếp theo, tải qua proxy `fetch_dish_image` (không CORS), tự crop `640×480` (4:3), cân bằng độ sáng theo DNA và lưu qua `api/products.php?action=upload_image`.
+  - Giới hạn chiều cao modal sản phẩm (`max-h-[90vh] overflow-y-auto` trong `admin.html`) để không bị che khuất tiêu đề phía trên.
+- **Sửa lỗi iOS Wi-Fi Captive Portal (`v2026.11.18.9`):**
+  - Chuyển `body` trong `wifi_portal.css` sang `justify-content: flex-start` + `padding-top` an toàn trên mobile để tiêu đề quán không bị thanh điều hướng nổi trên iOS Captive Portal che khuất.
+- **Đóng gói, Mốc Restore & Đồng bộ GitHub (`v2.1.0`):**
+  - Kiểm thử `tests/verify_regression_v1.py` đạt `ALL_REGRESSION_CHECKS_PASSED`.
+  - Đóng gói tại `release/master_v2.1.zip` (`18,791,896` bytes), `release/cybernexus-store_v2.1.zip` (`310,262,219` bytes), `release/store_patch_update_v2.1.zip` (`9,820,016` bytes).
+  - Tạo commit `22e7d33` và Git Tag **`v2.1.0`** làm mốc restore chính thức trên `origin/main` (`https://github.com/hungiron-max/CYBERNEXUS-OS.git`).
