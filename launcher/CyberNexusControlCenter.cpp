@@ -394,7 +394,7 @@ void openControlCenterWindow() {
             char localApp[MAX_PATH] = {0};
             GetEnvironmentVariableA("LOCALAPPDATA", localApp, MAX_PATH);
             std::string profileDir = std::string(localApp[0] ? localApp : "C:\\Temp") + "\\CyberNexusControlEdge";
-            std::string args = "--app=" + url + " --window-size=1160,790 --user-data-dir=\"" + profileDir + "\"";
+            std::string args = "--app=" + url + " --window-size=1160,790 --disable-features=Translate --disable-translate --user-data-dir=\"" + profileDir + "\"";
             ShellExecuteA(nullptr, "open", ep, args.c_str(), nullptr, SW_SHOWNORMAL);
             return;
         }
@@ -447,9 +447,10 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 std::string buildControlCenterHtml() {
     return R"HTML(<!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" translate="no" class="notranslate">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CyberNexus OS — Control Center</title>
 <link rel="icon" type="image/png" href="/favicon.png?v=20261118">

@@ -136,7 +136,7 @@ void openVaultWindow() {
             char localApp[MAX_PATH] = {0};
             GetEnvironmentVariableA("LOCALAPPDATA", localApp, MAX_PATH);
             std::string profileDir = std::string(localApp[0] ? localApp : "C:\\Temp") + "\\CyberNexusVaultEdge";
-            std::string args = "--app=" + url + " --window-size=1140,780 --user-data-dir=\"" + profileDir + "\"";
+            std::string args = "--app=" + url + " --window-size=1140,780 --disable-features=Translate --disable-translate --user-data-dir=\"" + profileDir + "\"";
             ShellExecuteA(nullptr, "open", ep, args.c_str(), nullptr, SW_SHOWNORMAL);
             return;
         }
@@ -146,9 +146,10 @@ void openVaultWindow() {
 
 std::string buildVaultHtml() {
     return R"HTML(<!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" translate="no" class="notranslate">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <title>CyberNexus Vault Admin (Developer Only)</title>
 <link rel="icon" type="image/png" href="/favicon.png?v=20261118">
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261118">
