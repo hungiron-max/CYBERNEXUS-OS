@@ -12,10 +12,231 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <mutex>
+#include <random>
+#include <unordered_map>
 
 namespace SaleApp::Backend {
 
 namespace fs = std::filesystem;
+
+static std::mutex g_saSessionMtx;
+static std::unordered_map<std::string, json> g_saSessions;
+
+static std::string normalizeSaRole(std::string role) {
+    std::transform(role.begin(), role.end(), role.begin(), ::tolower);
+    if (role == "kythuat" || role == "technical") return "technical";
+    if (role == "ketoan" || role == "finance") return "finance";
+    if (role == "kinhdoanh" || role == "sales") return "sales";
+    if (role == "kiemtoan" || role == "auditor") return "auditor";
+    if (role == "superadmin" || role == "super_admin") return "super_admin";
+    return role;
+}
+
+static std::string extractSaToken(const httplib::Request& req) {
+    if (!req.has_header("Cookie")) return "";
+    std::string ck = req.get_header_value("Cookie");
+    size_t pos = ck.find("sa_token=");
+    if (pos == std::string::npos) return "";
+    pos += 9;
+    size_t end = ck.find(';', pos);
+    std::string tok = (end == std::string::npos) ? ck.substr(pos) : ck.substr(pos, end - pos);
+    while (!tok.empty() && (tok.back() == ' ' || tok.back() == '\r' || tok.back() == '\n')) tok.pop_back();
+    return tok;
+}
+
+static json getSaSessionUser(const httplib::Request& req) {
+    std::string tok = extractSaToken(req);
+    if (tok.empty()) return json();
+    std::lock_guard<std::mutex> lk(g_saSessionMtx);
+    auto it = g_saSessions.find(tok);
+    if (it == g_saSessions.end()) return json();
+    return it->second;
+}
+
+static std::string replaceAllStr(std::string s, const std::string& from, const std::string& to) {
+    size_t pos = 0;
+    while ((pos = s.find(from, pos)) != std::string::npos) {
+        s.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+    return s;
+}
+
+static std::string formatDateVn(const std::string& iso) {
+    if (iso.size() >= 10 && iso[4] == '-' && iso[7] == '-') {
+        return iso.substr(8, 2) + "/" + iso.substr(5, 2) + "/" + iso.substr(0, 4);
+    }
+    return iso;
+}
+
+static std::string formatVndDots(int64_t amount) {
+    if (amount <= 0) return "Miễn phí (Gói Trải Nghiệm)";
+    std::string raw = std::to_string(amount);
+    std::string out;
+    int cnt = 0;
+    for (int i = static_cast<int>(raw.size()) - 1; i >= 0; --i) {
+        if (cnt > 0 && cnt % 3 == 0) out.push_back('.');
+        out.push_back(raw[i]);
+        ++cnt;
+    }
+    std::reverse(out.begin(), out.end());
+    return out + " đ";
+}
+
+static std::string formatModuleNames(const std::string& enabledModsJson) {
+    json arr = json::parse(enabledModsJson, nullptr, false);
+    if (!arr.is_array() || arr.empty()) return "POS Bán Hàng & In Nhiệt";
+    const auto& cat = LicenseService::instance().getCatalog();
+    std::string out;
+    for (const auto& item : arr) {
+        if (!item.is_string()) continue;
+        std::string code = item.get<std::string>();
+        std::string label = code;
+        for (const auto& m : cat) {
+            if (m.code == code) { label = m.name; break; }
+        }
+        if (!out.empty()) out += ", ";
+        out += label;
+    }
+    return out.empty() ? "POS Bán Hàng & In Nhiệt" : out;
+}
+
+static void generateTenantLegalForms(Database& db, const fs::path& baseDir, int64_t tenantId, const fs::path* extraCopyDir = nullptr) {
+    auto tRow = db.queryRow(
+        "SELECT t.*, COALESCE(p.price_year, 0) AS plan_price_year "
+        "FROM saas_tenants t LEFT JOIN saas_plans p ON p.id = t.plan_id "
+        "WHERE t.id = :id LIMIT 1",
+        {{":id", tenantId}}
+    );
+    if (tRow.is_null()) return;
+
+    std::string tCode = tRow.value("tenant_code", "");
+    if (tCode.empty()) return;
+
+    fs::path tplDir = baseDir / "templates";
+    if (!fs::exists(tplDir)) return;
+
+    fs::path formsOutDir = baseDir / "packages" / tCode / "Ho_So_Mau";
+    std::error_code ec;
+    fs::create_directories(formsOutDir, ec);
+    if (extraCopyDir) fs::create_directories(*extraCopyDir, ec);
+
+    std::time_t now = std::time(nullptr);
+    std::tm tmNow{};
+#ifdef _WIN32
+    localtime_s(&tmNow, &now);
+#else
+    localtime_r(&now, &tmNow);
+#endif
+    char dateBuf[32], compactBuf[32];
+    std::snprintf(dateBuf, sizeof(dateBuf), "%02d/%02d/%04d", tmNow.tm_mday, tmNow.tm_mon + 1, tmNow.tm_year + 1900);
+    std::snprintf(compactBuf, sizeof(compactBuf), "%04d%02d%02d", tmNow.tm_year + 1900, tmNow.tm_mon + 1, tmNow.tm_mday);
+
+    std::string storeName = tRow.value("store_name", "");
+    std::string ownerName = tRow.value("owner_name", "");
+    std::string repRole = tRow.value("representative_role", "Chủ hộ kinh doanh");
+    if (repRole.empty()) repRole = "Chủ hộ kinh doanh";
+    std::string legalEntity = tRow.value("legal_entity_name", "");
+    if (legalEntity.empty()) legalEntity = storeName;
+    std::string taxId = tRow.value("tax_id_or_cccd", "");
+    std::string phone = tRow.value("phone", "");
+    std::string email = tRow.value("email", "");
+    std::string storeAddr = tRow.value("address", "");
+    std::string billingAddr = tRow.value("billing_address", "");
+    if (billingAddr.empty()) billingAddr = storeAddr;
+    std::string planName = tRow.value("plan_name", "Gói Tiêu Chuẩn");
+    int64_t planPrice = tRow.value("plan_price_year", int64_t(0));
+    std::string startDate = tRow.value("start_date", std::string(dateBuf));
+    std::string expireDate = tRow.value("expire_date", "");
+    std::string licenseKey = tRow.value("license_key", "");
+    std::string enabledMods = formatModuleNames(tRow.value("enabled_modules", "[]"));
+
+    struct FormSpec { const char* file; const char* title; };
+    const FormSpec forms[] = {
+        {"bao_gia_dich_vu.html", "Báo Giá Dịch Vụ (Mẫu Tự Động)"},
+        {"hop_dong_dich_vu.html", "Hợp Đồng Dịch Vụ Phần Mềm (Mẫu Tự Động)"},
+        {"dieu_khoan_su_dung_ban_quyen.html", "Điều Khoản Sử Dụng & Bản Quyền (Mẫu Tự Động)"},
+        {"bien_ban_ban_giao_nghiem_thu.html", "Biên Bản Bàn Giao & Nghiệm Thu (Mẫu Tự Động)"},
+        {"phieu_bao_hanh_ky_thuat.html", "Phiếu Bảo Hành & Hỗ Trợ Kỹ Thuật (Mẫu Tự Động)"}
+    };
+
+    for (const auto& f : forms) {
+        fs::path src = tplDir / f.file;
+        if (!fs::exists(src)) continue;
+        std::ifstream ifs(src, std::ios::binary);
+        if (!ifs) continue;
+        std::ostringstream ss;
+        ss << ifs.rdbuf();
+        std::string html = ss.str();
+
+        html = replaceAllStr(html, "{{TENANT_CODE}}", tCode);
+        html = replaceAllStr(html, "{{STORE_NAME}}", storeName);
+        html = replaceAllStr(html, "{{OWNER_NAME}}", ownerName);
+        html = replaceAllStr(html, "{{REPRESENTATIVE_ROLE}}", repRole);
+        html = replaceAllStr(html, "{{LEGAL_ENTITY_NAME}}", legalEntity);
+        html = replaceAllStr(html, "{{TAX_ID_OR_CCCD}}", taxId);
+        html = replaceAllStr(html, "{{PHONE}}", phone);
+        html = replaceAllStr(html, "{{EMAIL}}", email);
+        html = replaceAllStr(html, "{{STORE_ADDRESS}}", storeAddr);
+        html = replaceAllStr(html, "{{BILLING_ADDRESS}}", billingAddr);
+        html = replaceAllStr(html, "{{PLAN_NAME}}", planName);
+        html = replaceAllStr(html, "{{PLAN_PRICE_VND}}", formatVndDots(planPrice));
+        html = replaceAllStr(html, "{{START_DATE}}", formatDateVn(startDate));
+        html = replaceAllStr(html, "{{EXPIRE_DATE}}", formatDateVn(expireDate));
+        html = replaceAllStr(html, "{{LICENSE_KEY}}", licenseKey);
+        html = replaceAllStr(html, "{{ENABLED_MODULES}}", enabledMods);
+        html = replaceAllStr(html, "{{CREATED_DATE}}", dateBuf);
+        html = replaceAllStr(html, "{{DATE_COMPACT}}", compactBuf);
+
+        fs::path dst = formsOutDir / f.file;
+        std::ofstream ofs(dst, std::ios::binary | std::ios::trunc);
+        if (ofs) {
+            ofs.write(html.data(), html.size());
+            ofs.close();
+        }
+        if (extraCopyDir) {
+            fs::path edst = *extraCopyDir / f.file;
+            std::ofstream eofs(edst, std::ios::binary | std::ios::trunc);
+            if (eofs) {
+                eofs.write(html.data(), html.size());
+                eofs.close();
+            }
+        }
+
+        int64_t fSize = static_cast<int64_t>(html.size());
+        std::string relPath = "packages/" + tCode + "/Ho_So_Mau/" + f.file;
+        auto ex = db.queryRow(
+            "SELECT id FROM saas_tenant_documents WHERE tenant_code = :tc AND file_name = :fn LIMIT 1",
+            {{":tc", tCode}, {":fn", f.file}}
+        );
+        if (ex.is_null()) {
+            db.execute(
+                "INSERT INTO saas_tenant_documents "
+                "(tenant_id, tenant_code, category, file_name, file_path, file_size, file_ext, title, notes, status, uploaded_by) "
+                "VALUES (:tid, :tc, 'other', :fn, :fp, :fs, 'html', :ti, 'Tạo tự động từ mẫu chuẩn SOP-09', 'valid', 'System')",
+                {{":tid", tenantId}, {":tc", tCode}, {":fn", f.file}, {":fp", relPath}, {":fs", fSize}, {":ti", f.title}}
+            );
+        } else {
+            db.execute(
+                "UPDATE saas_tenant_documents SET file_size = :fs, updated_at = datetime('now') WHERE id = :id",
+                {{":fs", fSize}, {":id", ex.value("id", int64_t(0))}}
+            );
+        }
+    }
+}
+
+static std::string generateRandomLicenseKey(const std::string& prefix, const char* charset, size_t charsetLen) {
+    thread_local std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<size_t> dist(0, charsetLen - 1);
+    auto chunk = [&](int len) {
+        std::string s;
+        s.reserve(len);
+        for (int i = 0; i < len; ++i) s += charset[dist(rng)];
+        return s;
+    };
+    return prefix + "-" + chunk(4) + "-" + chunk(4) + "-" + chunk(4) + "-" + chunk(4);
+}
 
 static int64_t getAiActionCreditCost(const std::string& aiAction) {
     if (aiAction == "search_dish_images" || aiAction == "fetch_dish_image") return 0;
@@ -443,20 +664,27 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::string status = req.get_param_value("status");
 
                 std::string sql = R"(
-                    SELECT id, tenant_code, store_name, owner_name, phone, email, address,
+                    SELECT id, tenant_code, store_name, owner_name, representative_role, legal_entity_name, tax_id_or_cccd, phone, email, address, billing_address, note,
                            plan_id, plan_name, billing_cycle, subscription_status, start_date, expire_date,
+                           workflow_stage, payment_confirmed, payment_confirmed_by, payment_confirmed_at,
+                           trial_started_at, handover_at, warranty_until, workflow_override, deleted_at, deleted_reason,
                            enabled_modules, license_key, machine_id, machine_name, logo_path, created_at, updated_at,
                            last_check_at, last_check_ip, lan_ip, wan_ip, geo_lat, geo_lng, geo_label, geo_source,
                            CAST((julianday(expire_date) - julianday('now')) AS INTEGER) as days_left
                     FROM saas_tenants
-                    WHERE subscription_status != 'deleted'
+                    WHERE 1=1
                 )";
                 std::vector<std::pair<std::string, json>> params;
+                if (status == "deleted") {
+                    sql += " AND subscription_status = 'deleted'";
+                } else {
+                    sql += " AND subscription_status != 'deleted'";
+                }
                 if (!kw.empty()) {
                     sql += " AND (store_name LIKE :kw OR tenant_code LIKE :kw OR owner_name LIKE :kw OR phone LIKE :kw)";
                     params.push_back({":kw", "%" + kw + "%"});
                 }
-                if (!status.empty() && status != "all") {
+                if (!status.empty() && status != "all" && status != "deleted") {
                     sql += " AND subscription_status = :status";
                     params.push_back({":status", status});
                 }
@@ -477,12 +705,18 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
                     int daysLeft = t.value("days_left", 0);
                     std::string subStatus = t.value("subscription_status", "active");
-                    if (subStatus == "suspended") {
+                    if (subStatus == "deleted") {
+                        t["badge_color"] = "slate";
+                        t["badge_status"] = "Đã Xóa (Trash)";
+                    } else if (subStatus == "suspended") {
                         t["badge_color"] = "rose";
                         t["badge_status"] = "Tạm Khóa";
                     } else if (daysLeft < 0) {
                         t["badge_color"] = "rose";
                         t["badge_status"] = "Hết Hạn";
+                    } else if (subStatus == "trial") {
+                        t["badge_color"] = "sky";
+                        t["badge_status"] = "Dùng Thử (" + std::to_string(daysLeft) + "d)";
                     } else if (daysLeft <= 7) {
                         t["badge_color"] = "amber";
                         t["badge_status"] = "Sắp Hết Hạn";
@@ -497,7 +731,9 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     t["last_ping_latency_ms"] = StoreTunnelManager::instance().getLastLatencyMs(tid);
                     t["last_runtime"] = StoreTunnelManager::instance().getLastRuntime(tid);
                 }
-                sendJson(res, {{"success", true}, {"data", tenants}});
+                auto delRow = db.queryRow("SELECT COUNT(*) as cnt FROM saas_tenants WHERE subscription_status = 'deleted'");
+                int64_t deletedCount = delRow.is_null() ? 0 : delRow.value("cnt", int64_t(0));
+                sendJson(res, {{"success", true}, {"data", tenants}, {"deleted_count", deletedCount}});
                 return;
             }
 
@@ -778,7 +1014,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     std::string cat = d.value("category", "");
                     if (cat == "contracts" || cat == "contract") hasContract = true;
                     if (cat == "invoices" || cat == "invoice") hasInvoice = true;
-                    if (cat == "handover") hasHandover = true;
+                    if (cat == "handover" && d.value("file_name", "") != "THONG_TIN_DANG_NHAP_BAN_DAU.txt") hasHandover = true;
                     if (cat == "release") {
                         hasRelease = true;
                         releaseZipPath = d.value("file_path", "");
@@ -790,6 +1026,19 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     hasRelease = true;
                     releaseZipPath = "packages/" + realTcode + "/release/" + expectedZip.filename().string();
                 }
+                std::string releaseExePath = "";
+                fs::path expectedExe = basePackages / "release" / ("CyberNexus_POS_Setup_" + realTcode + ".exe");
+                if (fs::exists(expectedExe)) {
+                    hasRelease = true;
+                    releaseExePath = "packages/" + realTcode + "/release/" + expectedExe.filename().string();
+                }
+
+                std::string subSt = tenant.value("subscription_status", "active");
+                std::string wfStage = tenant.value("workflow_stage", "pending_contract");
+                int payConf = tenant.value("payment_confirmed", 0);
+                int wfOver = tenant.value("workflow_override", 0);
+                bool isTrial = (subSt == "trial" || wfStage == "trial");
+                bool canGen = isTrial || (payConf == 1) || (wfOver == 1) || (hasContract && hasInvoice);
 
                 json summary = {
                     {"has_contract", hasContract},
@@ -797,7 +1046,17 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     {"has_handover", hasHandover},
                     {"has_release", hasRelease},
                     {"release_zip_path", releaseZipPath},
-                    {"total_documents", docs.size()}
+                    {"release_exe_path", releaseExePath},
+                    {"total_documents", docs.size()},
+                    {"workflow_stage", wfStage},
+                    {"subscription_status", subSt},
+                    {"payment_confirmed", payConf == 1},
+                    {"workflow_override", wfOver == 1},
+                    {"trial_started_at", tenant.value("trial_started_at", "")},
+                    {"handover_at", tenant.value("handover_at", "")},
+                    {"warranty_until", tenant.value("warranty_until", "")},
+                    {"can_generate_release", canGen},
+                    {"release_mode", isTrial ? "trial" : "official"}
                 };
 
                 sendJson(res, {
@@ -911,23 +1170,99 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             }
 
             if (action == "check" || action == "check_auth" || action == "status") {
-                sendJson(res, {
-                    {"success", true},
-                    {"authenticated", true},
-                    {"role", "super_admin"},
-                    {"username", "superadmin"}
-                });
+                json su = getSaSessionUser(req);
+                if (!su.is_null() && su.is_object()) {
+                    sendJson(res, {
+                        {"success", true},
+                        {"authenticated", true},
+                        {"user", su},
+                        {"role", su.value("role", "super_admin")},
+                        {"username", su.value("username", "superadmin")}
+                    });
+                } else {
+                    sendJson(res, {
+                        {"success", true},
+                        {"authenticated", false}
+                    });
+                }
                 return;
             }
 
             if (action == "logout") {
+                std::string tok = extractSaToken(req);
+                if (!tok.empty()) {
+                    std::lock_guard<std::mutex> lk(g_saSessionMtx);
+                    g_saSessions.erase(tok);
+                }
                 res.set_header("Set-Cookie", "sa_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
                 sendJson(res, {{"success", true}, {"message", "Đã đăng xuất Super Admin!"}});
+                return;
+            }
+
+            if (action == "get_legal_templates") {
+                fs::path tplDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "templates";
+                struct TplMeta { const char* file; const char* title; const char* desc; };
+                const TplMeta specs[] = {
+                    {"bao_gia_dich_vu.html", "Báo Giá Dịch Vụ", "Bảng báo giá phần mềm & chi phí triển khai gửi khách trước khi ký hợp đồng."},
+                    {"hop_dong_dich_vu.html", "Hợp Đồng Dịch Vụ", "Hợp đồng cung cấp & cấp quyền sử dụng phần mềm CyberNexus POS."},
+                    {"dieu_khoan_su_dung_ban_quyen.html", "Điều Khoản Bản Quyền", "Quy định sở hữu trí tuệ, khóa Machine ID & trách nhiệm pháp lý chống crack."},
+                    {"bien_ban_ban_giao_nghiem_thu.html", "Biên Bản Nghiệm Thu", "Checklist bàn giao, kiểm thử vận hành & xác nhận nghiệm thu tại quán."},
+                    {"phieu_bao_hanh_ky_thuat.html", "Phiếu Bảo Hành", "Cam kết hỗ trợ kỹ thuật, cập nhật OTA & điều kiện bảo hành."}
+                };
+                json arr = json::array();
+                for (const auto& sp : specs) {
+                    fs::path fp = tplDir / sp.file;
+                    std::string content;
+                    if (fs::exists(fp)) {
+                        std::ifstream ifs(fp, std::ios::binary);
+                        if (ifs) {
+                            std::ostringstream ss;
+                            ss << ifs.rdbuf();
+                            content = ss.str();
+                        }
+                    }
+                    arr.push_back({{"file", sp.file}, {"title", sp.title}, {"desc", sp.desc}, {"content", content}});
+                }
+                json modNames = json::object();
+                for (const auto& m : LicenseService::instance().getCatalog()) {
+                    modNames[m.code] = m.name;
+                }
+                sendJson(res, {{"success", true}, {"templates", arr}, {"module_names", modNames}});
                 return;
             }
         }
 
         if (req.method == "POST") {
+            if (action != "login" && action != "logout") {
+                json su = getSaSessionUser(req);
+                if (!su.is_null() && su.is_object()) {
+                    std::string sRole = su.value("role", "super_admin");
+                    if (sRole == "auditor") {
+                        sendJson(res, {{"success", false}, {"message", "Ban Kiểm Toán chỉ có quyền xem (Read-only), không được phép thay đổi dữ liệu!"}}, 403);
+                        return;
+                    }
+                    if (sRole != "super_admin") {
+                        if (action == "save_staff_user" || action == "delete_staff_user" ||
+                            action == "grant_workflow_override" || action == "save_settings" ||
+                            action == "save_ai_vault" || action == "save_legal_template") {
+                            sendJson(res, {{"success", false}, {"message", "Chỉ Ban Giám Đốc (SuperAdmin) mới có quyền thực hiện thao tác này!"}}, 403);
+                            return;
+                        }
+                        if (action == "confirm_payment" && sRole != "finance") {
+                            sendJson(res, {{"success", false}, {"message", "Chỉ Phòng Kế Toán hoặc SuperAdmin mới có quyền xác nhận thanh toán!"}}, 403);
+                            return;
+                        }
+                        if (action == "activate_trial_7d" && sRole != "sales") {
+                            sendJson(res, {{"success", false}, {"message", "Chỉ Phòng Kinh Doanh (Sales) hoặc SuperAdmin mới có quyền cấp Trial 07 ngày!"}}, 403);
+                            return;
+                        }
+                        if ((action == "generate_tenant_release" || action == "reset_hardware_lock") && sRole != "technical") {
+                            sendJson(res, {{"success", false}, {"message", "Chỉ Phòng Kỹ Thuật hoặc SuperAdmin mới có quyền đóng gói bộ cài / mở khóa phần cứng!"}}, 403);
+                            return;
+                        }
+                    }
+                }
+            }
             if (action == "login") {
                 std::string user = getString(body, "username");
                 if (user.empty()) user = getString(body, "user");
@@ -949,7 +1284,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     if (valid) {
                         int64_t sId = getInt(staffRow, "id", 0);
                         std::string sUser = getString(staffRow, "username", user);
-                        std::string sRole = getString(staffRow, "role", "staff");
+                        std::string sRole = normalizeSaRole(getString(staffRow, "role", "staff"));
                         std::string sDept = getString(staffRow, "department", "Bộ Phận");
                         std::string sFull = getString(staffRow, "fullname", sUser);
                         std::string sPerms = getString(staffRow, "permissions", "[]");
@@ -962,19 +1297,24 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
                         json permsJson = json::array();
                         try { permsJson = json::parse(sPerms); } catch (...) {}
+                        json userObj = {
+                            {"id", sId},
+                            {"username", sUser},
+                            {"fullname", sFull},
+                            {"role", sRole},
+                            {"department", sDept},
+                            {"permissions", permsJson}
+                        };
+                        {
+                            std::lock_guard<std::mutex> lk(g_saSessionMtx);
+                            g_saSessions[token] = userObj;
+                        }
 
                         sendJson(res, {
                             {"success", true},
                             {"message", "Đăng nhập thành công với vai trò " + sDept + "!"},
                             {"token", token},
-                            {"user", {
-                                {"id", sId},
-                                {"username", sUser},
-                                {"fullname", sFull},
-                                {"role", sRole},
-                                {"department", sDept},
-                                {"permissions", permsJson}
-                            }},
+                            {"user", userObj},
                             {"redirect", "super_admin.html"}
                         });
                         return;
@@ -1012,18 +1352,23 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     recordAuditLog(db, 1, user, "super_admin", "AUTH_LOGIN", "SYSTEM", "Đăng nhập thành công SuperAdmin Quản Trị Tối Cao", "{}", req.remote_addr);
                     std::string token = "sa_master_session_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
                     res.set_header("Set-Cookie", "sa_token=" + token + "; Path=/; HttpOnly");
+                    json userObj = {
+                        {"id", 1},
+                        {"username", user},
+                        {"fullname", "Tổng Quản Trị Viên (Super Admin)"},
+                        {"role", "super_admin"},
+                        {"department", "Ban Giám Đốc"},
+                        {"permissions", json::array({"all"})}
+                    };
+                    {
+                        std::lock_guard<std::mutex> lk(g_saSessionMtx);
+                        g_saSessions[token] = userObj;
+                    }
                     sendJson(res, {
                         {"success", true},
                         {"message", "Đăng nhập Super Admin thành công!"},
                         {"token", token},
-                        {"user", {
-                            {"id", 1},
-                            {"username", user},
-                            {"fullname", "Tổng Quản Trị Viên (Super Admin)"},
-                            {"role", "super_admin"},
-                            {"department", "Ban Giám Đốc"},
-                            {"permissions", json::array({"all"})}
-                        }},
+                        {"user", userObj},
                         {"redirect", "super_admin.html"}
                     });
                 } else {
@@ -1296,15 +1641,22 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::string tenant_code = getVal("tenant_code");
                 std::string store_name = getVal("store_name");
                 std::string owner_name = getVal("owner_name");
+                std::string representative_role = getVal("representative_role");
+                std::string legal_entity_name = getVal("legal_entity_name");
+                std::string tax_id_or_cccd = getVal("tax_id_or_cccd");
                 std::string phone = getVal("phone");
                 std::string email = getVal("email");
                 std::string address = getVal("address");
+                std::string billing_address = getVal("billing_address");
                 int64_t plan_id = getValInt("plan_id", 1);
                 std::string expire_date = getVal("expire_date");
                 std::string note = getVal("note");
+                std::string start_mode = getVal("start_mode", "standard");
 
-                if (store_name.empty()) {
-                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập tên cửa hàng!"}}, 400);
+                if (store_name.empty() || owner_name.empty() || representative_role.empty() ||
+                    legal_entity_name.empty() || tax_id_or_cccd.empty() || phone.empty() ||
+                    email.empty() || address.empty() || billing_address.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập đầy đủ thông tin bắt buộc để lập Hợp đồng (Tên quán, Người đại diện, Chức vụ, Pháp nhân/HKD, MST/CCCD, SĐT, Email, Địa chỉ quán & Địa chỉ xuất HĐ)!"}}, 400);
                     return;
                 }
 
@@ -1345,40 +1697,58 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     if (tenant_code.empty()) {
                         tenant_code = "TN" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()).substr(8, 6);
                     }
-                    auto randHex = [](int len) {
-                        const char* chars = "0123456789ABCDEF";
-                        std::string s = "";
-                        for (int i = 0; i < len; ++i) s += chars[rand() % 16];
-                        return s;
-                    };
-                    std::string newKey = "LIC-" + randHex(4) + "-" + randHex(4) + "-" + randHex(4) + "-" + randHex(4);
+                    static constexpr char kHexChars[] = "0123456789ABCDEF";
+                    std::string newKey = generateRandomLicenseKey("LIC", kHexChars, sizeof(kHexChars) - 1);
                     std::string pin6 = CyberNexus::PinVault::generateRandomPin6();
                     std::string pinSha = AuthService::sha256(pin6);
                     std::string pinEnc = CyberNexus::PinVault::encryptPinForLicense(pin6, newKey);
 
+                    std::string initSubStatus = (start_mode == "trial") ? "trial" : "active";
+                    std::string initWfStage = (start_mode == "trial") ? "trial" : "pending_contract";
+                    std::string initTrialAt = "";
+                    if (start_mode == "trial") {
+                        auto trExp = db.queryRow("SELECT date('now', '+7 days') as d, datetime('now') as ts");
+                        if (!trExp.is_null()) {
+                            expire_date = trExp.value("d", expire_date);
+                            initTrialAt = trExp.value("ts", "");
+                        }
+                    }
                     int64_t newId = db.execute(
-                        "INSERT INTO saas_tenants (tenant_code, store_name, owner_name, phone, email, address, "
-                        "plan_id, plan_name, billing_cycle, subscription_status, start_date, expire_date, "
+                        "INSERT INTO saas_tenants (tenant_code, store_name, owner_name, representative_role, legal_entity_name, tax_id_or_cccd, phone, email, address, billing_address, "
+                        "plan_id, plan_name, billing_cycle, subscription_status, workflow_stage, trial_started_at, start_date, expire_date, "
                         "enabled_modules, license_key, note, logo_path, default_pin_sha256, default_pin_enc) "
-                        "VALUES (:tc, :sn, :on, :ph, :em, :ad, :pid, :pn, 'yearly', 'active', date('now'), :ed, :emods, :lk, :note, :logo, :psha, :penc)",
+                        "VALUES (:tc, :sn, :on, :rep, :leg, :tax, :ph, :em, :ad, :bad, :pid, :pn, 'yearly', :sub, :wfs, :tsa, date('now'), :ed, :emods, :lk, :note, :logo, :psha, :penc)",
                         {
-                            {":tc", tenant_code}, {":sn", store_name}, {":on", owner_name}, {":ph", phone},
-                            {":em", email}, {":ad", address}, {":pid", plan_id}, {":pn", plan_name},
+                            {":tc", tenant_code}, {":sn", store_name}, {":on", owner_name},
+                            {":rep", representative_role}, {":leg", legal_entity_name}, {":tax", tax_id_or_cccd},
+                            {":ph", phone}, {":em", email}, {":ad", address}, {":bad", billing_address},
+                            {":pid", plan_id}, {":pn", plan_name},
+                            {":sub", initSubStatus}, {":wfs", initWfStage}, {":tsa", initTrialAt},
                             {":ed", expire_date}, {":emods", default_mods}, {":lk", newKey}, {":note", note},
                             {":logo", savedLogoPath}, {":psha", pinSha}, {":penc", pinEnc}
                         }
                     );
+                    if (newId < 0) {
+                        sendJson(res, {
+                            {"success", false},
+                            {"message", "Không thể thêm cửa hàng mới (Mã Quán hoặc License Key bị trùng)!"}
+                        }, 400);
+                        return;
+                    }
+                    generateTenantLegalForms(db, SaleApp::Config::AppConfig::instance().getBaseDir(), newId);
                     sendJson(res, {
                         {"success", true},
-                        {"message", "Thêm mới cửa hàng thành công!"},
+                        {"message", "Thêm mới cửa hàng & khởi tạo bộ hồ sơ mẫu thành công!"},
                         {"id", newId},
                         {"tenant_saved", true}
                     });
                 } else {
-                    std::string sqlUpdate = "UPDATE saas_tenants SET store_name = :sn, owner_name = :on, phone = :ph, email = :em, address = :ad, plan_id = :pid, plan_name = :pn, expire_date = :ed, note = :note, updated_at = datetime('now')";
+                    std::string sqlUpdate = "UPDATE saas_tenants SET store_name = :sn, owner_name = :on, representative_role = :rep, legal_entity_name = :leg, tax_id_or_cccd = :tax, phone = :ph, email = :em, address = :ad, billing_address = :bad, plan_id = :pid, plan_name = :pn, expire_date = :ed, note = :note, updated_at = datetime('now')";
                     std::vector<std::pair<std::string, json>> uParams = {
-                        {":sn", store_name}, {":on", owner_name}, {":ph", phone}, {":em", email},
-                        {":ad", address}, {":pid", plan_id}, {":pn", plan_name},
+                        {":sn", store_name}, {":on", owner_name},
+                        {":rep", representative_role}, {":leg", legal_entity_name}, {":tax", tax_id_or_cccd},
+                        {":ph", phone}, {":em", email}, {":ad", address}, {":bad", billing_address},
+                        {":pid", plan_id}, {":pn", plan_name},
                         {":ed", expire_date}, {":note", note}, {":id", id}
                     };
                     if (!tenant_code.empty()) {
@@ -1393,10 +1763,11 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     }
                     sqlUpdate += " WHERE id = :id";
                     db.execute(sqlUpdate, uParams);
+                    generateTenantLegalForms(db, SaleApp::Config::AppConfig::instance().getBaseDir(), id);
 
                     sendJson(res, {
                         {"success", true},
-                        {"message", "Cập nhật thông tin cửa hàng thành công!"},
+                        {"message", "Cập nhật thông tin cửa hàng & đồng bộ bộ hồ sơ mẫu thành công!"},
                         {"id", id},
                         {"tenant_saved", true}
                     });
@@ -1461,6 +1832,39 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 return;
             }
 
+            if (action == "sync_master_url") {
+                auto normUrl = [](std::string u) {
+                    while (!u.empty() && (u.back() == '/' || u.back() == ' ')) u.pop_back();
+                    if (!u.empty() && u.rfind("http://", 0) != 0 && u.rfind("https://", 0) != 0) u = "http://" + u;
+                    return u;
+                };
+                std::string pubUrl = normUrl(getString(body, "master_public_url"));
+                std::string fbUrl = normUrl(getString(body, "master_fallback_url"));
+                if (pubUrl.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập Tên miền / URL Master chính!"}}, 400);
+                    return;
+                }
+                db.execute("INSERT INTO saas_settings (setting_key, setting_value) VALUES ('master_public_url', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v", {{":v", pubUrl}});
+                db.execute("INSERT INTO saas_settings (setting_key, setting_value) VALUES ('master_fallback_url', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v", {{":v", fbUrl}});
+
+                auto tRows = db.query("SELECT id FROM saas_tenants WHERE subscription_status IN ('active', 'trial')");
+                int synced = 0;
+                for (const auto& tr : tRows) {
+                    int64_t tid = tr.value("id", int64_t(0));
+                    if (tid > 0) {
+                        StoreTunnelManager::instance().enqueueCommand(tid, "UPDATE_MASTER_URL", {
+                            {"master_server_url", pubUrl},
+                            {"master_fallback_url", fbUrl}
+                        }, true);
+                        ++synced;
+                    }
+                }
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "SYNC_MASTER_URL", "ALL",
+                    "Lưu và đồng bộ URL Master mới (" + pubUrl + ", dự phòng: " + fbUrl + ") xuống " + std::to_string(synced) + " quán", "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"synced_count", synced}, {"message", "Đã lưu URL Master và đẩy đồng bộ xuống " + std::to_string(synced) + " quán!"}});
+                return;
+            }
+
             if (action == "save_saas_settings") {
                 for (auto it = body.begin(); it != body.end(); ++it) {
                     std::string k = it.key();
@@ -1513,13 +1917,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
             if (action == "regenerate_license_key") {
                 int64_t tid = getValInt("tenant_id", 0);
-                auto randHex = [](int len) {
-                    const char* chars = "0123456789ABCDEF";
-                    std::string s = "";
-                    for (int i = 0; i < len; ++i) s += chars[rand() % 16];
-                    return s;
-                };
-                std::string newKey = "LIC-" + randHex(4) + "-" + randHex(4) + "-" + randHex(4) + "-" + randHex(4);
+                static constexpr char kHexChars[] = "0123456789ABCDEF";
+                std::string newKey = generateRandomLicenseKey("LIC", kHexChars, sizeof(kHexChars) - 1);
                 db.execute("UPDATE saas_tenants SET license_key = :lk, machine_id = NULL, machine_name = NULL, machine_bound_at = NULL WHERE id = :id",
                     {{":lk", newKey}, {":id", std::to_string(tid)}});
                 sendJson(res, {{"success", true}, {"message", "Đã tạo mới License Key và thu hồi key cũ!", {"license_key", newKey}}});
@@ -1581,6 +1980,18 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 if (req.has_file("document_file")) {
                     const auto& file = req.get_file_value("document_file");
                     originalFilename = file.filename;
+                    auto appendSignedSuffix = [](const std::string& fname) -> std::string {
+                        size_t dp = fname.find_last_of('.');
+                        std::string stem = (dp != std::string::npos) ? fname.substr(0, dp) : fname;
+                        std::string extension = (dp != std::string::npos) ? fname.substr(dp) : "";
+                        std::string lowerStem = stem;
+                        std::transform(lowerStem.begin(), lowerStem.end(), lowerStem.begin(), ::tolower);
+                        if (lowerStem.size() >= 7 && lowerStem.compare(lowerStem.size() - 7, 7, "_signed") == 0) {
+                            return stem + extension;
+                        }
+                        return stem + "_signed" + extension;
+                    };
+                    originalFilename = appendSignedSuffix(originalFilename);
                     fileSize = file.content.size();
                     size_t dotPos = originalFilename.find_last_of('.');
                     if (dotPos != std::string::npos) ext = originalFilename.substr(dotPos);
@@ -1597,7 +2008,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 } else {
                     std::string docContent = getVal("document_content", "");
                     if (!docContent.empty()) {
-                        originalFilename = category + "_" + realTcode + ".txt";
+                        originalFilename = category + "_" + realTcode + "_signed.txt";
                         ext = ".txt";
                         auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
                         std::string saveName = std::to_string(nowMs).substr(6) + "_" + originalFilename;
@@ -1619,6 +2030,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
                 std::string cleanExt = ext;
                 if (!cleanExt.empty() && cleanExt[0] == '.') cleanExt = cleanExt.substr(1);
+                status = "signed";
 
                 db.execute(R"(
                     INSERT INTO saas_tenant_documents 
@@ -1629,6 +2041,14 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     {":fn", originalFilename}, {":fp", savedRelPath}, {":fs", fileSize},
                     {":fe", cleanExt}, {":ti", title}, {":no", notes}, {":st", status}
                 });
+
+                if (category == "contracts" || category == "contract") {
+                    db.execute("UPDATE saas_tenants SET workflow_stage = CASE WHEN workflow_stage IN ('pending_contract','') THEN 'pending_payment' ELSE workflow_stage END, updated_at = datetime('now') WHERE id = :id", {{":id", realTid}});
+                } else if (category == "invoices" || category == "invoice") {
+                    db.execute("UPDATE saas_tenants SET payment_confirmed = 1, payment_confirmed_at = COALESCE(NULLIF(payment_confirmed_at,''), datetime('now')), subscription_status = CASE WHEN subscription_status='trial' THEN 'active' ELSE subscription_status END, workflow_stage = CASE WHEN workflow_stage IN ('pending_contract','pending_payment','trial','') THEN 'ready_to_install' ELSE workflow_stage END, updated_at = datetime('now') WHERE id = :id", {{":id", realTid}});
+                } else if (category == "handover") {
+                    db.execute("UPDATE saas_tenants SET handover_at = datetime('now'), warranty_until = expire_date, subscription_status = CASE WHEN subscription_status='trial' THEN 'active' ELSE subscription_status END, workflow_stage = 'active', updated_at = datetime('now') WHERE id = :id", {{":id", realTid}});
+                }
 
                 recordAuditLog(db, 0, "Kế Toán/Kỹ Thuật", "staff", "UPLOAD_DOCUMENT", realTcode,
                     "Tải lên hồ sơ " + originalFilename + " (" + title + ") vào danh mục " + category + " cho quán " + realTcode,
@@ -1664,22 +2084,52 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::string machineId = getString(tenant, "machine_id", "Unbound");
                 std::string machineName = getString(tenant, "machine_name", "Chưa gán máy");
                 std::string enabledMods = getString(tenant, "enabled_modules", "[]");
+                std::string subSt = getString(tenant, "subscription_status", "active");
+                std::string wfStage = getString(tenant, "workflow_stage", "pending_contract");
+                int payConf = getInt(tenant, "payment_confirmed", 0);
+                int wfOver = getInt(tenant, "workflow_override", 0);
+                bool isTrial = (subSt == "trial" || wfStage == "trial");
+
+                auto docRows = db.query("SELECT category FROM saas_tenant_documents WHERE tenant_id = :tid OR tenant_code = :tc", {{":tid", realTid}, {":tc", realTcode}});
+                bool hasContract = false, hasInvoice = false;
+                for (const auto& dr : docRows) {
+                    std::string dc = dr.value("category", "");
+                    if (dc == "contracts" || dc == "contract") hasContract = true;
+                    if (dc == "invoices" || dc == "invoice") hasInvoice = true;
+                }
+                if (!isTrial && payConf != 1 && wfOver != 1 && !(hasContract && hasInvoice)) {
+                    sendJson(res, {
+                        {"success", false},
+                        {"message", "Chưa đủ điều kiện đóng gói bản chính thức! Cần có Hợp đồng + Xác nhận thanh toán/VAT (hoặc chuyển sang Dùng Thử 07 Ngày / Duyệt Ngoại Lệ)."}
+                    }, 400);
+                    return;
+                }
 
                 fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir();
                 fs::path releaseDir = baseDir / "packages" / realTcode / "release";
                 try { fs::create_directories(releaseDir); } catch (...) {}
 
-                // 1. Tạo config.json
+                // 1. Tạo config.json (tự động lấy URL Tên miền Master từ saas_settings)
+                std::string pubUrl = "http://127.0.0.1:8500";
+                std::string fbUrl = "";
+                auto puRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'master_public_url' LIMIT 1");
+                if (!puRow.is_null() && !puRow.value("setting_value", "").empty()) pubUrl = puRow.value("setting_value", "");
+                auto fbRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'master_fallback_url' LIMIT 1");
+                if (!fbRow.is_null()) fbUrl = fbRow.value("setting_value", "");
                 json cfg = {
+                    {"tenant_code", realTcode},
                     {"store_tenant_id", realTcode},
                     {"store_name", storeName},
                     {"license_key", licenseKey},
-                    {"master_server_url", "http://127.0.0.1:8500"},
+                    {"master_server_url", pubUrl},
+                    {"master_fallback_url", fbUrl},
                     {"port", 8501},
                     {"auto_heartbeat", true}
                 };
-                std::ofstream cfgFile((releaseDir / "config.json").string());
-                if (cfgFile) cfgFile << cfg.dump(2);
+                {
+                    std::ofstream cfgFile((releaseDir / "config.json").string(), std::ios::binary | std::ios::trunc);
+                    if (cfgFile) { cfgFile << cfg.dump(2) << "\n"; cfgFile.close(); }
+                }
 
                 // 2. Tạo license_certificate.txt
                 std::stringstream cert;
@@ -1688,6 +2138,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                      << "==============================================================\n"
                      << "Cửa Hàng:           " << storeName << "\n"
                      << "Mã Quán (Tenant):   " << realTcode << "\n"
+                     << "Loại Phát Hành:     " << (isTrial ? "TRIAL 07 NGÀY (Dùng thử)" : "CHÍNH THỨC (Official)") << "\n"
                      << "Mã Khóa Bản Quyền:  " << licenseKey << "\n"
                      << "Gói Dịch Vụ:        " << planName << "\n"
                      << "Hạn Sử Dụng:        " << expireDate << "\n"
@@ -1696,76 +2147,86 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                      << "Phát Hành Bởi:      SuperAdmin SaaS Central Authority\n"
                      << "Quy Chuẩn Đóng Gói: SOP-CBNX-09 Enterprise Edition\n"
                      << "==============================================================\n";
-                std::ofstream certFile((releaseDir / "license_certificate.txt").string());
-                if (certFile) certFile << cert.str();
+                {
+                    std::ofstream certFile((releaseDir / "license_certificate.txt").string(), std::ios::binary | std::ios::trunc);
+                    if (certFile) { certFile << cert.str(); certFile.close(); }
+                }
+
+                std::string saasHotline = "1900 6868";
+                std::string saasEmail = "support@cybernexus.vn";
+                auto hlRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'saas_hotline' LIMIT 1");
+                if (!hlRow.is_null() && !hlRow.value("setting_value", "").empty()) saasHotline = hlRow.value("setting_value", "");
+                auto emRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'saas_email' LIMIT 1");
+                if (!emRow.is_null() && !emRow.value("setting_value", "").empty()) saasEmail = emRow.value("setting_value", "");
 
                 // 2.1 Tạo file THONG_TIN_DANG_NHAP_BAN_DAU.txt
                 std::stringstream cred;
                 cred << "================================================================================\n"
-                     << "  CYBERNEXUS OS — PHIẾU BÀN GIAO TÀI KHOẢN VÀ MẬT KHẨU KHỞI TẠO ĐIỂM BÁN\n"
+                     << "  CYBERNEXUS OS — PHIẾU BÀN GIAO TÀI KHOẢN VÀ MÃ PIN KHỞI TẠO ĐIỂM BÁN\n"
                      << "================================================================================\n"
                      << "Cửa Hàng:           " << storeName << "\n"
                      << "Mã Cửa Hàng:        " << realTcode << "\n"
-                     << "Gói Bản Quyền:      " << planName << "\n"
+                     << "Gói Bản Quyền:      " << planName << " (" << (isTrial ? "TRIAL 07 NGÀY" : "CHÍNH THỨC") << ")\n"
                      << "Mã Giấy Phép (Key): " << licenseKey << "\n"
                      << "Hạn Sử Dụng:        " << expireDate << "\n"
+                     << "Máy Chủ Master:     " << pubUrl << "\n"
                      << "Quy Chuẩn Bàn Giao: SOP-CBNX-09 Enterprise Edition\n\n"
                      << "--------------------------------------------------------------------------------\n"
-                     << "1. DANH SÁCH TÀI KHOẢN & MÃ PIN KHỞI TẠO MẶC ĐỊNH\n"
+                     << "1. DANH SÁCH TÀI KHOẢN & MÃ PIN 6 SỐ KHỞI TẠO MẶC ĐỊNH\n"
                      << "--------------------------------------------------------------------------------\n"
                      << "[1] TÀI KHOẢN QUẢN TRỊ VIÊN (CHỦ QUÁN / ADMIN)\n"
                      << "    - Tên đăng nhập (Username): admin\n"
                      << "    - Mật khẩu mặc định:        Admin@2026\n"
-                     << "    - Mã PIN đăng nhập nhanh:   9999\n"
+                     << "    - Mã PIN 6 số mặc định:     Xem file DEFAULT_OWNER_PIN.txt (dùng 1 lần, bắt buộc đổi)\n"
                      << "    - Phạm vi quyền hạn:        Toàn quyền quản trị quán, menu, doanh thu, cài đặt.\n"
-                     << "    - Cổng truy cập:            http://localhost:8501/admin\n\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/admin.html\n\n"
                      << "[2] TÀI KHOẢN BẾP & PHA CHẾ (CHEF / KITCHEN)\n"
                      << "    - Tên đăng nhập (Username): bep01\n"
                      << "    - Mật khẩu mặc định:        Bep@2026\n"
-                     << "    - Mã PIN đăng nhập nhanh:   1111\n"
+                     << "    - Mã PIN 6 số:              111111\n"
                      << "    - Phạm vi quyền hạn:        Màn hình KDS, cập nhật trạng thái làm món.\n"
-                     << "    - Cổng truy cập:            http://localhost:8501/kitchen\n\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/kitchen.html\n\n"
                      << "[3] TÀI KHOẢN THU NGÂN (CASHIER / POS)\n"
                      << "    - Tên đăng nhập (Username): thungan01\n"
                      << "    - Mật khẩu mặc định:        ThuNgan@2026\n"
-                     << "    - Mã PIN đăng nhập nhanh:   2222\n"
+                     << "    - Mã PIN 6 số:              222222\n"
                      << "    - Phạm vi quyền hạn:        Mở ca, bán hàng, in bill hóa đơn, thanh toán.\n"
-                     << "    - Cổng truy cập:            http://localhost:8501/pos\n\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/index.html\n\n"
                      << "[4] TÀI KHOẢN NHÂN VIÊN PHỤC VỤ (WAITER)\n"
                      << "    - Tên đăng nhập (Username): phucvu01\n"
                      << "    - Mật khẩu mặc định:        PhucVu@2026\n"
-                     << "    - Mã PIN đăng nhập nhanh:   3333\n"
+                     << "    - Mã PIN 6 số:              333333\n"
                      << "    - Phạm vi quyền hạn:        Mở bàn, chọn món cho khách, chuyển bàn, gửi bếp.\n"
-                     << "    - Cổng truy cập:            http://localhost:8501/pos hoặc trên điện thoại\n\n"
+                     << "    - Cổng truy cập:            http://localhost:8501/order.html\n\n"
                      << "--------------------------------------------------------------------------------\n"
                      << "2. CẢNH BÁO AN NINH & YÊU CẦU ĐỔI MẬT KHẨU LẦN ĐẦU (BẮT BUỘC)\n"
                      << "--------------------------------------------------------------------------------\n"
-                     << "⚠️  QUAN TRỌNG:\n"
-                     << "    - Vì lý do an toàn tuyệt đối cho doanh thu và bảo mật số liệu quán,\n"
-                     << "      Chủ quán và Nhân viên BẮT BUỘC PHẢI ĐỔI MẬT KHẨU VÀ MÃ PIN NGAY TRONG LẦN ĐĂNG NHẬP ĐẦU TIÊN!\n"
+                     << "    - Chủ quán và Nhân viên BẮT BUỘC PHẢI ĐỔI MẬT KHẨU VÀ MÃ PIN NGAY LẦN ĐẦU!\n"
                      << "    - Không chia sẻ mật khẩu quản trị cho nhân viên thời vụ.\n\n"
                      << "--------------------------------------------------------------------------------\n"
-                     << "3. DỮ LIỆU MẪU ĐÃ CÀI ĐẶT SẴN TRONG HỆ THỐNG\n"
+                     << "3. DỮ LIỆU KHỞI TẠO SẴN TRONG HỆ THỐNG\n"
                      << "--------------------------------------------------------------------------------\n"
-                     << "    1. Cà phê sữa đá Sài Gòn      - Mã: CF001 - Đơn giá: 29.000 VNĐ  (Nhóm: Cà Phê)\n"
-                     << "    2. Bò bít tết sốt tiêu đen    - Mã: BT001 - Đơn giá: 89.000 VNĐ  (Nhóm: Món Chính)\n"
-                     << "    3. Trà đào cam sả thanh nhiệt - Mã: TR001 - Đơn giá: 35.000 VNĐ  (Nhóm: Trà Trái Cây)\n\n"
+                     << "    1. Cà phê sữa đá Sài Gòn      - Mã: CF001 - Đơn giá: 29.000 VNĐ\n"
+                     << "    2. Bò bít tết sốt tiêu đen    - Mã: BT001 - Đơn giá: 89.000 VNĐ\n"
+                     << "    3. Trà đào cam sả thanh nhiệt - Mã: TR001 - Đơn giá: 35.000 VNĐ\n\n"
                      << "--------------------------------------------------------------------------------\n"
-                     << "4. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG TRÊN MÁY TRẠM\n"
+                     << "4. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG TRÊN MÁY QUÁN\n"
                      << "--------------------------------------------------------------------------------\n"
-                     << "Bước 1: Giải nén toàn bộ file ZIP vào thư mục làm việc (ví dụ: C:\\CyberNexus_POS).\n"
-                     << "Bước 2: Chạy file 'Mo_Tuong_Lua_LAN.bat' với quyền Administrator để mở port nội bộ.\n"
-                     << "Bước 3: Nhấp đúp vào file 'RUN_SLAVE.bat' để khởi động hệ thống.\n"
-                     << "Bước 4: Mở trình duyệt web truy cập http://localhost:8501/pos để bắt đầu bán hàng!\n\n"
-                     << "Hotline Hỗ Trợ Kỹ Thuật 24/7: 1900 6868 - contact@cybernexus.vn\n"
+                     << "Bước 1: Chạy file cài đặt CyberNexus_POS_Setup_" << realTcode << ".exe (Run as Administrator).\n"
+                     << "Bước 2: Mở 'CyberNexus_Control_Center.exe' (từ Desktop hoặc thư mục cài đặt).\n"
+                     << "Bước 3: Đảm bảo trạng thái Slave báo Online (Port 8501) -> bấm nút 'Mở Web'.\n"
+                     << "Bước 4: Đăng nhập bằng PIN 6 số trong DEFAULT_OWNER_PIN.txt (hoặc admin / Admin@2026).\n\n"
+                     << "Hotline Hỗ Trợ Kỹ Thuật: " << saasHotline << " - Email: " << saasEmail << "\n"
                      << "================================================================================\n";
 
                 fs::path handoverDir = baseDir / "packages" / realTcode / "handover";
                 try { fs::create_directories(handoverDir); } catch (...) {}
-                std::ofstream credRelFile((releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt").string());
-                if (credRelFile) credRelFile << cred.str();
-                std::ofstream credHndFile((handoverDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt").string());
-                if (credHndFile) credHndFile << cred.str();
+                {
+                    std::ofstream credRelFile((releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt").string(), std::ios::binary | std::ios::trunc);
+                    if (credRelFile) { credRelFile << cred.str(); credRelFile.close(); }
+                    std::ofstream credHndFile((handoverDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt").string(), std::ios::binary | std::ios::trunc);
+                    if (credHndFile) { credHndFile << cred.str(); credHndFile.close(); }
+                }
 
                 int64_t credSize = fs::exists(releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt") ? fs::file_size(releaseDir / "THONG_TIN_DANG_NHAP_BAN_DAU.txt") : 4096;
                 auto existingCred = db.queryRow(
@@ -1776,7 +2237,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     db.execute(R"(
                         INSERT INTO saas_tenant_documents 
                         (tenant_id, tenant_code, category, file_name, file_path, file_size, file_ext, title, notes, status, uploaded_by)
-                        VALUES (:tid, :tc, 'handover', 'THONG_TIN_DANG_NHAP_BAN_DAU.txt', :fp, :fs, 'txt', :ti, :no, 'valid', 'SuperAdmin')
+                        VALUES (:tid, :tc, 'credentials', 'THONG_TIN_DANG_NHAP_BAN_DAU.txt', :fp, :fs, 'txt', :ti, :no, 'valid', 'SuperAdmin')
                     )", {
                         {":tid", realTid}, {":tc", realTcode},
                         {":fp", "packages/" + realTcode + "/handover/THONG_TIN_DANG_NHAP_BAN_DAU.txt"},
@@ -1784,6 +2245,9 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         {":ti", "Thông Tin Tài Khoản & Mật Khẩu Khởi Tạo (Bắt Buộc Đổi)"},
                         {":no", "Cấp 4 tài khoản (Admin, Bếp, Thu Ngân, Phục Vụ) kèm mã PIN và 3 món ăn mẫu."}
                     });
+                } else {
+                    db.execute("UPDATE saas_tenant_documents SET file_size = :fs, category = 'credentials', updated_at = datetime('now') WHERE id = :id",
+                        {{":fs", credSize}, {":id", getInt(existingCred, "id", 0)}});
                 }
 
                 // 3. Đóng gói đầy đủ các thành phần thành file ZIP chuẩn Windows & Linux
@@ -1791,9 +2255,15 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 fs::path zipPath = releaseDir / zipFileName;
                 std::string relZipPath = "packages/" + realTcode + "/release/" + zipFileName;
 
-                fs::path stagingDir = releaseDir / "staging_temp";
+                fs::path oldStaging = releaseDir / "staging_temp";
+                if (fs::exists(oldStaging)) { std::error_code ec; fs::remove_all(oldStaging, ec); }
+                fs::path stagingDir = fs::temp_directory_path() / ("cn_pkg_" + realTcode);
+                fs::path tmpZipPath = fs::temp_directory_path() / zipFileName;
+                bool zipOk = false;
                 try {
-                    if (fs::exists(stagingDir)) fs::remove_all(stagingDir);
+                    std::error_code ec;
+                    if (fs::exists(stagingDir)) fs::remove_all(stagingDir, ec);
+                    if (fs::exists(tmpZipPath)) fs::remove(tmpZipPath, ec);
                     fs::create_directories(stagingDir);
 
                     // Copy config, certificate, credentials
@@ -1827,13 +2297,13 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         if (sqlite3_open(stageDbPath.string().c_str(), &sdb) == SQLITE_OK) {
                             sqlite3_exec(sdb, "ALTER TABLE users ADD COLUMN default_pin_sha256 TEXT DEFAULT '';", nullptr, nullptr, nullptr);
                             sqlite3_exec(sdb, "ALTER TABLE users ADD COLUMN pin_must_change INTEGER DEFAULT 0;", nullptr, nullptr, nullptr);
-                            sqlite3_exec(sdb, "DELETE FROM orders; DELETE FROM order_items; DELETE FROM attendances; DELETE FROM kitchen_service_logs; DELETE FROM material_transactions; DELETE FROM app_notifications; DELETE FROM media_jukebox_queue;", nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "DELETE FROM orders; DELETE FROM order_items; DELETE FROM attendances; DELETE FROM kitchen_service_logs; DELETE FROM material_transactions; DELETE FROM app_notifications; DELETE FROM media_jukebox_queue; DELETE FROM media_tracks;", nullptr, nullptr, nullptr);
                             sqlite3_exec(sdb, "DELETE FROM users;", nullptr, nullptr, nullptr);
-                            std::string sqlUsers = "INSERT INTO users (id, username, password, fullname, role, pin_code, default_pin_sha256, pin_must_change, status, created_at) VALUES "
-                                "(1, 'admin', 'Admin@2026', 'Quản Trị Viên (" + storeName + ")', 'admin', '" + ownerPin6 + "', '" + AuthService::sha256(ownerPin6) + "', 1, 'active', datetime('now')),"
-                                "(2, 'bep01', 'Bep@2026', 'Bếp Trưởng / Pha Chế', 'kitchen', '111111', '', 0, 'active', datetime('now')),"
-                                "(3, 'thungan01', 'ThuNgan@2026', 'Thu Ngân Điểm Bán', 'cashier', '222222', '', 0, 'active', datetime('now')),"
-                                "(4, 'phucvu01', 'PhucVu@2026', 'Nhân Viên Phục Vụ 01', 'waiter', '333333', '', 0, 'active', datetime('now'));";
+                            std::string sqlUsers = "INSERT INTO users (id, user_code, username, password, fullname, role, pin_code, default_pin_sha256, pin_must_change, status, created_at) VALUES "
+                                "(1, 'AD001', 'admin', 'Admin@2026', 'Quản Trị Viên (" + storeName + ")', 'admin', '" + ownerPin6 + "', '" + AuthService::sha256(ownerPin6) + "', 1, 'active', datetime('now')),"
+                                "(2, 'BP001', 'bep01', 'Bep@2026', 'Bếp Trưởng / Pha Chế', 'kitchen', '111111', '', 0, 'active', datetime('now')),"
+                                "(3, 'TN001', 'thungan01', 'ThuNgan@2026', 'Thu Ngân Điểm Bán', 'cashier', '222222', '', 0, 'active', datetime('now')),"
+                                "(4, 'PV001', 'phucvu01', 'PhucVu@2026', 'Nhân Viên Phục Vụ 01', 'waiter', '333333', '', 0, 'active', datetime('now'));";
                             sqlite3_exec(sdb, sqlUsers.c_str(), nullptr, nullptr, nullptr);
                             sqlite3_exec(sdb, "DELETE FROM products;", nullptr, nullptr, nullptr);
                             std::string sqlProducts = "INSERT INTO products (id, category_id, code, name, unit, cost_price, sale_price, status, description, created_at) VALUES "
@@ -1841,9 +2311,85 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                                 "(2, 3, 'BT001', 'Bò bít tết sốt tiêu đen', 'phần', 45000, 89000, 'active', 'Thịt thăn bò mềm mọng nước, sốt tiêu đen hảo hạng kèm khoai tây chiên và bánh mì', datetime('now')),"
                                 "(3, 14, 'TR001', 'Trà đào cam sả thanh nhiệt', 'ly', 12000, 35000, 'active', 'Trà đào thanh mát quyện cùng hương vị cam tươi và tinh dầu sả tự nhiên', datetime('now'));";
                             sqlite3_exec(sdb, sqlProducts.c_str(), nullptr, nullptr, nullptr);
-                            std::string sqlSettings = "UPDATE store_settings SET value = '" + storeName + "' WHERE key = 'store_name';"
-                                "UPDATE store_settings SET value = '" + realTcode + "' WHERE key = 'tenant_code';";
-                            sqlite3_exec(sdb, sqlSettings.c_str(), nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "DELETE FROM audit_logs; DELETE FROM pos_shifts; DELETE FROM cash_transactions; DELETE FROM finance_expenses; DELETE FROM payment_transactions; DELETE FROM card_transactions; DELETE FROM order_reviews; DELETE FROM supplier_invoices; DELETE FROM supplier_payments;", nullptr, nullptr, nullptr);
+                            auto upsertSetting = [&](const char* k, const std::string& v) {
+                                sqlite3_stmt* ust = nullptr;
+                                if (sqlite3_prepare_v2(sdb, "UPDATE store_settings SET setting_value = ? WHERE setting_key = ?", -1, &ust, nullptr) == SQLITE_OK) {
+                                    sqlite3_bind_text(ust, 1, v.c_str(), -1, SQLITE_TRANSIENT);
+                                    sqlite3_bind_text(ust, 2, k, -1, SQLITE_TRANSIENT);
+                                    sqlite3_step(ust);
+                                    sqlite3_finalize(ust);
+                                }
+                                if (sqlite3_changes(sdb) == 0) {
+                                    sqlite3_stmt* ist = nullptr;
+                                    if (sqlite3_prepare_v2(sdb, "INSERT INTO store_settings (setting_key, setting_value) VALUES (?, ?)", -1, &ist, nullptr) == SQLITE_OK) {
+                                        sqlite3_bind_text(ist, 1, k, -1, SQLITE_TRANSIENT);
+                                        sqlite3_bind_text(ist, 2, v.c_str(), -1, SQLITE_TRANSIENT);
+                                        sqlite3_step(ist);
+                                        sqlite3_finalize(ist);
+                                    }
+                                }
+                            };
+                            upsertSetting("store_name", storeName);
+                            upsertSetting("tenant_code", realTcode);
+                            upsertSetting("store_hotline", getString(tenant, "phone", ""));
+                            upsertSetting("store_address", getString(tenant, "address", ""));
+                            upsertSetting("bank_id", "");
+                            upsertSetting("bank_account_no", "");
+                            upsertSetting("bank_account_name", "");
+                            upsertSetting("store_wifi", "");
+                            upsertSetting("print_header_note", "Hân hạnh được phục vụ Quý khách!");
+                            upsertSetting("print_footer_note", "Cảm ơn Quý khách - Hẹn gặp lại!");
+                            {
+                                // Đánh dấu bản đóng gói mới đã ở phiên bản mới nhất của Master, tránh báo "Cập nhật" ngược về bản OTA cũ
+                                std::string latestOtaVer = "";
+                                try {
+                                    fs::path mfPath = baseDir / "updates" / "manifest.json";
+                                    if (fs::exists(mfPath)) {
+                                        std::ifstream mfIn(mfPath);
+                                        if (mfIn) {
+                                            json mfJson = json::parse(mfIn, nullptr, false);
+                                            if (mfJson.is_object()) latestOtaVer = mfJson.value("version", "");
+                                        }
+                                    }
+                                } catch (...) {}
+                                if (!latestOtaVer.empty()) {
+                                    upsertSetting("ota_applied_version", latestOtaVer);
+                                }
+                            }
+
+                            // Cập nhật đúng License Cache của quán đang đóng gói (tránh giữ nhầm GP-ENTERPRISE-2026-NEXUS của DB mẫu)
+                            sqlite3_exec(sdb, "ALTER TABLE local_license_cache ADD COLUMN blocked_modules TEXT DEFAULT '[]';", nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "ALTER TABLE local_license_cache ADD COLUMN card_fee_percent REAL DEFAULT 0.0;", nullptr, nullptr, nullptr);
+                            sqlite3_exec(sdb, "DELETE FROM local_license_cache;", nullptr, nullptr, nullptr);
+                            std::string ownerNameStr = getString(tenant, "owner_name", "Chủ Quán");
+                            std::string blockedModsStr = getString(tenant, "blocked_modules", "[]");
+                            int daysLeftVal = getInt(tenant, "days_left", isTrial ? 7 : 365);
+                            double cardFeeVal = 0.0;
+                            try {
+                                if (tenant.contains("card_fee_percent") && tenant["card_fee_percent"].is_number()) {
+                                    cardFeeVal = tenant["card_fee_percent"].get<double>();
+                                }
+                            } catch (...) {}
+                            sqlite3_stmt* lst = nullptr;
+                            if (sqlite3_prepare_v2(sdb,
+                                "INSERT INTO local_license_cache (id, license_key, store_name, owner_name, plan_name, subscription_status, expire_date, days_left, machine_id, bound_machine_id, enabled_modules, blocked_modules, card_fee_percent, last_sync_at, last_sync_status) "
+                                "VALUES (1, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, datetime('now'), 'packaged')",
+                                -1, &lst, nullptr) == SQLITE_OK) {
+                                sqlite3_bind_text(lst, 1, licenseKey.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_text(lst, 2, storeName.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_text(lst, 3, ownerNameStr.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_text(lst, 4, planName.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_text(lst, 5, subSt.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_text(lst, 6, expireDate.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_int(lst, 7, daysLeftVal);
+                                sqlite3_bind_text(lst, 8, enabledMods.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_text(lst, 9, blockedModsStr.c_str(), -1, SQLITE_TRANSIENT);
+                                sqlite3_bind_double(lst, 10, cardFeeVal);
+                                sqlite3_step(lst);
+                                sqlite3_finalize(lst);
+                            }
+
                             sqlite3_close(sdb);
                         }
                     }
@@ -1856,9 +2402,19 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         fs::copy_file(slaveDir / "cybernexus_slave.exe", stagingDir / "cybernexus_slave.exe", fs::copy_options::overwrite_existing);
                     }
 
-                    // Copy giao diện Web
+                    // Copy giao diện Web (loại bỏ dữ liệu mẫu: hình món, nhạc, video; tên quán load động từ store_brand.js)
                     if (fs::exists(slaveDir / "web")) {
                         fs::copy(slaveDir / "web", stagingDir / "web", fs::copy_options::recursive | fs::copy_options::overwrite_existing);
+                        std::error_code ec;
+                        for (const auto& sub : {fs::path("web/assets/media"), fs::path("web/assets/images"), fs::path("web/uploads")}) {
+                            fs::path p = stagingDir / sub;
+                            if (fs::exists(p, ec)) fs::remove_all(p, ec);
+                            fs::create_directories(p, ec);
+                        }
+                    }
+                    {
+                        std::error_code ec;
+                        fs::create_directories(stagingDir / "uploads", ec);
                     }
 
                     // Copy các module ĐƯỢC CẤP PHÉP (Defense-in-depth: Không cấp phép thì không copy DLL)
@@ -1903,23 +2459,27 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         }
                     }
 
-                    // Nén thành file .zip chuẩn qua tar.exe có sẵn trên Windows 10/11
-                    if (fs::exists(zipPath)) fs::remove(zipPath);
-                    std::string tarCmd = "tar.exe -a -c -f \"" + zipPath.string() + "\" -C \"" + stagingDir.string() + "\" *";
-                    system(tarCmd.c_str());
+                    // Đính kèm đầy đủ bộ hồ sơ pháp lý, điều khoản bản quyền, biên bản bàn giao & bảo hành
+                    fs::path legalStageDir = stagingDir / "Ho_So_Phap_Ly_Va_Ban_Quyen";
+                    generateTenantLegalForms(db, baseDir, realTid, &legalStageDir);
+
+                    // Nén thành file .zip chuẩn qua tar.exe ở %TEMP% rồi mới chép sang releaseDir
+                    std::string tarCmd = "tar.exe -a -c -f \"" + tmpZipPath.string() + "\" -C \"" + stagingDir.string() + "\" *";
+                    int tarRc = system(tarCmd.c_str());
+                    if (tarRc == 0 && fs::exists(tmpZipPath) && fs::file_size(tmpZipPath) > 256) {
+                        if (fs::exists(zipPath)) fs::remove(zipPath);
+                        fs::copy_file(tmpZipPath, zipPath, fs::copy_options::overwrite_existing);
+                        zipOk = true;
+                    }
 
                     // Dọn dẹp thư mục staging
-                    fs::remove_all(stagingDir);
-                } catch (...) {
-                    // Fallback nếu tar gặp sự cố
-                    if (!fs::exists(zipPath) || fs::file_size(zipPath) == 0) {
-                        std::ofstream zipOut(zipPath.string(), std::ios::binary);
-                        if (zipOut) {
-                            std::string header = "CYBERNEXUS_ZIP_RELEASE_PACKAGE_" + realTcode + "\n" + cert.str();
-                            zipOut.write(header.data(), header.size());
-                            zipOut.close();
-                        }
-                    }
+                    fs::remove_all(stagingDir, ec);
+                    fs::remove(tmpZipPath, ec);
+                } catch (...) {}
+
+                if (!zipOk) {
+                    sendJson(res, {{"success", false}, {"message", "Đóng gói file ZIP thất bại (tar.exe lỗi). Vui lòng thử lại!"}}, 500);
+                    return;
                 }
 
                 int64_t zipSize = fs::exists(zipPath) ? fs::file_size(zipPath) : 1024;
@@ -1990,13 +2550,17 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     )", {{":fs", zipSize}, {":id", exId}});
                 }
 
+                if (!isTrial) {
+                    db.execute("UPDATE saas_tenants SET workflow_stage = CASE WHEN workflow_stage IN ('pending_contract','pending_payment','ready_to_install','') THEN 'pending_handover' ELSE workflow_stage END, updated_at = datetime('now') WHERE id = :id", {{":id", realTid}});
+                }
+
                 recordAuditLog(db, 0, "Kỹ Thuật", "technical", "PACKAGE_BUILD", realTcode,
-                    "Đóng gói 1-Click phát hành bộ cài đặt " + zipFileName + " kèm 3 món ăn mẫu, 4 tài khoản và phiếu bàn giao mật khẩu cho quán " + storeName,
+                    std::string(isTrial ? "Đóng gói bản TRIAL 07 NGÀY " : "Đóng gói bộ cài chính thức ") + zipFileName + " cho quán " + storeName,
                     "{}", req.remote_addr);
 
                 sendJson(res, {
                     {"success", true},
-                    {"message", "Đã đóng gói thành công bộ cài đặt cho " + storeName + "!"},
+                    {"message", std::string(isTrial ? "Đã đóng gói bản TRIAL 07 NGÀY cho " : "Đã đóng gói thành công bộ cài đặt cho ") + storeName + "!"},
                     {"download_url", relZipPath},
                     {"zip_file_name", zipFileName}
                 });
@@ -2022,6 +2586,104 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         "{}", req.remote_addr);
                 }
                 sendJson(res, {{"success", true}, {"message", "Đã xóa tài liệu khỏi kho hồ sơ!"}});
+                return;
+            }
+
+            if (action == "save_legal_template") {
+                std::string file = getString(body, "file");
+                std::string content = getString(body, "content");
+                const std::vector<std::string> allowed = {
+                    "bao_gia_dich_vu.html",
+                    "hop_dong_dich_vu.html",
+                    "dieu_khoan_su_dung_ban_quyen.html",
+                    "bien_ban_ban_giao_nghiem_thu.html",
+                    "phieu_bao_hanh_ky_thuat.html"
+                };
+                if (std::find(allowed.begin(), allowed.end(), file) == allowed.end()) {
+                    sendJson(res, {{"success", false}, {"message", "Tên biểu mẫu không hợp lệ!"}}, 400);
+                    return;
+                }
+                fs::path tplDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "templates";
+                std::error_code ec;
+                fs::create_directories(tplDir, ec);
+                std::ofstream ofs(tplDir / file, std::ios::binary | std::ios::trunc);
+                if (!ofs) {
+                    sendJson(res, {{"success", false}, {"message", "Không thể ghi file biểu mẫu!"}}, 500);
+                    return;
+                }
+                ofs.write(content.data(), content.size());
+                ofs.close();
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "UPDATE_LEGAL_TEMPLATE", file,
+                    "Cập nhật nội dung biểu mẫu pháp lý: " + file, "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã lưu biểu mẫu thành công!"}});
+                return;
+            }
+
+            if (action == "activate_trial_7d") {
+                int64_t tid = getValInt("tenant_id", 0);
+                if (tid <= 0) { sendJson(res, {{"success", false}, {"message", "Thiếu tenant_id"}}, 400); return; }
+                db.execute("UPDATE saas_tenants SET subscription_status = 'trial', workflow_stage = 'trial', expire_date = date('now', '+7 days'), trial_started_at = datetime('now'), updated_at = datetime('now') WHERE id = :id", {{":id", tid}});
+                StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
+                recordAuditLog(db, 0, "Sales/Admin", "staff", "ACTIVATE_TRIAL_7D", std::to_string(tid), "Cấp gói Dùng thử 07 ngày cho quán ID=" + std::to_string(tid), "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã kích hoạt chế độ Dùng Thử 07 Ngày! Kỹ thuật có thể đóng gói bộ cài Trial ngay."}});
+                return;
+            }
+
+            if (action == "confirm_payment") {
+                int64_t tid = getValInt("tenant_id", 0);
+                if (tid <= 0) { sendJson(res, {{"success", false}, {"message", "Thiếu tenant_id"}}, 400); return; }
+                db.execute(
+                    "UPDATE saas_tenants SET payment_confirmed = 1, payment_confirmed_by = 'Finance/SuperAdmin', payment_confirmed_at = datetime('now'), "
+                    "subscription_status = CASE WHEN subscription_status='trial' THEN 'active' ELSE subscription_status END, "
+                    "expire_date = CASE WHEN subscription_status='trial' THEN date('now', '+1 year') ELSE expire_date END, "
+                    "workflow_stage = CASE WHEN workflow_stage IN ('pending_contract','pending_payment','trial','') THEN 'ready_to_install' ELSE workflow_stage END, "
+                    "updated_at = datetime('now') WHERE id = :id",
+                    {{":id", tid}}
+                );
+                StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
+                recordAuditLog(db, 0, "Finance", "finance", "CONFIRM_PAYMENT", std::to_string(tid), "Xác nhận đã thu phí bản quyền cho quán ID=" + std::to_string(tid), "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã xác nhận thanh toán! Kỹ thuật đã được mở khóa đóng gói bộ cài chính thức."}});
+                return;
+            }
+
+            if (action == "grant_workflow_override") {
+                int64_t tid = getValInt("tenant_id", 0);
+                if (tid <= 0) { sendJson(res, {{"success", false}, {"message", "Thiếu tenant_id"}}, 400); return; }
+                db.execute("UPDATE saas_tenants SET workflow_override = 1, updated_at = datetime('now') WHERE id = :id", {{":id", tid}});
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "WORKFLOW_OVERRIDE", std::to_string(tid), "Duyệt ngoại lệ cho phép đóng gói trước khi đủ chứng từ cho quán ID=" + std::to_string(tid), "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã duyệt ngoại lệ! Có thể đóng gói bộ cài ngay."}});
+                return;
+            }
+
+            if (action == "soft_delete_tenant") {
+                int64_t tid = getValInt("tenant_id", 0);
+                std::string reason = getString(body, "reason", "Chuyển vào Thùng rác từ Quản Lý Cửa Hàng");
+                if (tid <= 0) { sendJson(res, {{"success", false}, {"message", "Thiếu tenant_id"}}, 400); return; }
+                auto row = db.queryRow("SELECT tenant_code, store_name FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                if (row.is_null()) { sendJson(res, {{"success", false}, {"message", "Không tìm thấy cửa hàng!"}}, 404); return; }
+                db.execute(
+                    "UPDATE saas_tenants SET subscription_status = 'deleted', deleted_at = datetime('now'), deleted_reason = :rs, updated_at = datetime('now') WHERE id = :id",
+                    {{":rs", reason}, {":id", tid}}
+                );
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "SOFT_DELETE_TENANT", row.value("tenant_code", ""),
+                    "Chuyển quán " + row.value("store_name", "") + " (" + row.value("tenant_code", "") + ") vào Thùng rác: " + reason, "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã chuyển cửa hàng vào Thùng rác (Trash). Có thể xem lại hoặc khôi phục bất cứ lúc nào!"}});
+                return;
+            }
+
+            if (action == "restore_tenant") {
+                int64_t tid = getValInt("tenant_id", 0);
+                if (tid <= 0) { sendJson(res, {{"success", false}, {"message", "Thiếu tenant_id"}}, 400); return; }
+                auto row = db.queryRow("SELECT tenant_code, store_name, workflow_stage FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+                if (row.is_null()) { sendJson(res, {{"success", false}, {"message", "Không tìm thấy cửa hàng!"}}, 404); return; }
+                std::string nextSub = (row.value("workflow_stage", "") == "trial") ? "trial" : "active";
+                db.execute(
+                    "UPDATE saas_tenants SET subscription_status = :st, deleted_at = '', deleted_reason = '', updated_at = datetime('now') WHERE id = :id",
+                    {{":st", nextSub}, {":id", tid}}
+                );
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "RESTORE_TENANT", row.value("tenant_code", ""),
+                    "Khôi phục quán " + row.value("store_name", "") + " (" + row.value("tenant_code", "") + ") từ Thùng rác", "{}", req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã khôi phục cửa hàng thành công!"}});
                 return;
             }
 
@@ -2232,13 +2894,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 }
 
                 // Sinh License Key mới (CBNX-XXXX-XXXX-XXXX-XXXX)
-                auto randAlnum = [](int len) {
-                    const char chars[] = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-                    std::string s = "";
-                    for (int i = 0; i < len; ++i) s += chars[rand() % (sizeof(chars) - 1)];
-                    return s;
-                };
-                std::string newKey = "CBNX-" + randAlnum(4) + "-" + randAlnum(4) + "-" + randAlnum(4) + "-" + randAlnum(4);
+                static constexpr char kAlnumChars[] = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+                std::string newKey = generateRandomLicenseKey("CBNX", kAlnumChars, sizeof(kAlnumChars) - 1);
                 int64_t nextTid = db.queryScalar("SELECT COUNT(*) FROM saas_tenants").get<int64_t>() + 1;
                 char tCodeBuf[32];
                 std::snprintf(tCodeBuf, sizeof(tCodeBuf), "GP%03lld", static_cast<long long>(nextTid));
@@ -2993,6 +3650,12 @@ static void handleLicensePoll(const httplib::Request& req, httplib::Response& re
         }
 
         int64_t tid = tenant["id"].get<int64_t>();
+        std::string curMid = (tenant.contains("machine_id") && tenant["machine_id"].is_string()) ? tenant["machine_id"].get<std::string>() : "";
+        std::string reqMid = body.value("machine_id", "");
+        if (curMid.empty() && !reqMid.empty()) {
+            db.execute("UPDATE saas_tenants SET machine_id = :mid, last_check_at = datetime('now') WHERE id = :id",
+                       {{":mid", reqMid}, {":id", tid}});
+        }
         std::string clientIp = extractClientWanIp(req);
         std::string appVersion = body.value("app_version", "2.1.8");
         int storePort = body.value("port", 8501);

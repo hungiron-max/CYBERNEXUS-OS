@@ -302,12 +302,16 @@ json AuthService::login(const std::string& usernameOrCode, const std::string& pa
         return {{"success", false}, {"message", "Mật khẩu không chính xác!"}};
     }
 
+    auto safeStr = [](const json& j, const char* k, const std::string& def = "") -> std::string {
+        if (j.contains(k) && j[k].is_string()) return j[k].get<std::string>();
+        return def;
+    };
     SessionUser sUser;
-    sUser.id = user.value("id", (int64_t)0);
-    sUser.user_code = user.value("user_code", "");
-    sUser.username = user.value("username", "");
-    sUser.fullname = user.value("fullname", "");
-    sUser.role = user.value("role", "cashier");
+    sUser.id = (user.contains("id") && user["id"].is_number_integer()) ? user["id"].get<int64_t>() : 0;
+    sUser.user_code = safeStr(user, "user_code", "");
+    sUser.username = safeStr(user, "username", "");
+    sUser.fullname = safeStr(user, "fullname", "");
+    sUser.role = safeStr(user, "role", "cashier");
     sUser.is_super_admin = false;
 
     std::string token = createSession(sUser);
@@ -368,12 +372,16 @@ json AuthService::loginPin(const std::string& pin) {
         return {{"success", false}, {"message", "Mã PIN không đúng hoặc nhân viên đã bị khóa!"}};
     }
 
+    auto safeStr = [](const json& j, const char* k, const std::string& def = "") -> std::string {
+        if (j.contains(k) && j[k].is_string()) return j[k].get<std::string>();
+        return def;
+    };
     SessionUser sUser;
-    sUser.id = user.value("id", (int64_t)0);
-    sUser.user_code = user.value("user_code", "");
-    sUser.username = user.value("username", "");
-    sUser.fullname = user.value("fullname", "");
-    sUser.role = user.value("role", "cashier");
+    sUser.id = (user.contains("id") && user["id"].is_number_integer()) ? user["id"].get<int64_t>() : 0;
+    sUser.user_code = safeStr(user, "user_code", "");
+    sUser.username = safeStr(user, "username", "");
+    sUser.fullname = safeStr(user, "fullname", "");
+    sUser.role = safeStr(user, "role", "cashier");
     sUser.is_super_admin = (sUser.role == "admin");
 
     std::string token = createSession(sUser);

@@ -15,11 +15,11 @@
     <!-- Liquid Glass Custom Styles -->
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=5">
 
-    <link rel="stylesheet" href="assets/css/super_admin.css?v=20261116">
+    <link rel="stylesheet" href="assets/css/super_admin.css?v=20261119c">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
     <script src="assets/js/theme.js?v=3"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased overflow-x-hidden selection:bg-purple-500 selection:text-white">
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col font-sans antialiased overflow-hidden selection:bg-purple-500 selection:text-white">
 
 
     <!-- ==================================================== -->
@@ -124,8 +124,8 @@
                     <i class="fas fa-user-gear"></i>
                 </div>
                 <div class="text-left hidden sm:block">
-                    <div class="text-[11px] font-bold text-white leading-none">Super Admin</div>
-                    <div class="text-[9px] text-emerald-400 font-mono">ONLINE</div>
+                    <div id="sa-header-user-name" class="text-[11px] font-bold text-white leading-none">Super Admin</div>
+                    <div id="sa-header-user-dept" class="text-[9px] text-emerald-400 font-mono">ONLINE</div>
                 </div>
             </div>
 
@@ -136,9 +136,9 @@
     </header>
 
     <!-- Main Workspace Container -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden min-h-0">
         <!-- Sidebar Navigation -->
-        <aside class="w-64 liquid-glass border-r border-purple-500/20 flex flex-col justify-between shrink-0 p-3 z-20" style="width: 256px; min-width: 256px;">
+        <aside class="w-64 liquid-glass border-r border-purple-500/20 flex flex-col justify-between shrink-0 z-20" style="width: 256px; min-width: 256px; padding: 12px 12px 5px 12px;">
             <nav class="space-y-1">
                 <button type="button" onclick="SuperAdmin.switchTab('dashboard')" id="nav-tab-dashboard" class="saas-nav-btn active w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all whitespace-nowrap">
                     <i class="fas fa-chart-line text-purple-400 w-4 text-center shrink-0"></i>
@@ -186,6 +186,11 @@
                     <span id="nav-badge-ai-key" class="px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[9px] font-bold">KEY</span>
                 </button>
 
+                <button type="button" onclick="SuperAdmin.switchTab('templates')" id="nav-tab-templates" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all whitespace-nowrap">
+                    <i class="fas fa-file-signature text-amber-400 w-4 text-center shrink-0"></i>
+                    <span>Biểu Mẫu &amp; Hợp Đồng</span>
+                </button>
+
                 <button type="button" onclick="SuperAdmin.switchTab('settings')" id="nav-tab-settings" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all whitespace-nowrap">
                     <i class="fas fa-sliders text-rose-400 w-4 text-center shrink-0"></i>
                     <span>Cài Đặt SaaS & VietQR</span>
@@ -203,7 +208,7 @@
         </aside>
 
         <!-- Main Content Area (Dynamic Tabs) -->
-        <main class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-6">
+        <main class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-6" style="padding-bottom: 5px;">
 
             <!-- ============================================== -->
             <!-- TAB 1: DASHBOARD OVERVIEW -->
@@ -321,29 +326,35 @@
             <!-- ============================================== -->
             <section id="tab-content-tenants" class="saas-tab-section hidden space-y-5">
                 <!-- Toolbar: Search & Filters -->
-                <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-3">
-                    <div class="flex flex-1 flex-wrap items-center gap-2 w-full md:w-auto">
-                        <div class="relative flex-1 min-w-[220px] max-w-md">
+                <div class="liquid-glass p-3 rounded-2xl border border-white/10 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5">
+                    <div class="flex items-center gap-2 flex-nowrap" style="min-width: 0;">
+                        <div class="relative shrink-0" style="width: 240px;">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-                            <input type="search" id="tenant-search-input" name="sa_tenant_kw" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" oninput="SuperAdmin.filterTenants()" placeholder="Tìm tên quán, chủ quán, SĐT, mã quán..." class="liquid-input w-full py-1.5 pr-3 text-xs" style="padding-left: 2.25rem;" />
+                            <input type="search" id="tenant-search-input" name="sa_tenant_kw" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" oninput="SuperAdmin.filterTenants()" placeholder="Tìm tên quán, chủ quán, SĐT, mã..." class="liquid-input py-1.5 pr-3 text-xs" style="width: 100%; padding-left: 2.25rem;" />
                         </div>
-                        <select id="tenant-filter-status" onchange="SuperAdmin.loadTenants()" class="liquid-input py-1.5 px-3 text-xs w-36">
+                        <select id="tenant-filter-status" onchange="SuperAdmin.loadTenants()" class="liquid-input py-1.5 px-3 text-xs shrink-0" style="width: 175px;">
                             <option value="">Tất cả trạng thái</option>
                             <option value="active">Đang hoạt động</option>
+                            <option value="trial">Đang dùng thử (Trial)</option>
                             <option value="expiring_soon">Sắp hết hạn (&le; 7 ngày)</option>
                             <option value="expired">Đã hết hạn</option>
                             <option value="suspended">Đã tạm khóa</option>
+                            <option value="deleted">Thùng rác (Trash)</option>
                         </select>
+                        <button type="button" id="btn-toggle-trash" onclick="SuperAdmin.toggleTrashView()" class="btn-glass text-xs py-1.5 px-3 bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0" title="Xem danh sách quán đã xóa (Thùng rác)">
+                            <i class="fas fa-trash-can"></i> <span>Thùng Rác</span>
+                            <span id="badge-trash-tenants" class="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/20 text-rose-200 font-mono">0</span>
+                        </button>
                     </div>
 
-                    <div class="flex items-center gap-2 w-full md:w-auto justify-end">
-                        <button type="button" onclick="SuperAdmin.openPushUpdateModal('ALL')" class="btn-glass text-xs py-2 px-3.5 bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border-sky-500/30 font-bold flex items-center gap-1.5 shadow-sm">
-                            <i class="fas fa-cloud-arrow-up"></i> Đẩy Update / Thông Báo
+                    <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+                        <button type="button" onclick="SuperAdmin.openPushUpdateModal('ALL')" class="btn-glass text-xs py-2 px-3 bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border-sky-500/30 font-bold flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                            <i class="fas fa-cloud-arrow-up"></i> <span>Đẩy Update / Thông Báo</span>
                         </button>
-                        <button type="button" id="btn-check-all-stores" onclick="SuperAdmin.checkAllStoresOnline(this)" class="btn-glass text-xs py-2 px-3.5 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/30 font-bold flex items-center gap-1.5 shadow-sm">
+                        <button type="button" id="btn-check-all-stores" onclick="SuperAdmin.checkAllStoresOnline(this)" class="btn-glass text-xs py-2 px-3 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/30 font-bold flex items-center gap-1.5 shadow-sm whitespace-nowrap">
                             <i class="fas fa-satellite-dish"></i> <span>Kiểm Tra Tất Cả Store</span>
                         </button>
-                        <button type="button" onclick="SuperAdmin.openNewTenantModal()" class="btn-glass text-xs py-2 px-4 bg-gradient-to-r from-purple-600 to-sky-600 hover:from-purple-500 hover:to-sky-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/20">
+                        <button type="button" onclick="SuperAdmin.openNewTenantModal()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-purple-600 to-sky-600 hover:from-purple-500 hover:to-sky-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/20 whitespace-nowrap">
                             <i class="fas fa-plus-circle"></i> <span>Thêm Cửa Hàng Mới</span>
                         </button>
                     </div>
@@ -352,17 +363,17 @@
                 <!-- Tenants Table -->
                 <div class="saas-table-card shadow-2xl">
                     <div class="overflow-x-auto media-custom-scroll">
-                        <table class="saas-table saas-table-fixed">
+                        <table class="saas-table saas-table-fixed" style="min-width: 1278px;">
                             <colgroup>
                                 <col style="width: 68px;">
-                                <col style="width: 210px;">
-                                <col style="width: 130px;">
-                                <col style="width: 215px;">
+                                <col style="width: 190px;">
+                                <col style="width: 125px;">
+                                <col style="width: 200px;">
                                 <col style="width: 115px;">
                                 <col style="width: 95px;">
                                 <col style="width: 72px;">
                                 <col style="width: 82px;">
-                                <col style="width: 205px;">
+                                <col style="width: 331px;">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -480,6 +491,75 @@
             <!-- ============================================== -->
             <!-- TAB 5: SAAS SETTINGS & VIETQR -->
             <!-- ============================================== -->
+            <!-- ============================================== -->
+            <!-- TAB: BIỂU MẪU PHÁP LÝ & HỢP ĐỒNG (TEMPLATES) -->
+            <!-- ============================================== -->
+            <section id="tab-content-templates" class="saas-tab-section hidden">
+                <div class="flex flex-wrap items-center justify-between gap-3 shrink-0">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fas fa-file-signature text-amber-400"></i> Trình Soạn Thảo &amp; Xem Trước Biểu Mẫu (SOP-09)
+                        </h2>
+                        <p id="tpl-active-desc" class="text-xs text-slate-400 mt-0.5">Chọn biểu mẫu bên dưới để chỉnh sửa trực tiếp như Word hoặc xem trước bản in A4 theo dữ liệu quán.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex rounded-xl bg-slate-900/80 p-1 border border-white/10 text-xs">
+                            <button type="button" id="btn-tpl-mode-edit" onclick="SuperAdmin.setLegalTemplateMode('edit')" class="px-3 py-1 rounded-lg font-bold bg-purple-600/40 text-white">
+                                <i class="fas fa-pen-to-square mr-1"></i> Soạn Thảo
+                            </button>
+                            <button type="button" id="btn-tpl-mode-preview" onclick="SuperAdmin.setLegalTemplateMode('preview')" class="px-3 py-1 rounded-lg font-bold text-slate-300 hover:text-white">
+                                <i class="fas fa-eye mr-1"></i> Xem Trước A4
+                            </button>
+                        </div>
+                        <select id="tpl-preview-tenant" onchange="SuperAdmin.onTemplateTenantChange()" class="liquid-input py-1.5 px-3 text-xs w-56">
+                            <option value="0">Xem thử theo dữ liệu mẫu</option>
+                        </select>
+                        <button type="button" onclick="SuperAdmin.printLegalTemplatePreview()" class="btn-glass text-xs py-2 px-3 bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 font-bold flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fas fa-print"></i> <span>In / Xuất PDF</span>
+                        </button>
+                        <button type="button" id="btn-save-legal-tpl" onclick="SuperAdmin.saveLegalTemplate()" class="btn-glass text-xs py-2 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold flex items-center gap-1.5 shadow-lg whitespace-nowrap">
+                            <i class="fas fa-save"></i> <span>Lưu Biểu Mẫu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selector 5 Biểu Mẫu -->
+                <div id="tpl-selector-bar" class="flex flex-wrap gap-2 shrink-0"></div>
+
+                <!-- Thanh Công Cụ Định Dạng & Chèn Biến (chỉ hiện ở chế độ Soạn Thảo) -->
+                <div id="tpl-editor-toolbar" class="liquid-glass p-2 rounded-xl border border-white/10 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
+                    <div class="flex items-center gap-1 pr-2 border-r border-white/10">
+                        <button type="button" onclick="SuperAdmin.execTplCmd('bold')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold" title="In đậm">B</button>
+                        <button type="button" onclick="SuperAdmin.execTplCmd('italic')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white italic" title="In nghiêng">I</button>
+                        <button type="button" onclick="SuperAdmin.execTplCmd('underline')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white underline" title="Gạch chân">U</button>
+                        <button type="button" onclick="SuperAdmin.execTplCmd('justifyLeft')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-200" title="Căn trái"><i class="fas fa-align-left"></i></button>
+                        <button type="button" onclick="SuperAdmin.execTplCmd('justifyCenter')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-200" title="Căn giữa"><i class="fas fa-align-center"></i></button>
+                        <button type="button" onclick="SuperAdmin.execTplCmd('justifyRight')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-200" title="Căn phải"><i class="fas fa-align-right"></i></button>
+                        <button type="button" onclick="SuperAdmin.execTplCmd('insertUnorderedList')" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-200" title="Danh sách"><i class="fas fa-list-ul"></i></button>
+                    </div>
+                    <span class="text-slate-400 font-bold text-[10px] uppercase mr-1">Chèn biến:</span>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{LEGAL_ENTITY_NAME}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Pháp nhân</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{TAX_ID_OR_CCCD}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">MST/CCCD</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{OWNER_NAME}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Người ký</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{REPRESENTATIVE_ROLE}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Chức vụ</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{STORE_NAME}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Tên quán</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{TENANT_CODE}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Mã quán</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{PHONE}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">SĐT</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{EMAIL}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Email</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{BILLING_ADDRESS}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Đ/C Xuất HĐ</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{STORE_ADDRESS}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Đ/C Quán</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{PLAN_NAME}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Tên gói</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{PLAN_PRICE_VND}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Giá gói</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{LICENSE_KEY}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">License Key</button>
+                    <button type="button" onclick="SuperAdmin.insertTemplatePlaceholder('{{EXPIRE_DATE}}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/40 text-sky-300 border border-white/10 text-[10px]">Hết hạn</button>
+                </div>
+
+                <!-- Trang Giấy A4 Trực Quan (Soạn thảo trực tiếp / Xem trước) -->
+                <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-3 flex justify-center overflow-hidden" style="flex: 1 1 0%; min-height: 0;">
+                    <iframe id="tpl-a4-frame" class="w-full h-full bg-white rounded-xl shadow-2xl border-0" style="max-width: 860px;"></iframe>
+                </div>
+            </section>
+
             <section id="tab-content-settings" class="saas-tab-section hidden space-y-5">
                 <div class="max-w-6xl mx-auto space-y-5">
                     <div class="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/70 p-5 sm:p-7 shadow-2xl shadow-slate-950/30">
@@ -495,6 +575,33 @@
                             <div class="flex items-center gap-2 self-start rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-200 sm:self-auto">
                                 <span class="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.8)]"></span>
                                 Cấu hình trung tâm
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Khối Cấu Hình Tên Miền / URL Máy Chủ Master (Đồng Bộ Toàn Hệ Thống) -->
+                    <div class="rounded-3xl border border-sky-400/25 bg-slate-900/80 p-5 sm:p-6 shadow-xl space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                            <div>
+                                <h3 class="text-sm font-black text-sky-300 flex items-center gap-2">
+                                    <i class="fas fa-globe"></i> Cấu Hình Tên Miền / URL Máy Chủ Master
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Tự động nhúng vào bộ cài mới và đẩy đồng bộ xuống toàn bộ quán đang chạy khi anh đổi tên miền.</p>
+                            </div>
+                            <button type="button" id="btn-sync-master-url" onclick="SuperAdmin.syncMasterUrlToAllStores()" class="btn-glass text-xs py-2 px-4 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold flex items-center gap-1.5 shadow-lg whitespace-nowrap shrink-0">
+                                <i class="fas fa-arrows-rotate"></i> <span>Lưu &amp; Đồng Bộ Xuống Tất Cả Quán</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <label class="block text-slate-300 font-bold mb-1">Tên Miền / URL Master Chính (*):</label>
+                                <input type="text" id="cfg-master-public-url" class="liquid-input w-full font-mono" placeholder="http://cybernexus.tplinkdns.com:8500" />
+                                <p class="text-[10px] text-slate-400 mt-1">VD: <code>http://cybernexus.tplinkdns.com:8500</code></p>
+                            </div>
+                            <div>
+                                <label class="block text-slate-300 font-bold mb-1">Tên Miền / URL Dự Phòng (Fallback):</label>
+                                <input type="text" id="cfg-master-fallback-url" class="liquid-input w-full font-mono" placeholder="http://hungtien.net:8500" />
+                                <p class="text-[10px] text-slate-400 mt-1">Slave tự chuyển sang URL này nếu URL chính mất kết nối.</p>
                             </div>
                         </div>
                     </div>
@@ -1410,7 +1517,7 @@
     <!-- MODAL 3: THÊM / SỬA CỬA HÀNG (ADD/EDIT TENANT) -->
     <!-- ==================================================== -->
     <div id="modal-tenant-form" class="liquid-modal-overlay">
-        <div class="liquid-glass liquid-modal-content p-6 w-[600px] max-w-full text-white shadow-2xl border border-sky-500/30 space-y-4 my-auto">
+        <div class="liquid-glass liquid-modal-content p-6 text-white shadow-2xl border border-sky-500/30 space-y-4 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar" style="width: 680px; max-width: 95vw;">
             <div class="flex justify-between items-center pb-3 border-b border-white/10">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-store text-sky-400 text-lg"></i>
@@ -1454,23 +1561,45 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Họ Tên Chủ Quán / Quản Lý:</label>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Họ Tên Chủ Quán / Người Ký (*):</label>
                         <input type="text" id="form-tenant-owner-name" placeholder="Nguyễn Văn A..." class="liquid-input w-full text-xs" required />
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Số Điện Thoại / Hotline:</label>
-                        <input type="text" id="form-tenant-phone" placeholder="0988.xxx.xxx..." class="liquid-input w-full text-xs font-mono font-bold" required />
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Chức Vụ Người Đại Diện (*):</label>
+                        <input type="text" id="form-tenant-rep-role" placeholder="Chủ hộ kinh doanh / Giám đốc" value="Chủ hộ kinh doanh" class="liquid-input w-full text-xs" required />
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Email Liên Hệ:</label>
-                        <input type="email" id="form-tenant-email" placeholder="owner@example.invalid" class="liquid-input w-full text-xs" />
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Tên Pháp Nhân / Hộ Kinh Doanh (*):</label>
+                        <input type="text" id="form-tenant-legal-entity" placeholder="HKD Cà Phê ... / Công ty TNHH ..." class="liquid-input w-full text-xs" required />
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Địa Chỉ Quán:</label>
-                        <input type="text" id="form-tenant-address" placeholder="Số nhà, đường, quận/huyện..." class="liquid-input w-full text-xs" />
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Mã Số Thuế / Số CCCD (*):</label>
+                        <input type="text" id="form-tenant-tax-id" placeholder="MST hoặc số CCCD 12 số..." class="liquid-input w-full text-xs font-mono" required />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Số Điện Thoại / Hotline (*):</label>
+                        <input type="text" id="form-tenant-phone" placeholder="0988.xxx.xxx..." class="liquid-input w-full text-xs font-mono font-bold" required />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Email Liên Hệ &amp; Nhận HĐ (*):</label>
+                        <input type="email" id="form-tenant-email" placeholder="owner@example.com" class="liquid-input w-full text-xs" required />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Địa Chỉ Lắp Đặt Quán (*):</label>
+                        <input type="text" id="form-tenant-address" placeholder="Số nhà, đường, quận/huyện, tỉnh/TP..." class="liquid-input w-full text-xs" required />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Địa Chỉ Trụ Sở / Xuất Hóa Đơn (*):</label>
+                        <input type="text" id="form-tenant-billing-address" placeholder="Địa chỉ ghi trên Hợp đồng &amp; VAT..." class="liquid-input w-full text-xs" required />
                     </div>
                 </div>
 
@@ -1485,6 +1614,14 @@
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Ngày Hết Hạn Bản Quyền:</label>
                         <input type="date" id="form-tenant-expire-date" class="liquid-input w-full text-xs font-mono font-bold" required />
                     </div>
+                </div>
+
+                <div id="form-tenant-start-mode-wrap">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Chế Độ Khởi Tạo (Workflow):</label>
+                    <select id="form-tenant-start-mode" class="liquid-input w-full text-xs">
+                        <option value="standard">Quy trình chuẩn (Chờ Hợp đồng &rarr; Thanh toán &rarr; Đóng gói chính thức)</option>
+                        <option value="trial">Cấp Dùng Thử 07 Ngày (Mở đóng gói bản Trial ngay)</option>
+                    </select>
                 </div>
 
                 <div>
@@ -1613,66 +1750,85 @@
     <!-- MODAL: QUẢN LÝ HỒ SƠ, HỢP ĐỒNG & ĐÓNG GÓI CÀI ĐẶT (SOP-09) -->
     <!-- ==================================================== -->
     <div id="modal-tenant-packages" class="liquid-modal-overlay">
-        <div class="liquid-glass liquid-modal-content p-6 w-[860px] max-w-full text-white shadow-2xl border border-amber-500/30 space-y-4 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
+        <div class="liquid-glass liquid-modal-content p-6 text-white shadow-2xl border border-amber-500/30 space-y-4 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar" style="width: 920px; max-width: 95vw;">
             <!-- Modal Header -->
             <div class="flex justify-between items-center pb-3 border-b border-white/10">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-lg shadow-inner">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-lg shadow-inner shrink-0">
                         <i class="fas fa-box-archive"></i>
                     </div>
                     <div>
-                        <h3 class="font-black text-sm text-amber-300 flex items-center gap-2">
-                            <span>Quản Lý Hồ Sơ Khách Hàng & Gói Cài Đặt (SOP-09)</span>
-                            <span id="pkg-modal-badge" class="px-2 py-0.5 rounded-full text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">GP001</span>
+                        <h3 class="font-black text-sm text-amber-300 flex items-center gap-2 flex-wrap">
+                            <span class="whitespace-nowrap">Quản Lý Hồ Sơ Khách Hàng &amp; Gói Cài Đặt (SOP-09)</span>
+                            <span id="pkg-modal-badge" class="px-2 py-0.5 rounded-full text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono whitespace-nowrap">GP001</span>
                         </h3>
-                        <p id="pkg-modal-store-name" class="text-xs text-slate-300 font-semibold">GÓC PHỐ COFFEE & TEA</p>
+                        <p id="pkg-modal-store-name" class="text-xs text-slate-300 font-semibold">GÓC PHỐ COFFEE &amp; TEA</p>
                     </div>
                 </div>
-                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="SuperAdmin.closeModal('modal-tenant-packages')">&times;</button>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl shrink-0" onclick="SuperAdmin.closeModal('modal-tenant-packages')">&times;</button>
+            </div>
+
+            <!-- Thanh Tiến Trình Workflow 5 Bước Theo Bộ Phận -->
+            <div class="p-3 rounded-xl bg-slate-950/70 border border-white/10 space-y-2">
+                <div id="pkg-workflow-bar" class="grid grid-cols-5 gap-1.5 text-[10px] font-bold text-center"></div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/5">
+                    <span id="pkg-workflow-hint" class="text-[11px] text-slate-300">Đang kiểm tra trạng thái quy trình...</span>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" id="btn-pkg-trial-7d" onclick="SuperAdmin.activateTrial7d()" class="hidden btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/40 font-bold whitespace-nowrap">
+                            <i class="fas fa-hourglass-start mr-1"></i>Cấp Dùng Thử 07 Ngày
+                        </button>
+                        <button type="button" id="btn-pkg-confirm-pay" onclick="SuperAdmin.confirmTenantPayment()" class="hidden btn-glass text-[11px] py-1 px-2.5 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/40 font-bold whitespace-nowrap">
+                            <i class="fas fa-circle-dollar-to-slot mr-1"></i>Xác Nhận Đã Thu Tiền
+                        </button>
+                        <button type="button" id="btn-pkg-override" onclick="SuperAdmin.grantWorkflowOverride()" class="hidden btn-glass text-[11px] py-1 px-2.5 bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 border border-amber-500/40 font-bold whitespace-nowrap">
+                            <i class="fas fa-shield-halved mr-1"></i>Duyệt Ngoại Lệ
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- KPI 4 Trạng Thái Tiêu Chuẩn SOP-09 -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <!-- 1. Hợp đồng -->
                 <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
-                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between gap-2 whitespace-nowrap">
                         <span>Hợp Đồng Dịch Vụ</span>
-                        <i class="fas fa-file-contract text-sky-400"></i>
+                        <i class="fas fa-file-contract text-sky-400 shrink-0"></i>
                     </div>
-                    <div id="pkg-kpi-contract" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                    <div id="pkg-kpi-contract" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fas fa-circle-check"></i> <span>Đã Ký Kết</span>
                     </div>
                 </div>
 
                 <!-- 2. Hóa đơn VAT -->
                 <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
-                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between gap-2 whitespace-nowrap">
                         <span>Hóa Đơn Tài Chính</span>
-                        <i class="fas fa-file-invoice-dollar text-emerald-400"></i>
+                        <i class="fas fa-file-invoice-dollar text-emerald-400 shrink-0"></i>
                     </div>
-                    <div id="pkg-kpi-invoice" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                    <div id="pkg-kpi-invoice" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fas fa-circle-check"></i> <span>Đã Xuất VAT</span>
                     </div>
                 </div>
 
                 <!-- 3. Biên bản nghiệm thu -->
                 <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
-                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between gap-2 whitespace-nowrap">
                         <span>Biên Bản Nghiệm Thu</span>
-                        <i class="fas fa-clipboard-check text-purple-400"></i>
+                        <i class="fas fa-clipboard-check text-purple-400 shrink-0"></i>
                     </div>
-                    <div id="pkg-kpi-handover" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                    <div id="pkg-kpi-handover" class="mt-2 text-xs font-bold text-emerald-400 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fas fa-circle-check"></i> <span>Đã Nghiệm Thu</span>
                     </div>
                 </div>
 
                 <!-- 4. Gói phần mềm cài đặt -->
                 <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col justify-between">
-                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
-                        <span>Gói Bản Quyền (.ZIP)</span>
-                        <i class="fas fa-file-zipper text-amber-400"></i>
+                    <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between gap-2 whitespace-nowrap">
+                        <span>Gói Cài Đặt</span>
+                        <i class="fas fa-file-zipper text-amber-400 shrink-0"></i>
                     </div>
-                    <div id="pkg-kpi-release" class="mt-2 text-xs font-bold text-amber-300 flex items-center gap-1">
+                    <div id="pkg-kpi-release" class="mt-2 text-xs font-bold text-amber-300 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fas fa-box-open"></i> <span>Sẵn Sàng</span>
                     </div>
                 </div>
@@ -1684,14 +1840,14 @@
                     <h4 class="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
                         <i class="fas fa-wand-magic-sparkles text-amber-400"></i> 1-Click Đóng Gói Bộ Cài Cấp Phép (SOP-09)
                     </h4>
-                    <p class="text-[11px] text-slate-400 mt-0.5">Tự động nạp License Key, tạo chứng nhận bản quyền và đóng gói các module được cấp phép thành file ZIP.</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Tự động nạp License Key, chứng nhận bản quyền và đóng gói các module được cấp phép.</p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" id="btn-pkg-generate-release" onclick="SuperAdmin.generateTenantRelease()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/30">
-                        <i class="fas fa-gears"></i> <span>Đóng Gói Release (.ZIP &amp; Setup .EXE)</span>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" id="btn-pkg-generate-release" onclick="SuperAdmin.generateTenantRelease()" class="btn-glass text-xs py-2 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/30 whitespace-nowrap">
+                        <i class="fas fa-gears"></i> <span>Đóng Gói Bộ Cài</span>
                     </button>
-                    <a id="btn-pkg-download-zip" href="#" target="_blank" class="hidden btn-glass text-xs py-2 px-3.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5">
-                        <i class="fas fa-download"></i> <span>Tải Về (.ZIP)</span>
+                    <a id="btn-pkg-download-zip" href="#" download style="display: none;" class="btn-glass text-xs py-2 px-3.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5 whitespace-nowrap">
+                        <i class="fas fa-download"></i> <span>Tải Bộ Cài</span>
                     </a>
                 </div>
             </div>
@@ -1709,9 +1865,12 @@
                     <div class="sm:col-span-3">
                         <label class="block text-[10px] font-bold text-slate-300 mb-1">Loại Tài Liệu (*):</label>
                         <select id="pkg-upload-category" class="liquid-input w-full py-1.5 text-xs bg-slate-900" required>
-                            <option value="contracts">Hợp Đồng Dịch Vụ</option>
+                            <option value="contracts">Hợp Đồng Dịch Vụ (Đã Ký)</option>
                             <option value="invoices">Hóa Đơn Tài Chính VAT</option>
-                            <option value="handover">Biên Bản Bàn Giao & Nghiệm Thu</option>
+                            <option value="handover">Biên Bản Bàn Giao &amp; Nghiệm Thu (Đã Ký)</option>
+                            <option value="quotes">Báo Giá Dịch Vụ (Đã Ký)</option>
+                            <option value="terms">Điều Khoản Bản Quyền (Đã Ký)</option>
+                            <option value="warranty">Phiếu Bảo Hành (Đã Ký)</option>
                             <option value="other">Tài Liệu / Phụ Lục Khác</option>
                         </select>
                     </div>
@@ -1736,11 +1895,11 @@
 
             <!-- Bảng Danh Sách Tài Liệu Đã Lưu Trữ -->
             <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fas fa-folder-open text-amber-400"></i> Kho Hồ Sơ Đã Lưu Trữ Trên Đĩa (<span id="pkg-doc-count">0</span> tài liệu)
                     </span>
-                    <span class="text-[10px] text-slate-400 font-mono" id="pkg-storage-dir">packages/GP001/</span>
+                    <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap" id="pkg-storage-dir">packages/GP001/</span>
                 </div>
 
                 <div class="rounded-xl border border-white/10 bg-slate-950/60 overflow-x-auto">
@@ -2261,6 +2420,7 @@
                 const data = await res.json();
                 if (data.success) {
                     sessionStorage.setItem('sa_logged_in', '1');
+                    if (data.user) sessionStorage.setItem('sa_user', JSON.stringify(data.user));
                     hideLogin();
                     if (typeof SuperAdmin.init === 'function') SuperAdmin.init();
                 } else {
@@ -2285,6 +2445,7 @@
                 await fetch('api/super_admin?action=logout');
             } catch (e) {}
             sessionStorage.removeItem('sa_logged_in');
+            sessionStorage.removeItem('sa_user');
             document.cookie = 'sa_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
             showLogin();
         };

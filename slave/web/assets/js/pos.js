@@ -2763,10 +2763,11 @@ const POS = {
     },
 
     generateReceiptHtml(order, items, store) {
-        const storeName = store ? store.name : (this.storeSettings['store_name'] || 'GÓC PHỐ COFFEE & TEA');
-        const hotline = store ? store.hotline : (this.storeSettings['store_hotline'] || '0967.041.111');
-        const address = store ? store.address : (this.storeSettings['store_address'] || '123 Đường Số 5, P. Linh Trung, TP. Thủ Đức, TP.HCM');
-        const wifi = store ? store.wifi : (this.storeSettings['store_wifi'] || 'GocPho_Guest / pass: 88888888');
+        const brand = window.CN_STORE_BRAND || {};
+        const storeName = store ? store.name : (this.storeSettings['store_name'] || brand.store_name || 'CyberNexus POS');
+        const hotline = store ? store.hotline : (this.storeSettings['store_hotline'] || brand.store_hotline || '');
+        const address = store ? store.address : (this.storeSettings['store_address'] || brand.store_address || '');
+        const wifi = store ? store.wifi : (this.storeSettings['store_wifi'] || brand.store_wifi || '');
 
         let itemsHtml = '';
         (items || []).forEach((it, i) => {
@@ -3497,7 +3498,7 @@ const POS = {
                 </style>
             </head>
             <body>
-                <div class="center bold" style="font-size: 14px;">GÓC PHỐ COFFEE & TEA</div>
+                <div class="center bold" style="font-size: 14px;">${(window.getStoreBrandName ? window.getStoreBrandName() : (this.storeSettings['store_name'] || 'CyberNexus POS')).toUpperCase()}</div>
                 <div class="center bold border-bottom">BÁO CÁO DOANH THU BÀN GIAO CA</div>
                 <div style="font-size: 11px;">
                     <div>Ngày: ${d.date_from} ${d.date_from !== d.date_to ? 'đến ' + d.date_to : ''}</div>

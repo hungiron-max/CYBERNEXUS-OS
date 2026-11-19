@@ -587,6 +587,10 @@ const Admin = {
     },
 
     switchTab(tab) {
+        if (tab === 'media' && typeof this.isModuleAllowed === 'function' && !this.isModuleAllowed('mod_media_stream')) {
+            if (typeof this.toast === 'function') this.toast('Module Âm Nhạc & Jukebox chưa được cấp phép trên Master.', 'warning');
+            return;
+        }
         this.currentTab = tab;
 
         const tabMeta = {
@@ -1950,7 +1954,7 @@ const Admin = {
 
         printZone.innerHTML = `
             <div style="max-width: 400px; margin: 0 auto; padding: 25px; border: 3px dashed #0284c7; border-radius: 16px; text-align: center; font-family: sans-serif; background: #ffffff; color: #020617;">
-                <div style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #0284c7; margin-bottom: 4px;">GÓC PHỐ COFFEE & TEA</div>
+                <div style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #0284c7; margin-bottom: 4px;">${(window.getStoreBrandName ? window.getStoreBrandName() : 'CyberNexus POS').toUpperCase()}</div>
                 <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 15px;">HỆ THỐNG GỌI MÓN & JUKEBOX THÔNG MINH TẠI BÀN</div>
                 
                 <div style="display: inline-block; padding: 8px 24px; border: 2px solid #0284c7; border-radius: 12px; background: #f0f9ff; margin-bottom: 15px;">
@@ -2090,10 +2094,11 @@ const Admin = {
         const printZone = document.getElementById('print-container-zone');
         if (!printZone) return;
 
+        const brandNameUpper = (window.getStoreBrandName ? window.getStoreBrandName() : 'CyberNexus POS').toUpperCase();
         let html = `
             <div style="font-family: sans-serif; background: #fff; color: #020617; padding: 15px;">
                 <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #0284c7; padding-bottom: 12px;">
-                    <h2 style="font-size: 20px; font-weight: 900; margin: 0; color: #0284c7; text-transform: uppercase;">GÓC PHỐ COFFEE & TEA</h2>
+                    <h2 style="font-size: 20px; font-weight: 900; margin: 0; color: #0284c7; text-transform: uppercase;">${brandNameUpper}</h2>
                     <p style="font-size: 13px; color: #475569; margin: 4px 0 0 0;">BỘ THẺ STANDEE QR GỌI MÓN TẠI BÀN (${tables.length} BÀN)</p>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
@@ -2103,7 +2108,7 @@ const Admin = {
             const orderUrl = `${baseUrl}customer.html?table=${encodeURIComponent(t.code)}&name=${encodeURIComponent(t.name)}`;
             html += `
                 <div class="print-table-card" style="border: 2px dashed #0284c7; border-radius: 14px; padding: 16px; text-align: center; page-break-inside: avoid; background: #ffffff;">
-                    <div style="font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: #0284c7; text-transform: uppercase;">GÓC PHỐ COFFEE & TEA</div>
+                    <div style="font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: #0284c7; text-transform: uppercase;">${brandNameUpper}</div>
                     <div style="font-size: 10px; color: #64748b; margin-top: 2px;">MÃ QR GỌI MÓN & JUKEBOX</div>
                     
                     <div style="display: inline-block; margin: 10px 0; padding: 4px 16px; border: 1.5px solid #0284c7; border-radius: 8px; background: #f0f9ff;">
@@ -2341,10 +2346,11 @@ const Admin = {
 
             const o = data.order;
             const items = data.items || [];
-            const storeName = 'GÓC PHỐ COFFEE & TEA';
-            const hotline = '0967.041.111';
-            const address = '123 Đường Số 5, P. Linh Trung, TP. Thủ Đức, TP.HCM';
-            const wifi = 'GocPho_Guest / pass: 88888888';
+            const brand = window.CN_STORE_BRAND || {};
+            const storeName = brand.store_name || 'CyberNexus POS';
+            const hotline = brand.store_hotline || '';
+            const address = brand.store_address || '';
+            const wifi = brand.store_wifi || '';
 
             let itemsHtml = '';
             items.forEach((it, i) => {
@@ -4176,34 +4182,132 @@ const Admin = {
 document.addEventListener('DOMContentLoaded', () => {
     Admin.init();
     if (localStorage.getItem('cnx_must_change_pin') === '1') {
-        (async function forcePinChange() {
-            while (true) {
-                const np = prompt('Bạn vừa đăng nhập bằng PIN mặc định 1 lần.\nVui lòng nhập mã PIN 6 số MỚI (không được trùng PIN mặc định):');
-                if (np === null) continue;
-                const trimmed = np.trim();
-                if (!/^\d{6}$/.test(trimmed)) {
-                    alert('Mã PIN mới phải gồm đúng 6 chữ số!');
-                    continue;
-                }
-                try {
-                    const r = await fetch('api/auth.php?action=change_my_pin', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ new_pin: trimmed })
-                    });
-                    const d = await r.json();
-                    if (d.success) {
-                        localStorage.removeItem('cnx_must_change_pin');
-                        alert(d.message || 'Đã cập nhật mã PIN 6 số mới thành công!');
-                        break;
-                    }
-                    alert(d.message || 'Không thể đổi PIN, vui lòng thử PIN khác!');
-                } catch (e) {
-                    alert('Lỗi kết nối: ' + e.message);
-                    break;
-                }
-            }
-        })();
+        showForceChangePinModal();
     }
 });
+
+function showForceChangePinModal() {
+    if (document.getElementById('modal-force-change-pin')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-force-change-pin';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.82);backdrop-filter:blur(10px);';
+    modal.innerHTML = `
+        <div style="width:100%;max-width:410px;border-radius:18px;border:1px solid rgba(56,189,248,0.35);background:linear-gradient(160deg,rgba(15,23,42,0.98),rgba(9,14,28,0.98));box-shadow:0 24px 60px rgba(0,0,0,0.65);padding:24px;color:#f1f5f9;font-family:system-ui,-apple-system,sans-serif;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                <div style="width:42px;height:42px;border-radius:12px;background:rgba(245,158,11,0.15);border:1px solid rgba(251,191,36,0.35);display:flex;align-items:center;justify-content:center;color:#fbbf24;flex-shrink:0;">
+                    <i class="fa-solid fa-shield-halved" style="font-size:18px;"></i>
+                </div>
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:#ffffff;line-height:1.3;">Đổi Mã PIN Bảo Mật Lần Đầu</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Bạn vừa đăng nhập bằng PIN mặc định 1 lần</div>
+                </div>
+            </div>
+            <p style="font-size:12.5px;color:#cbd5e1;line-height:1.5;margin:0 0 16px 0;">
+                Vui lòng thiết lập mã PIN cá nhân <strong style="color:#38bdf8;">6 chữ số</strong> mới (không trùng PIN mặc định) để tiếp tục sử dụng hệ thống.
+            </p>
+            <form id="form-force-change-pin" autocomplete="off" style="display:flex;flex-direction:column;gap:14px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Mã PIN mới (6 chữ số)</label>
+                    <div style="position:relative;">
+                        <input id="fcp-pin1" type="password" inputmode="numeric" maxlength="6" pattern="\\d{6}" required
+                            placeholder="••••••"
+                            style="width:100%;box-sizing:border-box;padding:10px 40px 10px 14px;border-radius:11px;background:rgba(2,6,23,0.85);border:1px solid rgba(71,85,105,0.85);color:#ffffff;text-align:center;letter-spacing:0.45em;font-family:monospace;font-size:17px;outline:none;" />
+                        <button type="button" data-toggle-pin="fcp-pin1"
+                            style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;padding:6px;font-size:13px;">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Nhập lại mã PIN mới</label>
+                    <div style="position:relative;">
+                        <input id="fcp-pin2" type="password" inputmode="numeric" maxlength="6" pattern="\\d{6}" required
+                            placeholder="••••••"
+                            style="width:100%;box-sizing:border-box;padding:10px 40px 10px 14px;border-radius:11px;background:rgba(2,6,23,0.85);border:1px solid rgba(71,85,105,0.85);color:#ffffff;text-align:center;letter-spacing:0.45em;font-family:monospace;font-size:17px;outline:none;" />
+                        <button type="button" data-toggle-pin="fcp-pin2"
+                            style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;padding:6px;font-size:13px;">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="fcp-error" style="display:none;font-size:12px;color:#fda4af;background:rgba(244,63,94,0.14);border:1px solid rgba(244,63,94,0.4);border-radius:9px;padding:8px 12px;"></div>
+                <button id="fcp-submit" type="submit"
+                    style="width:100%;padding:11px 16px;border:none;border-radius:11px;background:linear-gradient(90deg,#06b6d4,#2563eb);color:#ffffff;font-weight:700;font-size:13.5px;cursor:pointer;box-shadow:0 8px 20px rgba(6,182,212,0.28);margin-top:2px;">
+                    <i class="fa-solid fa-check" style="margin-right:6px;"></i>Xác nhận & Lưu mã PIN mới
+                </button>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const pin1 = document.getElementById('fcp-pin1');
+    const pin2 = document.getElementById('fcp-pin2');
+    const errBox = document.getElementById('fcp-error');
+    const submitBtn = document.getElementById('fcp-submit');
+
+    const showErr = (msg) => {
+        errBox.textContent = msg;
+        errBox.style.display = 'block';
+    };
+
+    [pin1, pin2].forEach(inp => {
+        inp.addEventListener('input', () => {
+            inp.value = inp.value.replace(/\D/g, '').slice(0, 6);
+            errBox.style.display = 'none';
+        });
+    });
+
+    modal.querySelectorAll('[data-toggle-pin]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.getAttribute('data-toggle-pin'));
+            if (!target) return;
+            const show = target.type === 'password';
+            target.type = show ? 'text' : 'password';
+            btn.innerHTML = show ? '<i class="fa-regular fa-eye-slash"></i>' : '<i class="fa-regular fa-eye"></i>';
+        });
+    });
+
+    setTimeout(() => pin1.focus(), 50);
+
+    document.getElementById('form-force-change-pin').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const v1 = pin1.value.trim();
+        const v2 = pin2.value.trim();
+        if (!/^\d{6}$/.test(v1)) {
+            showErr('Mã PIN mới phải gồm đúng 6 chữ số!');
+            pin1.focus();
+            return;
+        }
+        if (v1 !== v2) {
+            showErr('Hai lần nhập mã PIN không khớp!');
+            pin2.focus();
+            return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang cập nhật...';
+        try {
+            const r = await fetch('api/auth.php?action=change_my_pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_pin: v1 })
+            });
+            const d = await r.json();
+            if (d.success) {
+                localStorage.removeItem('cnx_must_change_pin');
+                modal.remove();
+                if (typeof Admin !== 'undefined' && typeof Admin.toast === 'function') {
+                    Admin.toast(d.message || 'Đã cập nhật mã PIN 6 số mới thành công!', 'success');
+                }
+            } else {
+                showErr(d.message || 'Không thể đổi PIN, vui lòng thử PIN khác!');
+            }
+        } catch (err) {
+            showErr('Lỗi kết nối: ' + err.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i>Xác nhận & Lưu mã PIN mới';
+        }
+    });
+}
 

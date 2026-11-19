@@ -46,32 +46,32 @@ void LicenseService::ensureTableExists() {
             )
         )");
 
-        // Insert initial license record if empty
+        // Insert initial minimal license record if empty (strict fail-closed: only pos_core until Master syncs)
         auto row = db.queryRow("SELECT id, enabled_modules, blocked_modules FROM local_license_cache WHERE id = 1");
         if (row.is_null()) {
             std::string mid = getMachineId();
+            std::string cfgKey = "";
+            std::string cfgStore = "CyberNexus POS";
+            try {
+                auto cfgPath = SaleApp::Config::AppConfig::instance().getBaseDir() / "config.json";
+                std::ifstream cf(cfgPath);
+                if (cf) {
+                    json cj = json::parse(cf, nullptr, false);
+                    if (cj.is_object()) {
+                        cfgKey = cj.value("license_key", "");
+                        std::string sn = cj.value("store_name", "");
+                        if (!sn.empty()) cfgStore = sn;
+                    }
+                }
+            } catch (...) {}
             db.execute(R"(
                 INSERT INTO local_license_cache 
                 (id, license_key, store_name, owner_name, plan_name, subscription_status, expire_date, days_left, machine_id, bound_machine_id, enabled_modules, last_sync_at, last_sync_status)
-                VALUES (1, 'GP-ENTERPRISE-2026-NEXUS', 'Góc Phố Coffee & Tea', 'Chủ Quán', 'Gói Chuỗi Đỉnh Cao (Enterprise)', 'active', '2028-12-31', 730, :mid, :mid, '["pos_core","vietqr_payment","qr_customer_order","qr_table_order","advertising_promotions","kitchen_kds","inventory_recipes","advanced_reports","staff_shifts","mod_media_stream","mod_network_qos","mod_card_payment"]', datetime('now'), 'ok')
-            )", {{":mid", mid}});
+                VALUES (1, :lk, :sn, 'Chủ Quán', 'Gói Cơ Bản (Starter)', 'active', '2028-12-31', 30, :mid, '', '["pos_core"]', datetime('now'), 'init')
+            )", {{":lk", cfgKey}, {":sn", cfgStore}, {":mid", mid}});
         }
         try { db.execute("ALTER TABLE local_license_cache ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
         try { db.execute("ALTER TABLE local_license_cache ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
-        try {
-            auto r2 = db.queryRow("SELECT enabled_modules, blocked_modules FROM local_license_cache WHERE id = 1");
-            if (!r2.is_null()) {
-                std::string em = r2.value("enabled_modules", "[]");
-                std::string bm = r2.value("blocked_modules", "[]");
-                if (em.find("mod_card_payment") == std::string::npos && bm.find("mod_card_payment") == std::string::npos) {
-                    json arr = json::parse(em, nullptr, false);
-                    if (arr.is_array()) {
-                        arr.push_back("mod_card_payment");
-                        db.execute("UPDATE local_license_cache SET enabled_modules = :em WHERE id = 1", {{":em", arr.dump()}});
-                    }
-                }
-            }
-        } catch (...) {}
     } catch (const std::exception& e) {
         std::cerr << "[Slave License Warning] ensureTableExists: " << e.what() << std::endl;
     }

@@ -77,8 +77,17 @@ public:
         std::lock_guard<std::mutex> lk(m_cfgMutex);
         m_masterServerUrl = url;
     }
-    bool persistMasterServerUrl(const std::string& url) {
-        setMasterServerUrl(url);
+    std::string getMasterFallbackUrl() const {
+        std::lock_guard<std::mutex> lk(m_cfgMutex);
+        return m_masterFallbackUrl;
+    }
+    void setMasterFallbackUrl(const std::string& url) {
+        std::lock_guard<std::mutex> lk(m_cfgMutex);
+        m_masterFallbackUrl = url;
+    }
+    bool persistMasterUrls(const std::string& primaryUrl, const std::string& fallbackUrl) {
+        setMasterServerUrl(primaryUrl);
+        setMasterFallbackUrl(fallbackUrl);
         fs::path cfgPath = m_baseDir / "config.json";
         try {
             nlohmann::json j = nlohmann::json::object();
@@ -88,7 +97,9 @@ public:
                     try { in >> j; } catch (...) { j = nlohmann::json::object(); }
                 }
             }
-            j["master_server_url"] = url;
+            if (!j.is_object()) j = nlohmann::json::object();
+            j["master_server_url"] = primaryUrl;
+            j["master_fallback_url"] = fallbackUrl;
             std::ofstream out(cfgPath);
             if (!out.is_open()) return false;
             out << j.dump(2) << std::endl;
@@ -96,6 +107,9 @@ public:
         } catch (...) {
             return false;
         }
+    }
+    bool persistMasterServerUrl(const std::string& url) {
+        return persistMasterUrls(url, getMasterFallbackUrl());
     }
     const std::string& getTenantCode() const { return m_tenantCode; }
 
@@ -154,6 +168,7 @@ private:
                         if (j.contains("uploads_dir") && j["uploads_dir"].is_string()) m_customUploadsDir = j["uploads_dir"].get<std::string>();
                         if (j.contains("database_path") && j["database_path"].is_string()) m_customDbPath = j["database_path"].get<std::string>();
                         if (j.contains("master_server_url") && j["master_server_url"].is_string()) m_masterServerUrl = j["master_server_url"].get<std::string>();
+                        if (j.contains("master_fallback_url") && j["master_fallback_url"].is_string()) m_masterFallbackUrl = j["master_fallback_url"].get<std::string>();
                         if (j.contains("tenant_code") && j["tenant_code"].is_string()) m_tenantCode = j["tenant_code"].get<std::string>();
                         std::cout << "[Config] Loaded configuration from: " << p.string() << std::endl;
                         return;
@@ -269,6 +284,7 @@ private:
     std::string m_customUploadsDir;
     std::string m_customDbPath;
     std::string m_masterServerUrl;
+    std::string m_masterFallbackUrl;
     std::string m_tenantCode;
     mutable std::mutex m_cfgMutex;
 };

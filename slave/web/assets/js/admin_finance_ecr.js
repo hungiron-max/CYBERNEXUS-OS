@@ -689,9 +689,10 @@ Object.assign(Admin, {
     _blockedModules: [],
 
     isModuleAllowed(modCode) {
-        if (!this._licensedModules) return true;
-        if (this._blockedModules.includes(modCode)) return false;
         const stripped = modCode.startsWith('mod_') ? modCode.slice(4) : modCode;
+        if (stripped === 'pos_core' || stripped === 'finance_admin') return true;
+        if (!this._licensedModules) return false;
+        if (this._blockedModules.includes(modCode) || this._blockedModules.includes(stripped)) return false;
         return this._licensedModules.includes(modCode) || this._licensedModules.includes(stripped) || this._licensedModules.includes('mod_' + stripped);
     },
 
@@ -750,7 +751,9 @@ Object.assign(Admin, {
                 { sel: '#btn-trigger-ai-scan', code: 'ai_invoice_ocr', allowClickForLockScreen: false },
                 { sel: '[onclick*="openCloudSyncModal"]', code: 'cloud_sync_backup', allowClickForLockScreen: false },
                 { sel: '#ad-save-btn, [onclick*="saveAdvertising"]', code: 'advertising_promotions', allowClickForLockScreen: false },
-                { sel: '#promo-engine-card', code: 'promo_voucher_engine', allowClickForLockScreen: false }
+                { sel: '#promo-engine-card', code: 'promo_voucher_engine', allowClickForLockScreen: false },
+                { sel: '[data-sg-btn="vietqr"]', code: 'vietqr_payment', allowClickForLockScreen: false },
+                { sel: '#admin-card-payment-panel', code: 'mod_card_payment', allowClickForLockScreen: false }
             ];
             subTabMap.forEach(({ sel, code, allowClickForLockScreen }) => {
                 const allowed = this.isModuleAllowed(code);
@@ -817,7 +820,12 @@ Object.assign(Admin, {
 
             const mediaAllowed = this.isModuleAllowed('mod_media_stream');
             const jukePill = document.getElementById('admin-jukebox-pill');
-            if (jukePill) jukePill.classList.toggle('hidden', !mediaAllowed);
+            if (jukePill) jukePill.style.display = mediaAllowed ? 'flex' : 'none';
+            document.querySelectorAll('button[onclick*="switchTab(\'media\')"]').forEach(btn => {
+                btn.style.display = mediaAllowed ? '' : 'none';
+            });
+            const mediaTab = document.getElementById('tab-content-media');
+            if (mediaTab) mediaTab.style.display = mediaAllowed ? '' : 'none';
             if (!mediaAllowed && typeof JukeboxPlayer !== 'undefined' && JukeboxPlayer.audio && !JukeboxPlayer.audio.paused) {
                 JukeboxPlayer.audio.pause();
             }

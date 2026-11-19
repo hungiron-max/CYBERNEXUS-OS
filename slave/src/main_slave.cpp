@@ -441,6 +441,10 @@ int main(int argc, char* argv[]) {
 
             std::string masterUrl = AppConfig::instance().getMasterServerUrl();
             if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
+            std::string fbUrl = AppConfig::instance().getMasterFallbackUrl();
+            if (retryCount >= 3 && !fbUrl.empty() && fbUrl != masterUrl && (retryCount % 2 == 1)) {
+                masterUrl = fbUrl;
+            }
             std::string mid = LicenseService::instance().getMachineId();
 
             try {
@@ -523,6 +527,14 @@ int main(int argc, char* argv[]) {
                                     SlaveTunnelStatus::instance().markAckSent();
                                 } else if (cmdType == "SYNC_LICENSE") {
                                     LicenseService::instance().verifyLicenseOnline(key, mid);
+                                } else if (cmdType == "UPDATE_MASTER_URL") {
+                                    json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
+                                    std::string newPrimary = payload.value("master_server_url", "");
+                                    std::string newFallback = payload.value("master_fallback_url", "");
+                                    if (!newPrimary.empty()) {
+                                        AppConfig::instance().persistMasterUrls(newPrimary, newFallback);
+                                        std::cout << "[Slave Config] Updated Master URL -> " << newPrimary << " (fallback: " << newFallback << ")" << std::endl;
+                                    }
                                 } else if (cmdType == "STORE_NOTIFY" || cmdType == "OTA_UPDATE") {
                                     json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
                                     std::string nTitle = payload.value("title", cmdType == "OTA_UPDATE" ? "Có bản cập nhật mới từ Master" : "Thông báo từ Hệ thống");

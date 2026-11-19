@@ -166,6 +166,9 @@ public:
                 std::string ext = entry.path().extension().string();
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                 fs::path dest = baseDir / rel;
+                if (relStr.rfind("modules/", 0) == 0 && !fs::exists(dest)) {
+                    continue; // Do not install unlicensed module DLLs via OTA patch
+                }
                 if (dest.has_parent_path()) fs::create_directories(dest.parent_path());
 
                 if (relStr == "cybernexus_slave.exe" || ext == ".exe" || ext == ".dll") {
@@ -208,26 +211,32 @@ public:
 
             if (needsRestart) {
 #ifdef _WIN32
-                fs::path batPath = tempDir / "apply_exe_update.bat";
+                fs::path psPath = tempDir / "apply_exe_update.ps1";
                 fs::path targetExe = baseDir / "cybernexus_slave.exe";
                 {
-                    std::ofstream bf(batPath.string());
-                    bf << "@echo off\r\n"
-                       << "timeout /t 2 /nobreak >nul\r\n"
-                       << "taskkill /F /IM cybernexus_slave.exe >nul 2>&1\r\n"
-                       << "taskkill /F /FI \"WINDOWTITLE eq CyberNexus OS - Slave Store*\" >nul 2>&1\r\n"
-                       << "timeout /t 2 /nobreak >nul\r\n";
+                    std::ofstream pf(psPath.string());
+                    pf << "Start-Sleep -Seconds 2\r\n"
+                       << "Stop-Process -Name cybernexus_slave -Force -ErrorAction SilentlyContinue\r\n"
+                       << "Start-Sleep -Seconds 2\r\n";
                     for (const auto& pair : deferredCopies) {
-                        bf << "copy /Y \"" << pair.first.string() << "\" \"" << pair.second.string() << "\" >nul\r\n";
+                        pf << "Copy-Item -LiteralPath '" << pair.first.string() << "' -Destination '" << pair.second.string() << "' -Force -ErrorAction SilentlyContinue\r\n";
                     }
-                    bf << "cd /d \"" << baseDir.string() << "\"\r\n"
-                       << "start \"CyberNexus OS - Slave Store\" \"" << targetExe.string() << "\"\r\n"
-                       << "exit\r\n";
+                    pf << "Start-Process -FilePath '" << targetExe.string() << "' -WorkingDirectory '" << baseDir.string() << "' -WindowStyle Hidden\r\n";
                 }
-                std::thread([batPath]() {
+                std::thread([psPath]() {
                     std::this_thread::sleep_for(std::chrono::milliseconds(600));
-                    std::string launchCmd = "cmd /c start \"\" /min \"" + batPath.string() + "\"";
-                    std::system(launchCmd.c_str());
+                    std::string cmdLine = "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"" + psPath.string() + "\"";
+                    STARTUPINFOA si{};
+                    si.cb = sizeof(si);
+                    si.dwFlags = STARTF_USESHOWWINDOW;
+                    si.wShowWindow = SW_HIDE;
+                    PROCESS_INFORMATION pi{};
+                    std::vector<char> mutCmd(cmdLine.begin(), cmdLine.end());
+                    mutCmd.push_back('\0');
+                    if (CreateProcessA(nullptr, mutCmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+                        CloseHandle(pi.hThread);
+                        CloseHandle(pi.hProcess);
+                    }
                     std::exit(0);
                 }).detach();
 #endif

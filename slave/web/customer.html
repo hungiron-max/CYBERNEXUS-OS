@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GÓC PHỐ COFFEE & TEA - Chào Mừng Quý Khách</title>
+    <title>CyberNexus POS - Chào Mừng Quý Khách</title>
     <link rel="icon" type="image/png" href="favicon.png?v=20261118">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
     
@@ -113,6 +113,7 @@
     
     <!-- Liquid Glass Custom Styles -->
     <link rel="stylesheet" href="assets/css/customer.css?v=20261116">
+    <script src="assets/js/store_brand.js"></script>
 </head>
 <body class="antialiased flex flex-col min-h-screen relative overflow-x-hidden selection:bg-sky-500 selection:text-white" style="padding-bottom: 90px; width: 100%; max-width: 100vw;">
 
@@ -133,7 +134,7 @@
                 </div>
                 <div class="min-w-0">
                     <h1 class="text-xs sm:text-base font-black tracking-wide uppercase whitespace-nowrap">
-                        <span class="goc-pho-gradient-text">GÓC PHỐ</span> <span class="text-white">COFFEE &amp; TEA</span>
+                        <span class="goc-pho-gradient-text" data-store-name>CyberNexus POS</span>
                     </h1>
                     <p class="text-[10px] text-slate-400 whitespace-nowrap truncate hidden sm:block mt-0.5">
                         Hệ Thống Phục Vụ Bán Hàng &amp; Thực Đơn Điện Tử
@@ -145,7 +146,7 @@
             <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-slate-300 font-mono whitespace-nowrap shrink-0 shadow-sm">
                     <i class="fas fa-wifi text-sky-400"></i>
-                    <span>Wi-Fi: <b class="text-white">GocPho_Guest</b> <span class="text-slate-500">·</span> pass: <b class="text-amber-300 font-bold">88888888</b></span>
+                    <span>Wi-Fi: <b class="text-white">Store_WiFi</b> <span class="text-slate-500">·</span> pass: <b class="text-amber-300 font-bold">88888888</b></span>
                 </div>
 
                 <!-- Hotline: Compact Icon on Mobile, full on desktop -->
@@ -179,14 +180,14 @@
                     <div id="customer-ad-slides-container" class="absolute inset-0 w-full h-full overflow-hidden">
                         <!-- Slide 0: Hình ảnh mở đầu (6s) -->
                         <article class="customer-ad-slide customer-store-slide is-active" data-ad-index="0" data-ad-duration="6">
-                            <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Góc Phố" />
+                            <img class="absolute inset-0 h-full w-full object-cover object-center" src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="CyberNexus POS" />
                             <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-3.5 pb-10 sm:px-6 sm:pb-12 max-w-xl">
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-slate-950/75 px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-300 shadow-lg backdrop-blur-md">
                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                                     <i class="fas fa-sparkles text-amber-300 text-[9px]"></i> ƯU ĐÃI ĐẶC BIỆT · KM1
                                 </span>
                                 <h2 class="mt-1 text-sm sm:text-base lg:text-lg font-black leading-snug tracking-tight slide-title-rainbow">
-                                    Thưởng Thức Hương Vị Đậm Đà Tại <span class="goc-pho-gradient-text">Góc Phố</span>
+                                    Thưởng Thức Hương Vị Đậm Đà Tại <span class="goc-pho-gradient-text" data-store-name>CyberNexus POS</span>
                                 </h2>
                                 <p class="mt-0.5 max-w-md text-[11px] sm:text-xs leading-relaxed line-clamp-1 sm:line-clamp-2 slide-desc-crisp">
                                     Cà phê phin truyền thống thơm lừng, trà sữa béo ngậy cùng các món điểm tâm hảo hạng.
@@ -208,7 +209,7 @@
                                     <i class="fas fa-play text-sky-300 text-[9px]"></i> VIDEO TRẢI NGHIỆM · QC1
                                 </span>
                                 <h3 class="mt-1 text-sm sm:text-base font-black leading-snug slide-title-rainbow">Không Gian Thư Giãn & Hương Vị Nguyên Bản</h3>
-                                <p class="mt-0.5 text-[11px] sm:text-xs leading-relaxed max-w-md line-clamp-1 sm:line-clamp-2 slide-desc-crisp">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.</p>
+                                <p class="mt-0.5 text-[11px] sm:text-xs leading-relaxed max-w-md line-clamp-1 sm:line-clamp-2 slide-desc-crisp">Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại CyberNexus POS.</p>
                             </div>
                             <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-3 right-3 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20 transition-all" title="Bật/Tắt tiếng">
                                 <i class="fas fa-volume-xmark"></i>
@@ -840,18 +841,18 @@
                             </button>
                         </div>
                     </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="21" data-category-id="4" data-product-name="Bạc Xỉu Góc Phố" data-product-price="25000">
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="21" data-category-id="4" data-product-name="Bạc Xỉu CyberNexus POS" data-product-price="25000">
                         <div class="space-y-2">
                             <!-- Product Image: 4:3 Aspect Ratio -->
                             <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/cf003.jpg" alt="Bạc Xỉu Góc Phố" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <img src="assets/images/dishes/cf003.jpg" alt="Bạc Xỉu CyberNexus POS" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
                                 <div class="absolute top-1.5 left-1.5">
                                     <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF003</span>
                                 </div>
                             </div>
                             
                             <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bạc Xỉu Góc Phố</h4>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Bạc Xỉu CyberNexus POS</h4>
                             </div>
                         </div>
 
@@ -890,18 +891,18 @@
                             </button>
                         </div>
                     </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="23" data-category-id="13" data-product-name="Trà Sữa Truyền Thống Góc Phố" data-product-price="25000">
+                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="23" data-category-id="13" data-product-name="Trà Sữa Truyền Thống CyberNexus POS" data-product-price="25000">
                         <div class="space-y-2">
                             <!-- Product Image: 4:3 Aspect Ratio -->
                             <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/ts001.jpg" alt="Trà Sữa Truyền Thống Góc Phố" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
+                                <img src="assets/images/dishes/ts001.jpg" alt="Trà Sữa Truyền Thống CyberNexus POS" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
                                 <div class="absolute top-1.5 left-1.5">
                                     <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS001</span>
                                 </div>
                             </div>
                             
                             <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Sữa Truyền Thống Góc Phố</h4>
+                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug">Trà Sữa Truyền Thống CyberNexus POS</h4>
                             </div>
                         </div>
 

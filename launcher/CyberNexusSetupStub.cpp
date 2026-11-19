@@ -204,6 +204,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     // Stop any running CyberNexus services in target folder before overwriting
     runHiddenProcess(L"taskkill /F /IM CyberNexus_Control_Center.exe /IM cybernexus_slave.exe /IM cybernexus_master.exe");
 
+    // Clean up legacy batch launchers & stale module DLLs if installing over an existing folder
+    fs::remove(installDir / L"RUN_SLAVE.bat", ec);
+    fs::remove(installDir / L"Mo_Tuong_Lua_LAN.bat", ec);
+    fs::remove_all(installDir / L"modules", ec);
+
     fs::path errLog = fs::path(tempBuf) / L"cnx_setup_err.log";
     fs::remove(errLog, ec);
     std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \""

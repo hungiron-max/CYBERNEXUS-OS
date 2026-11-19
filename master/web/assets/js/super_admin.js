@@ -15,8 +15,36 @@ const SuperAdmin = {
     logoProcessingGeneration: 0,
     tenantSaveInProgress: false,
 
-    init() {
+    async init() {
         if (!document.getElementById('tab-content-dashboard')) return;
+        let user = null;
+        try {
+            const auth = await fetch('api/super_admin.php?action=check_auth').then(r => r.json());
+            if (auth && auth.authenticated === false) {
+                sessionStorage.removeItem('sa_logged_in');
+                sessionStorage.removeItem('sa_user');
+                const wrap = document.querySelector('.sa-login-wrap');
+                if (wrap) wrap.style.display = 'flex';
+                return;
+            }
+            if (auth && auth.user) user = auth.user;
+        } catch (_) {}
+        if (!user) {
+            try { user = JSON.parse(sessionStorage.getItem('sa_user') || 'null'); } catch (_) {}
+        }
+        this.currentUser = user || { role: 'super_admin', username: 'superadmin', fullname: 'Super Admin', department: 'Ban Giám Đốc' };
+        const role = this.currentUser.role || 'super_admin';
+        const nameEl = document.getElementById('sa-header-user-name');
+        const deptEl = document.getElementById('sa-header-user-dept');
+        if (nameEl) nameEl.textContent = this.currentUser.fullname || this.currentUser.username || 'Super Admin';
+        if (deptEl) deptEl.textContent = this.currentUser.department || role;
+        const selector = document.getElementById('saas-role-selector');
+        if (selector) {
+            selector.value = role;
+            selector.disabled = (role !== 'super_admin');
+            selector.title = (role !== 'super_admin') ? 'Tài khoản bị khóa đúng theo vai trò bộ phận' : 'Chuyển góc nhìn kiểm tra phân quyền';
+        }
+        this.switchRoleView(role);
         this.switchTab('dashboard');
         this.loadPlans();
     },
@@ -62,6 +90,8 @@ const SuperAdmin = {
         } else if (tabId === 'settings') {
             this.loadSaasSettings();
             this.loadOtaPatchArchive();
+        } else if (tabId === 'templates') {
+            this.loadLegalTemplates();
         } else if (tabId === 'resellers') {
             this.loadResellers();
         }
@@ -245,6 +275,14 @@ const SuperAdmin = {
 
             if (data.success) {
                 this.tenants = data.data || [];
+                const trashBadge = document.getElementById('badge-trash-tenants');
+                if (trashBadge && typeof data.deleted_count !== 'undefined') trashBadge.innerText = data.deleted_count;
+                const btnTrash = document.getElementById('btn-toggle-trash');
+                if (btnTrash) {
+                    const inTrash = (status === 'deleted');
+                    btnTrash.classList.toggle('bg-rose-500/35', inTrash);
+                    btnTrash.classList.toggle('text-white', inTrash);
+                }
                 this.renderTenantsTable(this.tenants);
             }
         } catch (err) {
@@ -362,9 +400,23 @@ const SuperAdmin = {
                         <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border bg-${t.badge_color}-500/20 text-${t.badge_color}-300 border-${t.badge_color}-500/30">
                             ${t.badge_status}
                         </span>
+                        <div class="text-[9px] mt-1 font-semibold ${t.subscription_status === 'deleted' ? 'text-rose-300' : (t.workflow_stage === 'active' ? 'text-emerald-400' : (t.workflow_stage === 'trial' ? 'text-sky-300' : 'text-amber-300'))}">
+                            ${t.subscription_status === 'deleted' ? ('Đã xóa: ' + (t.deleted_at || '')) : this.getWorkflowLabel(t)}
+                        </div>
                     </td>
                     <td class="py-2 px-2.5 text-right whitespace-nowrap">
                         <div class="inline-flex items-center gap-1 justify-end">
+                            ${t.subscription_status === 'deleted' ? `
+                                <button type="button" onclick="SuperAdmin.openPackagesModal(${t.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition" title="Xem lại hồ sơ đã lưu">
+                                    <i class="fas fa-folder-open text-[10px]"></i> <span>Hồ Sơ</span>
+                                </button>
+                                <button type="button" onclick="SuperAdmin.editTenant(${t.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 text-[11px] font-bold transition" title="Xem lại thông tin quán">
+                                    <i class="fas fa-eye text-[10px]"></i> <span>Xem</span>
+                                </button>
+                                <button type="button" onclick="SuperAdmin.restoreTenant(${t.id}, '${t.tenant_code}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition" title="Khôi phục quán từ Thùng rác">
+                                    <i class="fas fa-rotate-left text-[10px]"></i> <span>Khôi Phục</span>
+                                </button>
+                            ` : `
                             <button type="button" onclick="SuperAdmin.checkStoreOnline(${t.id}, this)" class="w-7 h-7 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-[11px] transition" title="Gọi kiểm tra Store Online ngay">
                                 <i class="fas fa-satellite-dish text-[10px]"></i>
                             </button>
@@ -390,6 +442,10 @@ const SuperAdmin = {
                             <button type="button" onclick="SuperAdmin.editTenant(${t.id})" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 flex items-center justify-center text-[11px] transition" title="Chỉnh sửa">
                                 <i class="fas fa-pen text-[10px]"></i>
                             </button>
+                            <button type="button" onclick="SuperAdmin.softDeleteTenant(${t.id}, '${t.tenant_code}')" class="w-7 h-7 rounded-lg bg-rose-500/15 hover:bg-rose-500/35 text-rose-400 border border-rose-500/30 flex items-center justify-center text-[11px] transition" title="Chuyển quán vào Thùng rác (Trash)">
+                                <i class="fas fa-trash text-[10px]"></i>
+                            </button>
+                            `}
                         </div>
                     </td>
                 </tr>
@@ -472,10 +528,14 @@ const SuperAdmin = {
                 }
             }
             const t = this.tenants.find(x => x.id === tenantId);
+            const needRowRefresh = !!(data.online && t && (!t.machine_id || !t.lan_ip || !t.wan_ip));
             if (t) {
                 t.is_tunnel_online = !!data.online;
                 t.last_ping_latency_ms = data.latency_ms || -1;
                 if (data.last_check_at) t.last_check_at = data.last_check_at;
+            }
+            if (needRowRefresh) {
+                this.loadTenants();
             }
         } catch (err) {
             alert('Lỗi kiểm tra Store: ' + err.message);
@@ -998,10 +1058,18 @@ const SuperAdmin = {
         }
         document.getElementById('form-tenant-store-name').value = '';
         document.getElementById('form-tenant-owner-name').value = '';
+        document.getElementById('form-tenant-rep-role').value = 'Chủ hộ kinh doanh';
+        document.getElementById('form-tenant-legal-entity').value = '';
+        document.getElementById('form-tenant-tax-id').value = '';
         document.getElementById('form-tenant-phone').value = '';
         document.getElementById('form-tenant-email').value = '';
         document.getElementById('form-tenant-address').value = '';
+        document.getElementById('form-tenant-billing-address').value = '';
         document.getElementById('form-tenant-note').value = '';
+        const smWrap = document.getElementById('form-tenant-start-mode-wrap');
+        const smEl = document.getElementById('form-tenant-start-mode');
+        if (smWrap) smWrap.style.display = '';
+        if (smEl) smEl.value = 'standard';
         document.getElementById('form-tenant-logo').value = '';
         document.getElementById('form-tenant-remove-logo').checked = false;
         this.setTenantLogoPreview('');
@@ -1032,9 +1100,15 @@ const SuperAdmin = {
         code.removeAttribute('pattern');
         document.getElementById('form-tenant-store-name').value = t.store_name;
         document.getElementById('form-tenant-owner-name').value = t.owner_name;
+        document.getElementById('form-tenant-rep-role').value = t.representative_role || 'Chủ hộ kinh doanh';
+        document.getElementById('form-tenant-legal-entity').value = t.legal_entity_name || '';
+        document.getElementById('form-tenant-tax-id').value = t.tax_id_or_cccd || '';
         document.getElementById('form-tenant-phone').value = t.phone;
         document.getElementById('form-tenant-email').value = t.email || '';
         document.getElementById('form-tenant-address').value = t.address || '';
+        document.getElementById('form-tenant-billing-address').value = t.billing_address || t.address || '';
+        const smWrap = document.getElementById('form-tenant-start-mode-wrap');
+        if (smWrap) smWrap.style.display = 'none';
         document.getElementById('form-tenant-expire-date').value = t.expire_date;
         document.getElementById('form-tenant-note').value = t.note || '';
         document.getElementById('form-tenant-logo').value = '';
@@ -1130,12 +1204,17 @@ const SuperAdmin = {
             tenant_code: document.getElementById('form-tenant-code').value.trim(),
             store_name: document.getElementById('form-tenant-store-name').value.trim(),
             owner_name: document.getElementById('form-tenant-owner-name').value.trim(),
+            representative_role: document.getElementById('form-tenant-rep-role').value.trim(),
+            legal_entity_name: document.getElementById('form-tenant-legal-entity').value.trim(),
+            tax_id_or_cccd: document.getElementById('form-tenant-tax-id').value.trim(),
             phone: document.getElementById('form-tenant-phone').value.trim(),
             email: document.getElementById('form-tenant-email').value.trim(),
             address: document.getElementById('form-tenant-address').value.trim(),
+            billing_address: document.getElementById('form-tenant-billing-address').value.trim(),
             plan_id: parseInt(document.getElementById('form-tenant-plan').value),
             expire_date: document.getElementById('form-tenant-expire-date').value,
-            note: document.getElementById('form-tenant-note').value.trim()
+            note: document.getElementById('form-tenant-note').value.trim(),
+            start_mode: document.getElementById('form-tenant-start-mode')?.value || 'standard'
         };
 
         try {
@@ -1379,6 +1458,27 @@ const SuperAdmin = {
     },
 
     // --- 8. SAAS SETTINGS & VIETQR ---
+    async syncMasterUrlToAllStores() {
+        const pub = document.getElementById('cfg-master-public-url')?.value.trim() || '';
+        const fb = document.getElementById('cfg-master-fallback-url')?.value.trim() || '';
+        if (!pub) { alert('Vui lòng nhập Tên miền / URL Master chính!'); return; }
+        if (!confirm(`Lưu URL Master:\n- Chính: ${pub}\n- Dự phòng: ${fb || '(Không)'}\n\nvà đẩy đồng bộ xuống TẤT CẢ các quán đang hoạt động?`)) return;
+        const btn = document.getElementById('btn-sync-master-url');
+        if (btn) btn.disabled = true;
+        try {
+            const res = await fetch('api/super_admin.php?action=sync_master_url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ master_public_url: pub, master_fallback_url: fb })
+            }).then(r => r.json());
+            alert(res.message || 'Đã đồng bộ!');
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
     async loadSaasSettings() {
         this.updateSaasQrPreview();
         if (document.getElementById('cfg-package-storage')) this.loadPackageStorage();
@@ -1396,6 +1496,12 @@ const SuperAdmin = {
                 if (s.saas_bank_account_name) document.getElementById('cfg-saas-bank-name').value = s.saas_bank_account_name;
                 if (s.saas_warning_days) document.getElementById('cfg-saas-warning-days').value = s.saas_warning_days;
                 if (s.saas_grace_period_days) document.getElementById('cfg-saas-grace-days').value = s.saas_grace_period_days;
+                if (document.getElementById('cfg-master-public-url')) {
+                    document.getElementById('cfg-master-public-url').value = s.master_public_url || '';
+                }
+                if (document.getElementById('cfg-master-fallback-url')) {
+                    document.getElementById('cfg-master-fallback-url').value = s.master_fallback_url || '';
+                }
                 if (document.getElementById('cfg-wan-tunnel-enabled')) {
                     document.getElementById('cfg-wan-tunnel-enabled').checked = String(s.wan_tunnel_enabled ?? '1') !== '0';
                 }
@@ -1715,6 +1821,56 @@ const SuperAdmin = {
         const kpiHandover = document.getElementById('pkg-kpi-handover');
         const kpiRelease = document.getElementById('pkg-kpi-release');
         const btnDownloadZip = document.getElementById('btn-pkg-download-zip');
+        const btnGenRel = document.getElementById('btn-pkg-generate-release');
+        const wfBar = document.getElementById('pkg-workflow-bar');
+        const wfHint = document.getElementById('pkg-workflow-hint');
+        const btnTrial = document.getElementById('btn-pkg-trial-7d');
+        const btnPay = document.getElementById('btn-pkg-confirm-pay');
+        const btnOverride = document.getElementById('btn-pkg-override');
+
+        const stage = summary.workflow_stage || 'pending_contract';
+        const isTrial = summary.release_mode === 'trial';
+        const isPaid = !!summary.payment_confirmed || !!summary.has_invoice;
+        const canGen = !!summary.can_generate_release;
+
+        if (wfBar) {
+            const steps = [
+                { label: '1. Khởi Tạo', dept: 'Sales', done: true, active: false },
+                { label: '2. Hợp Đồng', dept: 'Sales', done: !!summary.has_contract, active: stage === 'pending_contract' },
+                { label: '3. Thanh Toán', dept: 'Kế toán', done: isPaid, active: stage === 'pending_payment' },
+                { label: '4. Đóng Gói & Cài', dept: 'Kỹ thuật', done: !!summary.has_release && canGen, active: stage === 'ready_to_install' || isTrial },
+                { label: '5. Nghiệm Thu', dept: 'Kỹ thuật', done: !!summary.has_handover, active: stage === 'pending_handover' }
+            ];
+            wfBar.innerHTML = steps.map(s => {
+                const cls = s.done ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : (s.active ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900/80 text-slate-400 border-white/10');
+                return `<div class="p-1.5 rounded-lg border ${cls}">
+                    <div>${s.done ? '✓ ' : ''}${s.label}</div>
+                    <div class="text-[9px] opacity-80">${s.dept}</div>
+                </div>`;
+            }).join('');
+        }
+        if (wfHint) {
+            if (isTrial) {
+                wfHint.innerHTML = '<span class="text-sky-300 font-bold">Chế độ Dùng Thử 07 Ngày:</span> Đã mở khóa đóng gói bản Trial. Chờ Sales/Kế toán chốt Hợp đồng &amp; Thanh toán để nâng lên chính thức.';
+            } else if (!canGen) {
+                wfHint.innerHTML = '<span class="text-amber-300 font-bold">Đang khóa đóng gói chính thức:</span> Cần upload Hợp đồng + Xác nhận thanh toán/VAT (hoặc Cấp Dùng Thử 07 Ngày).';
+            } else if (!summary.has_handover) {
+                wfHint.innerHTML = '<span class="text-emerald-300 font-bold">Đã mở khóa đóng gói:</span> Kỹ thuật đóng gói, cài đặt tại quán và upload Biên bản nghiệm thu để kích hoạt bảo hành.';
+            } else {
+                wfHint.innerHTML = `<span class="text-emerald-400 font-bold">Đã nghiệm thu &amp; bảo hành:</span> Đến ${summary.warranty_until || 'theo hợp đồng'}.`;
+            }
+        }
+        if (btnTrial) btnTrial.style.display = (isTrial || isPaid || stage === 'active') ? 'none' : 'inline-flex';
+        if (btnPay) btnPay.style.display = isPaid ? 'none' : 'inline-flex';
+        if (btnOverride) btnOverride.style.display = (canGen || this.currentRoleView !== 'super_admin') ? 'none' : 'inline-flex';
+        if (btnGenRel) {
+            btnGenRel.disabled = !canGen;
+            btnGenRel.classList.toggle('opacity-50', !canGen);
+            btnGenRel.classList.toggle('cursor-not-allowed', !canGen);
+            const lbl = btnGenRel.querySelector('span');
+            if (lbl) lbl.textContent = isTrial ? 'Đóng Gói Bản Trial (7 Ngày)' : 'Đóng Gói Bộ Cài';
+        }
 
         if (kpiContract) {
             kpiContract.innerHTML = summary.has_contract ? 
@@ -1733,16 +1889,23 @@ const SuperAdmin = {
         }
         if (kpiRelease) {
             kpiRelease.innerHTML = summary.has_release ? 
-                `<i class="fas fa-box-open text-amber-400"></i> <span class="text-amber-300">Đã Đóng Gói (.ZIP)</span>` : 
+                `<i class="fas fa-box-open text-amber-400"></i> <span class="text-amber-300">Đã Đóng Gói</span>` : 
                 `<i class="fas fa-circle-question text-slate-400"></i> <span class="text-slate-400">Chưa Tạo Gói</span>`;
         }
 
         if (btnDownloadZip) {
-            if (summary.has_release && summary.release_zip_path) {
-                btnDownloadZip.href = summary.release_zip_path;
+            const dlPath = summary.release_exe_path || summary.release_zip_path;
+            if (summary.has_release && dlPath) {
+                btnDownloadZip.href = `/api/download_package?file=${encodeURIComponent(dlPath)}`;
+                btnDownloadZip.setAttribute('download', dlPath.split('/').pop() || 'CyberNexus_Setup.exe');
+                const dlLbl = btnDownloadZip.querySelector('span');
+                if (dlLbl) dlLbl.textContent = isTrial ? 'Tải Bộ Cài [TRIAL 07 NGÀY]' : 'Tải Bộ Cài [CHÍNH THỨC]';
                 btnDownloadZip.classList.remove('hidden');
+                btnDownloadZip.style.display = 'inline-flex';
             } else {
+                btnDownloadZip.href = '#';
                 btnDownloadZip.classList.add('hidden');
+                btnDownloadZip.style.display = 'none';
             }
         }
 
@@ -1759,22 +1922,50 @@ const SuperAdmin = {
             'contracts': '<span class="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30">Hợp Đồng</span>',
             'invoices': '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Hóa Đơn VAT</span>',
             'handover': '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30">Biên Bản Bàn Giao</span>',
-            'release': '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Bộ Cài Đặt Release</span>',
-            'other': '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-500/20 text-slate-300 border border-slate-500/30">Tài Liệu Khác</span>'
+            'quotes': '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Báo Giá</span>',
+            'terms': '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">Điều Khoản</span>',
+            'warranty': '<span class="px-2 py-0.5 rounded text-[10px] bg-teal-500/20 text-teal-300 border border-teal-500/30">Bảo Hành</span>',
+            'release': '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Gói Cài Đặt</span>',
+            'setup_exe': '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">Bộ Cài 1-Click</span>',
+            'credentials': '<span class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Tài Khoản Khởi Tạo</span>',
+            'other': '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-500/20 text-slate-300 border border-slate-500/30">Hồ Sơ Mẫu</span>'
         };
+
+        const tplToSignedCat = {
+            'hop_dong_dich_vu.html': 'contracts',
+            'bien_ban_ban_giao_nghiem_thu.html': 'handover',
+            'bao_gia_dich_vu.html': 'quotes',
+            'dieu_khoan_su_dung_ban_quyen.html': 'terms',
+            'phieu_bao_hanh_ky_thuat.html': 'warranty'
+        };
+        const signedByCat = {};
+        docs.forEach(d => {
+            const isSignedDoc = (d.status === 'signed') || String(d.file_name || '').toLowerCase().includes('_signed') || ['contracts', 'invoices', 'handover', 'quotes', 'terms', 'warranty'].includes(d.category);
+            if (isSignedDoc && !signedByCat[d.category] && d.file_name !== 'THONG_TIN_DANG_NHAP_BAN_DAU.txt') {
+                signedByCat[d.category] = d;
+            }
+        });
 
         tbody.innerHTML = docs.map(doc => {
             const kb = (doc.file_size / 1024).toFixed(1);
             const sizeStr = doc.file_size >= 1048576 ? `${(doc.file_size / 1048576).toFixed(1)} MB` : `${kb} KB`;
             const dateStr = doc.created_at ? new Date(doc.created_at).toLocaleString('vi-VN') : '--';
             const catBadge = catNames[doc.category] || `<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">${doc.category}</span>`;
+            const isHtmlTpl = (doc.file_ext === 'html' || (doc.file_name || '').endsWith('.html'));
+            const mappedSigned = isHtmlTpl ? signedByCat[tplToSignedCat[doc.file_name]] : null;
+            const isSignedFile = (doc.status === 'signed') || String(doc.file_name || '').toLowerCase().includes('_signed');
+            const viewTargetPath = mappedSigned ? mappedSigned.file_path : doc.file_path;
+            const signedBadge = isSignedFile
+                ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold whitespace-nowrap"><i class="fas fa-circle-check mr-0.5"></i>Đã Ký</span>`
+                : (mappedSigned ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold whitespace-nowrap" title="Đã upload bản ký: ${mappedSigned.file_name}"><i class="fas fa-circle-check mr-0.5"></i>Đã có bản Signed</span>` : '');
 
             return `
                 <tr class="hover:bg-white/5 transition-all">
                     <td class="py-2.5 px-3">
-                        <div class="font-bold text-white text-xs flex items-center gap-1.5">
-                            <i class="fas fa-file text-slate-400 text-xs"></i>
+                        <div class="font-bold text-white text-xs flex items-center gap-1.5 flex-wrap">
+                            <i class="fas ${isSignedFile || mappedSigned ? 'fa-circle-check text-emerald-400' : 'fa-file text-slate-400'} text-xs"></i>
                             <span class="text-sky-300">${doc.title || doc.file_name}</span>
+                            ${signedBadge}
                         </div>
                         <div class="text-[10px] text-slate-400 font-mono mt-0.5">${doc.file_name} ${doc.notes ? `• <i>${doc.notes}</i>` : ''}</div>
                     </td>
@@ -1783,7 +1974,17 @@ const SuperAdmin = {
                     <td class="py-2.5 px-3 whitespace-nowrap text-[10px] text-slate-400">${dateStr}</td>
                     <td class="py-2.5 px-3 text-right whitespace-nowrap">
                         <div class="inline-flex items-center gap-1">
-                            <a href="${doc.file_path}" target="_blank" download class="btn-glass text-[10px] py-1 px-2.5 bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 border border-sky-500/30 font-bold flex items-center gap-1" title="Tải xuống tài liệu">
+                            ${(isHtmlTpl || isSignedFile) ? `
+                                <button type="button" onclick="SuperAdmin.previewStoreDocument('${viewTargetPath}')" class="btn-glass text-[10px] py-1 px-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1" title="${mappedSigned ? 'Mở bản đã ký (_signed)' : 'Xem trước & In PDF'}">
+                                    <i class="fas fa-eye"></i> <span>${mappedSigned ? 'Xem Bản Ký' : 'Xem / In PDF'}</span>
+                                </button>
+                            ` : ''}
+                            ${isHtmlTpl ? `
+                                <button type="button" onclick="SuperAdmin.editStoreTemplate('${doc.file_name}')" class="btn-glass text-[10px] py-1 px-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1" title="Chỉnh sửa mẫu">
+                                    <i class="fas fa-pen"></i> <span>Sửa mẫu</span>
+                                </button>
+                            ` : ''}
+                            <a href="/api/download_package?file=${encodeURIComponent(doc.file_path)}" download="${doc.file_name || ''}" class="btn-glass text-[10px] py-1 px-2.5 bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 border border-sky-500/30 font-bold flex items-center gap-1" title="Tải xuống tài liệu">
                                 <i class="fas fa-download"></i> <span>Tải</span>
                             </a>
                             <button type="button" onclick="SuperAdmin.deleteTenantDocument(${doc.id})" class="btn-glass text-[10px] py-1 px-2 text-rose-400 hover:text-white border border-rose-500/30" title="Xóa tài liệu">
@@ -1843,6 +2044,90 @@ const SuperAdmin = {
         }
     },
 
+    getWorkflowLabel(t) {
+        const s = t.workflow_stage || 'pending_contract';
+        if (t.subscription_status === 'trial' || s === 'trial') return 'Trial 07 ngày';
+        const map = {
+            'pending_contract': 'Sales: Chờ Hợp Đồng',
+            'pending_payment': 'Kế toán: Chờ Tiền/VAT',
+            'ready_to_install': 'Kỹ thuật: Chờ Đóng Gói',
+            'pending_handover': 'Kỹ thuật: Chờ Nghiệm Thu',
+            'active': 'Hoàn Tất & Bảo Hành'
+        };
+        return map[s] || 'Đang xử lý';
+    },
+
+    async activateTrial7d() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Kích hoạt dùng thử 07 ngày cho quán này? Kỹ thuật sẽ được mở khóa đóng gói bản Trial ngay.')) return;
+        const res = await fetch('api/super_admin.php?action=activate_trial_7d', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async confirmTenantPayment() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Xác nhận đã thu đủ phí bản quyền cho quán này?')) return;
+        const res = await fetch('api/super_admin.php?action=confirm_payment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async grantWorkflowOverride() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Duyệt ngoại lệ cho phép Kỹ thuật đóng gói bộ cài trước khi hoàn tất chứng từ?')) return;
+        const res = await fetch('api/super_admin.php?action=grant_workflow_override', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    toggleTrashView() {
+        const sel = document.getElementById('tenant-filter-status');
+        if (!sel) return;
+        sel.value = (sel.value === 'deleted') ? '' : 'deleted';
+        this.loadTenants();
+    },
+
+    async softDeleteTenant(tid, tcode) {
+        const reason = prompt(`Chuyển quán [${tcode}] vào Thùng rác (Trash)?\n(Không xóa vĩnh viễn — có thể xem lại & khôi phục bất cứ lúc nào)\n\nNhập lý do chuyển vào Thùng rác:`, 'Ngưng hợp tác / Tạo nhầm');
+        if (reason === null) return;
+        const res = await fetch('api/super_admin.php?action=soft_delete_tenant', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid, reason })
+        }).then(r => r.json());
+        alert(res.message || 'Đã chuyển vào Thùng rác');
+        if (res.success) { this.loadTenants(); this.loadDashboard(); }
+    },
+
+    async restoreTenant(tid, tcode) {
+        if (!confirm(`Khôi phục quán [${tcode}] từ Thùng rác về danh sách hoạt động?`)) return;
+        const res = await fetch('api/super_admin.php?action=restore_tenant', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã khôi phục');
+        if (res.success) { this.loadTenants(); this.loadDashboard(); }
+    },
+
+    previewStoreDocument(filePath) {
+        window.open('/' + String(filePath || '').replace(/^\/+/, ''), '_blank');
+    },
+
+    async editStoreTemplate(fileName) {
+        const tid = this.currentPackageTenantId;
+        this.closeModal('modal-tenant-packages');
+        this.activeLegalTemplateFile = fileName;
+        this.switchTab('templates');
+        setTimeout(() => {
+            const sel = document.getElementById('tpl-preview-tenant');
+            if (sel && tid) sel.value = String(tid);
+        }, 250);
+    },
+
     async generateTenantRelease() {
         const tid = this.currentPackageTenantId;
         const tcode = this.currentPackageTenantCode;
@@ -1870,6 +2155,50 @@ const SuperAdmin = {
         } finally {
             if (btn) btn.disabled = false;
         }
+    },
+
+
+    getWorkflowLabel(t) {
+        const s = t.workflow_stage || 'pending_contract';
+        if (t.subscription_status === 'trial' || s === 'trial') return 'Trial 07 ngày';
+        const map = {
+            'pending_contract': 'Sales: Chờ Hợp Đồng',
+            'pending_payment': 'Kế toán: Chờ Tiền/VAT',
+            'ready_to_install': 'Kỹ thuật: Chờ Đóng Gói',
+            'pending_handover': 'Kỹ thuật: Chờ Nghiệm Thu',
+            'active': 'Hoàn Tất & Bảo Hành'
+        };
+        return map[s] || 'Đang xử lý';
+    },
+
+    async activateTrial7d() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Kích hoạt dùng thử 07 ngày cho quán này? Kỹ thuật sẽ được mở khóa đóng gói bản Trial ngay.')) return;
+        const res = await fetch('api/super_admin.php?action=activate_trial_7d', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async confirmTenantPayment() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Xác nhận đã thu đủ phí bản quyền cho quán này?')) return;
+        const res = await fetch('api/super_admin.php?action=confirm_payment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async grantWorkflowOverride() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Duyệt ngoại lệ cho phép Kỹ thuật đóng gói bộ cài trước khi hoàn tất chứng từ?')) return;
+        const res = await fetch('api/super_admin.php?action=grant_workflow_override', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
     },
 
     async deleteTenantDocument(docId) {
@@ -1916,25 +2245,29 @@ const SuperAdmin = {
     },
 
     applyRoleViewEnforcement(role) {
-        const billingNav = document.getElementById('nav-tab-billing');
-        const plansNav = document.getElementById('nav-tab-plans');
-        const settingsNav = document.getElementById('nav-tab-settings');
+        const navIds = ['billing', 'resellers', 'plans', 'staff', 'ai-vault', 'settings', 'templates', 'audit'];
+        navIds.forEach(id => {
+            const el = document.getElementById('nav-tab-' + id);
+            if (el) el.style.display = '';
+        });
 
-        if (billingNav) billingNav.style.display = '';
-        if (plansNav) plansNav.style.display = '';
-        if (settingsNav) settingsNav.style.display = '';
+        const hideNavs = (ids) => ids.forEach(id => {
+            const el = document.getElementById('nav-tab-' + id);
+            if (el) el.style.display = 'none';
+        });
+
+        document.querySelectorAll('button[type="submit"]').forEach(b => { b.disabled = false; });
 
         if (role === 'technical') {
-            if (billingNav) billingNav.style.display = 'none';
+            hideNavs(['billing', 'resellers', 'plans', 'staff', 'ai-vault', 'settings']);
         } else if (role === 'finance') {
-            if (settingsNav) settingsNav.style.display = 'none';
+            hideNavs(['staff', 'ai-vault', 'settings', 'templates']);
+        } else if (role === 'sales') {
+            hideNavs(['staff', 'ai-vault', 'settings', 'audit']);
         } else if (role === 'auditor') {
+            hideNavs(['staff', 'ai-vault', 'settings']);
             document.querySelectorAll('button[type="submit"]:not(#btn-login-submit)').forEach(b => {
                 b.disabled = true;
-            });
-        } else {
-            document.querySelectorAll('button[type="submit"]').forEach(b => {
-                b.disabled = false;
             });
         }
     },
@@ -3166,6 +3499,50 @@ const SuperAdmin = {
         }
     },
 
+
+    getWorkflowLabel(t) {
+        const s = t.workflow_stage || 'pending_contract';
+        if (t.subscription_status === 'trial' || s === 'trial') return 'Trial 07 ngày';
+        const map = {
+            'pending_contract': 'Sales: Chờ Hợp Đồng',
+            'pending_payment': 'Kế toán: Chờ Tiền/VAT',
+            'ready_to_install': 'Kỹ thuật: Chờ Đóng Gói',
+            'pending_handover': 'Kỹ thuật: Chờ Nghiệm Thu',
+            'active': 'Hoàn Tất & Bảo Hành'
+        };
+        return map[s] || 'Đang xử lý';
+    },
+
+    async activateTrial7d() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Kích hoạt dùng thử 07 ngày cho quán này? Kỹ thuật sẽ được mở khóa đóng gói bản Trial ngay.')) return;
+        const res = await fetch('api/super_admin.php?action=activate_trial_7d', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async confirmTenantPayment() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Xác nhận đã thu đủ phí bản quyền cho quán này?')) return;
+        const res = await fetch('api/super_admin.php?action=confirm_payment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async grantWorkflowOverride() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Duyệt ngoại lệ cho phép Kỹ thuật đóng gói bộ cài trước khi hoàn tất chứng từ?')) return;
+        const res = await fetch('api/super_admin.php?action=grant_workflow_override', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
     async testGeminiKey(id, btn) {
         const orig = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
@@ -3348,6 +3725,50 @@ const SuperAdmin = {
         } finally {
             if (btn) btn.disabled = false;
         }
+    },
+
+
+    getWorkflowLabel(t) {
+        const s = t.workflow_stage || 'pending_contract';
+        if (t.subscription_status === 'trial' || s === 'trial') return 'Trial 07 ngày';
+        const map = {
+            'pending_contract': 'Sales: Chờ Hợp Đồng',
+            'pending_payment': 'Kế toán: Chờ Tiền/VAT',
+            'ready_to_install': 'Kỹ thuật: Chờ Đóng Gói',
+            'pending_handover': 'Kỹ thuật: Chờ Nghiệm Thu',
+            'active': 'Hoàn Tất & Bảo Hành'
+        };
+        return map[s] || 'Đang xử lý';
+    },
+
+    async activateTrial7d() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Kích hoạt dùng thử 07 ngày cho quán này? Kỹ thuật sẽ được mở khóa đóng gói bản Trial ngay.')) return;
+        const res = await fetch('api/super_admin.php?action=activate_trial_7d', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async confirmTenantPayment() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Xác nhận đã thu đủ phí bản quyền cho quán này?')) return;
+        const res = await fetch('api/super_admin.php?action=confirm_payment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async grantWorkflowOverride() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Duyệt ngoại lệ cho phép Kỹ thuật đóng gói bộ cài trước khi hoàn tất chứng từ?')) return;
+        const res = await fetch('api/super_admin.php?action=grant_workflow_override', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
     },
 
     async verifyAndSaveMasterGeminiKey(btn) {
@@ -3551,6 +3972,268 @@ const SuperAdmin = {
 
     async pushArchivedPatch(version) {
         this.openPushUpdateModal('ALL', version);
+    },
+
+    // --- LEGAL TEMPLATES MANAGER (SOP-09) ---
+    async loadLegalTemplates() {
+        try {
+            if (!this.tenants || this.tenants.length === 0) {
+                const tRes = await fetch('api/super_admin.php?action=get_tenants').then(r => r.json());
+                if (tRes.success) this.tenants = tRes.tenants || [];
+            }
+            const sel = document.getElementById('tpl-preview-tenant');
+            if (sel) {
+                const prev = sel.value;
+                sel.innerHTML = '<option value="0">Xem thử theo dữ liệu mẫu</option>' +
+                    (this.tenants || []).map(t => `<option value="${t.id}">${t.tenant_code} — ${t.store_name}</option>`).join('');
+                if (prev && prev !== '0' && (this.tenants || []).some(t => String(t.id) === prev)) {
+                    sel.value = prev;
+                } else if (this.tenants && this.tenants.length > 0) {
+                    sel.value = String(this.tenants[this.tenants.length - 1].id);
+                }
+            }
+            const res = await fetch('api/super_admin.php?action=get_legal_templates').then(r => r.json());
+            if (!res.success) return;
+            this.legalTemplates = res.templates || [];
+            this.moduleNameMap = res.module_names || {};
+            const bar = document.getElementById('tpl-selector-bar');
+            if (bar) {
+                bar.innerHTML = this.legalTemplates.map((tpl, idx) => `
+                    <button type="button" onclick="SuperAdmin.selectLegalTemplate('${tpl.file}')"
+                        data-tpl-file="${tpl.file}"
+                        class="tpl-pill-btn px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${idx === 0 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900/70 text-slate-300 border-white/10 hover:border-amber-500/30'}">
+                        <i class="fas fa-file-lines"></i>
+                        <span>${tpl.title}</span>
+                    </button>
+                `).join('');
+            }
+            if (this.legalTemplates.length > 0) {
+                const target = (this.activeLegalTemplateFile && this.legalTemplates.some(x => x.file === this.activeLegalTemplateFile))
+                    ? this.activeLegalTemplateFile
+                    : this.legalTemplates[0].file;
+                this.selectLegalTemplate(target);
+            }
+        } catch (e) {
+            console.error('loadLegalTemplates error:', e);
+        }
+    },
+
+    selectLegalTemplate(file) {
+        const tpl = (this.legalTemplates || []).find(t => t.file === file);
+        if (!tpl) return;
+        this.activeLegalTemplateFile = file;
+        this.legalTemplateMode = this.legalTemplateMode || 'edit';
+        document.querySelectorAll('.tpl-pill-btn').forEach(b => {
+            const active = b.dataset.tplFile === file;
+            b.className = `tpl-pill-btn px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${active ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900/70 text-slate-300 border-white/10 hover:border-amber-500/30'}`;
+        });
+        const desc = document.getElementById('tpl-active-desc');
+        if (desc) desc.textContent = tpl.desc || '';
+        this.renderLegalTemplateFrame();
+    },
+
+    setLegalTemplateMode(mode) {
+        if (this.legalTemplateMode === 'edit') this.syncLegalTemplateFromFrame();
+        this.legalTemplateMode = mode;
+        const bEdit = document.getElementById('btn-tpl-mode-edit');
+        const bPrev = document.getElementById('btn-tpl-mode-preview');
+        const toolbar = document.getElementById('tpl-editor-toolbar');
+        if (bEdit && bPrev) {
+            bEdit.className = mode === 'edit' ? 'px-3 py-1 rounded-lg font-bold bg-purple-600/40 text-white' : 'px-3 py-1 rounded-lg font-bold text-slate-300 hover:text-white';
+            bPrev.className = mode === 'preview' ? 'px-3 py-1 rounded-lg font-bold bg-emerald-600/40 text-white' : 'px-3 py-1 rounded-lg font-bold text-slate-300 hover:text-white';
+        }
+        if (toolbar) toolbar.style.display = mode === 'edit' ? 'flex' : 'none';
+        this.renderLegalTemplateFrame();
+    },
+
+    onTemplateTenantChange() {
+        if (this.legalTemplateMode === 'edit') {
+            this.setLegalTemplateMode('preview');
+        } else {
+            this.renderLegalTemplateFrame();
+        }
+    },
+
+    syncLegalTemplateFromFrame() {
+        const tpl = (this.legalTemplates || []).find(t => t.file === this.activeLegalTemplateFile);
+        const frame = document.getElementById('tpl-a4-frame');
+        if (!tpl || !frame || !frame.contentDocument || !frame.contentDocument.body) return;
+        const bodyHtml = frame.contentDocument.body.innerHTML;
+        if (/<body[^>]*>[\s\S]*<\/body>/i.test(tpl.content)) {
+            tpl.content = tpl.content.replace(/(<body[^>]*>)[\s\S]*(<\/body>)/i, `$1\n${bodyHtml}\n$2`);
+        } else {
+            tpl.content = bodyHtml;
+        }
+    },
+
+    renderLegalTemplateFrame() {
+        const tpl = (this.legalTemplates || []).find(t => t.file === this.activeLegalTemplateFile);
+        const frame = document.getElementById('tpl-a4-frame');
+        if (!tpl || !frame) return;
+        let html = tpl.content || '';
+        const mode = this.legalTemplateMode || 'edit';
+        if (mode === 'preview') {
+            const tid = parseInt(document.getElementById('tpl-preview-tenant')?.value || '0', 10);
+            const t = (this.tenants || []).find(x => x.id === tid);
+            const plan = t ? (this.plans || []).find(p => p.id === t.plan_id) : null;
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yyyy = String(now.getFullYear());
+            const formatModNames = (raw) => {
+                try {
+                    const arr = typeof raw === 'string' ? JSON.parse(raw || '[]') : (Array.isArray(raw) ? raw : []);
+                    if (!Array.isArray(arr) || arr.length === 0) return 'POS Bán Hàng & In Nhiệt';
+                    return arr.map(c => (this.moduleNameMap && this.moduleNameMap[c]) ? this.moduleNameMap[c] : c).join(', ');
+                } catch (_) {
+                    return raw || 'POS Bán Hàng & In Nhiệt';
+                }
+            };
+            const fmtVnDate = (iso) => {
+                if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}/.test(iso)) {
+                    return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+                }
+                return iso || `${dd}/${mm}/${yyyy}`;
+            };
+            const pYear = plan?.price_year || 0;
+            const map = t ? {
+                '{{TENANT_CODE}}': t.tenant_code || '',
+                '{{STORE_NAME}}': t.store_name || '',
+                '{{OWNER_NAME}}': t.owner_name || '(Chưa cập nhật)',
+                '{{REPRESENTATIVE_ROLE}}': t.representative_role || 'Chủ hộ kinh doanh',
+                '{{LEGAL_ENTITY_NAME}}': t.legal_entity_name || t.store_name || '',
+                '{{TAX_ID_OR_CCCD}}': t.tax_id_or_cccd || '(Chưa cập nhật MST/CCCD)',
+                '{{PHONE}}': t.phone || '(Chưa cập nhật)',
+                '{{EMAIL}}': t.email || '(Chưa cập nhật)',
+                '{{STORE_ADDRESS}}': t.address || '(Chưa cập nhật địa chỉ)',
+                '{{BILLING_ADDRESS}}': t.billing_address || t.address || '(Chưa cập nhật địa chỉ)',
+                '{{PLAN_NAME}}': t.plan_name || 'Gói Tiêu Chuẩn',
+                '{{PLAN_PRICE_VND}}': pYear > 0 ? (pYear.toLocaleString('vi-VN') + ' đ') : 'Miễn phí (Gói Trải Nghiệm)',
+                '{{START_DATE}}': fmtVnDate(t.start_date),
+                '{{EXPIRE_DATE}}': fmtVnDate(t.expire_date),
+                '{{LICENSE_KEY}}': t.license_key || '',
+                '{{ENABLED_MODULES}}': formatModNames(t.enabled_modules),
+                '{{CREATED_DATE}}': `${dd}/${mm}/${yyyy}`,
+                '{{DATE_COMPACT}}': `${yyyy}${mm}${dd}`
+            } : {
+                '{{TENANT_CODE}}': 'SDL001',
+                '{{STORE_NAME}}': 'Si Đô La Coffee & Tea',
+                '{{OWNER_NAME}}': 'Trần Văn Đô',
+                '{{REPRESENTATIVE_ROLE}}': 'Chủ hộ kinh doanh',
+                '{{LEGAL_ENTITY_NAME}}': 'Hộ Kinh Doanh Si Đô La',
+                '{{TAX_ID_OR_CCCD}}': '079092001234',
+                '{{PHONE}}': '0989123456',
+                '{{EMAIL}}': 'sidola@gmail.com',
+                '{{STORE_ADDRESS}}': '123 Nguyễn Huệ, Q.1, TP.HCM',
+                '{{BILLING_ADDRESS}}': '123 Nguyễn Huệ, Q.1, TP.HCM',
+                '{{PLAN_NAME}}': 'Gói Chuỗi Đỉnh Cao (Enterprise)',
+                '{{PLAN_PRICE_VND}}': '6.000.000 đ',
+                '{{START_DATE}}': `${yyyy}-${mm}-${dd}`,
+                '{{EXPIRE_DATE}}': `${Number(yyyy) + 1}-${mm}-${dd}`,
+                '{{LICENSE_KEY}}': 'LIC-ABCD-1234-EFGH-5678',
+                '{{ENABLED_MODULES}}': 'POS Bán Hàng & In Nhiệt, Thanh Toán VietQR Tự Động, Truyền Thông & Quảng Cáo (Slide/Video)',
+                '{{CREATED_DATE}}': `${dd}/${mm}/${yyyy}`,
+                '{{DATE_COMPACT}}': `${yyyy}${mm}${dd}`
+            };
+            Object.entries(map).forEach(([k, v]) => {
+                html = html.split(k).join(v);
+            });
+        }
+        frame.onload = () => {
+            if (frame.contentDocument && frame.contentDocument.body) {
+                frame.contentDocument.body.contentEditable = (mode === 'edit') ? 'true' : 'false';
+                frame.contentDocument.body.style.outline = 'none';
+            }
+        };
+        frame.srcdoc = html;
+    },
+
+    execTplCmd(cmd) {
+        const frame = document.getElementById('tpl-a4-frame');
+        if (!frame || !frame.contentDocument) return;
+        frame.contentWindow.focus();
+        frame.contentDocument.execCommand(cmd, false, null);
+    },
+
+    insertTemplatePlaceholder(token) {
+        if (this.legalTemplateMode !== 'edit') this.setLegalTemplateMode('edit');
+        const frame = document.getElementById('tpl-a4-frame');
+        if (!frame || !frame.contentDocument) return;
+        frame.contentWindow.focus();
+        frame.contentDocument.execCommand('insertText', false, token);
+    },
+
+    async saveLegalTemplate() {
+        if (this.legalTemplateMode === 'edit') this.syncLegalTemplateFromFrame();
+        const file = this.activeLegalTemplateFile;
+        const tpl = (this.legalTemplates || []).find(t => t.file === file);
+        if (!file || !tpl) return;
+        const btn = document.getElementById('btn-save-legal-tpl');
+        if (btn) btn.disabled = true;
+        try {
+            const res = await fetch('api/super_admin.php?action=save_legal_template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file, content: tpl.content })
+            }).then(r => r.json());
+            alert(res.message || (res.success ? 'Đã lưu biểu mẫu!' : 'Không thể lưu biểu mẫu!'));
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+
+    getWorkflowLabel(t) {
+        const s = t.workflow_stage || 'pending_contract';
+        if (t.subscription_status === 'trial' || s === 'trial') return 'Trial 07 ngày';
+        const map = {
+            'pending_contract': 'Sales: Chờ Hợp Đồng',
+            'pending_payment': 'Kế toán: Chờ Tiền/VAT',
+            'ready_to_install': 'Kỹ thuật: Chờ Đóng Gói',
+            'pending_handover': 'Kỹ thuật: Chờ Nghiệm Thu',
+            'active': 'Hoàn Tất & Bảo Hành'
+        };
+        return map[s] || 'Đang xử lý';
+    },
+
+    async activateTrial7d() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Kích hoạt dùng thử 07 ngày cho quán này? Kỹ thuật sẽ được mở khóa đóng gói bản Trial ngay.')) return;
+        const res = await fetch('api/super_admin.php?action=activate_trial_7d', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async confirmTenantPayment() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Xác nhận đã thu đủ phí bản quyền cho quán này?')) return;
+        const res = await fetch('api/super_admin.php?action=confirm_payment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    async grantWorkflowOverride() {
+        const tid = this.currentPackageTenantId;
+        if (!tid || !confirm('Duyệt ngoại lệ cho phép Kỹ thuật đóng gói bộ cài trước khi hoàn tất chứng từ?')) return;
+        const res = await fetch('api/super_admin.php?action=grant_workflow_override', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid })
+        }).then(r => r.json());
+        alert(res.message || 'Đã cập nhật');
+        if (res.success) { await this.loadTenantPackages(tid); this.loadTenants(); }
+    },
+
+    printLegalTemplatePreview() {
+        const frame = document.getElementById('tpl-a4-frame');
+        if (frame && frame.contentWindow) {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        }
     }
 };
 

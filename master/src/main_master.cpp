@@ -105,7 +105,21 @@ int main(int argc, char* argv[]) {
                 {"geo_source", "TEXT DEFAULT 'ip'"},
                 {"default_pin_sha256", "TEXT DEFAULT ''"},
                 {"default_pin_enc", "TEXT DEFAULT ''"},
-                {"pin_reset_pending", "INTEGER DEFAULT 0"}
+                {"pin_reset_pending", "INTEGER DEFAULT 0"},
+                {"legal_entity_name", "TEXT DEFAULT ''"},
+                {"tax_id_or_cccd", "TEXT DEFAULT ''"},
+                {"representative_role", "TEXT DEFAULT 'Chủ hộ kinh doanh'"},
+                {"billing_address", "TEXT DEFAULT ''"},
+                {"workflow_stage", "TEXT DEFAULT 'pending_contract'"},
+                {"payment_confirmed", "INTEGER DEFAULT 0"},
+                {"payment_confirmed_by", "TEXT DEFAULT ''"},
+                {"payment_confirmed_at", "TEXT DEFAULT ''"},
+                {"trial_started_at", "TEXT DEFAULT ''"},
+                {"handover_at", "TEXT DEFAULT ''"},
+                {"warranty_until", "TEXT DEFAULT ''"},
+                {"workflow_override", "INTEGER DEFAULT 0"},
+                {"deleted_at", "TEXT DEFAULT ''"},
+                {"deleted_reason", "TEXT DEFAULT ''"}
             };
             for (const auto& [col, def] : extraCols) {
                 if (!hasCol(col)) {
@@ -165,6 +179,43 @@ int main(int argc, char* argv[]) {
     }
     svr.set_mount_point("/packages", packagesDir.string());
     std::cout << "[Master Static] Mount /packages -> " << packagesDir.string() << std::endl;
+
+    svr.Get("/api/download_package", [packagesDir](const httplib::Request& req, httplib::Response& res) {
+        std::string rel = req.get_param_value("file");
+        if (rel.rfind("packages/", 0) == 0) rel = rel.substr(9);
+        else if (rel.rfind("/packages/", 0) == 0) rel = rel.substr(10);
+        if (rel.empty()) { res.status = 400; return; }
+        std::error_code ec;
+        fs::path rootCan = fs::weakly_canonical(packagesDir, ec);
+        fs::path targetCan = fs::weakly_canonical(packagesDir / fs::path(rel), ec);
+        std::string rootStr = rootCan.string();
+        std::string targetStr = targetCan.string();
+        if (ec || targetStr.rfind(rootStr, 0) != 0 || !fs::exists(targetCan, ec) || !fs::is_regular_file(targetCan, ec)) {
+            res.status = 404;
+            res.set_content("File not found", "text/plain; charset=utf-8");
+            return;
+        }
+        auto fileSize = static_cast<size_t>(fs::file_size(targetCan, ec));
+        std::string fname = targetCan.filename().string();
+        res.set_header("Content-Disposition", "attachment; filename=\"" + fname + "\"");
+        res.set_header("X-Content-Type-Options", "nosniff");
+        auto ifs = std::make_shared<std::ifstream>(targetCan, std::ios::binary);
+        if (!ifs || !(*ifs)) { res.status = 500; return; }
+        res.set_content_provider(
+            fileSize,
+            "application/octet-stream",
+            [ifs](size_t offset, size_t length, httplib::DataSink& sink) {
+                std::vector<char> buf((std::min)(length, size_t(65536)));
+                ifs->clear();
+                ifs->seekg(static_cast<std::streamoff>(offset));
+                size_t toRead = (std::min)(length, buf.size());
+                ifs->read(buf.data(), static_cast<std::streamsize>(toRead));
+                auto got = static_cast<size_t>(ifs->gcount());
+                if (got == 0) return false;
+                return sink.write(buf.data(), got);
+            }
+        );
+    });
 
     // Helper view server
     auto serveMasterView = [webDir](const httplib::Request& req, httplib::Response& res) {

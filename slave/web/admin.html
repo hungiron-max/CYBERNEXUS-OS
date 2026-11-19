@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GÓC PHỐ COFFEE & TEA - Quản Trị Hệ Thống</title>
+    <title>CyberNexus POS - Quản Trị Hệ Thống</title>
     <link rel="icon" type="image/png" href="favicon.png?v=20261118">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
     
@@ -85,6 +85,7 @@
             });
         }
     </script>
+    <script src="assets/js/store_brand.js"></script>
 </head>
 <body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100">
 
@@ -102,8 +103,7 @@
             <div class="flex flex-col shrink-0">
                 <div class="flex items-center gap-3 shrink-0">
                     <h1 class="font-black text-sm sm:text-base tracking-wide uppercase text-white shrink-0 flex items-center gap-1.5">
-                        <span class="text-amber-400 font-black">GÓC PHỐ</span>
-                        <span class="text-white font-extrabold">COFFEE &amp; TEA</span>
+                        <span class="text-amber-400 font-black" data-store-name>CyberNexus POS</span>
                     </h1>
                     <button type="button" id="admin-update-badge" onclick="Admin.handleAdminBadgeUpdateClick(this)" title="Chủ Quán (Admin) • Bấm để kiểm tra / cập nhật hệ thống" class="relative inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 shrink-0 shadow-sm cursor-pointer transition whitespace-nowrap">
                         <i class="fas fa-crown text-[10px] text-amber-400"></i> Chủ Quán (Admin)
@@ -1712,7 +1712,7 @@
                     <div class="settings-group space-y-4" data-settings-group="store">
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Tên Quán / Cửa hàng:</label>
-                        <input type="text" name="store_name" value="Góc Phố Coffee & Tea" class="liquid-input w-full text-sm font-bold text-sky-300" required />
+                        <input type="text" name="store_name" value="CyberNexus POS" class="liquid-input w-full text-sm font-bold text-sky-300" required />
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1722,7 +1722,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Tên mạng Wi-Fi (SSID):</label>
-                            <input type="text" name="store_wifi_ssid" value="GocPho_Guest" maxlength="128" class="liquid-input w-full text-sm font-semibold" placeholder="Tên mạng cần chia sẻ" />
+                            <input type="text" name="store_wifi_ssid" value="Store_WiFi" maxlength="128" class="liquid-input w-full text-sm font-semibold" placeholder="Tên mạng cần chia sẻ" />
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Mật khẩu Wi-Fi:</label>
@@ -4407,7 +4407,7 @@
 
             <!-- Standee Card Container (A6 Ratio for table stands) -->
             <div id="standee-single-preview" class="p-4 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-sky-500/30 text-center shadow-xl relative overflow-hidden">
-                <div class="text-[11px] font-black uppercase tracking-widest text-sky-400 mb-0.5" id="standee-store-title">GÓC PHỐ COFFEE & TEA</div>
+                <div class="text-[11px] font-black uppercase tracking-widest text-sky-400 mb-0.5" id="standee-store-title">CyberNexus POS</div>
                 <div class="text-[10px] text-slate-400 font-semibold mb-2.5">HỆ THỐNG GỌI MÓN & JUKEBOX TẠI BÀN</div>
 
                 <!-- Table Code Highlight -->
