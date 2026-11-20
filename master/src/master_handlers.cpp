@@ -792,8 +792,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     return;
                 }
 
-                // Check all tenants
-                json rows = db.query("SELECT id, tenant_code, store_name, last_check_at, last_check_ip FROM saas_tenants ORDER BY id ASC");
+                // Check all active/non-deleted tenants
+                json rows = db.query("SELECT id, tenant_code, store_name, last_check_at, last_check_ip FROM saas_tenants WHERE COALESCE(subscription_status, 'active') != 'deleted' ORDER BY id ASC");
                 json results = json::array();
                 for (const auto& r : rows) {
                     int64_t id = r.contains("id") && r["id"].is_number() ? r["id"].get<int64_t>() : 0;
@@ -2985,6 +2985,39 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     } catch (...) {}
                 }
 
+                if (mode == "ota_update") {
+                    std::string chosenVer = manifest.value("version", reqVersion);
+                    std::string patchTenant = manifest.value("target_tenant", "");
+                    if (patchTenant.empty()) {
+                        auto dashPos = chosenVer.rfind('-');
+                        if (dashPos != std::string::npos && dashPos + 1 < chosenVer.size()) {
+                            patchTenant = chosenVer.substr(dashPos + 1);
+                        }
+                    }
+                    if ((targetCode.empty() || targetCode == "ALL") && !patchTenant.empty()) {
+                        sendError(res, "Không thể đẩy bản vá riêng [" + patchTenant + "] cho toàn bộ cửa hàng (ALL)!", 400);
+                        return;
+                    }
+                    if (!targetCode.empty() && targetCode != "ALL" && !patchTenant.empty() && patchTenant != targetCode) {
+                        sendError(res, "Bản vá v" + chosenVer + " dành riêng cho [" + patchTenant + "], không khớp với [" + targetCode + "]!", 400);
+                        return;
+                    }
+                    // Ghi nhận mã quán đã được đẩy vào manifest của bản vá để hiển thị [ĐÃ ĐẨY] / [CHƯA ĐẨY]
+                    try {
+                        json pushedArr = manifest.contains("pushed_stores") && manifest["pushed_stores"].is_array()
+                            ? manifest["pushed_stores"] : json::array();
+                        std::string markCode = (targetCode.empty() || targetCode == "ALL") ? "ALL" : targetCode;
+                        bool existsMark = false;
+                        for (const auto& item : pushedArr) {
+                            if (item.is_string() && item.get<std::string>() == markCode) { existsMark = true; break; }
+                        }
+                        if (!existsMark) pushedArr.push_back(markCode);
+                        manifest["pushed_stores"] = pushedArr;
+                        std::ofstream mfOut(manifestPath.string(), std::ios::binary | std::ios::trunc);
+                        if (mfOut) mfOut << manifest.dump(2) << "\n";
+                    } catch (...) {}
+                }
+
                 std::string cmdType = (mode == "ota_update") ? "OTA_UPDATE" : "STORE_NOTIFY";
                 json payload = {
                     {"mode", mode},
@@ -3066,11 +3099,23 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         std::ifstream in(mfPath.string());
                         in >> mf;
                         std::string ver = mf.value("version", entry.path().filename().string());
+                        std::string targetTenant = mf.value("target_tenant", "");
+                        if (targetTenant.empty()) {
+                            auto dashPos = ver.rfind('-');
+                            if (dashPos != std::string::npos && dashPos + 1 < ver.size()) {
+                                targetTenant = ver.substr(dashPos + 1);
+                            }
+                        }
+                        bool autoPub = targetTenant.empty() && mf.value("auto_publish", false);
                         patches.push_back({
                             {"version", ver},
                             {"title", mf.value("title", "Bản vá " + ver)},
                             {"notes", mf.value("notes", "")},
                             {"created_at", mf.value("created_at", "")},
+                            {"target_tenant", targetTenant},
+                            {"scope", targetTenant.empty() ? "global" : "store"},
+                            {"auto_publish", autoPub},
+                            {"pushed_stores", mf.contains("pushed_stores") && mf["pushed_stores"].is_array() ? mf["pushed_stores"] : json::array()},
                             {"files_count", mf.contains("files") && mf["files"].is_array() ? mf["files"].size() : 0},
                             {"size_bytes", static_cast<int64_t>(fs::file_size(zipPath))},
                             {"is_active", (!activeVer.empty() && ver == activeVer)}
@@ -3103,12 +3148,30 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 sendError(res, "Không tìm thấy bản vá v" + ver + " trong kho lưu trữ!", 404);
                 return;
             }
-            fs::copy_file(mfSrc, updatesDir / "manifest.json", fs::copy_options::overwrite_existing);
+            json mfJson;
+            {
+                std::ifstream in(mfSrc.string());
+                in >> mfJson;
+            }
+            std::string patchTenant = mfJson.value("target_tenant", "");
+            if (patchTenant.empty()) {
+                auto dashPos = ver.rfind('-');
+                if (dashPos != std::string::npos && dashPos + 1 < ver.size()) patchTenant = ver.substr(dashPos + 1);
+            }
+            if (!patchTenant.empty()) {
+                sendError(res, "Không thể duyệt bản vá riêng của quán [" + patchTenant + "] thành bản đại trà toàn hệ thống!", 400);
+                return;
+            }
+            mfJson["auto_publish"] = true;
+            {
+                std::ofstream out((updatesDir / "manifest.json").string(), std::ios::binary | std::ios::trunc);
+                out << mfJson.dump(2) << "\n";
+            }
             fs::copy_file(zipSrc, updatesDir / "patch_latest.zip", fs::copy_options::overwrite_existing);
             sendJson(res, {
                 {"success", true},
                 {"active_version", ver},
-                {"message", "Đã kích hoạt bản vá v" + ver + " làm bản phát hành OTA hiện tại!"}
+                {"message", "Đã duyệt & phát hành bản vá v" + ver + " cho phép các quán tự quét OTA!"}
             });
             return;
         }
@@ -3775,7 +3838,8 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 replyTunnelJson(res, {{"success", false}, {"message", "License key không hợp lệ trên Master!"}}, 403);
                 return;
             }
-            if (getString(tenant, "subscription_status", "active") != "active") {
+            std::string subSt = getString(tenant, "subscription_status", "active");
+            if (subSt != "active" && subSt != "trial") {
                 replyTunnelJson(res, {{"success", false}, {"message", "Gói bản quyền của quán đang tạm khóa!"}}, 403);
                 return;
             }
@@ -4168,13 +4232,53 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             json manifest;
             std::ifstream mf(manifestPath.string());
             mf >> manifest;
+            std::string mVer = manifest.value("version", "");
+            std::string mTenant = manifest.value("target_tenant", "");
+            if (!manifest.value("auto_publish", false) || !mTenant.empty() || mVer.find('-') != std::string::npos) {
+                replyTunnelJson(res, {{"success", true}, {"has_patch", false}, {"manifest", json::object()}});
+                return;
+            }
+            std::string zipSha256;
+            try {
+                std::ifstream zf(zipPath.string(), std::ios::binary);
+                if (zf) {
+                    std::ostringstream zss;
+                    zss << zf.rdbuf();
+                    zipSha256 = AuthService::sha256(zss.str());
+                }
+            } catch (...) {}
             replyTunnelJson(res, {
                 {"success", true},
                 {"has_patch", true},
                 {"download_path", "/api/updates/download"},
                 {"zip_size_bytes", fs::file_size(zipPath)},
+                {"sha256", zipSha256},
                 {"manifest", manifest}
             });
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
+    });
+
+    // Backward-compatible alias for older Control Center builds
+    svr.Get("/api/updates/manifest", [](const httplib::Request&, httplib::Response& res) {
+        fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+        fs::path manifestPath = updatesDir / "manifest.json";
+        if (!fs::exists(manifestPath)) {
+            replyTunnelJson(res, {{"version", ""}, {"has_patch", false}, {"auto_publish", false}});
+            return;
+        }
+        try {
+            json manifest;
+            std::ifstream mf(manifestPath.string());
+            mf >> manifest;
+            std::string mVer = manifest.value("version", "");
+            std::string mTenant = manifest.value("target_tenant", "");
+            if (!manifest.value("auto_publish", false) || !mTenant.empty() || mVer.find('-') != std::string::npos) {
+                replyTunnelJson(res, {{"version", ""}, {"has_patch", false}, {"auto_publish", false}});
+                return;
+            }
+            replyTunnelJson(res, manifest);
         } catch (const std::exception& e) {
             replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
         }
@@ -4201,6 +4305,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         }
         std::ifstream ifs(zipPath.string(), std::ios::binary);
         std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        res.set_header("X-Package-SHA256", AuthService::sha256(content));
         res.set_header("Content-Disposition", "attachment; filename=\"" + filename + "\"");
         res.set_content(content, "application/zip");
     });

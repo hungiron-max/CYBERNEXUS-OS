@@ -23,12 +23,13 @@ public:
         return inst;
     }
 
-    void recordNotification(const std::string& type, const std::string& title, const std::string& message, const std::string& version = "") {
+    void recordNotification(const std::string& type, const std::string& title, const std::string& message, const std::string& version = "", const std::string& downloadPath = "") {
         {
             std::lock_guard<std::mutex> lk(mtx_);
             if (type == "SYSTEM_UPDATE") {
                 has_update_ = true;
                 if (!version.empty()) latest_version_ = version;
+                if (!downloadPath.empty()) download_path_ = downloadPath;
                 update_title_ = title;
                 update_message_ = message;
             }
@@ -65,6 +66,7 @@ public:
             {"latest_version", latest_version_},
             {"update_title", update_title_},
             {"update_message", update_message_},
+            {"download_path", download_path_.empty() ? "/api/updates/download" : download_path_},
             {"applying", applying_.load()},
             {"restart_pending", restart_pending_.load()},
             {"last_result", last_result_},
@@ -259,10 +261,16 @@ public:
         }
     }
 
+    std::string getPendingDownloadPath() {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return download_path_.empty() ? "/api/updates/download" : download_path_;
+    }
+
 private:
     std::mutex mtx_;
     bool has_update_ = false;
     std::string latest_version_;
+    std::string download_path_;
     std::string update_title_;
     std::string update_message_;
     std::string last_result_;

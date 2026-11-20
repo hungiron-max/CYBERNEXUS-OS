@@ -53,6 +53,23 @@
             const res = await fetch('/api/settings.php', { cache: 'no-store' });
             const json = await res.json();
             const d = (json && json.data) ? json.data : json;
+            if (d && d.ota_applied_version) {
+                const page = (window.location.pathname || '').toLowerCase();
+                const isPublicPage = page.endsWith('/login.html') || page.endsWith('/customer.html') || page.endsWith('/wifi.html');
+                const prevOta = localStorage.getItem('cnx_session_ota_ver');
+                if (!isPublicPage && localStorage.getItem('pos_token')) {
+                    if (prevOta && prevOta !== d.ota_applied_version) {
+                        localStorage.removeItem('pos_token');
+                        localStorage.removeItem('pos_user');
+                        localStorage.setItem('cnx_session_ota_ver', d.ota_applied_version);
+                        window.location.href = 'login.html?reason=updated';
+                        return;
+                    }
+                    if (!prevOta) localStorage.setItem('cnx_session_ota_ver', d.ota_applied_version);
+                } else if (isPublicPage) {
+                    localStorage.setItem('cnx_session_ota_ver', d.ota_applied_version);
+                }
+            }
             if (d && d.store_name) {
                 applyStoreBrand(d);
                 try {
@@ -64,6 +81,23 @@
                         store_address: d.store_address || ''
                     }));
                 } catch (e) {}
+            }
+        } catch (e) {}
+
+        try {
+            const lRes = await fetch('/api/license.php?action=status', { cache: 'no-store' });
+            const lJson = await lRes.json();
+            if (lJson && lJson.success && lJson.data) {
+                const mods = Array.isArray(lJson.data.modules) ? lJson.data.modules : [];
+                const blocked = Array.isArray(lJson.data.blocked_modules) ? lJson.data.blocked_modules : [];
+                const mediaAllowed = (mods.includes('mod_media_stream') || mods.includes('media_stream'))
+                    && !blocked.includes('mod_media_stream') && !blocked.includes('media_stream');
+                if (!mediaAllowed) {
+                    ['pos-jukebox-pill', 'admin-jukebox-pill', 'customer-jukebox-bar'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'none';
+                    });
+                }
             }
         } catch (e) {}
     }

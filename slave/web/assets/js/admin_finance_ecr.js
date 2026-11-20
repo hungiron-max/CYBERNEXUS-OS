@@ -564,15 +564,6 @@ Object.assign(Admin, {
 
     async loadSystemUpdates() {
         try {
-            const nowMs = Date.now();
-            if (nowMs - this._lastMasterCheckAt > 55000) {
-                this._lastMasterCheckAt = nowMs;
-                await fetch('/api/system/updates', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'check' })
-                }).catch(() => {});
-            }
             const res = await fetch('/api/system/updates');
             const data = await res.json();
             if (!data.success) return;
@@ -587,34 +578,31 @@ Object.assign(Admin, {
             const dotEl = document.getElementById('admin-update-dot');
             const badgeEl = document.getElementById('admin-update-badge');
 
+            // Chỉ hiển thị thông báo văn bản (SYSTEM_NOTIFY) trên Web; OTA Update chỉ hiển thị & thực hiện tại Control Center
             const unread = Array.isArray(data.notifications)
-                ? data.notifications.find(n => Number(n.is_read) === 0)
+                ? data.notifications.find(n => Number(n.is_read) === 0 && n.type === 'SYSTEM_NOTIFY')
                 : null;
-            const hasAlert = Boolean(data.has_update || unread);
-            const isOta = Boolean(data.has_update || (unread && unread.type === 'SYSTEM_UPDATE'));
+            const hasAlert = Boolean(unread);
             this._pendingSystemUpdate = hasAlert ? {
-                isOta,
-                version: (unread && unread.version) || data.latest_version || '',
-                title: (unread && unread.title) || data.update_title || 'Có bản cập nhật mới từ Master',
-                message: (unread && unread.message) || data.update_message || ''
+                isOta: false,
+                version: unread.version || '',
+                title: unread.title || 'Thông báo từ Master',
+                message: unread.message || ''
             } : null;
 
             if (dotEl) dotEl.classList.toggle('hidden', !hasAlert);
             if (badgeEl) {
                 badgeEl.title = hasAlert
-                    ? `Có cập nhật mới${this._pendingSystemUpdate.version ? ' (v' + this._pendingSystemUpdate.version + ')' : ''} — Bấm vào đây để cập nhật ngay!`
-                    : 'Chủ Quán (Admin) • Bấm để kiểm tra cập nhật hệ thống';
+                    ? `${this._pendingSystemUpdate.title}`
+                    : 'Chủ Quán (Admin) • Cập nhật OTA thực hiện tại CyberNexus Control Center';
             }
             if (!banner) return;
 
             if (hasAlert) {
                 banner.classList.remove('hidden');
                 if (titleEl) titleEl.textContent = this._pendingSystemUpdate.title;
-                if (msgEl) {
-                    const ver = this._pendingSystemUpdate.version;
-                    msgEl.textContent = (ver ? `[v${ver}] ` : '') + this._pendingSystemUpdate.message;
-                }
-                if (applyBtn) applyBtn.classList.toggle('hidden', !isOta);
+                if (msgEl) msgEl.textContent = this._pendingSystemUpdate.message;
+                if (applyBtn) applyBtn.classList.add('hidden');
             } else {
                 banner.classList.add('hidden');
             }
@@ -622,25 +610,14 @@ Object.assign(Admin, {
     },
 
     async handleAdminBadgeUpdateClick(btn) {
-        try {
-            await fetch('/api/system/updates', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'check' })
-            });
-        } catch (e) {}
         await this.loadSystemUpdates();
-        if (this._pendingSystemUpdate && this._pendingSystemUpdate.isOta) {
-            await this.applySystemUpdate(null);
-            return;
-        }
         if (this._pendingSystemUpdate) {
             const banner = document.getElementById('system-update-banner');
             if (banner) banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
             alert(`${this._pendingSystemUpdate.title}\n${this._pendingSystemUpdate.message}`);
             return;
         }
-        alert('Hệ thống Store đang ở phiên bản mới nhất, chưa có bản cập nhật mới từ Master.');
+        alert('Việc kiểm tra và cập nhật phiên bản OTA được thực hiện tại ứng dụng CyberNexus Control Center.');
     },
 
     async applySystemUpdate(btn) {
@@ -755,24 +732,11 @@ Object.assign(Admin, {
                 { sel: '[data-sg-btn="vietqr"]', code: 'vietqr_payment', allowClickForLockScreen: false },
                 { sel: '#admin-card-payment-panel', code: 'mod_card_payment', allowClickForLockScreen: false }
             ];
-            subTabMap.forEach(({ sel, code, allowClickForLockScreen }) => {
+            subTabMap.forEach(({ sel, code }) => {
                 const allowed = this.isModuleAllowed(code);
                 document.querySelectorAll(sel).forEach(el => {
-                    el.classList.toggle('opacity-40', !allowed);
-                    if (!allowClickForLockScreen) {
-                        el.classList.toggle('pointer-events-none', !allowed);
-                    } else {
-                        el.classList.remove('pointer-events-none');
-                    }
-                    el.title = allowed ? '' : `Module [${code}] chưa được cấp phép hoặc đã bị Master tắt/khóa`;
-                    let lockIcon = el.querySelector('.cn-mod-lock');
-                    if (!allowed && !lockIcon) {
-                        lockIcon = document.createElement('i');
-                        lockIcon.className = 'fas fa-lock text-rose-400 text-[10px] cn-mod-lock ml-1';
-                        el.appendChild(lockIcon);
-                    } else if (allowed && lockIcon) {
-                        lockIcon.remove();
-                    }
+                    if (sel === '.admin-sub-btn[data-tab="operations"]') return;
+                    el.style.display = allowed ? '' : 'none';
                 });
             });
 
@@ -782,18 +746,9 @@ Object.assign(Admin, {
 
             Object.entries(tabModuleMap).forEach(([tab, modCode]) => {
                 const allowed = this.isModuleAllowed(modCode);
-                const btn = document.querySelector(`.admin-sub-btn[data-tab="${tab}"]`);
-                if (btn) {
-                    btn.classList.toggle('opacity-40', !allowed);
-                    let lockIcon = btn.querySelector('.cn-mod-lock');
-                    if (!allowed && !lockIcon) {
-                        lockIcon = document.createElement('i');
-                        lockIcon.className = 'fas fa-lock text-rose-400 text-[10px] cn-mod-lock ml-1';
-                        btn.appendChild(lockIcon);
-                    } else if (allowed && lockIcon) {
-                        lockIcon.remove();
-                    }
-                }
+                document.querySelectorAll(`.admin-sub-btn[data-tab="${tab}"], [data-mobile-tab="${tab}"]`).forEach(btn => {
+                    btn.style.display = allowed ? '' : 'none';
+                });
                 const section = document.getElementById(`tab-${tab}`);
                 if (section) {
                     let lockOverlay = section.querySelector('.cn-module-lock-screen');
@@ -828,6 +783,9 @@ Object.assign(Admin, {
             if (mediaTab) mediaTab.style.display = mediaAllowed ? '' : 'none';
             if (!mediaAllowed && typeof JukeboxPlayer !== 'undefined' && JukeboxPlayer.audio && !JukeboxPlayer.audio.paused) {
                 JukeboxPlayer.audio.pause();
+            }
+            if (typeof Admin !== 'undefined' && Admin.currentTab && tabModuleMap[Admin.currentTab] && !this.isModuleAllowed(tabModuleMap[Admin.currentTab])) {
+                Admin.switchGroup(Admin.currentGroup || 'ops');
             }
         } catch (e) {}
     },

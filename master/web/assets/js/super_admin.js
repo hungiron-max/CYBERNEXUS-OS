@@ -574,10 +574,10 @@ const SuperAdmin = {
                         }
                     }
                 });
-                alert(`Hoàn tất kiểm tra ${data.results.length} cửa hàng: ${onCount} Online / ${data.results.length - onCount} Offline.`);
+                this.showToast(`Hoàn tất kiểm tra ${data.results.length} cửa hàng: ${onCount} Online • ${data.results.length - onCount} Offline`, onCount > 0 ? 'success' : 'info');
             }
         } catch (err) {
-            alert('Lỗi kiểm tra toàn bộ Store: ' + err.message);
+            this.showToast('Lỗi kiểm tra toàn bộ Store: ' + err.message, 'error');
         } finally {
             if (btnEl) {
                 btnEl.disabled = false;
@@ -3101,10 +3101,19 @@ const SuperAdmin = {
     async openPushUpdateModal(targetCode = 'ALL', preselectVersion = '') {
         const modal = document.getElementById('modal-push-update');
         if (!modal) return;
-        const targetInput = document.getElementById('push-target-code');
+        const targetSelect = document.getElementById('push-target-code');
+        const modeSelect = document.getElementById('push-mode');
         const infoEl = document.getElementById('push-patch-info');
-        const verSelect = document.getElementById('push-patch-version');
-        if (targetInput) targetInput.value = targetCode || 'ALL';
+        if (targetSelect) {
+            const activeTenants = (this.tenants || []).filter(t => t.subscription_status !== 'deleted');
+            targetSelect.innerHTML = [
+                '<option value="ALL">ALL — Tất cả cửa hàng (Chỉ hiện bản đại trà)</option>',
+                ...activeTenants.map(t => `<option value="${t.tenant_code}">${t.tenant_code} — ${this._escHtml(t.store_name || '')}</option>`)
+            ].join('');
+            targetSelect.value = targetCode || 'ALL';
+        }
+        if (modeSelect) modeSelect.value = 'ota_update';
+        this.onPushModeChange();
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         if (infoEl) infoEl.textContent = 'Đang tải danh sách các bản vá trên Master...';
@@ -3114,28 +3123,71 @@ const SuperAdmin = {
             const patches = (data.success && Array.isArray(data.patches)) ? data.patches : [];
             patches.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
             this._pushPatchesCache = patches;
-            if (verSelect) {
-                if (patches.length === 0) {
-                    verSelect.innerHTML = '<option value="">-- Chưa có bản vá nào trong kho lưu trữ --</option>';
-                    if (infoEl) infoEl.textContent = 'Chưa có file bản vá nào trên Master.';
-                } else {
-                    verSelect.innerHTML = patches.map((p, idx) => {
-                        const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
-                        const tags = [];
-                        if (idx === 0) tags.push('Mới nhất');
-                        if (p.is_active) tags.push('Đang phát hành');
-                        const tagStr = tags.length ? ` [${tags.join(' • ')}]` : '';
-                        return `<option value="${p.version}">v${p.version}${tagStr} — ${mb} MB (${p.title || ''})</option>`;
-                    }).join('');
-                    verSelect.value = preselectVersion && patches.some(p => p.version === preselectVersion)
-                        ? preselectVersion
-                        : patches[0].version;
-                    this.onPushPatchVersionChange();
-                }
-            }
+            this.onPushTargetChange(preselectVersion);
         } catch (e) {
             if (infoEl) infoEl.textContent = 'Không kiểm tra được kho bản vá: ' + e.message;
         }
+    },
+
+    onPushModeChange() {
+        const mode = document.getElementById('push-mode')?.value || 'ota_update';
+        const isOta = (mode === 'ota_update');
+        document.getElementById('push-patch-version-wrap')?.classList.toggle('hidden', !isOta);
+        document.getElementById('push-auto-apply-wrap')?.classList.toggle('hidden', !isOta);
+        const infoEl = document.getElementById('push-patch-info');
+        if (infoEl) infoEl.classList.toggle('hidden', !isOta);
+    },
+
+    onPushTargetChange(preselectVersion = '') {
+        const targetCode = (document.getElementById('push-target-code')?.value || 'ALL').trim();
+        const verSelect = document.getElementById('push-patch-version');
+        const infoEl = document.getElementById('push-patch-info');
+        const lblEl = document.getElementById('push-patch-label');
+        const allPatches = this._pushPatchesCache || [];
+
+        const filtered = allPatches.filter(p => {
+            const pt = String(p.target_tenant || '').trim();
+            if (targetCode === 'ALL') return !pt;
+            return !pt || pt === targetCode;
+        });
+
+        if (lblEl) {
+            lblEl.textContent = targetCode === 'ALL'
+                ? 'Chọn phiên bản bản vá Đại trà (Không chứa bản riêng từng quán)'
+                : `Chọn phiên bản bản vá áp dụng cho [${targetCode}]`;
+        }
+
+        if (!verSelect) return;
+        if (filtered.length === 0) {
+            verSelect.innerHTML = targetCode === 'ALL'
+                ? '<option value="">-- Chưa có bản vá đại trà nào --</option>'
+                : `<option value="">-- Chưa có bản vá riêng (-${targetCode}) cho quán này --</option>`;
+            if (infoEl) {
+                infoEl.textContent = targetCode === 'ALL'
+                    ? 'Chưa có bản vá đại trà nào trên Master.'
+                    : `Quán ${targetCode} chưa có bản vá riêng (đuôi -${targetCode}).`;
+            }
+            return;
+        }
+
+        verSelect.innerHTML = filtered.map((p, idx) => {
+            const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+            const pushedList = Array.isArray(p.pushed_stores) ? p.pushed_stores : [];
+            const isPushed = targetCode === 'ALL'
+                ? (Boolean(p.auto_publish) || pushedList.includes('ALL'))
+                : pushedList.includes(targetCode);
+            const tags = [];
+            if (p.target_tenant) tags.push(`RIÊNG: ${p.target_tenant}`);
+            else tags.push(p.auto_publish ? 'ĐẠI TRÀ • TỰ QUÉT' : 'ĐẠI TRÀ • CHỜ DUYỆT');
+            tags.push(isPushed ? 'ĐÃ ĐẨY' : 'CHƯA ĐẨY');
+            if (idx === 0) tags.push('Mới nhất');
+            const tagStr = ` [${tags.join(' • ')}]`;
+            return `<option value="${p.version}">v${p.version}${tagStr} — ${mb} MB (${p.title || ''})</option>`;
+        }).join('');
+        verSelect.value = preselectVersion && filtered.some(p => p.version === preselectVersion)
+            ? preselectVersion
+            : filtered[0].version;
+        this.onPushPatchVersionChange();
     },
 
     onPushPatchVersionChange() {
@@ -3176,14 +3228,14 @@ const SuperAdmin = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Đã gửi thành công!');
+                this.showToast(data.message || 'Đã gửi thành công!', 'success');
                 const modal = document.getElementById('modal-push-update');
                 if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
             } else {
-                alert('Lỗi: ' + (data.message || 'Không thể gửi'));
+                this.showToast('Lỗi: ' + (data.message || 'Không thể gửi'), 'error');
             }
         } catch (e) {
-            alert('Lỗi kết nối: ' + e.message);
+            this.showToast('Lỗi kết nối: ' + e.message, 'error');
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
         }

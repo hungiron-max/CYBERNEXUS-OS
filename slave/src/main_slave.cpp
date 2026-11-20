@@ -545,13 +545,9 @@ int main(int argc, char* argv[]) {
 
                                     SlaveUpdateManager::instance().recordNotification(
                                         cmdType == "OTA_UPDATE" ? "SYSTEM_UPDATE" : "SYSTEM_NOTIFY",
-                                        nTitle, nMsg, nVer
+                                        nTitle, nMsg, nVer, dlPath
                                     );
-                                    if (cmdType == "OTA_UPDATE" && autoApply) {
-                                        std::thread([masterUrl, dlPath]() {
-                                            SlaveUpdateManager::instance().applyPatchFromMaster(masterUrl, dlPath);
-                                        }).detach();
-                                    }
+                                    (void)autoApply; // OTA được kiểm soát & thực hiện an toàn tại Control Center
                                 } else if (cmdType == "RESET_OWNER_PIN") {
                                     json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
                                     std::string pin6 = payload.value("pin6", "");

@@ -23,6 +23,12 @@
         init() {
             if (this._initialized) return;
             this._initialized = true;
+            this._mediaAllowed = false;
+
+            const pill = document.getElementById('pos-jukebox-pill');
+            if (pill) pill.style.display = 'none';
+
+            this.checkMediaLicense();
 
             // Subscribe to Jukebox Engine updates
             if (window.JukeboxEngine) {
@@ -31,11 +37,33 @@
 
             // Notification when a customer requests a song from QR table
             window.addEventListener('cybernexus_jukebox_song_added', (e) => {
+                if (!this._mediaAllowed) return;
                 const item = e.detail;
                 this.showToast(`🎵 <b>${item.table_name || 'Khách tại bàn'}</b> vừa yêu cầu: "${item.track_title}"`, 'info');
             });
 
             console.log('[POSJukebox] POS Jukebox Controller & DSP Console đã sẵn sàng.');
+        },
+
+        async checkMediaLicense() {
+            try {
+                const res = await fetch('/api/license.php?action=status', { cache: 'no-store' });
+                const json = await res.json();
+                const mods = (json && json.success && json.data && Array.isArray(json.data.modules)) ? json.data.modules : [];
+                const blocked = (json && json.success && json.data && Array.isArray(json.data.blocked_modules)) ? json.data.blocked_modules : [];
+                this._mediaAllowed = (mods.includes('mod_media_stream') || mods.includes('media_stream'))
+                    && !blocked.includes('mod_media_stream') && !blocked.includes('media_stream');
+            } catch (e) {
+                this._mediaAllowed = false;
+            }
+            const pill = document.getElementById('pos-jukebox-pill');
+            if (pill) pill.style.display = this._mediaAllowed ? 'flex' : 'none';
+            if (!this._mediaAllowed) {
+                this.closeModal();
+                if (window.JukeboxEngine && typeof window.JukeboxEngine.stopAndLogout === 'function') {
+                    window.JukeboxEngine.stopAndLogout();
+                }
+            }
         },
 
         renderHeaderPill(state) {
@@ -79,6 +107,7 @@
         },
 
         openModal() {
+            if (!this._mediaAllowed) return;
             let modal = document.getElementById('pos-jukebox-modal');
             if (!modal) {
                 this._createModalDOM();

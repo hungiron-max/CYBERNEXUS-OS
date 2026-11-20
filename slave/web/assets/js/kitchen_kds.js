@@ -69,8 +69,9 @@ function switchFilter(filter) {
     const btnHistory = document.getElementById('tab-filter-history');
     const btnAll = document.getElementById('tab-filter-all');
 
-    const activeClass = 'px-3 py-1.5 rounded-lg font-bold transition-all bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5';
-    const inactiveClass = 'px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5';
+    const baseClass = 'flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ';
+    const activeClass = baseClass + 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
+    const inactiveClass = baseClass + 'bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white';
 
     if (btnActive) btnActive.className = filter === 'active' ? activeClass : inactiveClass;
     if (btnServed) btnServed.className = filter === 'served' ? activeClass.replace('amber', 'emerald') : inactiveClass;
@@ -842,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSoundUI();
     loadKitchenOrders();
     loadAllDishesForModal();
-    setInterval(loadKitchenOrders, 3500);
+    setInterval(() => { if (!document.hidden) loadKitchenOrders(); }, 3500);
     // Định kỳ gửi heartbeat giữ trạng thái trực tuyến cho tổ bếp
     function sendKitchenHeartbeat() {
         fetch('api/auth.php?action=heartbeat').catch(() => {});
@@ -850,7 +851,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(sendKitchenHeartbeat, 45000);
     window.addEventListener('online', sendKitchenHeartbeat);
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') sendKitchenHeartbeat();
+        if (document.visibilityState === 'visible') {
+            sendKitchenHeartbeat();
+            loadKitchenOrders();
+        }
     });
     window.addEventListener('focus', sendKitchenHeartbeat);
 });

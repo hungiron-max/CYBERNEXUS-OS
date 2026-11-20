@@ -369,9 +369,8 @@ const Admin = {
         await this.loadTables();
         this.initDishImageDrop();
         this.loadSystemUpdates();
-        setInterval(() => this.loadSystemUpdates(), 30000);
         this.enforceModuleLicenses(true);
-        setInterval(() => this.enforceModuleLicenses(false), 15000);
+        setInterval(() => { if (!document.hidden) this.enforceModuleLicenses(false); }, 60000);
 
         // Warm up and cache server LAN base URL from backend settings
         try {
@@ -531,7 +530,7 @@ const Admin = {
             }
         });
 
-        // 3. Switch to specified tab or first subtab of this group
+        // 3. Switch to specified tab or first visible/licensed subtab of this group
         if (defaultTab) {
             this.switchTab(defaultTab);
         } else {
@@ -539,9 +538,12 @@ const Admin = {
                 ops: 'dashboard',
                 menu: 'products',
                 hr: 'users',
-                sys: 'finance'
+                sys: 'settings'
             };
-            const firstTab = firstTabMap[group];
+            const visibleBtn = targetSubnav
+                ? Array.from(targetSubnav.querySelectorAll('.admin-sub-btn')).find(b => b.style.display !== 'none')
+                : null;
+            const firstTab = (visibleBtn && visibleBtn.dataset && visibleBtn.dataset.tab) ? visibleBtn.dataset.tab : firstTabMap[group];
             if (firstTab) this.switchTab(firstTab);
         }
     },
@@ -587,9 +589,17 @@ const Admin = {
     },
 
     switchTab(tab) {
-        if (tab === 'media' && typeof this.isModuleAllowed === 'function' && !this.isModuleAllowed('mod_media_stream')) {
-            if (typeof this.toast === 'function') this.toast('Module Âm Nhạc & Jukebox chưa được cấp phép trên Master.', 'warning');
-            return;
+        const tabModMap = { media: 'mod_media_stream', users: 'staff_shifts', analytics: 'advanced_reports', finance: 'finance_reports' };
+        if (tabModMap[tab] && typeof this.isModuleAllowed === 'function' && !this.isModuleAllowed(tabModMap[tab])) {
+            const fallbackGroup = (tab === 'finance' || tab === 'media') ? 'sys' : 'hr';
+            const subnav = document.getElementById(`subnav-${fallbackGroup}`);
+            const visBtn = subnav ? Array.from(subnav.querySelectorAll('.admin-sub-btn')).find(b => b.style.display !== 'none' && b.dataset.tab !== tab) : null;
+            if (visBtn && visBtn.dataset.tab) {
+                tab = visBtn.dataset.tab;
+            } else {
+                if (typeof this.toast === 'function') this.toast('Module này chưa được cấp phép trên Master.', 'warning');
+                return;
+            }
         }
         this.currentTab = tab;
 
@@ -3330,7 +3340,7 @@ const Admin = {
         // Setup realtime poll if not already running
         if (!this.realtimeTimer) {
             this.realtimeTimer = setInterval(() => {
-                if (this.currentTab === 'operations' && this.currentOpsSubtab === 'realtime') {
+                if (!document.hidden && this.currentTab === 'operations' && this.currentOpsSubtab === 'realtime') {
                     this.loadRealtimeStaff();
                 }
             }, 8000);

@@ -128,14 +128,22 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             scanAndEnhance();
-            setInterval(syncAll, 250);
+            syncAll();
         });
     } else {
         scanAndEnhance();
-        setInterval(syncAll, 250);
+        syncAll();
     }
 
-    const obs = new MutationObserver(() => scanAndEnhance());
+    let rafScheduled = false;
+    const obs = new MutationObserver(() => {
+        if (rafScheduled) return;
+        rafScheduled = true;
+        requestAnimationFrame(() => {
+            rafScheduled = false;
+            scanAndEnhance();
+        });
+    });
     if (document.documentElement) {
         obs.observe(document.documentElement, { childList: true, subtree: true });
     }

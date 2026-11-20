@@ -55,3 +55,25 @@ Tài liệu này đánh dấu các mốc khôi phục chính thức trên GitHub
   - `release/cybernexus-store_v2.0.zip`
   - `release/store_patch_update_v2.0.zip`
 - **OTA Rollback (`master/updates/archive/`):** `2026.11.16.21`
+
+---
+
+## 4. Mốc khôi phục `v2.3b` (OTA `2026.11.20.5` — Hiện tại)
+- **Git Tag:** `v2.3b`
+- **Restore Branch:** `restore/v2.3b`
+- **Đặc điểm:**
+  - Đồng bộ `local_license_cache` & `ota_applied_version` khi đóng gói Store mới; sửa lỗi AI Proxy & tìm ảnh món cho gói Trial; gắn `machine_id` tự động khi poll.
+  - Khóa triệt để (ẩn hoàn toàn) các module chưa cấp phép trên Admin, POS Bán Hàng & Menu Khách (`mod_media_stream`, `finance_reports`...), tự chọn tab hợp lệ đầu tiên trong nhóm; thống nhất thương hiệu quán 1 nguồn qua `store_brand.js`.
+  - OTA chỉ hiển thị & thực hiện trên `CyberNexus_Control_Center.exe` theo quy trình 6 bước an toàn (Active Orders Guard, kiểm tra SHA-256, Backup `backup_prev/`, Self-Update `.old`, Healthcheck 10s + Auto-Rollback, bắt buộc đăng nhập lại sau update); phân biệt `[ĐÃ ĐẨY]` / `[CHƯA ĐẨY]` và `auto_publish` trên Master; tối ưu Web POS/Admin/Bếp nhẹ mượt.
+- **Lệnh khôi phục mã nguồn Git:**
+  ```bash
+  git checkout v2.3b
+  # hoặc:
+  git checkout -b fix-from-v2.3b restore/v2.3b
+  ```
+- **Gói khôi phục Offline (`release/`):**
+  - `release/master_v2.3b.zip`
+  - `release/CyberNexus_Master_Setup_v2.3b.exe`
+  - `release/cybernexus-store_v2.3b.zip`
+  - `release/CyberNexus_Store_Setup_v2.3b.exe`
+- **OTA Rollback (`master/updates/archive/`):** `2026.11.20.5`

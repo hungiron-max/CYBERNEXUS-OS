@@ -8265,7 +8265,10 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             return;
         }
         if (action == "apply") {
-            std::string dlPath = getString(body, "download_path", "/api/updates/download");
+            std::string dlPath = getString(body, "download_path", "");
+            if (dlPath.empty() || dlPath == "/api/updates/download") {
+                dlPath = SlaveUpdateManager::instance().getPendingDownloadPath();
+            }
             sendJson(res, SlaveUpdateManager::instance().applyPatchFromMaster(masterUrl, dlPath));
             return;
         }

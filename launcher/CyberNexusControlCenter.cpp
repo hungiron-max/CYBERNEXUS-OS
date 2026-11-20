@@ -593,25 +593,90 @@ async function runDiag(){
   box.innerHTML = html;
   document.getElementById('diag-status').textContent = 'Đã quét xong lúc ' + new Date().toLocaleTimeString();
 }
+function showCcModal({ title, message, confirmText = '', cancelText = 'Đóng', onConfirm = null }) {
+  let m = document.getElementById('cc-custom-modal');
+  if (m) m.remove();
+  m = document.createElement('div');
+  m.id = 'cc-custom-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.78);backdrop-filter:blur(8px);';
+  m.innerHTML = `
+    <div style="width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(56,189,248,0.32);background:linear-gradient(160deg,#0f172a,#090e1c);box-shadow:0 24px 60px rgba(0,0,0,0.65);padding:20px;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;">
+      <div style="font-size:15px;font-weight:700;color:#38bdf8;margin-bottom:8px;">${title || 'CyberNexus Control Center'}</div>
+      <div id="cc-m-msg" style="font-size:13px;line-height:1.55;color:#cbd5e1;white-space:pre-line;margin-bottom:18px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button id="cc-m-cancel" type="button" style="padding:8px 14px;border-radius:9px;border:1px solid rgba(148,163,184,0.25);background:#1e293b;color:#cbd5e1;font-size:12.5px;font-weight:600;cursor:pointer;">${cancelText}</button>
+        ${confirmText ? `<button id="cc-m-ok" type="button" style="padding:8px 16px;border-radius:9px;border:none;background:linear-gradient(90deg,#0ea5e9,#2563eb);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">${confirmText}</button>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  document.getElementById('cc-m-msg').textContent = message || '';
+  document.getElementById('cc-m-cancel').onclick = () => m.remove();
+  if (confirmText && document.getElementById('cc-m-ok')) {
+    document.getElementById('cc-m-ok').onclick = async () => { m.remove(); if (onConfirm) await onConfirm(); };
+  }
+}
 async function checkUpdates(){
   const r = await api('/api/control/updates');
   if(r.has_update){
-    if(confirm(r.summary + '\n\nBạn có muốn tải và cập nhật OTA ngay không?')){
-      document.getElementById('diag-status').textContent = 'Đang tải & cập nhật OTA ' + r.latest_version + '...';
-      const ap = await api('/api/control/apply-update','POST');
-      alert(ap.message || 'Đã cập nhật xong!');
-      document.getElementById('diag-status').textContent = ap.message || 'Hoàn tất cập nhật';
-      await refresh();
-    }
+    const warnOrders = (r.active_orders_count > 0)
+      ? `\n\n⚠️ CẢNH BÁO: Quán đang có ${r.active_orders_count} đơn hàng chưa hoàn tất! Khuyên đợi thanh toán xong hãy cập nhật.`
+      : '\n\n✅ Không có đơn hàng đang mở — An toàn để cập nhật.';
+    showCcModal({
+      title: 'Cập nhật OTA mới',
+      message: (r.summary || '') + warnOrders + '\n\nBạn có muốn tải và cập nhật OTA ngay không?',
+      confirmText: 'Tải & Cập nhật ngay',
+      cancelText: 'Để sau',
+      onConfirm: async () => {
+        const pm = document.createElement('div');
+        pm.id = 'cc-prog-modal';
+        pm.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.85);backdrop-filter:blur(8px);';
+        pm.innerHTML = `
+          <div style="width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(56,189,248,0.35);background:linear-gradient(160deg,#0f172a,#090e1c);padding:22px;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;">
+            <div style="font-size:15px;font-weight:700;color:#38bdf8;margin-bottom:6px;">Đang cập nhật OTA v${r.latest_version || ''}</div>
+            <div id="cc-prog-step" style="font-size:12.5px;color:#94a3b8;margin-bottom:12px;">1/5 Đang tải gói cập nhật &amp; kiểm tra SHA-256...</div>
+            <div style="width:100%;height:8px;border-radius:999px;background:#1e293b;overflow:hidden;">
+              <div id="cc-prog-bar" style="width:18%;height:100%;background:linear-gradient(90deg,#06b6d4,#3b82f6);transition:width 0.4s ease;"></div>
+            </div>
+          </div>`;
+        document.body.appendChild(pm);
+        const steps = [
+          [32, '2/5 Đang kiểm tra chữ ký toàn vẹn SHA-256...'],
+          [55, '3/5 Đang sao lưu dự phòng (Rollback Snapshot)...'],
+          [76, '4/5 Đang dừng Slave an toàn & cài đặt bản mới...'],
+          [92, '5/5 Đang khởi động lại & kiểm tra Healthcheck...']
+        ];
+        let si = 0;
+        const stTimer = setInterval(() => {
+          if (si < steps.length) {
+            const bar = document.getElementById('cc-prog-bar');
+            const lbl = document.getElementById('cc-prog-step');
+            if (bar) bar.style.width = steps[si][0] + '%';
+            if (lbl) lbl.textContent = steps[si][1];
+            si++;
+          }
+        }, 1200);
+        document.getElementById('diag-status').textContent = 'Đang tải & cập nhật OTA ' + r.latest_version + '...';
+        const ap = await api('/api/control/apply-update','POST');
+        clearInterval(stTimer);
+        pm.remove();
+        document.getElementById('diag-status').textContent = ap.message || 'Hoàn tất cập nhật';
+        showCcModal({ title: ap.success ? 'Cập nhật thành công' : 'Cập nhật thất bại', message: ap.message || 'Đã cập nhật xong!' });
+        await refresh();
+      }
+    });
     return;
   }
-  alert(r.summary || 'Hệ thống đang ở phiên bản mới nhất.');
+  showCcModal({ title: 'Kiểm tra phiên bản OTA', message: r.summary || 'Hệ thống đang ở phiên bản mới nhất.' });
 }
 async function clearLogs(){ await api('/api/control/clear-logs','POST'); await refresh(); }
 async function quitAll(){
-  if(!confirm('Tắt toàn bộ Master/Slave và thoát CyberNexus Control Center?')) return;
-  await api('/api/control/quit','POST');
-  window.close();
+  showCcModal({
+    title: 'Xác nhận thoát',
+    message: 'Tắt toàn bộ Master/Slave và thoát CyberNexus Control Center?',
+    confirmText: 'Thoát hệ thống',
+    cancelText: 'Hủy',
+    onConfirm: async () => { await api('/api/control/quit','POST'); window.close(); }
+  });
 }
 refresh();
 setInterval(refresh, 2500);
@@ -760,6 +825,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         bool hasUpdate = false;
         std::string curVer = "v2.3.0";
         std::string latestVer;
+        int activeOrdersCount = 0;
         if (g_master.available) {
             fs::path mp = g_master.workDir / "updates" / "manifest.json";
             if (fs::exists(mp)) {
@@ -791,32 +857,64 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
                         }
                         sqlite3_finalize(stmt);
                     }
+                    sqlite3_stmt* ost = nullptr;
+                    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM orders WHERE status IN ('pending','preparing','ready')", -1, &ost, nullptr) == SQLITE_OK) {
+                        if (sqlite3_step(ost) == SQLITE_ROW) activeOrdersCount = sqlite3_column_int(ost, 0);
+                        sqlite3_finalize(ost);
+                    }
                     sqlite3_close(db);
                 }
             }
-            while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
-            httplib::Client cli(masterUrl);
-            cli.set_connection_timeout(4, 0);
-            cli.set_read_timeout(6, 0);
-            if (auto r = cli.Get("/api/updates/manifest")) {
-                if (r->status == 200) {
-                    json m = json::parse(r->body, nullptr, false);
-                    latestVer = m.value("version", "");
-                    std::string title = m.value("title", "");
-                    if (!latestVer.empty() && curVer != latestVer && curVer != ("v" + latestVer)) {
-                        hasUpdate = true;
-                        summary = "Có bản cập nhật OTA mới: v" + latestVer + " (Hiện tại: " + curVer + ")\n" + title;
+            // 1. Kiểm tra thông báo OTA đã được Master đẩy riêng xuống Slave cục bộ trước
+            httplib::Client localSlave("127.0.0.1", g_slave.port > 0 ? g_slave.port : 8501);
+            localSlave.set_connection_timeout(2, 0);
+            localSlave.set_read_timeout(3, 0);
+            if (auto sr = localSlave.Get("/api/system/updates")) {
+                if (sr->status == 200) {
+                    json sj = json::parse(sr->body, nullptr, false);
+                    if (sj.is_object()) {
+                        std::string appVer = sj.value("applied_version", "");
+                        if (!appVer.empty()) curVer = appVer;
+                        if (sj.value("has_update", false)) {
+                            hasUpdate = true;
+                            latestVer = sj.value("latest_version", "");
+                            std::string ut = sj.value("update_title", "Bản cập nhật OTA mới từ Master");
+                            summary = "Có bản cập nhật OTA được Master đẩy xuống: v" + latestVer + " (Hiện tại: " + curVer + ")\n" + ut;
+                        }
+                    }
+                }
+            }
+            // 2. Nếu chưa có lệnh đẩy riêng, kiểm tra bản vá đại trà đã duyệt trên Master (/api/updates/latest)
+            if (!hasUpdate) {
+                while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
+                httplib::Client cli(masterUrl);
+                cli.set_connection_timeout(4, 0);
+                cli.set_read_timeout(6, 0);
+                if (auto r = cli.Get("/api/updates/latest")) {
+                    if (r->status == 200) {
+                        json resJ = json::parse(r->body, nullptr, false);
+                        if (resJ.value("has_patch", false) && resJ.contains("manifest") && resJ["manifest"].is_object()) {
+                            json m = resJ["manifest"];
+                            latestVer = m.value("version", "");
+                            std::string title = m.value("title", "");
+                            if (!latestVer.empty() && curVer != latestVer && curVer != ("v" + latestVer)) {
+                                hasUpdate = true;
+                                summary = "Có bản cập nhật OTA mới: v" + latestVer + " (Hiện tại: " + curVer + ")\n" + title;
+                            } else {
+                                summary = "Máy quán đang ở bản mới nhất (" + curVer + ").";
+                            }
+                        } else {
+                            summary = "Máy quán đang ở bản mới nhất (" + curVer + "). Chưa có bản OTA đại trà mới.";
+                        }
                     } else {
-                        summary = "Máy quán đang ở bản mới nhất (" + curVer + ").";
+                        summary = "Master trả HTTP " + std::to_string(r->status) + " khi kiểm tra OTA tại " + masterUrl;
                     }
                 } else {
-                    summary = "Master trả HTTP " + std::to_string(r->status) + " khi kiểm tra OTA tại " + masterUrl;
+                    summary = "Không kết nối được Master tại " + masterUrl + " để kiểm tra OTA (Hiện tại: " + curVer + ").";
                 }
-            } else {
-                summary = "Không kết nối được Master tại " + masterUrl + " để kiểm tra OTA (Hiện tại: " + curVer + ").";
             }
         }
-        res.set_content(json({{"success", true}, {"has_update", hasUpdate}, {"current_version", curVer}, {"latest_version", latestVer}, {"summary", summary}}).dump(), "application/json; charset=utf-8");
+        res.set_content(json({{"success", true}, {"has_update", hasUpdate}, {"active_orders_count", activeOrdersCount}, {"current_version", curVer}, {"latest_version", latestVer}, {"summary", summary}}).dump(), "application/json; charset=utf-8");
     });
 
     svr.Post("/api/control/apply-update", [](const httplib::Request&, httplib::Response& res) {
@@ -846,28 +944,63 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
                 sqlite3_close(db);
             }
         }
+        std::string dlPath = "/api/updates/download";
+        std::string latestVer = "";
+        {
+            httplib::Client localSlave("127.0.0.1", g_slave.port > 0 ? g_slave.port : 8501);
+            localSlave.set_connection_timeout(2, 0);
+            localSlave.set_read_timeout(3, 0);
+            if (auto sr = localSlave.Get("/api/system/updates")) {
+                if (sr->status == 200) {
+                    json sj = json::parse(sr->body, nullptr, false);
+                    if (sj.is_object() && sj.value("has_update", false)) {
+                        if (!sj.value("download_path", "").empty()) dlPath = sj.value("download_path", dlPath);
+                        latestVer = sj.value("latest_version", "");
+                    }
+                }
+            }
+        }
         while (!masterUrl.empty() && masterUrl.back() == '/') masterUrl.pop_back();
         httplib::Client cli(masterUrl);
         cli.set_connection_timeout(5, 0);
         cli.set_read_timeout(60, 0);
-        auto mr = cli.Get("/api/updates/manifest");
-        auto zr = cli.Get("/api/updates/download");
+        if (latestVer.empty()) {
+            auto mr = cli.Get("/api/updates/latest");
+            if (mr && mr->status == 200) {
+                json rj = json::parse(mr->body, nullptr, false);
+                if (rj.contains("manifest") && rj["manifest"].is_object()) {
+                    latestVer = rj["manifest"].value("version", "");
+                }
+            }
+        }
+        auto zr = cli.Get(dlPath);
         if (!zr || zr->status != 200 || zr->body.size() < 512) {
             res.set_content(json({{"success", false}, {"message", "Không tải được gói OTA từ " + masterUrl}}).dump(), "application/json; charset=utf-8");
             return;
         }
-        std::string latestVer = (mr && mr->status == 200) ? json::parse(mr->body, nullptr, false).value("version", "") : "";
+        // Kiểm tra toàn vẹn SHA-256 trước khi dừng Slave
+        if (zr->has_header("X-Package-SHA256")) {
+            std::string expectedHash = zr->get_header_value("X-Package-SHA256");
+            std::string actualHash = SaleApp::Backend::AuthService::sha256(zr->body);
+            if (!expectedHash.empty() && expectedHash != actualHash) {
+                res.set_content(json({{"success", false}, {"message", "Gói OTA bị hỏng hoặc sai chữ ký SHA-256! Đã hủy để bảo vệ POS."}}).dump(), "application/json; charset=utf-8");
+                return;
+            }
+        }
         wchar_t tmpBuf[MAX_PATH] = {0};
         GetTempPathW(MAX_PATH, tmpBuf);
         fs::path tmpZip = fs::path(tmpBuf) / L"cnx_ota_patch.zip";
+        fs::path stageDir = fs::path(tmpBuf) / L"cnx_ota_stage";
+        std::error_code ecode;
+        fs::remove_all(stageDir, ecode);
+        fs::create_directories(stageDir, ecode);
         {
             std::ofstream ofs(tmpZip, std::ios::binary | std::ios::trunc);
             ofs.write(zr->body.data(), zr->body.size());
         }
-        stopService(g_slave);
-        Sleep(600);
+        // Giải nén vào thư mục tạm trước
         std::wstring psCmd = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '"
-            + tmpZip.wstring() + L"' -DestinationPath '" + g_slave.workDir.wstring() + L"' -Force\"";
+            + tmpZip.wstring() + L"' -DestinationPath '" + stageDir.wstring() + L"' -Force\"";
         STARTUPINFOW si{}; si.cb = sizeof(si); si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_HIDE;
         PROCESS_INFORMATION pi{};
         BOOL ok = CreateProcessW(nullptr, psCmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
@@ -877,14 +1010,91 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
             GetExitCodeProcess(pi.hProcess, &ec);
             CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
         }
-        std::error_code ecode; fs::remove(tmpZip, ecode);
-        if (!latestVer.empty() && ec == 0) {
+        fs::remove(tmpZip, ecode);
+        if (ec != 0) {
+            fs::remove_all(stageDir, ecode);
+            res.set_content(json({{"success", false}, {"message", "Giải nén gói OTA thất bại! POS vẫn đang hoạt động bình thường."}}).dump(), "application/json; charset=utf-8");
+            return;
+        }
+        // Sao lưu dự phòng (Rollback Snapshot)
+        fs::path backupDir = g_slave.workDir / "backup_prev";
+        fs::remove_all(backupDir, ecode);
+        fs::create_directories(backupDir, ecode);
+        for (const auto& item : {"cybernexus_slave.exe", "CyberNexus_Control_Center.exe"}) {
+            if (fs::exists(g_slave.workDir / item)) {
+                fs::copy_file(g_slave.workDir / item, backupDir / item, fs::copy_options::overwrite_existing, ecode);
+            }
+        }
+        if (fs::exists(g_slave.workDir / "web")) {
+            fs::copy(g_slave.workDir / "web", backupDir / "web", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ecode);
+        }
+        // Dừng Slave có kiểm soát & chép file an toàn
+        stopService(g_slave);
+        Sleep(700);
+        for (const auto& entry : fs::recursive_directory_iterator(stageDir, ecode)) {
+            if (!entry.is_regular_file()) continue;
+            fs::path rel = fs::relative(entry.path(), stageDir, ecode);
+            std::string relStr = rel.generic_string();
+            fs::path dest = g_slave.workDir / rel;
+            if (relStr.rfind("modules/", 0) == 0 && !fs::exists(dest)) continue;
+            if (dest.has_parent_path()) fs::create_directories(dest.parent_path(), ecode);
+            if (relStr == "CyberNexus_Control_Center.exe" && fs::exists(dest)) {
+                fs::path oldCc = g_slave.workDir / "CyberNexus_Control_Center.exe.old";
+                fs::remove(oldCc, ecode);
+                MoveFileExW(dest.wstring().c_str(), oldCc.wstring().c_str(), MOVEFILE_REPLACE_EXISTING);
+            }
+            fs::copy_file(entry.path(), dest, fs::copy_options::overwrite_existing, ecode);
+        }
+        fs::remove_all(stageDir, ecode);
+        if (!latestVer.empty()) {
             std::ofstream vfs(g_slave.workDir / "version.txt", std::ios::trunc);
             vfs << latestVer;
+            if (fs::exists(dbPath)) {
+                sqlite3* db = nullptr;
+                if (sqlite3_open(dbPath.string().c_str(), &db) == SQLITE_OK) {
+                    sqlite3_stmt* ust = nullptr;
+                    if (sqlite3_prepare_v2(db,
+                        "INSERT INTO store_settings (setting_key, setting_value) VALUES ('ota_applied_version', ?) "
+                        "ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value",
+                        -1, &ust, nullptr) == SQLITE_OK) {
+                        sqlite3_bind_text(ust, 1, latestVer.c_str(), -1, SQLITE_TRANSIENT);
+                        sqlite3_step(ust);
+                        sqlite3_finalize(ust);
+                    }
+                    sqlite3_exec(db, "UPDATE app_notifications SET is_read_cashier = 1, is_read_waiter = 1 WHERE type = 'SYSTEM_UPDATE';", nullptr, nullptr, nullptr);
+                    sqlite3_close(db);
+                }
+            }
         }
         std::string startErr;
-        startService(g_slave, startErr);
-        res.set_content(json({{"success", ec == 0}, {"message", ec == 0 ? ("Đã cập nhật OTA " + latestVer + " và khởi động lại Slave thành công!") : "Giải nén OTA thất bại!"}}).dump(), "application/json; charset=utf-8");
+        bool started = startService(g_slave, startErr);
+        bool healthy = false;
+        if (started) {
+            httplib::Client hc("127.0.0.1", g_slave.port > 0 ? g_slave.port : 8501);
+            hc.set_connection_timeout(1, 0);
+            hc.set_read_timeout(2, 0);
+            for (int i = 0; i < 20; ++i) {
+                if (auto hr = hc.Get("/api/settings.php")) {
+                    if (hr->status == 200) { healthy = true; break; }
+                }
+                Sleep(500);
+            }
+        }
+        if (!healthy) {
+            // Auto-Rollback từ backup_prev/
+            stopService(g_slave);
+            Sleep(500);
+            if (fs::exists(backupDir / "cybernexus_slave.exe")) {
+                fs::copy_file(backupDir / "cybernexus_slave.exe", g_slave.workDir / "cybernexus_slave.exe", fs::copy_options::overwrite_existing, ecode);
+            }
+            if (fs::exists(backupDir / "web")) {
+                fs::copy(backupDir / "web", g_slave.workDir / "web", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ecode);
+            }
+            startService(g_slave, startErr);
+            res.set_content(json({{"success", false}, {"message", "Bản mới khởi động lỗi! Hệ thống đã tự động Rollback về bản cũ an toàn."}}).dump(), "application/json; charset=utf-8");
+            return;
+        }
+        res.set_content(json({{"success", true}, {"message", "Đã cập nhật OTA " + latestVer + ", xác thực Healthcheck OK và khởi động lại Slave thành công!"}}).dump(), "application/json; charset=utf-8");
     });
 
     svr.Post("/api/control/clear-logs", [](const httplib::Request&, httplib::Response& res) {
