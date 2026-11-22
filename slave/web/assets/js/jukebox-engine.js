@@ -70,7 +70,7 @@
                 this.refreshStatus();
             }
 
-            console.log(`[JukeboxEngine] Khởi động Jukebox Engine (Tab ID: ${this.tabId})`);
+            console.log(`${window.cnxT?window.cnxT('js.s_juke.f22b708d','[JukeboxEngine] Khởi động Jukebox Engine (Tab ID:'):'[JukeboxEngine] Khởi động Jukebox Engine (Tab ID:'} ${this.tabId})`);
         },
 
         _setupAudioEvents() {
@@ -177,7 +177,7 @@
                         try {
                             const msg = JSON.parse(e.newValue);
                             this._handleChannelMessage(msg);
-                        } catch (err) {}
+                        } catch (err) { (window.CyberSecurity ? CyberSecurity.logSilentError('jukebox-engine.js', err) : console.debug('jukebox-engine.js', err)); }
                     }
                 });
             }
@@ -481,8 +481,15 @@
 
         startBackgroundPolling() {
             if (this.pollingTimer) clearInterval(this.pollingTimer);
-            this.pollingTimer = setInterval(() => {
-                this.refreshStatus();
+            this._statusPollInFlight = false;
+            this.pollingTimer = setInterval(async () => {
+                if (this._statusPollInFlight) return;
+                this._statusPollInFlight = true;
+                try {
+                    await this.refreshStatus();
+                } finally {
+                    this._statusPollInFlight = false;
+                }
             }, 3500);
         },
 
@@ -538,13 +545,13 @@
 
         onCustomerSongAdded(item) {
             if (!item) return;
-            console.log(`[JukeboxEngine] Khách hàng ${item.table_name || 'tại bàn'} vừa yêu cầu bài: ${item.track_title}`);
+            console.log(`${window.cnxT?window.cnxT('js.s_juke.91ff26f9','[JukeboxEngine] Khách hàng'):'[JukeboxEngine] Khách hàng'} ${item.table_name || (window.cnxT?window.cnxT('js.s_juke.ce4b7c19','tại bàn'):'tại bàn')} ${window.cnxT?window.cnxT('js.s_juke.1f7a8b26','vừa yêu cầu bài:'):'vừa yêu cầu bài:'} ${item.track_title}`);
             // Dispatch a window event for toasts
             window.dispatchEvent(new CustomEvent('cybernexus_jukebox_song_added', { detail: item }));
         },
 
         // Request a track to queue
-        async requestTrack(trackId, tableName = 'Quầy Thu Ngân (POS)', isPriority = 1) {
+        async requestTrack(trackId, tableName = (window.cnxT?window.cnxT('js.s_juke.3ccffd4a','Quầy Thu Ngân (POS)'):'Quầy Thu Ngân (POS)'), isPriority = 1) {
             try {
                 const res = await fetch('/api/media/jukebox/request', {
                     method: 'POST',
@@ -562,7 +569,7 @@
                 }
                 return data;
             } catch (err) {
-                return { success: false, message: 'Lỗi kết nối máy chủ Media' };
+                return { success: false, message: (window.cnxT?window.cnxT('js.s_med.bc3a2780','Lỗi kết nối máy chủ Media'):'Lỗi kết nối máy chủ Media') };
             }
         },
 
@@ -579,7 +586,7 @@
                 }
                 return data;
             } catch (err) {
-                return { success: false, message: 'Lỗi kết nối máy chủ Media' };
+                return { success: false, message: (window.cnxT?window.cnxT('js.s_med.bc3a2780','Lỗi kết nối máy chủ Media'):'Lỗi kết nối máy chủ Media') };
             }
         },
 
@@ -596,7 +603,7 @@
                 }
                 return data;
             } catch (err) {
-                return { success: false, message: 'Lỗi kết nối máy chủ Media' };
+                return { success: false, message: (window.cnxT?window.cnxT('js.s_med.bc3a2780','Lỗi kết nối máy chủ Media'):'Lỗi kết nối máy chủ Media') };
             }
         },
 

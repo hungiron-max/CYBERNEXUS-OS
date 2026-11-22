@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="ui.m_tpl.title_c69e548e">Báo Giá Dịch Vụ - {{TENANT_CODE}}</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; font-size: 13px; line-height: 1.55; margin: 0; background: #cbd5e1; }
+    .no-print { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #f8fafc; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .no-print button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 12px; }
+    .btn-print { background: #0284c7; color: #fff; }
+    .btn-close { background: #334155; color: #e2e8f0; margin-left: 8px; }
+    .a4-page { width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.22); }
+    .hdr { display: flex; justify-content: space-between; border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 18px; }
+    .brand { font-size: 18px; font-weight: 800; color: #0369a1; }
+    .title { text-align: center; font-size: 20px; font-weight: 800; margin: 12px 0 4px; text-transform: uppercase; }
+    .sub { text-align: center; color: #475569; font-size: 12px; margin-bottom: 18px; }
+    .box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; background: #f8fafc; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+    th { background: #e2e8f0; font-size: 12px; text-transform: uppercase; }
+    .num { text-align: right; font-family: Consolas, monospace; font-weight: 700; }
+    .sign { display: flex; justify-content: space-between; margin-top: 28px; text-align: center; }
+    .sign > div { width: 45%; }
+    .note { font-size: 12px; color: #334155; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .a4-page { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+  <script src="/assets/js/i18n.js?v=2"></script>
+</head>
+<body>
+  <div class="no-print">
+    <div data-i18n="ui.m_tpl.div_22392477"><b data-i18n="ui.m_tpl.b_521d16f1">Bảng Báo Giá Dịch Vụ</b> — Mã quán: <b>{{TENANT_CODE}}</b> ({{STORE_NAME}})</div>
+    <div>
+      <button type="button" data-cnx-lang-btn="vi" onclick="if(window.cnxSetLang)cnxSetLang('vi')" style="background:#334155;color:#fff;margin-right:4px;">VI</button><button type="button" data-cnx-lang-btn="en" onclick="if(window.cnxSetLang)cnxSetLang('en')" style="background:#334155;color:#fff;margin-right:10px;">EN</button><button class="btn-print" onclick="window.print()" data-i18n="ui.m_tpl.button_97cb412d">In / Xuất File PDF</button>
+      <button class="btn-close" onclick="window.close()" data-i18n="ui.pos_html.button_cee55387">Đóng</button>
+    </div>
+  </div>
+
+  <div class="a4-page">
+    <div class="hdr">
+      <div>
+        <div class="brand">CYBERNEXUS OS PLATFORM</div>
+        <div data-i18n="ui.m_tpl.div_a016c224">Đơn vị cung cấp giải pháp POS &amp; Quản trị Chuỗi F&amp;B</div>
+      </div>
+      <div style="text-align:right;font-size:12px">
+        <div><b data-i18n="ui.m_tpl.b_b287b1aa">Số báo giá:</b> BG-{{TENANT_CODE}}-{{DATE_COMPACT}}</div>
+        <div><b data-i18n="ui.m_tpl.b_9619131f">Ngày lập:</b> {{CREATED_DATE}}</div>
+      </div>
+    </div>
+
+    <div class="title" data-i18n="ui.m_tpl.div_6f1fa046">BẢNG BÁO GIÁ DỊCH VỤ PHẦN MỀM</div>
+    <div class="sub" data-i18n="ui.m_tpl.div_f65913c4">Áp dụng cho Mã Quán: <b>{{TENANT_CODE}}</b> · Hiệu lực báo giá: 15 ngày kể từ ngày lập</div>
+
+    <div class="box">
+      <div><b data-i18n="ui.m_tpl.b_378a51f5">Kính gửi (Pháp nhân / Hộ KD):</b> {{LEGAL_ENTITY_NAME}}</div>
+      <div><b data-i18n="ui.m_tpl.b_b7cf41c3">Tên cửa hàng:</b> {{STORE_NAME}} &nbsp;|&nbsp; <b>MST / CCCD:</b> {{TAX_ID_OR_CCCD}}</div>
+      <div><b data-i18n="ui.m_tpl.b_116d5e5c">Người đại diện:</b> {{OWNER_NAME}} ({{REPRESENTATIVE_ROLE}}) &nbsp;|&nbsp; <b data-i18n="ui.m_tpl.b_3f1e15e6">SĐT:</b> {{PHONE}}</div>
+      <div><b>Email:</b> {{EMAIL}} &nbsp;|&nbsp; <b data-i18n="ui.m_tpl.b_b0faebae">Địa chỉ:</b> {{BILLING_ADDRESS}}</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:45px">STT</th>
+          <th data-i18n="ui.m_tpl.th_f57a4ae2">Hạng mục dịch vụ</th>
+          <th style="width:140px" data-i18n="ui.m_tpl.th_625b9533">Thời hạn</th>
+          <th style="width:140px" class="num" data-i18n="ui.m_tpl.th_3bd1b3ca">Đơn giá (VNĐ)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>
+            <b data-i18n="ui.m_tpl.b_6f9f166c">Bản quyền phần mềm CyberNexus POS — {{PLAN_NAME}}</b><br>
+            <span class="note"><b data-i18n="ui.m_tpl.b_fbd449a6">Phân hệ cấp phép:</b> {{ENABLED_MODULES}}</span>
+          </td>
+          <td>{{START_DATE}} &rarr; {{EXPIRE_DATE}}</td>
+          <td class="num">{{PLAN_PRICE_VND}}</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td data-i18n="ui.m_tpl.td_b37be6c6">Khởi tạo License Key độc quyền, đóng gói bộ cài &amp; hướng dẫn vận hành ban đầu</td>
+          <td data-i18n="ui.m_tpl.td_70606f38">Trọn gói</td>
+          <td class="num" data-i18n="ui.m_tpl.td_4be54d0b">0 đ (Miễn phí)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note" data-i18n="ui.m_tpl.div_5eb4a287">
+      <b data-i18n="ui.m_tpl.b_a932626f">Điều kiện thanh toán &amp; triển khai:</b><br>
+      - Thanh toán 100% giá trị gói cước ngay sau khi ký Hợp đồng dịch vụ để kích hoạt License chính thức.<br>
+      - Đã bao gồm hỗ trợ kỹ thuật, cập nhật OTA và bảo hành phần mềm trong suốt thời hạn bản quyền.
+    </div>
+
+    <div class="sign">
+      <div><b data-i18n="ui.m_tpl.b_ccf968f0">XÁC NHẬN KHÁCH HÀNG</b><br><i data-i18n="ui.m_tpl.i_5c37cd6b">(Ký, ghi rõ họ tên)</i><br><br><br><br>{{OWNER_NAME}}</div>
+      <div data-i18n="ui.m_tpl.div_9f0135e1"><b data-i18n="ui.m_tpl.b_5555db18">ĐẠI DIỆN CYBERNEXUS OS</b><br><i data-i18n="ui.m_tpl.i_33860c1f">(Ký, đóng dấu)</i><br><br><br><br>Bộ phận Kinh doanh &amp; Triển khai</div>
+    </div>
+  </div>
+</body>
+</html>

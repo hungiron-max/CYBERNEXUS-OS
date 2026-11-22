@@ -11,14 +11,23 @@
         console.warn('Không thể đọc giao diện đã lưu:', error);
     }
 
+    function tTheme(k, fb) {
+        return (typeof window.cnxT === 'function') ? window.cnxT(k, fb) : fb;
+    }
+
     function apply(value) {
         theme = value === 'light' ? 'light' : 'dark';
         root.dataset.theme = theme;
         document.querySelectorAll('.saleapp-theme-toggle').forEach(function (toggle) {
             toggle.setAttribute('aria-pressed', String(theme === 'light'));
-            toggle.setAttribute('aria-label', theme === 'light' ? 'Chuyển sang giao diện tối' : 'Chuyển sang giao diện sáng');
-            toggle.title = toggle.getAttribute('aria-label');
-            toggle.textContent = theme === 'light' ? '☾ Tối' : '☀ Sáng';
+            const lbl = theme === 'light'
+                ? tTheme('common.theme_to_dark', 'Chuyển sang giao diện tối')
+                : tTheme('common.theme_to_light', 'Chuyển sang giao diện sáng');
+            toggle.setAttribute('aria-label', lbl);
+            toggle.title = lbl;
+            toggle.textContent = theme === 'light'
+                ? tTheme('common.theme_dark', '☾ Tối')
+                : tTheme('common.theme_light', '☀ Sáng');
         });
     }
 
@@ -26,6 +35,9 @@
     window.addEventListener('storage', function (event) {
         if (event.key === key) apply(event.newValue);
     });
+    window.addEventListener('cybernexus:langchange', function () { apply(theme); });
+    window.addEventListener('cnx:lang-changed', function () { apply(theme); });
+    window.addEventListener('cnx:i18n-ready', function () { apply(theme); });
     document.addEventListener('DOMContentLoaded', function () {
         function createToggle() {
             const toggle = document.createElement('button');
@@ -44,8 +56,20 @@
         const toggle = createToggle();
         toggle.id = 'saleapp-theme-toggle';
         const header = document.querySelector('body > header');
+        const themeSlot = document.getElementById('cn-theme-slot');
+        const langBtn = header && header.querySelector('[data-cnx-lang-btn]');
+        const langWrap = langBtn && langBtn.parentElement;
+        const navRight = header && header.querySelector('.cn-nav-right');
         const target = header && (header.querySelector(':scope > .max-w-6xl') || header);
-        if (target) {
+        if (themeSlot) {
+            themeSlot.replaceWith(toggle);
+        } else if (navRight && langWrap && langWrap.parentElement === navRight) {
+            langWrap.insertAdjacentElement('afterend', toggle);
+        } else if (navRight) {
+            navRight.insertBefore(toggle, navRight.firstChild);
+        } else if (langWrap && langWrap.parentElement) {
+            langWrap.insertAdjacentElement('afterend', toggle);
+        } else if (target) {
             target.appendChild(toggle);
         } else {
             toggle.classList.add('saleapp-theme-toggle-floating');

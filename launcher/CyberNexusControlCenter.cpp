@@ -13,9 +13,11 @@
 #include "httplib.h"
 #include "nlohmann/json.hpp"
 #include "auth.hpp"
+#include "pos_bcrypt.h"
 #include "embedded_favicons.hpp"
 #include "sqlite3.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -321,7 +323,7 @@ json checkServiceIntegrity(const ServiceState& s) {
             if (entry.path().extension() == ".sig") {
                 std::ifstream ifs(entry.path());
                 json sig = json::parse(ifs, nullptr, false);
-                std::string binName = sig.value("binary", "");
+                std::string binName = sig.value("file", sig.value("binary", ""));
                 std::string expHash = sig.value("sha256", "");
                 fs::path binPath = modDir / binName;
                 std::string actHash = fs::exists(binPath) ? sha256FileHex(binPath) : "";
@@ -382,7 +384,83 @@ json checkServiceIntegrity(const ServiceState& s) {
 
 std::string buildControlCenterHtml();
 
+static std::mutex g_ccAuthMtx;
+static std::string g_ccToken;
+static int g_ccFailCount = 0;
+static std::time_t g_ccLockedUntil = 0;
+
+void clearCcSession() {
+    std::lock_guard<std::mutex> lk(g_ccAuthMtx);
+    g_ccToken.clear();
+}
+
+bool requireCcAuth(const httplib::Request& req, httplib::Response& res) {
+    std::lock_guard<std::mutex> lk(g_ccAuthMtx);
+    std::string tok = req.has_header("X-CC-Session") ? req.get_header_value("X-CC-Session") : "";
+    if (!g_ccToken.empty() && tok == g_ccToken) return true;
+    res.status = 401;
+    res.set_content("{\"success\":false,\"locked\":true,\"message\":\"Phiên đã khóa. Vui lòng đăng nhập lại Control Center!\"}", "application/json; charset=utf-8");
+    return false;
+}
+
+bool verifyCcCredential(const std::string& secret) {
+    if (secret.empty()) return false;
+    if (g_master.available) {
+        fs::path dbPath = g_master.workDir / "database" / "cybernexus_master.db";
+        if (!fs::exists(dbPath)) return false;
+        sqlite3* db = nullptr;
+        bool ok = false;
+        if (sqlite3_open_v2(dbPath.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
+            sqlite3_stmt* st = nullptr;
+            std::string storedHash;
+            bool hasRow = false;
+            if (sqlite3_prepare_v2(db, "SELECT setting_value FROM saas_settings WHERE setting_key='super_admin_password_hash' LIMIT 1", -1, &st, nullptr) == SQLITE_OK) {
+                if (sqlite3_step(st) == SQLITE_ROW) {
+                    hasRow = true;
+                    const unsigned char* h = sqlite3_column_text(st, 0);
+                    if (h && h[0]) storedHash = reinterpret_cast<const char*>(h);
+                }
+                sqlite3_finalize(st);
+            }
+            if (!storedHash.empty()) {
+                ok = (pos_bcrypt_checkpw(secret.c_str(), storedHash.c_str()) == 0);
+            } else if (!hasRow || storedHash.empty()) {
+                ok = (secret == "superadmin");
+            }
+            sqlite3_close(db);
+        }
+        return ok;
+    }
+    if (g_slave.available) {
+        fs::path dbPath = g_slave.workDir / "database" / "store_local.db";
+        if (!fs::exists(dbPath)) return false;
+        sqlite3* db = nullptr;
+        bool ok = false;
+        std::string sha = SaleApp::Backend::AuthService::sha256(secret);
+        if (sqlite3_open_v2(dbPath.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
+            sqlite3_stmt* st = nullptr;
+            if (sqlite3_prepare_v2(db, "SELECT pin_code, default_pin_sha256 FROM users WHERE role='admin' AND status='active'", -1, &st, nullptr) == SQLITE_OK) {
+                while (sqlite3_step(st) == SQLITE_ROW) {
+                    const unsigned char* p1 = sqlite3_column_text(st, 0);
+                    const unsigned char* p2 = sqlite3_column_text(st, 1);
+                    std::string pin = p1 ? reinterpret_cast<const char*>(p1) : "";
+                    std::string dsha = p2 ? reinterpret_cast<const char*>(p2) : "";
+                    if ((!pin.empty() && pin != "__USED_ONETIME__" && pin == secret) || (!dsha.empty() && dsha == sha)) {
+                        ok = true;
+                        break;
+                    }
+                }
+                sqlite3_finalize(st);
+            }
+            sqlite3_close(db);
+        }
+        return ok;
+    }
+    return false;
+}
+
 void openControlCenterWindow() {
+    clearCcSession();
     std::string url = "http://127.0.0.1:" + std::to_string(CONTROL_PORT) + "/";
     // Try Edge App Mode first for native Apple-like frameless window
     const char* edgePaths[] = {
@@ -445,6 +523,40 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+std::string readCcExternalLocale(const std::string& lang) {
+    if (lang != "vi" && lang != "en") return "{}";
+    fs::path exeDir;
+    wchar_t exeBuf[MAX_PATH]{};
+    if (GetModuleFileNameW(nullptr, exeBuf, MAX_PATH) > 0) {
+        exeDir = fs::path(exeBuf).parent_path();
+    }
+    std::vector<fs::path> candidates;
+    if (!exeDir.empty()) {
+        candidates.push_back(exeDir / "locales" / (lang + ".json"));
+        candidates.push_back(exeDir / "web" / "locales" / (lang + ".json"));
+    }
+    if (g_slave.available && !g_slave.workDir.empty()) {
+        candidates.push_back(g_slave.workDir / "locales" / (lang + ".json"));
+        candidates.push_back(g_slave.workDir / "web" / "locales" / (lang + ".json"));
+    }
+    if (g_master.available && !g_master.workDir.empty()) {
+        candidates.push_back(g_master.workDir / "locales" / (lang + ".json"));
+        candidates.push_back(g_master.workDir / "web" / "locales" / (lang + ".json"));
+    }
+    for (const auto& p : candidates) {
+        std::error_code ec;
+        if (fs::exists(p, ec) && fs::is_regular_file(p, ec)) {
+            std::ifstream ifs(p, std::ios::binary);
+            if (ifs) {
+                std::ostringstream ss;
+                ss << ifs.rdbuf();
+                return ss.str();
+            }
+        }
+    }
+    return "{}";
+}
+
 std::string buildControlCenterHtml() {
     return R"HTML(<!DOCTYPE html>
 <html lang="vi" translate="no" class="notranslate">
@@ -494,15 +606,37 @@ button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
     <div class="brand">
       <div class="logo">CN</div>
       <div>
-        <div class="title">CyberNexus Control Center</div>
-        <div class="sub">Quản trị Master &amp; Slave không CMD • Chạy ngầm System Tray</div>
+        <div class="title" data-i18n="cc.title">CyberNexus Control Center</div>
+        <div class="sub" data-i18n="cc.subtitle">Quản trị Master &amp; Slave không CMD • Chạy ngầm System Tray</div>
       </div>
     </div>
     <div class="toolbar">
-      <button class="btn-green" onclick="act('/api/control/start-all')">▶ Khởi chạy tất cả</button>
-      <button onclick="runDiag()">🛡 Kiểm tra Port &amp; Code</button>
-      <button onclick="checkUpdates()">☁ Kiểm tra Update</button>
-      <button class="btn-danger" onclick="quitAll()">⏻ Thoát Hệ Thống</button>
+      <div style="display:inline-flex;gap:3px;padding:3px;border-radius:10px;background:rgba(15,23,42,.75);border:1px solid var(--border);">
+        <button id="cc-lang-vi" type="button" onclick="setCcLang('vi')" style="padding:5px 8px;font-size:11px;border-radius:7px;border:none;background:#0ea5e9;color:#082f49;">VI</button>
+        <button id="cc-lang-en" type="button" onclick="setCcLang('en')" style="padding:5px 8px;font-size:11px;border-radius:7px;border:none;background:transparent;color:#cbd5e1;">EN</button>
+      </div>
+      <button class="btn-green" onclick="act('/api/control/start-all')" data-i18n="cc.start_all">▶ Khởi chạy tất cả</button>
+      <button onclick="runDiag()" data-i18n="cc.diag_btn">🛡 Kiểm tra Port &amp; Code</button>
+      <button id="btn-check-updates" style="position:relative;" onclick="checkUpdates()"><span data-i18n="cc.check_updates">☁ Kiểm tra Update</span><span id="cc-upd-dot" style="display:none;position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:999px;background:#ef4444;border:2px solid #0b1120;box-shadow:0 0 8px #ef4444;"></span></button>
+      <button class="btn-danger" onclick="quitAll()" data-i18n="cc.quit_all">⏻ Thoát Hệ Thống</button>
+    </div>
+  </div>
+
+  <div id="cc-lock-overlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,8,18,0.94);backdrop-filter:blur(14px);">
+    <div style="width:100%;max-width:390px;border-radius:18px;border:1px solid rgba(56,189,248,0.35);background:linear-gradient(160deg,#0f172a,#090e1c);box-shadow:0 24px 60px rgba(0,0,0,0.7);padding:26px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div class="logo">CN</div>
+        <div>
+          <div id="cc-lock-title" style="font-size:15px;font-weight:800;color:#fff;" data-i18n="cc.unlock_title">Mở Khóa Control Center</div>
+          <div id="cc-lock-sub" style="font-size:11.5px;color:#94a3b8;" data-i18n="cc.unlock_sub">Xác thực quyền quản trị để tiếp tục</div>
+        </div>
+      </div>
+      <div id="cc-lock-hint" style="display:none;margin-bottom:12px;padding:9px 11px;border-radius:10px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);color:#6ee7b7;font-size:11.5px;line-height:1.45;"></div>
+      <form onsubmit="submitCcLogin(event)" style="display:flex;flex-direction:column;gap:12px;">
+        <input id="cc-lock-input" type="password" autocomplete="off" placeholder="Nhập mã PIN 6 số Chủ Quán" style="width:100%;padding:11px 14px;border-radius:11px;background:#020617;border:1px solid rgba(148,163,184,0.3);color:#fff;font-size:15px;text-align:center;letter-spacing:0.25em;outline:none;" />
+        <div id="cc-lock-err" style="display:none;padding:8px 10px;border-radius:9px;background:rgba(244,63,94,0.14);border:1px solid rgba(244,63,94,0.4);color:#fda4af;font-size:12px;"></div>
+        <button type="submit" class="btn-primary" style="width:100%;padding:11px;font-size:13px;" data-i18n="cc.unlock_btn">🔓 Mở Khóa</button>
+      </form>
     </div>
   </div>
 
@@ -510,18 +644,18 @@ button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 
   <div class="card">
     <div class="row">
-      <div class="title" style="font-size:14px">Chẩn đoán Port, Toàn vẹn Code Web/DLL &amp; OTA</div>
-      <div id="diag-status" class="sub">Bấm "Kiểm tra Port &amp; Code" để quét</div>
+      <div class="title" style="font-size:14px" data-i18n="cc.diag_title">Chẩn đoán Port, Toàn vẹn Code Web/DLL &amp; OTA</div>
+      <div id="diag-status" class="sub" data-i18n="cc.diag_hint">Bấm "Kiểm tra Port &amp; Code" để quét</div>
     </div>
     <div class="diag-box" id="diag-box"></div>
   </div>
 
   <div class="card">
     <div class="row">
-      <div class="title" style="font-size:14px">Live Smart Console</div>
+      <div class="title" style="font-size:14px" data-i18n="cc.console_title">Live Smart Console</div>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="log-filter" onchange="renderLogs()" style="background:#0f172a;color:#e2e8f0;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:11.5px">
-          <option value="ALL">Tất cả log</option>
+          <option value="ALL" data-i18n="cc.filter_all">Tất cả log</option>
           <option value="ERROR">Chỉ xem Lỗi</option>
           <option value="WARN">Cảnh báo &amp; Lỗi</option>
         </select>
@@ -533,15 +667,115 @@ button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 </div>
 <script>
 let allLogs = [];
+let _ccToken = '';
+let _ccUnlocked = false;
+let _ccMode = 'slave';
+let _ccLang = localStorage.getItem('cnx_cc_lang') || 'vi';
+let _ccDict = {};
+function ccT(key, fb) {
+  const parts = String(key || '').split('.');
+  let cur = _ccDict;
+  for (const p of parts) {
+    if (!cur || typeof cur !== 'object') { cur = undefined; break; }
+    cur = cur[p];
+  }
+  return (typeof cur === 'string' && cur.length) ? cur : (fb || key);
+}
+function applyCcI18n() {
+  document.documentElement.lang = _ccLang;
+  const bVi = document.getElementById('cc-lang-vi');
+  const bEn = document.getElementById('cc-lang-en');
+  if (bVi) { bVi.style.background = _ccLang === 'vi' ? '#0ea5e9' : 'transparent'; bVi.style.color = _ccLang === 'vi' ? '#082f49' : '#cbd5e1'; }
+  if (bEn) { bEn.style.background = _ccLang === 'en' ? '#0ea5e9' : 'transparent'; bEn.style.color = _ccLang === 'en' ? '#082f49' : '#cbd5e1'; }
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (!el.dataset.i18nDef) el.dataset.i18nDef = el.textContent;
+    el.textContent = ccT(k, el.dataset.i18nDef);
+  });
+}
+async function setCcLang(lang) {
+  _ccLang = (lang === 'en') ? 'en' : 'vi';
+  try { localStorage.setItem('cnx_cc_lang', _ccLang); } catch (e) { console.debug('ccLangSave', e); }
+  try {
+    const r = await fetch('/api/control/locales/' + _ccLang, { cache: 'no-store' });
+    if (r.ok) _ccDict = await r.json();
+  } catch (e) { console.debug('ccLocaleFetch', e); }
+  applyCcI18n();
+}
+function showLockScreen(mode, pinHint) {
+  _ccMode = mode || 'slave';
+  _ccUnlocked = false;
+  _ccToken = '';
+  const ov = document.getElementById('cc-lock-overlay');
+  const inp = document.getElementById('cc-lock-input');
+  const sub = document.getElementById('cc-lock-sub');
+  const hint = document.getElementById('cc-lock-hint');
+  if (ov) ov.style.display = 'flex';
+  if (mode === 'master') {
+    if (sub) sub.textContent = 'Nhập mật khẩu SuperAdmin để mở Control Center';
+    if (inp) { inp.placeholder = 'Mật khẩu SuperAdmin'; inp.style.letterSpacing = 'normal'; inp.removeAttribute('maxlength'); }
+  } else {
+    if (sub) sub.textContent = 'Nhập mã PIN 6 số của Chủ Quán (Admin)';
+    if (inp) { inp.placeholder = '••••••'; inp.style.letterSpacing = '0.35em'; inp.setAttribute('maxlength', '6'); }
+  }
+  if (hint) {
+    if (pinHint && mode !== 'master') {
+      hint.textContent = '🔑 Quán vừa được Reset PIN từ Master. Chủ quán mở file DEFAULT_OWNER_PIN.txt trong thư mục cài đặt để lấy PIN 6 số.';
+      hint.style.display = 'block';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+}
+async function submitCcLogin(e) {
+  e.preventDefault();
+  const inp = document.getElementById('cc-lock-input');
+  const err = document.getElementById('cc-lock-err');
+  const secret = (inp ? inp.value : '').trim();
+  if (!secret) return;
+  const r = await fetch('/api/control/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret })
+  });
+  const d = await r.json();
+  if (d.success && d.token) {
+    _ccToken = d.token;
+    _ccUnlocked = true;
+    if (err) err.style.display = 'none';
+    document.getElementById('cc-lock-overlay').style.display = 'none';
+    await refresh();
+    pollUpdateBadge(true);
+  } else {
+    if (err) { err.textContent = d.message || 'Sai thông tin đăng nhập!'; err.style.display = 'block'; }
+    if (inp) { inp.value = ''; inp.focus(); }
+  }
+}
+async function checkCcAuth() {
+  const r = await fetch('/api/control/auth-status');
+  const d = await r.json();
+  if (!d.unlocked || !_ccToken) {
+    showLockScreen(d.mode, d.pin_reset_hint);
+    return false;
+  }
+  return true;
+}
 async function api(url, method='GET', body=null){
-  const opt = {method, headers:{'Content-Type':'application/json'}};
+  const headers = {'Content-Type':'application/json'};
+  if (_ccToken) headers['X-CC-Session'] = _ccToken;
+  const opt = {method, headers};
   if(body) opt.body = JSON.stringify(body);
   const r = await fetch(url, opt);
+  if (r.status === 401) {
+    await checkCcAuth();
+    return { success: false, locked: true };
+  }
   return r.json();
 }
 async function act(url, body){
   const res = await api(url, 'POST', body);
-  if(res && !res.success && res.message) alert(res.message);
+  if(res && !res.success && res.message) showCcModal({ title: 'Thông báo hệ thống', message: res.message });
   await refresh();
 }
 async function refresh(){
@@ -563,7 +797,7 @@ async function refresh(){
         ${s.running
           ? `<button class="btn-danger" onclick="act('/api/control/stop',{id:'${s.id}'})">■ Dừng</button>
              <button onclick="act('/api/control/restart',{id:'${s.id}'})">↻ Khởi động lại</button>
-             <button class="btn-primary" onclick="window.open('${s.web_url}','_blank')">🌐 Mở Web</button>`
+             <button class="btn-primary" onclick="openKiosk('${s.web_url}')" title="Mở ứng dụng toàn màn hình (F11 để thu nhỏ)">⛶ Open</button>`
           : `<button class="btn-green" onclick="act('/api/control/start',{id:'${s.id}'})">▶ Khởi chạy</button>`
         }
         ${s.pin_reset_ready ? `<button class="btn-green" onclick="act('/api/control/open-pin-file')">● Mở File PIN 6 Số</button>` : ''}
@@ -579,6 +813,12 @@ function renderLogs(){
   const rows = allLogs.filter(l => f==='ALL' || (f==='ERROR' && l.level==='ERROR') || (f==='WARN' && l.level!=='INFO'));
   box.innerHTML = rows.map(l => `<div class="log-${l.level}"><span class="tag">${l.ts}</span><span class="tag">${l.service.toUpperCase()}</span>${l.text.replace(/</g,'&lt;')}</div>`).join('');
   if(stick) box.scrollTop = box.scrollHeight;
+}
+async function openKiosk(url){
+  const res = await api('/api/control/open-kiosk', 'POST', { url });
+  if (res && res.success) {
+    showLockScreen(_ccMode || 'slave', false);
+  }
 }
 async function runDiag(){
   document.getElementById('diag-status').textContent = 'Đang quét Port, DLL .sig, Web SHA-256 & SQLite...';
@@ -615,71 +855,94 @@ function showCcModal({ title, message, confirmText = '', cancelText = 'Đóng', 
     document.getElementById('cc-m-ok').onclick = async () => { m.remove(); if (onConfirm) await onConfirm(); };
   }
 }
+let _startupAutoUpdateDone = false;
+async function runOtaApplyWithProgress(ver) {
+  const pm = document.createElement('div');
+  pm.id = 'cc-prog-modal';
+  pm.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.85);backdrop-filter:blur(8px);';
+  pm.innerHTML = `
+    <div style="width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(56,189,248,0.35);background:linear-gradient(160deg,#0f172a,#090e1c);padding:22px;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;">
+      <div style="font-size:15px;font-weight:700;color:#38bdf8;margin-bottom:6px;">Đang cập nhật OTA v${ver || ''}</div>
+      <div id="cc-prog-step" style="font-size:12.5px;color:#94a3b8;margin-bottom:12px;">1/5 Đang tải gói cập nhật &amp; kiểm tra SHA-256...</div>
+      <div style="width:100%;height:8px;border-radius:999px;background:#1e293b;overflow:hidden;">
+        <div id="cc-prog-bar" style="width:18%;height:100%;background:linear-gradient(90deg,#06b6d4,#3b82f6);transition:width 0.4s ease;"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(pm);
+  const steps = [
+    [32, '2/5 Đang kiểm tra chữ ký toàn vẹn SHA-256...'],
+    [55, '3/5 Đang sao lưu dự phòng (Rollback Snapshot)...'],
+    [76, '4/5 Đang dừng Slave an toàn & cài đặt bản mới...'],
+    [92, '5/5 Đang khởi động lại & kiểm tra Healthcheck...']
+  ];
+  let si = 0;
+  const stTimer = setInterval(() => {
+    if (si < steps.length) {
+      const bar = document.getElementById('cc-prog-bar');
+      const lbl = document.getElementById('cc-prog-step');
+      if (bar) bar.style.width = steps[si][0] + '%';
+      if (lbl) lbl.textContent = steps[si][1];
+      si++;
+    }
+  }, 1200);
+  document.getElementById('diag-status').textContent = 'Đang tải & cập nhật OTA ' + (ver || '') + '...';
+  const ap = await api('/api/control/apply-update','POST');
+  clearInterval(stTimer);
+  pm.remove();
+  document.getElementById('diag-status').textContent = ap.message || 'Hoàn tất cập nhật';
+  const dot = document.getElementById('cc-upd-dot');
+  if (dot && ap.success) dot.style.display = 'none';
+  showCcModal({ title: ap.success ? 'Cập nhật thành công' : 'Cập nhật thất bại', message: ap.message || 'Đã cập nhật xong!' });
+  await refresh();
+}
+async function pollUpdateBadge(isStartup = false) {
+  try {
+    const r = await api('/api/control/updates');
+    const dot = document.getElementById('cc-upd-dot');
+    const btn = document.getElementById('btn-check-updates');
+    if (dot) dot.style.display = r.has_update ? 'block' : 'none';
+    if (btn) btn.title = r.has_update ? `Có bản cập nhật mới v${r.latest_version || ''}` : 'Kiểm tra cập nhật OTA';
+    if (isStartup && !_startupAutoUpdateDone) {
+      _startupAutoUpdateDone = true;
+      if (r.has_update && (r.active_orders_count || 0) === 0) {
+        await runOtaApplyWithProgress(r.latest_version);
+      }
+    }
+  } catch (e) { console.debug('pollUpdateBadge', e); }
+}
 async function checkUpdates(){
   const r = await api('/api/control/updates');
+  const dot = document.getElementById('cc-upd-dot');
+  if (dot) dot.style.display = r.has_update ? 'block' : 'none';
   if(r.has_update){
     const warnOrders = (r.active_orders_count > 0)
       ? `\n\n⚠️ CẢNH BÁO: Quán đang có ${r.active_orders_count} đơn hàng chưa hoàn tất! Khuyên đợi thanh toán xong hãy cập nhật.`
       : '\n\n✅ Không có đơn hàng đang mở — An toàn để cập nhật.';
     showCcModal({
-      title: 'Cập nhật OTA mới',
+      title: ccT('cc.ota_title', 'Cập nhật OTA mới'),
       message: (r.summary || '') + warnOrders + '\n\nBạn có muốn tải và cập nhật OTA ngay không?',
       confirmText: 'Tải & Cập nhật ngay',
-      cancelText: 'Để sau',
-      onConfirm: async () => {
-        const pm = document.createElement('div');
-        pm.id = 'cc-prog-modal';
-        pm.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.85);backdrop-filter:blur(8px);';
-        pm.innerHTML = `
-          <div style="width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(56,189,248,0.35);background:linear-gradient(160deg,#0f172a,#090e1c);padding:22px;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;">
-            <div style="font-size:15px;font-weight:700;color:#38bdf8;margin-bottom:6px;">Đang cập nhật OTA v${r.latest_version || ''}</div>
-            <div id="cc-prog-step" style="font-size:12.5px;color:#94a3b8;margin-bottom:12px;">1/5 Đang tải gói cập nhật &amp; kiểm tra SHA-256...</div>
-            <div style="width:100%;height:8px;border-radius:999px;background:#1e293b;overflow:hidden;">
-              <div id="cc-prog-bar" style="width:18%;height:100%;background:linear-gradient(90deg,#06b6d4,#3b82f6);transition:width 0.4s ease;"></div>
-            </div>
-          </div>`;
-        document.body.appendChild(pm);
-        const steps = [
-          [32, '2/5 Đang kiểm tra chữ ký toàn vẹn SHA-256...'],
-          [55, '3/5 Đang sao lưu dự phòng (Rollback Snapshot)...'],
-          [76, '4/5 Đang dừng Slave an toàn & cài đặt bản mới...'],
-          [92, '5/5 Đang khởi động lại & kiểm tra Healthcheck...']
-        ];
-        let si = 0;
-        const stTimer = setInterval(() => {
-          if (si < steps.length) {
-            const bar = document.getElementById('cc-prog-bar');
-            const lbl = document.getElementById('cc-prog-step');
-            if (bar) bar.style.width = steps[si][0] + '%';
-            if (lbl) lbl.textContent = steps[si][1];
-            si++;
-          }
-        }, 1200);
-        document.getElementById('diag-status').textContent = 'Đang tải & cập nhật OTA ' + r.latest_version + '...';
-        const ap = await api('/api/control/apply-update','POST');
-        clearInterval(stTimer);
-        pm.remove();
-        document.getElementById('diag-status').textContent = ap.message || 'Hoàn tất cập nhật';
-        showCcModal({ title: ap.success ? 'Cập nhật thành công' : 'Cập nhật thất bại', message: ap.message || 'Đã cập nhật xong!' });
-        await refresh();
-      }
+      cancelText: ccT('common.cancel', 'Để sau'),
+      onConfirm: () => runOtaApplyWithProgress(r.latest_version)
     });
     return;
   }
-  showCcModal({ title: 'Kiểm tra phiên bản OTA', message: r.summary || 'Hệ thống đang ở phiên bản mới nhất.' });
+  showCcModal({ title: ccT('cc.ota_check_title', 'Kiểm tra phiên bản OTA'), message: r.summary || 'Hệ thống đang ở phiên bản mới nhất.' });
 }
 async function clearLogs(){ await api('/api/control/clear-logs','POST'); await refresh(); }
 async function quitAll(){
   showCcModal({
-    title: 'Xác nhận thoát',
+    title: ccT('common.confirm_title', 'Xác nhận thoát'),
     message: 'Tắt toàn bộ Master/Slave và thoát CyberNexus Control Center?',
     confirmText: 'Thoát hệ thống',
-    cancelText: 'Hủy',
+    cancelText: ccT('common.cancel', 'Hủy'),
     onConfirm: async () => { await api('/api/control/quit','POST'); window.close(); }
   });
 }
-refresh();
-setInterval(refresh, 2500);
+setCcLang(_ccLang);
+checkCcAuth().then(ok => { if (ok) { refresh(); pollUpdateBadge(true); } });
+setInterval(() => { if (_ccUnlocked) refresh(); }, 2500);
+setInterval(() => { if (_ccUnlocked) pollUpdateBadge(false); }, 20000);
 </script>
 </body>
 </html>)HTML";
@@ -715,6 +978,12 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         res.set_content(buildControlCenterHtml(), "text/html; charset=utf-8");
     });
 
+    svr.Get(R"(/api/control/locales/(vi|en))", [](const httplib::Request& req, httplib::Response& res) {
+        std::string lang = req.matches.size() > 1 ? req.matches[1].str() : "vi";
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(readCcExternalLocale(lang), "application/json; charset=utf-8");
+    });
+
     svr.Get("/favicon.ico", [](const httplib::Request&, httplib::Response& res) {
         if (g_master.available && !g_slave.available) {
             res.set_content(reinterpret_cast<const char*>(CyberNexus::Icons::MASTER_FAVICON_ICO),
@@ -734,7 +1003,55 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         }
     });
 
-    svr.Get("/api/control/status", [](const httplib::Request&, httplib::Response& res) {
+    svr.Get("/api/control/auth-status", [](const httplib::Request& req, httplib::Response& res) {
+        std::lock_guard<std::mutex> lk(g_ccAuthMtx);
+        std::string tok = req.has_header("X-CC-Session") ? req.get_header_value("X-CC-Session") : "";
+        bool unlocked = !g_ccToken.empty() && tok == g_ccToken;
+        bool pinHint = (g_slave.available && fs::exists(g_slave.workDir / "owner_pin_reset.flag"));
+        std::string mode = g_master.available ? "master" : "slave";
+        res.set_content(json({{"success", true}, {"unlocked", unlocked}, {"mode", mode}, {"pin_reset_hint", pinHint}}).dump(), "application/json; charset=utf-8");
+    });
+
+    svr.Post("/api/control/login", [](const httplib::Request& req, httplib::Response& res) {
+        json body = json::parse(req.body, nullptr, false);
+        std::string secret = body.value("secret", "");
+        std::time_t now = std::time(nullptr);
+        {
+            std::lock_guard<std::mutex> lk(g_ccAuthMtx);
+            if (g_ccLockedUntil > now) {
+                res.status = 429;
+                res.set_content(json({{"success", false}, {"message", "Nhập sai quá nhiều lần. Vui lòng thử lại sau " + std::to_string(g_ccLockedUntil - now) + " giây!"}}).dump(), "application/json; charset=utf-8");
+                return;
+            }
+        }
+        if (verifyCcCredential(secret)) {
+            std::string newTok = SaleApp::Backend::AuthService::sha256(
+                std::to_string(now) + "|" + std::to_string(GetTickCount64()) + "|CNCC"
+            );
+            std::lock_guard<std::mutex> lk(g_ccAuthMtx);
+            g_ccToken = newTok;
+            g_ccFailCount = 0;
+            g_ccLockedUntil = 0;
+            res.set_content(json({{"success", true}, {"token", newTok}}).dump(), "application/json; charset=utf-8");
+            return;
+        }
+        std::lock_guard<std::mutex> lk(g_ccAuthMtx);
+        g_ccFailCount++;
+        if (g_ccFailCount >= 5) {
+            g_ccLockedUntil = now + 30;
+            g_ccFailCount = 0;
+        }
+        res.status = 401;
+        res.set_content(json({{"success", false}, {"message", g_master.available ? "Sai mật khẩu SuperAdmin!" : "Sai mã PIN 6 số của Chủ Quán!"}}).dump(), "application/json; charset=utf-8");
+    });
+
+    svr.Post("/api/control/lock", [](const httplib::Request&, httplib::Response& res) {
+        clearCcSession();
+        res.set_content("{\"success\":true}", "application/json");
+    });
+
+    svr.Get("/api/control/status", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         std::lock_guard<std::mutex> lk(g_mtx);
         refreshServiceStatus(g_master);
         refreshServiceStatus(g_slave);
@@ -760,6 +1077,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     });
 
     svr.Post("/api/control/start", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         json body = json::parse(req.body, nullptr, false);
         std::string id = body.value("id", "");
         std::string err;
@@ -768,6 +1086,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     });
 
     svr.Post("/api/control/stop", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         json body = json::parse(req.body, nullptr, false);
         std::string id = body.value("id", "");
         if (id == "master") stopService(g_master);
@@ -776,6 +1095,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     });
 
     svr.Post("/api/control/restart", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         json body = json::parse(req.body, nullptr, false);
         std::string id = body.value("id", "");
         ServiceState& s = (id == "master") ? g_master : g_slave;
@@ -786,14 +1106,16 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         res.set_content(json({{"success", ok}, {"message", err}}).dump(), "application/json; charset=utf-8");
     });
 
-    svr.Post("/api/control/start-all", [](const httplib::Request&, httplib::Response& res) {
+    svr.Post("/api/control/start-all", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         std::string err;
         if (g_master.available) startService(g_master, err);
         if (g_slave.available) startService(g_slave, err);
         res.set_content(json({{"success", true}}).dump(), "application/json; charset=utf-8");
     });
 
-    svr.Get("/api/control/ports", [](const httplib::Request&, httplib::Response& res) {
+    svr.Get("/api/control/ports", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         json arr = json::array();
         std::vector<int> portsToCheck;
         if (g_master.available) portsToCheck.push_back(8500);
@@ -809,6 +1131,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     });
 
     svr.Post("/api/control/free-port", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         json body = json::parse(req.body, nullptr, false);
         int p = body.value("port", 0);
         PortOwner po = inspectTcpPort(p);
@@ -816,11 +1139,13 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         res.set_content(json({{"success", ok}, {"message", ok ? "Đã giải phóng port." : "Không thể dừng tiến trình (thử chạy quyền Admin)."}}).dump(), "application/json; charset=utf-8");
     });
 
-    svr.Get("/api/control/integrity", [](const httplib::Request&, httplib::Response& res) {
+    svr.Get("/api/control/integrity", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         res.set_content(json({{"success", true}, {"results", {checkServiceIntegrity(g_master), checkServiceIntegrity(g_slave)}}}).dump(), "application/json; charset=utf-8");
     });
 
-    svr.Get("/api/control/updates", [](const httplib::Request&, httplib::Response& res) {
+    svr.Get("/api/control/updates", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         std::string summary = "Không tìm thấy manifest OTA cục bộ.";
         bool hasUpdate = false;
         std::string curVer = "v2.3.0";
@@ -917,7 +1242,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         res.set_content(json({{"success", true}, {"has_update", hasUpdate}, {"active_orders_count", activeOrdersCount}, {"current_version", curVer}, {"latest_version", latestVer}, {"summary", summary}}).dump(), "application/json; charset=utf-8");
     });
 
-    svr.Post("/api/control/apply-update", [](const httplib::Request&, httplib::Response& res) {
+    svr.Post("/api/control/apply-update", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         if (!g_slave.available) {
             res.set_content("{\"success\":false,\"message\":\"Chỉ áp dụng cho máy Store\"}", "application/json; charset=utf-8");
             return;
@@ -1020,13 +1346,16 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         fs::path backupDir = g_slave.workDir / "backup_prev";
         fs::remove_all(backupDir, ecode);
         fs::create_directories(backupDir, ecode);
-        for (const auto& item : {"cybernexus_slave.exe", "CyberNexus_Control_Center.exe"}) {
+        for (const auto& item : {"cybernexus_slave.exe", "CyberNexus_Control_Center.exe", "version.txt"}) {
             if (fs::exists(g_slave.workDir / item)) {
                 fs::copy_file(g_slave.workDir / item, backupDir / item, fs::copy_options::overwrite_existing, ecode);
             }
         }
         if (fs::exists(g_slave.workDir / "web")) {
             fs::copy(g_slave.workDir / "web", backupDir / "web", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ecode);
+        }
+        if (fs::exists(g_slave.workDir / "modules")) {
+            fs::copy(g_slave.workDir / "modules", backupDir / "modules", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ecode);
         }
         // Dừng Slave có kiểm soát & chép file an toàn
         stopService(g_slave);
@@ -1090,6 +1419,29 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
             if (fs::exists(backupDir / "web")) {
                 fs::copy(backupDir / "web", g_slave.workDir / "web", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ecode);
             }
+            if (fs::exists(backupDir / "modules")) {
+                fs::copy(backupDir / "modules", g_slave.workDir / "modules", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ecode);
+            }
+            if (fs::exists(backupDir / "version.txt")) {
+                fs::copy_file(backupDir / "version.txt", g_slave.workDir / "version.txt", fs::copy_options::overwrite_existing, ecode);
+                std::ifstream oldVfs(backupDir / "version.txt");
+                std::string oldVer;
+                if (std::getline(oldVfs, oldVer) && !oldVer.empty() && fs::exists(dbPath)) {
+                    sqlite3* rdb = nullptr;
+                    if (sqlite3_open(dbPath.string().c_str(), &rdb) == SQLITE_OK) {
+                        sqlite3_stmt* ust = nullptr;
+                        if (sqlite3_prepare_v2(rdb,
+                            "INSERT INTO store_settings (setting_key, setting_value) VALUES ('ota_applied_version', ?) "
+                            "ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value",
+                            -1, &ust, nullptr) == SQLITE_OK) {
+                            sqlite3_bind_text(ust, 1, oldVer.c_str(), -1, SQLITE_TRANSIENT);
+                            sqlite3_step(ust);
+                            sqlite3_finalize(ust);
+                        }
+                        sqlite3_close(rdb);
+                    }
+                }
+            }
             startService(g_slave, startErr);
             res.set_content(json({{"success", false}, {"message", "Bản mới khởi động lỗi! Hệ thống đã tự động Rollback về bản cũ an toàn."}}).dump(), "application/json; charset=utf-8");
             return;
@@ -1097,13 +1449,89 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         res.set_content(json({{"success", true}, {"message", "Đã cập nhật OTA " + latestVer + ", xác thực Healthcheck OK và khởi động lại Slave thành công!"}}).dump(), "application/json; charset=utf-8");
     });
 
-    svr.Post("/api/control/clear-logs", [](const httplib::Request&, httplib::Response& res) {
+    svr.Post("/api/control/clear-logs", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         std::lock_guard<std::mutex> lk(g_mtx);
         g_logs.clear();
         res.set_content("{\"success\":true}", "application/json");
     });
 
-    svr.Post("/api/control/open-pin-file", [](const httplib::Request&, httplib::Response& res) {
+    svr.Post("/api/control/open-kiosk", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
+        clearCcSession();
+        json body = json::parse(req.body, nullptr, false);
+        std::string url = body.value("url", "http://127.0.0.1:8501");
+        std::wstring wurl(url.begin(), url.end());
+        wchar_t tmpBuf[MAX_PATH] = {0};
+        GetTempPathW(MAX_PATH, tmpBuf);
+        fs::path profileDir = fs::path(tmpBuf) / L"cnx_kiosk_profile";
+        std::error_code ec;
+        fs::create_directories(profileDir, ec);
+
+        auto collectChromeWins = []() {
+            std::vector<HWND> list;
+            EnumWindows([](HWND hw, LPARAM lp) -> BOOL {
+                if (!IsWindowVisible(hw) || GetWindow(hw, GW_OWNER) != nullptr) return TRUE;
+                wchar_t cls[64] = {0};
+                if (GetClassNameW(hw, cls, 64) > 0 && wcscmp(cls, L"Chrome_WidgetWin_1") == 0) {
+                    reinterpret_cast<std::vector<HWND>*>(lp)->push_back(hw);
+                }
+                return TRUE;
+            }, reinterpret_cast<LPARAM>(&list));
+            return list;
+        };
+        std::vector<HWND> beforeWins = collectChromeWins();
+
+        std::wstring args = L"--app=" + wurl + L" --start-fullscreen --no-first-run --disable-features=Translate --user-data-dir=\"" + profileDir.wstring() + L"\"";
+        HINSTANCE r = ShellExecuteW(nullptr, L"open", L"msedge.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
+        if (reinterpret_cast<INT_PTR>(r) <= 32) {
+            ShellExecuteW(nullptr, L"open", L"chrome.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
+        }
+
+        // Gắn icon CyberNexus (resource 101) lên cửa sổ Edge --app để thay thế icon địa cầu mặc định trên Titlebar & Taskbar
+        std::thread([beforeWins, collectChromeWins]() {
+            HICON hBig = reinterpret_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(101), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_SHARED));
+            HICON hSmall = reinterpret_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(101), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED));
+            if (!hBig && !hSmall) return;
+
+            HWND target = nullptr;
+            for (int i = 0; i < 60 && !target; ++i) {
+                Sleep(200);
+                auto nowWins = collectChromeWins();
+                for (HWND hw : nowWins) {
+                    if (std::find(beforeWins.begin(), beforeWins.end(), hw) == beforeWins.end()) {
+                        if (GetWindowTextLengthW(hw) > 0) {
+                            target = hw;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!target) return;
+
+            auto applyIcon = [target, hBig, hSmall]() {
+                if (hBig) SendMessageTimeoutW(target, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBig), SMTO_ABORTIFHUNG, 150, nullptr);
+                if (hSmall) SendMessageTimeoutW(target, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmall), SMTO_ABORTIFHUNG, 150, nullptr);
+            };
+            applyIcon();
+            // Giữ icon ổn định qua các lần chuyển trang (VD: login.html -> admin.html)
+            for (int tick = 0; tick < 600 && IsWindow(target); ++tick) {
+                Sleep(1000);
+                if (!IsWindow(target)) break;
+                DWORD_PTR curSmall = 0;
+                if (SendMessageTimeoutW(target, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 100, &curSmall)) {
+                    if (reinterpret_cast<HICON>(curSmall) != hSmall) applyIcon();
+                }
+            }
+        }).detach();
+
+        HWND ccWin = FindWindowW(nullptr, L"CyberNexus OS \u2014 Control Center");
+        if (ccWin) PostMessageW(ccWin, WM_CLOSE, 0, 0);
+        res.set_content("{\"success\":true}", "application/json");
+    });
+
+    svr.Post("/api/control/open-pin-file", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         std::error_code ec;
         fs::path pinFile = g_slave.workDir / "DEFAULT_OWNER_PIN.txt";
         fs::remove(g_slave.workDir / "owner_pin_reset.flag", ec);
@@ -1115,7 +1543,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         }
     });
 
-    svr.Post("/api/control/quit", [](const httplib::Request&, httplib::Response& res) {
+    svr.Post("/api/control/quit", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireCcAuth(req, res)) return;
         res.set_content("{\"success\":true}", "application/json");
         std::thread([]() {
             Sleep(200);

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="ui.m_tpl.title_097353a2">Hợp Đồng Dịch Vụ - {{TENANT_CODE}}</title>
+  <style>
+    @page { size: A4; margin: 18mm 18mm 18mm 22mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Times New Roman", Times, serif; color: #111827; font-size: 13.5px; line-height: 1.55; margin: 0; background: #cbd5e1; }
+    .no-print { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #f8fafc; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .no-print button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 12px; }
+    .btn-print { background: #0284c7; color: #fff; }
+    .btn-close { background: #334155; color: #e2e8f0; margin-left: 8px; }
+    .a4-page { width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm 18mm 18mm 22mm; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.22); }
+    .center { text-align: center; }
+    h1 { font-size: 16.5px; text-transform: uppercase; margin: 12px 0 3px; letter-spacing: 0.3px; }
+    h2 { font-size: 13.5px; margin: 12px 0 4px; text-transform: uppercase; color: #0f172a; }
+    .party { border: 1px solid #94a3b8; padding: 9px 12px; border-radius: 4px; margin-bottom: 10px; background: #f8fafc; }
+    .party-title { font-weight: 700; text-transform: uppercase; margin-bottom: 4px; color: #0f172a; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+    .sign { display: flex; justify-content: space-between; margin-top: 26px; text-align: center; page-break-inside: avoid; }
+    .sign > div { width: 46%; }
+    ul { margin: 4px 0; padding-left: 20px; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .a4-page { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+  <script src="/assets/js/i18n.js?v=2"></script>
+</head>
+<body>
+  <div class="no-print">
+    <div data-i18n="ui.m_tpl.div_22392477"><b data-i18n="ui.m_tpl.b_0fad3ae5">Hợp Đồng Dịch Vụ Phần Mềm</b> — Mã quán: <b>{{TENANT_CODE}}</b> ({{STORE_NAME}})</div>
+    <div>
+      <button type="button" data-cnx-lang-btn="vi" onclick="if(window.cnxSetLang)cnxSetLang('vi')" style="background:#334155;color:#fff;margin-right:4px;">VI</button><button type="button" data-cnx-lang-btn="en" onclick="if(window.cnxSetLang)cnxSetLang('en')" style="background:#334155;color:#fff;margin-right:10px;">EN</button><button class="btn-print" onclick="window.print()" data-i18n="ui.m_tpl.button_97cb412d">In / Xuất File PDF</button>
+      <button class="btn-close" onclick="window.close()" data-i18n="ui.pos_html.button_cee55387">Đóng</button>
+    </div>
+  </div>
+
+  <div class="a4-page">
+    <div class="center">
+      <b data-i18n="ui.m_tpl.b_b609bdc9">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
+      <b><u data-i18n="ui.m_tpl.u_e25b4739">Độc lập - Tự do - Hạnh phúc</u></b>
+      <h1 data-i18n="ui.m_tpl.h1_3f2e55ee">HỢP ĐỒNG CUNG CẤP &amp; CẤP QUYỀN SỬ DỤNG PHẦN MỀM</h1>
+      <div data-i18n="ui.m_tpl.div_76f9845b">Số: <b data-i18n="ui.m_tpl.b_66bbea7c">HĐ-{{TENANT_CODE}}-{{DATE_COMPACT}}</b> &nbsp;|&nbsp; Ngày lập: <b>{{CREATED_DATE}}</b></div>
+    </div>
+
+    <p style="margin-top:12px;font-style:italic;font-size:12.5px" data-i18n="ui.m_tpl.p_f11ce472">
+      - Căn cứ Bộ luật Dân sự số 91/2015/QH13 và Luật Thương mại hiện hành;<br>
+      - Căn cứ Luật Sở hữu trí tuệ về bảo hộ quyền tác giả đối với chương trình máy tính;<br>
+      - Căn cứ nhu cầu sử dụng giải pháp quản lý bán hàng của Bên A và năng lực cung cấp của Bên B.
+    </p>
+
+    <div class="party">
+      <div class="party-title" data-i18n="ui.m_tpl.div_c5026060">BÊN B (BÊN CUNG CẤP DỊCH VỤ): HỆ THỐNG GIẢI PHÁP CYBERNEXUS OS</div>
+      <div data-i18n="ui.m_tpl.div_9abc4c6f">- Đơn vị phát triển &amp; vận hành: <b>CyberNexus OS Software Platform</b></div>
+      <div data-i18n="ui.m_tpl.div_d85cdc15">- Đại diện: Bộ phận Kinh Doanh &amp; Triển Khai Kỹ Thuật CyberNexus OS</div>
+      <div data-i18n="ui.m_tpl.div_f3beaaa3">- Sản phẩm cấp phép: Phần mềm Quản lý Bán hàng &amp; Vận hành Chuỗi CyberNexus POS</div>
+    </div>
+
+    <div class="party">
+      <div class="party-title" data-i18n="ui.m_tpl.div_fc506f61">BÊN A (BÊN SỬ DỤNG DỊCH VỤ): {{LEGAL_ENTITY_NAME}}</div>
+      <div class="grid-2">
+        <div data-i18n="ui.m_tpl.div_ca2411fb">- Tên cửa hàng: <b>{{STORE_NAME}}</b></div>
+        <div data-i18n="ui.m_tpl.div_4d69fe1c">- Mã quán: <b>{{TENANT_CODE}}</b></div>
+        <div data-i18n="ui.m_tpl.div_2bdff193">- Mã số thuế / CCCD: <b>{{TAX_ID_OR_CCCD}}</b></div>
+        <div data-i18n="ui.m_tpl.div_20688f91">- Điện thoại: <b>{{PHONE}}</b></div>
+        <div data-i18n="ui.m_tpl.div_c1b60277">- Người đại diện: <b>{{OWNER_NAME}}</b></div>
+        <div data-i18n="ui.m_tpl.div_bf3ce2c3">- Chức vụ: <b>{{REPRESENTATIVE_ROLE}}</b></div>
+      </div>
+      <div data-i18n="ui.m_tpl.div_babe70ec">- Email nhận thông báo &amp; hóa đơn: <b>{{EMAIL}}</b></div>
+      <div data-i18n="ui.m_tpl.div_c9076d51">- Địa chỉ trụ sở / xuất hóa đơn: <b>{{BILLING_ADDRESS}}</b></div>
+      <div data-i18n="ui.m_tpl.div_7ce4a61f">- Địa chỉ lắp đặt cửa hàng: <b>{{STORE_ADDRESS}}</b></div>
+    </div>
+
+    <h2 data-i18n="ui.m_tpl.h2_ea31b369">Điều 1. Nội dung gói dịch vụ &amp; Cấp quyền sử dụng</h2>
+    <ul>
+      <li data-i18n="ui.m_tpl.li_e2a72eb0">Gói dịch vụ đăng ký: <b>{{PLAN_NAME}}</b> — Phí bản quyền: <b>{{PLAN_PRICE_VND}}</b></li>
+      <li data-i18n="ui.m_tpl.li_bca677a6">Mã khóa bản quyền (License Key): <b>{{LICENSE_KEY}}</b></li>
+      <li data-i18n="ui.m_tpl.li_ca052e1b">Thời hạn hiệu lực: Từ ngày <b>{{START_DATE}}</b> đến hết ngày <b>{{EXPIRE_DATE}}</b></li>
+      <li data-i18n="ui.m_tpl.li_3b12b0f5">Các phân hệ được cấp phép sử dụng: <b>{{ENABLED_MODULES}}</b></li>
+    </ul>
+
+    <h2 data-i18n="ui.m_tpl.h2_957a4d87">Điều 2. Thanh toán &amp; Xuất hóa đơn tài chính</h2>
+    <div data-i18n="ui.m_tpl.div_5f51040a">
+      Bên A thanh toán đầy đủ 100% giá trị gói dịch vụ cho Bên B trước khi bàn giao bộ cài đặt chính thức (trừ trường hợp dùng thử Trial hoặc thỏa thuận bằng văn bản). Bên B xuất hóa đơn tài chính (VAT) theo đúng thông tin pháp nhân Bên A đã cung cấp sau khi nhận đủ thanh toán.
+    </div>
+
+    <h2 data-i18n="ui.m_tpl.h2_32ada788">Điều 3. Cài đặt, Nghiệm thu &amp; Bảo hành kỹ thuật</h2>
+    <div data-i18n="ui.m_tpl.div_86cee88b">
+      Bên B tiến hành đóng gói bộ cài riêng cho Mã quán <b>{{TENANT_CODE}}</b>, hướng dẫn cài đặt và cùng Bên A kiểm thử vận hành thực tế theo <b data-i18n="ui.m_tpl.b_e205464e">Biên bản bàn giao &amp; Nghiệm thu</b>. Thời hạn bảo hành và cập nhật OTA được áp dụng xuyên suốt thời hạn bản quyền nêu tại Điều 1.
+    </div>
+
+    <h2 data-i18n="ui.m_tpl.h2_ff580194">Điều 4. Quyền và nghĩa vụ của các bên</h2>
+    <ul>
+      <li data-i18n="ui.m_tpl.li_b3758734"><b data-i18n="ui.m_tpl.b_4c1d155a">Bên A:</b> Được sử dụng đầy đủ phân hệ đã mua, được hỗ trợ kỹ thuật và cập nhật phần mềm qua OTA. Có trách nhiệm bảo mật tài khoản quản trị, đổi mã PIN 6 số ngay lần đầu sử dụng và thanh toán gia hạn đúng hạn.</li>
+      <li data-i18n="ui.m_tpl.li_3a3e5869"><b data-i18n="ui.m_tpl.b_32c02f45">Bên B:</b> Đảm bảo phần mềm vận hành ổn định, đúng phân hệ cam kết; bảo mật dữ liệu kinh doanh của Bên A; hỗ trợ xử lý sự cố và chuyển đổi thiết bị khi Bên A thay phần cứng hợp lệ.</li>
+    </ul>
+
+    <h2 data-i18n="ui.m_tpl.h2_fa00bb10">Điều 5. Bản quyền sở hữu trí tuệ &amp; Chế tài vi phạm</h2>
+    <div data-i18n="ui.m_tpl.div_2e05a1a2">
+      Bên A cam kết tuân thủ toàn bộ quy định tại <b data-i18n="ui.m_tpl.b_8aff1463">Điều Khoản Sử Dụng &amp; Trách Nhiệm Pháp Lý Về Bản Quyền</b> đính kèm hợp đồng này: không sao chép, chia sẻ bộ cài/License Key cho bên thứ ba, không dịch ngược hoặc can thiệp chữ ký số hệ thống. Mọi hành vi vi phạm dẫn đến thu hồi bản quyền ngay lập tức và chịu trách nhiệm bồi thường theo pháp luật.
+    </div>
+
+    <h2 data-i18n="ui.m_tpl.h2_7b96e764">Điều 6. Hiệu lực hợp đồng</h2>
+    <div data-i18n="ui.m_tpl.div_ea2aeaed">
+      Hợp đồng có hiệu lực kể từ ngày ký và được lập thành 02 (hai) bản có giá trị pháp lý như nhau, mỗi bên giữ 01 (một) bản làm căn cứ thực hiện.
+    </div>
+
+    <div class="sign">
+      <div><b data-i18n="ui.m_tpl.b_5ccbc44d">ĐẠI DIỆN BÊN A</b><br><i data-i18n="ui.m_tpl.i_5dda21d6">(Ký, ghi rõ họ tên, đóng dấu nếu có)</i><br><br><br><br><b>{{OWNER_NAME}}</b></div>
+      <div><b data-i18n="ui.m_tpl.b_2fc1f39f">ĐẠI DIỆN BÊN B</b><br><i data-i18n="ui.m_tpl.i_c1b20d0c">(Ký, ghi rõ họ tên, đóng dấu)</i><br><br><br><br><b>CYBERNEXUS OS</b></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="ui.m_tpl.title_2090483a">Phiếu Bảo Hành &amp; Hỗ Trợ Kỹ Thuật - {{TENANT_CODE}}</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; font-size: 13px; line-height: 1.6; margin: 0; background: #cbd5e1; }
+    .no-print { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #f8fafc; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .no-print button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 12px; }
+    .btn-print { background: #0284c7; color: #fff; }
+    .btn-close { background: #334155; color: #e2e8f0; margin-left: 8px; }
+    .a4-page { width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.22); }
+    h1 { text-align: center; font-size: 18px; text-transform: uppercase; color: #047857; border-bottom: 2px solid #10b981; padding-bottom: 8px; margin-top: 0; }
+    .card { border: 1px solid #a7f3d0; background: #ecfdf5; border-radius: 6px; padding: 12px 14px; margin: 14px 0; }
+    ul { padding-left: 20px; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .a4-page { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+  <script src="/assets/js/i18n.js?v=2"></script>
+</head>
+<body>
+  <div class="no-print">
+    <div data-i18n="ui.m_tpl.div_22392477"><b data-i18n="ui.m_tpl.title_2090483a">Phiếu Bảo Hành &amp; Hỗ Trợ Kỹ Thuật</b> — Mã quán: <b>{{TENANT_CODE}}</b> ({{STORE_NAME}})</div>
+    <div>
+      <button type="button" data-cnx-lang-btn="vi" onclick="if(window.cnxSetLang)cnxSetLang('vi')" style="background:#334155;color:#fff;margin-right:4px;">VI</button><button type="button" data-cnx-lang-btn="en" onclick="if(window.cnxSetLang)cnxSetLang('en')" style="background:#334155;color:#fff;margin-right:10px;">EN</button><button class="btn-print" onclick="window.print()" data-i18n="ui.m_tpl.button_97cb412d">In / Xuất File PDF</button>
+      <button class="btn-close" onclick="window.close()" data-i18n="ui.pos_html.button_cee55387">Đóng</button>
+    </div>
+  </div>
+
+  <div class="a4-page">
+    <h1 data-i18n="ui.m_tpl.h1_b1a00a8e">PHIẾU BẢO HÀNH &amp; CAM KẾT HỖ TRỢ KỸ THUẬT</h1>
+
+    <div class="card">
+      <div data-i18n="ui.m_tpl.div_34d54128"><b data-i18n="ui.m_tpl.b_1fea4f89">Khách hàng:</b> {{LEGAL_ENTITY_NAME}} — Quán: <b>{{STORE_NAME}}</b> (Mã: <b>{{TENANT_CODE}}</b>)</div>
+      <div data-i18n="ui.m_tpl.div_09c68a53"><b data-i18n="ui.m_tpl.b_ae643212">Người liên hệ:</b> {{OWNER_NAME}} — SĐT: {{PHONE}}</div>
+      <div><b data-i18n="ui.m_tpl.b_477bfe85">Gói dịch vụ:</b> {{PLAN_NAME}} &nbsp;|&nbsp; <b>License Key:</b> <code>{{LICENSE_KEY}}</code></div>
+      <div data-i18n="ui.m_tpl.div_06a40715"><b data-i18n="ui.m_tpl.b_b0a66f68">Thời hạn bảo hành &amp; cập nhật:</b> Từ {{START_DATE}} đến {{EXPIRE_DATE}}</div>
+    </div>
+
+    <h3 data-i18n="ui.m_tpl.h3_ca470f30">1. Phạm vi bảo hành phần mềm</h3>
+    <ul>
+      <li data-i18n="ui.m_tpl.li_ffc1ae16">Khắc phục lỗi phát sinh từ phần mềm CyberNexus POS và các module thuộc gói đã cấp phép.</li>
+      <li data-i18n="ui.m_tpl.li_f04462c7">Cung cấp bản vá lỗi và nâng cấp tính năng định kỳ qua hệ thống OTA trực tiếp trên Control Center.</li>
+      <li data-i18n="ui.m_tpl.li_1ad926cb">Hỗ trợ cấp lại PIN 6 số mặc định hoặc gỡ khóa máy (Reset Machine ID) tối đa 02 lần/năm khi quán thay thiết bị.</li>
+    </ul>
+
+    <h3 data-i18n="ui.m_tpl.h3_ad1a9132">2. Trường hợp miễn trừ bảo hành</h3>
+    <ul>
+      <li data-i18n="ui.m_tpl.li_6dd69b5a">Thiết bị quán hỏng ổ cứng, mất điện đột ngột không có lưu trữ dự phòng hoặc nhiễm virus/ransomware từ hệ điều hành.</li>
+      <li data-i18n="ui.m_tpl.li_a047f8b3">Tự ý chỉnh sửa file cấu hình, cơ sở dữ liệu SQLite, hoặc can thiệp/xóa chữ ký số <code>.sig</code> của module.</li>
+      <li data-i18n="ui.m_tpl.li_9f0d1a97">Hết hạn bản quyền dịch vụ mà chưa hoàn tất gia hạn.</li>
+    </ul>
+  </div>
+</body>
+</html>

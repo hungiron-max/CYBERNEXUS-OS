@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CyberNexus OS — Bảng Theo Dõi Khuyết Tật, Nguyên Lý & Kiểm Thử</title>
+    <style>
+        :root {
+            --bg: #070b14;
+            --panel: rgba(15, 23, 42, 0.86);
+            --panel-2: rgba(30, 41, 59, 0.65);
+            --border: rgba(148, 163, 184, 0.16);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --sky: #38bdf8;
+            --emerald: #34d399;
+            --amber: #fbbf24;
+            --rose: #fb7185;
+            --violet: #a78bfa;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.12), transparent 40%),
+                        radial-gradient(circle at 85% 10%, rgba(167, 139, 250, 0.10), transparent 45%),
+                        var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-size: 13.5px;
+            line-height: 1.5;
+        }
+        .wrap { max-width: 1440px; margin: 0 auto; padding: 20px 22px 48px; }
+        .topbar {
+            display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px;
+            background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+            padding: 16px 20px; backdrop-filter: blur(14px);
+        }
+        .brand h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.2px; color: #f8fafc; }
+        .brand .sub { margin-top: 4px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .pill {
+            display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.9);
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+        .dot.paused { background: var(--muted); box-shadow: none; }
+        .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        button, select, input {
+            font-family: inherit; font-size: 12.5px; color: var(--text);
+            background: rgba(15, 23, 42, 0.92); border: 1px solid var(--border); border-radius: 10px;
+            padding: 7px 12px; outline: none; transition: 0.15s ease;
+        }
+        button { cursor: pointer; font-weight: 600; }
+        button:hover { border-color: rgba(56, 189, 248, 0.55); background: rgba(30, 41, 59, 0.95); }
+        .btn-primary { background: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.45); color: #bae6fd; }
+        .btn-green { background: rgba(16, 185, 129, 0.16); border-color: rgba(16, 185, 129, 0.45); color: #a7f3d0; }
+
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; margin-top: 14px;
+        }
+        @media (max-width: 960px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        .kpi-card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+            padding: 13px 15px; position: relative; overflow: hidden; cursor: pointer; transition: 0.15s ease;
+        }
+        .kpi-card:hover { border-color: rgba(56, 189, 248, 0.45); transform: translateY(-1px); }
+        .kpi-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; }
+        .kpi-card .val { font-size: 26px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+        .kpi-card .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .progress-wrap {
+            margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+            padding: 10px 15px; display: flex; align-items: center; gap: 14px;
+        }
+        .progress-bar { flex: 1; height: 9px; background: rgba(15, 23, 42, 0.95); border-radius: 999px; overflow: hidden; display: flex; }
+        .seg-done { background: var(--emerald); }
+        .seg-test { background: var(--sky); }
+        .seg-part { background: var(--amber); }
+        .seg-todo { background: rgba(251, 113, 133, 0.55); }
+
+        .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .tab-btn {
+            padding: 9px 16px; border-radius: 11px; font-weight: 700; color: var(--muted);
+            background: var(--panel); border: 1px solid var(--border);
+        }
+        .tab-btn.active { color: #f8fafc; background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.55); }
+
+        .filters {
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px;
+            background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+        }
+        .filters input[type="search"] { flex: 1; min-width: 220px; }
+        #f-group { max-width: 245px; }
+
+        .table-box {
+            margin-top: 12px; background: var(--panel); border: 1px solid var(--border);
+            border-radius: 14px; overflow: auto; max-height: calc(100vh - 300px); min-height: 360px;
+            scrollbar-width: thin; scrollbar-color: rgba(56, 189, 248, 0.45) rgba(15, 23, 42, 0.8);
+        }
+        .table-box::-webkit-scrollbar { width: 10px; height: 10px; }
+        .table-box::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.85); border-radius: 10px; }
+        .table-box::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.4); border-radius: 10px; border: 2px solid rgba(15, 23, 42, 0.85);
+        }
+        .table-box::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.7); }
+        table { width: 100%; min-width: 1140px; border-collapse: separate; border-spacing: 0; }
+        thead th {
+            position: sticky; top: 0; z-index: 10;
+            text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px;
+            color: var(--muted); background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(8px);
+            padding: 11px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        tbody tr.main-row {
+            cursor: pointer; transition: background 0.12s;
+        }
+        tbody tr.main-row td { border-bottom: 1px solid var(--border); }
+        tbody tr.main-row:hover { background: rgba(56, 189, 248, 0.06); }
+        tbody tr.main-row.expanded { background: rgba(56, 189, 248, 0.09); }
+        tbody td { padding: 10px 12px; vertical-align: middle; }
+        @keyframes cnxBlinkGreen {
+            0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7), 0 0 10px #34d399; }
+            50% { opacity: 0.35; transform: scale(0.82); box-shadow: 0 0 0 6px rgba(52, 211, 153, 0), 0 0 4px #10b981; }
+        }
+        .recent-fix-dot {
+            display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+            background: #34d399; margin-left: 6px; vertical-align: middle;
+            animation: cnxBlinkGreen 1.2s ease-in-out infinite;
+        }
+        .recent-fix-pill {
+            display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;
+            padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+            background: rgba(16, 185, 129, 0.14); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.38);
+            white-space: nowrap;
+        }
+        .code-badge {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11.5px; font-weight: 800; color: var(--sky);
+            background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 3px 8px; border-radius: 7px; white-space: nowrap; display: inline-block;
+        }
+        .grp-tag { font-size: 10.5px; color: var(--muted); display: block; margin-top: 2px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; white-space: nowrap;
+        }
+        .st-done { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.38); }
+        .st-pending_test { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.38); }
+        .st-partial { background: rgba(245, 158, 11, 0.16); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.38); }
+        .st-todo { background: rgba(244, 63, 94, 0.16); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.38); }
+        .prio-P0 { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.45); }
+        .prio-P1 { background: rgba(245, 158, 11, 0.18); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .prio-P2 { background: rgba(148, 163, 184, 0.16); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.32); }
+        .expand-caret {
+            display: inline-block; width: 14px; font-size: 12px; font-weight: 800; color: var(--sky);
+            margin-right: 4px; vertical-align: middle; user-select: none;
+        }
+        .appr-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .appr-actions { display: inline-flex; flex-wrap: wrap; gap: 5px; justify-content: center; align-items: center; }
+        .appr-badge {
+            display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; white-space: nowrap;
+        }
+        .appr-approved { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.42); }
+        .appr-rejected { background: rgba(244, 63, 94, 0.16); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.42); }
+        .appr-pending { background: rgba(245, 158, 11, 0.14); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.36); }
+        .appr-ts { font-size: 10px; color: var(--muted); white-space: nowrap; }
+        .btn-appr-ok, .btn-appr-wait, .btn-appr-no, .btn-appr-reset {
+            padding: 3px 7px; border-radius: 7px; font-size: 11px; font-weight: 700; line-height: 1.3;
+        }
+        .appr-seg {
+            display: inline-flex; gap: 3px; padding: 2px; border-radius: 9px;
+            background: rgba(7, 11, 20, 0.72); border: 1px solid rgba(148, 163, 184, 0.22);
+        }
+        .btn-appr-ok { background: rgba(16, 185, 129, 0.10); border: 1px solid rgba(16, 185, 129, 0.32); color: #6ee7b7; }
+        .btn-appr-ok:hover, .btn-appr-ok.is-active { background: rgba(16, 185, 129, 0.34); border-color: #34d399; color: #ecfdf5; box-shadow: 0 0 8px rgba(16, 185, 129, 0.35); }
+        .btn-appr-wait { background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(245, 158, 11, 0.32); color: #fcd34d; }
+        .btn-appr-wait:hover, .btn-appr-wait.is-active { background: rgba(245, 158, 11, 0.32); border-color: #fbbf24; color: #fffbeb; box-shadow: 0 0 8px rgba(245, 158, 11, 0.32); }
+        .btn-appr-no { background: rgba(244, 63, 94, 0.10); border: 1px solid rgba(244, 63, 94, 0.32); color: #fda4af; }
+        .btn-appr-no:hover, .btn-appr-no.is-active { background: rgba(244, 63, 94, 0.34); border-color: #fb7185; color: #fff1f2; box-shadow: 0 0 8px rgba(244, 63, 94, 0.35); }
+        tbody tr.main-row.is-rejected { background: rgba(244, 63, 94, 0.04); opacity: 0.84; }
+
+        tr.detail-row td {
+            padding: 0 14px 16px; background: rgba(7, 11, 20, 0.72); border-bottom: 1px solid var(--border);
+        }
+        .detail-grid {
+            display: grid; grid-template-columns: repeat(3, minmax(240px, 1fr)); gap: 12px; padding-top: 12px;
+        }
+        @media (max-width: 1000px) { .detail-grid { grid-template-columns: 1fr; } }
+        .d-card {
+            border-radius: 12px; padding: 12px 14px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.92);
+        }
+        .d-card.blue { border-color: rgba(56, 189, 248, 0.35); background: rgba(14, 116, 144, 0.11); }
+        .d-card.orange { border-color: rgba(251, 191, 36, 0.35); background: rgba(180, 83, 9, 0.11); }
+        .d-card.green { border-color: rgba(52, 211, 153, 0.35); background: rgba(6, 95, 70, 0.13); }
+        .d-card h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .d-card.blue h4 { color: #7dd3fc; }
+        .d-card.orange h4 { color: #fcd34d; }
+        .d-card.green h4 { color: #6ee7b7; }
+        .d-card p { margin: 0; font-size: 13px; color: #e2e8f0; }
+
+        .check-item {
+            display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; font-size: 12.5px; cursor: pointer;
+        }
+        .check-item input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--emerald); cursor: pointer; }
+        .check-item.checked span { text-decoration: line-through; color: var(--muted); }
+        .note-line { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(148, 163, 184, 0.25); font-size: 12px; color: var(--muted); }
+        .empty { padding: 36px; text-align: center; color: var(--muted); }
+        .hidden { display: none !important; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="topbar">
+        <div class="brand">
+            <h1>CyberNexus OS — Bảng Theo Dõi Khuyết Tật, Nguyên Lý &amp; Kiểm Thử Thực Tế</h1>
+            <div class="sub">
+                <span>Cập nhật dữ liệu: <b id="meta-updated">—</b></span>
+                <span>OTA mới nhất: <b id="meta-ota" class="mono" style="color:#7dd3fc">—</b></span>
+                <span class="pill" title="Tự động kiểm tra thay đổi từ docs/qa_tracker_data.js mỗi 3 giây">
+                    <span id="live-dot" class="dot"></span>
+                    <span id="live-label">Live Auto-Sync (3s)</span>
+                </span>
+                <span id="sync-time" style="font-size:11px;color:#64748b"></span>
+            </div>
+        </div>
+        <div class="actions">
+            <button type="button" onclick="toggleLiveSync()" id="btn-live-toggle">Tạm dừng Live</button>
+            <button type="button" onclick="fetchData(true)" class="btn-primary">Làm mới ngay</button>
+            <button type="button" onclick="exportApprovalsJson()" class="btn-primary" title="Xuất danh sách các hạng mục đã chọn Duyệt / Chờ / Hủy thành JSON">Xuất quyết định duyệt (JSON)</button>
+            <button type="button" onclick="exportCsv()" class="btn-green">Xuất Excel (CSV)</button>
+        </div>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card" onclick="quickFilterStatus('ALL')">
+            <div class="label">Tổng hạng mục</div>
+            <div class="val" id="kpi-total">0</div>
+            <div class="hint">18 Module + Bảo mật + JS + i18n + Kiến trúc + Chấm công/Lương/OT</div>
+        </div>
+        <div class="kpi-card" onclick="quickFilterStatus('done')">
+            <div class="label" style="color:#6ee7b7">Đã đạt / Đã xử lý</div>
+            <div class="val" id="kpi-done" style="color:#34d399">0</div>
+            <div class="hint">Hoạt động thật hoặc đã vá xong</div>
+        </div>
+        <div class="kpi-card" onclick="quickFilterStatus('pending_test')">
+            <div class="label" style="color:#7dd3fc">Đã build — Chờ test</div>
+            <div class="val" id="kpi-pending" style="color:#38bdf8">0</div>
+            <div class="hint">Đã đóng gói OTA, chờ test thực tế</div>
+        </div>
+        <div class="kpi-card" onclick="quickFilterStatus('partial')">
+            <div class="label" style="color:#fcd34d">Một phần / Cảnh báo</div>
+            <div class="val" id="kpi-partial" style="color:#fbbf24">0</div>
+            <div class="hint">Còn lỗi phụ hoặc chưa gắn nhãn mô phỏng</div>
+        </div>
+        <div class="kpi-card" onclick="quickFilterStatus('todo')">
+            <div class="label" style="color:#fda4af">Chưa xử lý / Mô phỏng</div>
+            <div class="val" id="kpi-todo" style="color:#fb7185">0</div>
+            <div class="hint">Khuyết tật JS, i18n, chữ ký Ed25519...</div>
+        </div>
+    </div>
+
+    <div class="progress-wrap">
+        <b style="font-size:12px;white-space:nowrap">Tiến độ hoàn thiện: <span id="pct-label" style="color:#34d399">0%</span></b>
+        <div class="progress-bar" id="progress-bar"></div>
+        <span style="font-size:11.5px;color:#94a3b8;white-space:nowrap" id="progress-note">Click trực tiếp vào dòng để mở chi tiết / thu gọn · Dùng cột Duyệt / Chờ / Hủy để chốt từng hạng mục</span>
+    </div>
+
+    <div class="tabs">
+        <button type="button" class="tab-btn active" id="tab-btn-items" onclick="switchTab('items')">1. Theo Dõi Khuyết Tật &amp; Nâng Cấp (<span id="cnt-items">0</span>)</button>
+        <button type="button" class="tab-btn" id="tab-btn-js" onclick="switchTab('js')">2. Kiểm Tra Toàn Bộ File JavaScript (<span id="cnt-js">0</span>)</button>
+        <button type="button" class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">3. Nhật Ký Cập Nhật Theo Ngày (<span id="cnt-log">0</span>)</button>
+    </div>
+
+    <!-- TAB 1: ITEMS -->
+    <section id="pane-items">
+        <div class="filters">
+            <input type="search" id="f-search" placeholder="Tìm nhanh mã (MOD-06, SEC-10, JS-BUG-01, HR-01...), tên chức năng, ngày xử lý..." oninput="renderItems()" />
+            <select id="f-group" onchange="renderItems()">
+                <option value="ALL">Tất cả nhóm</option>
+                <option value="MOD">Nhóm I: 18 Module &amp; AI</option>
+                <option value="SEC">Nhóm II: Bảo mật, License &amp; OTA</option>
+                <option value="JS-BUG">Nhóm III: Khuyết tật JS &amp; API</option>
+                <option value="I18N">Nhóm IV: Đa ngôn ngữ i18n</option>
+                <option value="ARCH">Nhóm V: Kiến trúc &amp; Mạng</option>
+                <option value="HR">Nhóm VI: Chấm công, Ca, Lương &amp; OT</option>
+                <option value="PAY">Nhóm VII: Thanh toán, Gian lận &amp; Két tiền</option>
+                <option value="ANTISPAM">Nhóm VIII: Chống Mã độc &amp; Spam đơn rác</option>
+            </select>
+            <select id="f-prio" onchange="renderItems()">
+                <option value="ALL">Mọi ưu tiên</option>
+                <option value="P0">P0 — Khẩn cấp</option>
+                <option value="P1">P1 — Cao</option>
+                <option value="P2">P2 — Trung bình</option>
+            </select>
+            <select id="f-status" onchange="renderItems()">
+                <option value="ALL">Mọi trạng thái</option>
+                <option value="recent_4h">🟢 Vừa sửa xong (&lt; 4 giờ)</option>
+                <option value="done">✅ Đạt / Đã xử lý</option>
+                <option value="pending_test">🧪 Đã build — Chờ test</option>
+                <option value="partial">⚠️ Một phần / Cảnh báo</option>
+                <option value="todo">❌ Chưa xử lý / Mô phỏng</option>
+            </select>
+            <select id="f-approval" onchange="renderItems()">
+                <option value="ALL">Mọi trạng thái duyệt</option>
+                <option value="approved">✅ Đã duyệt</option>
+                <option value="pending">⏳ Chờ</option>
+                <option value="rejected">🚫 Đã hủy</option>
+            </select>
+            <button type="button" id="btn-expand-all" class="btn-primary" onclick="toggleExpandAllVisible()">▾ Mở tất cả chi tiết</button>
+        </div>
+        <div class="table-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:155px">Mã / Nhóm</th>
+                        <th style="width:235px">Hạng mục</th>
+                        <th style="width:74px">Ưu tiên</th>
+                        <th style="width:160px">Trạng thái</th>
+                        <th style="width:128px">Ngày giờ nạp</th>
+                        <th style="width:142px">Ngày giờ xử lý / OTA</th>
+                        <th style="min-width:240px">Tóm tắt thực trạng</th>
+                        <th style="width:210px;text-align:center">Duyệt / Chờ / Hủy</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-items"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TAB 2: ALL JS FILES -->
+    <section id="pane-js" class="hidden">
+        <div class="filters">
+            <input type="search" id="js-search" placeholder="Tìm theo tên file JS hoặc nội dung vấn đề..." oninput="renderJs()" />
+            <select id="js-scope" onchange="renderJs()">
+                <option value="ALL">Cả Slave &amp; Master</option>
+                <option value="Slave">Slave</option>
+                <option value="Master">Master</option>
+            </select>
+            <select id="js-status" onchange="renderJs()">
+                <option value="ALL">Mọi tình trạng</option>
+                <option value="done">✅ Đạt</option>
+                <option value="partial">⚠️ Cần cải thiện</option>
+                <option value="todo">❌ Lỗi / Thừa</option>
+            </select>
+        </div>
+        <div class="table-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:50px">#</th>
+                        <th style="width:80px">Phạm vi</th>
+                        <th style="width:270px">Đường dẫn file JS</th>
+                        <th style="width:75px">Số dòng</th>
+                        <th style="width:90px">node --check</th>
+                        <th style="width:75px">Ưu tiên</th>
+                        <th style="width:135px">Tình trạng</th>
+                        <th style="width:165px">Ngày giờ nạp / Xử lý</th>
+                        <th style="min-width:260px">Vấn đề chính &amp; Đề xuất</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-js"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TAB 3: CHANGELOG -->
+    <section id="pane-log" class="hidden">
+        <div class="table-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:110px">Ngày</th>
+                        <th style="width:140px">Phiên bản / OTA</th>
+                        <th style="width:240px">Đợt rà soát / Thực hiện</th>
+                        <th>Nội dung đã xử lý &amp; Phát hiện mới</th>
+                        <th style="width:250px">Kết quả Build / Kiểm chứng</th>
+                        <th style="width:100px">Phụ trách</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-log"></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<script src="qa_tracker_data.js"></script>
+<script>
+const STATE = {
+    data: null,
+    lastRaw: '',
+    live: true,
+    timer: null,
+    activeTab: 'items',
+    expanded: new Set(),
+    checkedSteps: {},
+    approvals: {}
+};
+
+try {
+    STATE.checkedSteps = JSON.parse(localStorage.getItem('cnx_qa_checked_steps') || '{}');
+} catch (_) {}
+try {
+    STATE.approvals = JSON.parse(localStorage.getItem('cnx_qa_approvals') || '{}');
+} catch (_) {}
+
+const GROUP_OPTION_LABELS = {
+    MOD: 'Nhóm I: 18 Module & AI',
+    SEC: 'Nhóm II: Bảo mật, License & OTA',
+    'JS-BUG': 'Nhóm III: Khuyết tật JS & API',
+    I18N: 'Nhóm IV: Đa ngôn ngữ i18n',
+    ARCH: 'Nhóm V: Kiến trúc & Mạng',
+    HR: 'Nhóm VI: Chấm công, Ca, Lương & OT',
+    PAY: 'Nhóm VII: Thanh toán, Gian lận & Két tiền',
+    ANTISPAM: 'Nhóm VIII: Chống Mã độc & Spam đơn rác'
+};
+
+function nowLocalTs() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function getApprovalInfo(item) {
+    const ov = item && STATE.approvals && STATE.approvals[item.id];
+    if (ov && (ov.state === 'approved' || ov.state === 'rejected' || ov.state === 'pending')) {
+        return { state: ov.state, at: ov.at || '' };
+    }
+    const baseState = (item && item.approval) ? item.approval : ((item && item.status === 'done') ? 'approved' : 'pending');
+    const baseAt = (baseState === 'approved' && item) ? (item.fixed_at || '') : '';
+    return { state: baseState, at: baseAt };
+}
+
+function approvalLabel(st) {
+    return {
+        approved: '✅ Đã duyệt',
+        rejected: '🚫 Đã hủy',
+        pending: '⏳ Chờ'
+    }[st] || st;
+}
+
+function setApproval(itemId, newState, ev) {
+    if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+    STATE.approvals[itemId] = { state: newState, at: nowLocalTs() };
+    try { localStorage.setItem('cnx_qa_approvals', JSON.stringify(STATE.approvals)); } catch (_) {}
+    renderScorecard();
+    renderItems();
+}
+
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function statusMeta(st) {
+    return {
+        done:         { cls: 'st-done',         label: '✅ Đạt / Đã xử lý' },
+        pending_test: { cls: 'st-pending_test', label: '🧪 Chờ test thực tế' },
+        partial:      { cls: 'st-partial',      label: '⚠️ Một phần / Cảnh báo' },
+        todo:         { cls: 'st-todo',         label: '❌ Chưa xử lý' }
+    }[st] || { cls: 'st-todo', label: st };
+}
+
+function toggleStepCheck(itemId, idx, checked) {
+    const key = `${itemId}::${idx}`;
+    if (checked) STATE.checkedSteps[key] = true;
+    else delete STATE.checkedSteps[key];
+    try { localStorage.setItem('cnx_qa_checked_steps', JSON.stringify(STATE.checkedSteps)); } catch (_) {}
+    renderItems();
+}
+
+function toggleExpand(id) {
+    if (STATE.expanded.has(id)) STATE.expanded.delete(id);
+    else STATE.expanded.add(id);
+    renderItems();
+}
+
+const RECENT_FIX_TTL_MS = 4 * 60 * 60 * 1000;
+
+function parseLocalTs(tsStr) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(tsStr || '').trim());
+    if (!m) return NaN;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0)).getTime();
+}
+
+function formatDisplayTs(tsStr, fallback) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(tsStr || '').trim());
+    if (!m) return fallback || '—';
+    return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+}
+
+function getRecentFixInfo(fixedAt, status) {
+    if (status !== 'done' && status !== 'pending_test') return { active: false };
+    const ms = parseLocalTs(fixedAt);
+    if (!Number.isFinite(ms)) return { active: false };
+    const elapsed = Date.now() - ms;
+    if (elapsed < 0 || elapsed >= RECENT_FIX_TTL_MS) return { active: false };
+    const remMin = Math.max(1, Math.ceil((RECENT_FIX_TTL_MS - elapsed) / 60000));
+    const h = Math.floor(remMin / 60);
+    const m = remMin % 60;
+    const remLabel = h > 0 ? `${h}g${String(m).padStart(2, '0')}p` : `${m}p`;
+    return { active: true, remLabel };
+}
+
+function getFilteredItems() {
+    const items = (STATE.data && STATE.data.items) || [];
+    const q = (document.getElementById('f-search').value || '').trim().toLowerCase();
+    const grp = document.getElementById('f-group').value;
+    const prio = document.getElementById('f-prio').value;
+    const st = document.getElementById('f-status').value;
+    const apprFilterEl = document.getElementById('f-approval');
+    const apprFilter = apprFilterEl ? apprFilterEl.value : 'ALL';
+    return items.filter(it => {
+        if (grp !== 'ALL' && it.group !== grp) return false;
+        if (prio !== 'ALL' && it.priority !== prio) return false;
+        if (st === 'recent_4h') {
+            if (!getRecentFixInfo(it.fixed_at, it.status).active) return false;
+        } else if (st !== 'ALL' && it.status !== st) {
+            return false;
+        }
+        const appr = getApprovalInfo(it);
+        if (apprFilter !== 'ALL' && appr.state !== apprFilter) return false;
+        if (q) {
+            const hay = `${it.id} ${it.title} ${it.summary} ${it.principle} ${it.issue_proposal} ${it.created_at || ''} ${it.fixed_at || ''} ${it.fixed_date} ${it.ota_version} ${it.notes} ${approvalLabel(appr.state)}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+}
+
+function syncExpandAllButton(visibleRows) {
+    const rows = Array.isArray(visibleRows) ? visibleRows : getFilteredItems();
+    const btnExpand = document.getElementById('btn-expand-all');
+    const allOpen = rows.length > 0 && rows.every(r => STATE.expanded.has(r.id));
+    if (btnExpand) {
+        btnExpand.textContent = allOpen
+            ? `▴ Đóng tất cả chi tiết (${STATE.expanded.size})`
+            : '▾ Mở tất cả chi tiết';
+    }
+}
+
+function expandAllVisible(open) {
+    const rows = getFilteredItems();
+    if (open) {
+        rows.forEach(r => STATE.expanded.add(r.id));
+    } else {
+        STATE.expanded.clear();
+        const box = typeof document.querySelector === 'function'
+            ? document.querySelector('#pane-items .table-box')
+            : null;
+        if (box) box.scrollTop = 0;
+    }
+    renderItems();
+}
+
+function toggleExpandAllVisible() {
+    const rows = getFilteredItems();
+    const allVisibleOpen = rows.length > 0 && rows.every(r => STATE.expanded.has(r.id));
+    expandAllVisible(!allVisibleOpen);
+}
+
+function quickFilterStatus(st) {
+    switchTab('items');
+    document.getElementById('f-status').value = st;
+    renderItems();
+}
+
+function switchTab(tab) {
+    STATE.activeTab = tab;
+    ['items', 'js', 'log'].forEach(t => {
+        document.getElementById(`pane-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
+    });
+}
+
+function renderScorecard() {
+    const items = (STATE.data && STATE.data.items) || [];
+    const meta = (STATE.data && STATE.data.meta) || {};
+    document.getElementById('meta-updated').textContent = meta.updated_at || '—';
+    document.getElementById('meta-ota').textContent = meta.latest_ota || '—';
+
+    const counts = { done: 0, pending_test: 0, partial: 0, todo: 0 };
+    const grpCounts = {};
+    items.forEach(it => {
+        counts[it.status] = (counts[it.status] || 0) + 1;
+        grpCounts[it.group] = (grpCounts[it.group] || 0) + 1;
+    });
+    const grpSelect = document.getElementById('f-group');
+    if (grpSelect) {
+        Array.from(grpSelect.options).forEach(opt => {
+            if (opt.value === 'ALL') opt.textContent = `Tất cả nhóm (${items.length})`;
+            else if (GROUP_OPTION_LABELS[opt.value]) opt.textContent = `${GROUP_OPTION_LABELS[opt.value]} (${grpCounts[opt.value] || 0})`;
+        });
+    }
+    const tot = items.length || 1;
+    document.getElementById('kpi-total').textContent = items.length;
+    document.getElementById('kpi-done').textContent = counts.done;
+    document.getElementById('kpi-pending').textContent = counts.pending_test;
+    document.getElementById('kpi-partial').textContent = counts.partial;
+    document.getElementById('kpi-todo').textContent = counts.todo;
+
+    const pct = Math.round(((counts.done + counts.pending_test * 0.7 + counts.partial * 0.4) / tot) * 100);
+    document.getElementById('pct-label').textContent = `${pct}% (${counts.done}/${items.length} xong, ${counts.pending_test} chờ test)`;
+    document.getElementById('progress-bar').innerHTML = `
+        <div class="seg-done" style="width:${(counts.done / tot) * 100}%"></div>
+        <div class="seg-test" style="width:${(counts.pending_test / tot) * 100}%"></div>
+        <div class="seg-part" style="width:${(counts.partial / tot) * 100}%"></div>
+        <div class="seg-todo" style="width:${(counts.todo / tot) * 100}%"></div>
+    `;
+    document.getElementById('cnt-items').textContent = items.length;
+    document.getElementById('cnt-js').textContent = ((STATE.data && STATE.data.js_files) || []).length;
+    document.getElementById('cnt-log').textContent = ((STATE.data && STATE.data.changelog) || []).length;
+}
+
+function renderItems() {
+    const tbody = document.getElementById('tbody-items');
+    const list = getFilteredItems();
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Không có hạng mục nào khớp bộ lọc.</td></tr>';
+        syncExpandAllButton(list);
+        return;
+    }
+    let html = '';
+    list.forEach(it => {
+        const sm = statusMeta(it.status);
+        const recent = getRecentFixInfo(it.fixed_at, it.status);
+        const isOpen = STATE.expanded.has(it.id);
+        const steps = Array.isArray(it.test_steps) ? it.test_steps : [];
+        const checkedCnt = steps.filter((_, idx) => STATE.checkedSteps[`${it.id}::${idx}`]).length;
+        const createdDisp = formatDisplayTs(it.created_at, '—');
+        const fixedDisp = formatDisplayTs(it.fixed_at, it.fixed_date || 'Chưa xử lý');
+        const appr = getApprovalInfo(it);
+        const apprTsDisp = appr.at ? formatDisplayTs(appr.at, '') : '';
+        const apprCls = appr.state === 'approved' ? 'appr-approved' : (appr.state === 'rejected' ? 'appr-rejected' : 'appr-pending');
+        const apprCellHtml = `
+            <div class="appr-wrap">
+                <span class="appr-badge ${apprCls}">${approvalLabel(appr.state)}</span>
+                <div class="appr-seg">
+                    <button type="button" class="btn-appr-ok ${appr.state === 'approved' ? 'is-active' : ''}" onclick="setApproval('${esc(it.id)}','approved',event)" title="Đánh dấu Đã duyệt">Duyệt</button>
+                    <button type="button" class="btn-appr-wait ${appr.state === 'pending' ? 'is-active' : ''}" onclick="setApproval('${esc(it.id)}','pending',event)" title="Đưa về trạng thái Chờ duyệt">Chờ</button>
+                    <button type="button" class="btn-appr-no ${appr.state === 'rejected' ? 'is-active' : ''}" onclick="setApproval('${esc(it.id)}','rejected',event)" title="Hủy hạng mục / yêu cầu làm lại">Hủy</button>
+                </div>
+                ${apprTsDisp ? `<div class="appr-ts mono">${esc(apprTsDisp)}</div>` : ''}
+            </div>`;
+
+        html += `
+            <tr class="main-row ${isOpen ? 'expanded' : ''} ${appr.state === 'rejected' ? 'is-rejected' : ''}" onclick="toggleExpand('${esc(it.id)}')" title="Click vào dòng để ${isOpen ? 'thu gọn' : 'mở xem chi tiết'}">
+                <td>
+                    <span class="expand-caret">${isOpen ? '▾' : '▸'}</span><span class="code-badge">${esc(it.id)}</span>${recent.active ? `<span class="recent-fix-dot" title="Vừa sửa xong (${esc(fixedDisp)}) — tự ẩn sau ${esc(recent.remLabel)}"></span>` : ''}
+                    <span class="grp-tag">${esc(it.group_label)}</span>
+                </td>
+                <td>
+                    <b>${esc(it.title)}</b>
+                    ${steps.length ? `<div style="font-size:10.5px;margin-top:3px;color:${checkedCnt === steps.length ? '#34d399' : '#64748b'}">${checkedCnt}/${steps.length} test · ${isOpen ? 'Đang mở chi tiết' : 'Click dòng để xem chi tiết'}</div>` : ''}
+                </td>
+                <td><span class="badge prio-${esc(it.priority)}">${esc(it.priority)}</span></td>
+                <td>
+                    <span class="badge ${sm.cls}">${sm.label}</span>
+                    ${recent.active ? `<div class="recent-fix-pill" title="Chấm xanh chớp tự biến mất sau 4 giờ kể từ lúc sửa"><span class="recent-fix-dot" style="margin-left:0;width:7px;height:7px"></span>Mới sửa · còn ${esc(recent.remLabel)}</div>` : ''}
+                </td>
+                <td class="mono" style="color:#94a3b8">${esc(createdDisp)}</td>
+                <td class="mono">
+                    <div>${esc(fixedDisp)}</div>
+                    ${it.ota_version && it.ota_version !== '—' ? `<div style="color:#7dd3fc;font-size:11px">${esc(it.ota_version)}</div>` : ''}
+                </td>
+                <td style="color:#cbd5e1">${esc(it.summary)}</td>
+                <td style="text-align:center" onclick="event.stopPropagation()">${apprCellHtml}</td>
+            </tr>
+        `;
+        if (isOpen) {
+            const checklistHtml = steps.map((s, idx) => {
+                const k = `${it.id}::${idx}`;
+                const chk = !!STATE.checkedSteps[k];
+                return `<label class="check-item ${chk ? 'checked' : ''}" onclick="event.stopPropagation()">
+                    <input type="checkbox" ${chk ? 'checked' : ''} onchange="toggleStepCheck('${esc(it.id)}', ${idx}, this.checked)" />
+                    <span>${esc(s)}</span>
+                </label>`;
+            }).join('');
+            html += `
+                <tr class="detail-row">
+                    <td colspan="8">
+                        <div class="detail-grid">
+                            <div class="d-card blue">
+                                <h4>Nguyên lý &amp; Quy trình hoạt động</h4>
+                                <p>${esc(it.principle)}</p>
+                            </div>
+                            <div class="d-card orange">
+                                <h4>Khuyết tật &amp; Đề xuất xử lý</h4>
+                                <p>${esc(it.issue_proposal)}</p>
+                                ${it.notes ? `<div class="note-line"><b>Ghi chú:</b> ${esc(it.notes)}</div>` : ''}
+                            </div>
+                            <div class="d-card green">
+                                <h4>Cách kiểm tra thực tế (${checkedCnt}/${steps.length})</h4>
+                                ${checklistHtml || '<p>Không có bước kiểm tra.</p>'}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+    tbody.innerHTML = html;
+    syncExpandAllButton(list);
+}
+
+function renderJs() {
+    const rows = (STATE.data && STATE.data.js_files) || [];
+    const q = (document.getElementById('js-search').value || '').trim().toLowerCase();
+    const sc = document.getElementById('js-scope').value;
+    const st = document.getElementById('js-status').value;
+    const list = rows.filter(r => {
+        if (sc !== 'ALL' && r.scope !== sc) return false;
+        if (st !== 'ALL' && r.status !== st) return false;
+        if (q && !`${r.path} ${r.issues} ${r.notes} ${r.added_at || ''} ${r.fixed_at || ''} ${r.fixed_date}`.toLowerCase().includes(q)) return false;
+        return true;
+    });
+    const tbody = document.getElementById('tbody-js');
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">Không có file JS nào khớp bộ lọc.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = list.map(r => {
+        const sm = statusMeta(r.status);
+        const recent = getRecentFixInfo(r.fixed_at, r.status);
+        const addDisp = formatDisplayTs(r.added_at, '—');
+        const fixDisp = formatDisplayTs(r.fixed_at, r.fixed_date || '—');
+        return `<tr class="main-row" style="cursor:default">
+            <td class="mono">${r.index}</td>
+            <td><span class="pill">${esc(r.scope)}</span></td>
+            <td class="mono" style="color:#7dd3fc">${esc(r.path)}${recent.active ? `<span class="recent-fix-dot" title="Vừa sửa xong (${esc(fixDisp)}) — tự ẩn sau ${esc(recent.remLabel)}"></span>` : ''}</td>
+            <td class="mono">${Number(r.lines).toLocaleString('vi-VN')}</td>
+            <td>${r.syntax_ok ? '<span class="badge st-done">✅ OK</span>' : '<span class="badge st-todo">❌ Lỗi</span>'}</td>
+            <td><span class="badge prio-${esc(r.priority)}">${esc(r.priority)}</span></td>
+            <td><span class="badge ${sm.cls}">${sm.label}</span></td>
+            <td class="mono">
+                <div style="font-size:11px;color:#94a3b8">Nạp: ${esc(addDisp)}</div>
+                <div style="margin-top:2px">Sửa: ${esc(fixDisp)}</div>
+            </td>
+            <td><div>${esc(r.issues)}</div>${r.notes ? `<div style="font-size:11.5px;color:#94a3b8;margin-top:2px">Ghi chú: ${esc(r.notes)}</div>` : ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderChangelog() {
+    const rows = (STATE.data && STATE.data.changelog) || [];
+    const tbody = document.getElementById('tbody-log');
+    tbody.innerHTML = rows.map(r => `
+        <tr class="main-row" style="cursor:default">
+            <td class="mono"><b>${esc(r.date)}</b></td>
+            <td class="mono" style="color:#7dd3fc">${esc(r.ota)}</td>
+            <td><b>${esc(r.batch)}</b></td>
+            <td>${esc(r.details)}</td>
+            <td style="color:#a7f3d0">${esc(r.verify)}</td>
+            <td>${esc(r.owner)}</td>
+        </tr>
+    `).join('');
+}
+
+function applyLoadedData(force = false) {
+    if (!window.QA_TRACKER_DATA) return false;
+    const raw = JSON.stringify(window.QA_TRACKER_DATA);
+    if (force || raw !== STATE.lastRaw) {
+        STATE.data = window.QA_TRACKER_DATA;
+        STATE.lastRaw = raw;
+        renderScorecard();
+        renderItems();
+        renderJs();
+        renderChangelog();
+    }
+    const now = new Date();
+    document.getElementById('sync-time').textContent = `Đồng bộ lúc ${now.toLocaleTimeString('vi-VN')}`;
+    return true;
+}
+
+function fetchData(force = false) {
+    if (force && window.QA_TRACKER_DATA && !STATE.lastRaw) {
+        applyLoadedData(true);
+    }
+    const oldTag = document.getElementById('qa-data-reload');
+    if (oldTag) oldTag.remove();
+    const s = document.createElement('script');
+    s.id = 'qa-data-reload';
+    s.src = `qa_tracker_data.js?t=${Date.now()}`;
+    s.onload = () => applyLoadedData(force);
+    s.onerror = () => {
+        if (!STATE.data) {
+            document.getElementById('sync-time').textContent = 'Không tìm thấy qa_tracker_data.js cùng thư mục docs/';
+        }
+    };
+    document.head.appendChild(s);
+}
+
+function toggleLiveSync() {
+    STATE.live = !STATE.live;
+    const dot = document.getElementById('live-dot');
+    const lbl = document.getElementById('live-label');
+    const btn = document.getElementById('btn-live-toggle');
+    if (STATE.live) {
+        dot.classList.remove('paused');
+        lbl.textContent = 'Live Auto-Sync (3s)';
+        btn.textContent = 'Tạm dừng Live';
+        startLiveLoop();
+    } else {
+        dot.classList.add('paused');
+        lbl.textContent = 'Đã tạm dừng';
+        btn.textContent = 'Bật lại Live';
+        if (STATE.timer) clearInterval(STATE.timer);
+    }
+}
+
+function startLiveLoop() {
+    if (STATE.timer) clearInterval(STATE.timer);
+    STATE.timer = setInterval(() => {
+        if (STATE.live && !document.hidden) fetchData(false);
+    }, 3000);
+}
+
+function exportApprovalsJson() {
+    if (!STATE.data) return;
+    const decisions = (STATE.data.items || []).map(it => {
+        const ap = getApprovalInfo(it);
+        return {
+            id: it.id,
+            group: it.group,
+            title: it.title,
+            status: it.status,
+            approval: ap.state,
+            approved_at: ap.at || null
+        };
+    });
+    const payload = {
+        exported_at: nowLocalTs(),
+        latest_ota: (STATE.data.meta && STATE.data.meta.latest_ota) || '—',
+        summary: {
+            approved: decisions.filter(d => d.approval === 'approved').map(d => d.id),
+            rejected: decisions.filter(d => d.approval === 'rejected').map(d => d.id),
+            pending: decisions.filter(d => d.approval === 'pending').map(d => d.id)
+        },
+        decisions
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `CyberNexus_Approvals_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function exportCsv() {
+    if (!STATE.data) return;
+    const csvCell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const header = ['Mã', 'Nhóm', 'Hạng mục', 'Ưu tiên', 'Trạng thái', 'Duyệt / Chờ / Hủy', 'Ngày giờ nạp', 'Ngày giờ xử lý', 'OTA', 'Tóm tắt', 'Nguyên lý & Quy trình', 'Khuyết tật & Đề xuất', 'Cách kiểm tra thực tế', 'Ghi chú'];
+    const lines = [header.map(csvCell).join(',')];
+    getFilteredItems().forEach(it => {
+        const sm = statusMeta(it.status).label;
+        const ap = approvalLabel(getApprovalInfo(it).state);
+        const steps = (it.test_steps || []).map((s, i) => `${i + 1}. ${s}`).join('\n');
+        const createdDisp = formatDisplayTs(it.created_at, '');
+        const fixedDisp = formatDisplayTs(it.fixed_at, it.fixed_date || '');
+        lines.push([it.id, it.group_label, it.title, it.priority, sm, ap, createdDisp, fixedDisp, it.ota_version, it.summary, it.principle, it.issue_proposal, steps, it.notes].map(csvCell).join(','));
+    });
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `CyberNexus_QA_Tracker_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+fetchData(true);
+startLiveLoop();
+setInterval(() => {
+    if (!document.hidden && STATE.data) {
+        renderItems();
+        renderJs();
+    }
+}, 30000);
+</script>
+</body>
+</html>

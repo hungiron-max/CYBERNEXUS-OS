@@ -1,12 +1,13 @@
 {
-  "generated_at": "2026-11-18 14:42:54",
-  "count": 14,
+  "generated_at": "2026-11-20 11:54:13",
+  "count": 15,
   "files": {
     "admin.html": "eb8e412c88e7bdd17faa41e7c4627c9c188de68b95ab8442610796227774e8f4",
-    "super_admin.html": "2911888529374cb566d2c3e92308658bee3580c63deb222492a0a22c9ee6b95c",
+    "super_admin.html": "9688fddb48f50c813998b881c92b9e0c3013c147cae3713935b5c51b5c05dcec",
+    "theme_studio.html": "f22ed7bb8f286983a7cbbebf216e23dc755f11495462502a0558767dc5775265",
     "assets/css/app-tailwind.min.css": "afec2615c92285a789cf6a803ac2c55967e40f5698c47021fd2aa91abdb09964",
     "assets/css/liquid-glass.css": "9b3510fb710513a2a3b4a609893dbb79756730213654527b5a4ad2ca5291a71d",
-    "assets/css/super_admin.css": "7fdeef7af0e03dd05622d3bdbabf021a4da92ecd524e68ee4e0f760e364cb8b7",
+    "assets/css/super_admin.css": "204319123839ae36987ea1eb9ce706b8ce8168ed48cb2d87f721930cf0729d86",
     "assets/css/theme.css": "3b053a318838b606b89ef37ec13d8801ecf96d1f8dc517b24c18903c8ff5a56b",
     "assets/vendor/qrcode.min.js": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
     "assets/vendor/fontawesome/css/all.min.css": "c22cfb6520a7fdbb738632834019acf47c78b1279462c0eb4cb83bae83ecb5a7",
@@ -14,7 +15,7 @@
     "assets/js/chart.min.js": "87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2",
     "assets/js/image_processor.js": "1aea08af5e0dcf1040a453c9242a657f35bec0ddfb8e08e8e2c141989a54f1ad",
     "assets/js/security_utils.js": "2300013a402d762a9790e99c51c61541b8ed7628c4468619ab8341deb23d26c1",
-    "assets/js/super_admin.js": "8eb980bab8ba0f1d5b2baf48cf72931cfaadb8dfee0602cf97228a0e32612865",
+    "assets/js/super_admin.js": "f6b9069973f95ca797bd97993ed090138b5e2312b2bbe9f6ede4050c891f9ce3",
     "assets/js/theme.js": "4061e3553cfba9ff19513b25019be7de93b0628758ec142dd4ae0f8ca83f9b11"
   }
 }

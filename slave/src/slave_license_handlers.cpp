@@ -72,13 +72,15 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
                 LicenseService::instance().verifyLicenseOnline(key, LicenseService::instance().getMachineId());
             }
             json st = LicenseService::instance().getLicenseStatus();
+            json stData = st.value("data", json::object());
+            std::string curState = stData.value("state", "valid");
             sendJson(res, {
-                {"success", true},
+                {"success", curState == "valid"},
                 {"synced", true},
-                {"state", "valid"},
+                {"state", curState},
                 {"rights_revision", 1},
-                {"message", "Đã đồng bộ giấy phép bản quyền từ Master thành công!"},
-                {"data", st.value("data", json::object())}
+                {"message", curState == "valid" ? "Đã đồng bộ giấy phép bản quyền từ Master thành công!" : stData.value("message", "Bản quyền không hợp lệ!")},
+                {"data", stData}
             });
             return;
         }

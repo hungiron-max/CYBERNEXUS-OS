@@ -1,7 +1,7 @@
 window.onlineOrderPermissions = { payment: true, delivery: true };
 async function handleOnlineLogout() {
-    if (!confirm('Bạn có chắc muốn đăng xuất khỏi hệ thống?')) return;
-    try { await fetch('api/auth.php?action=logout'); } catch (e) {}
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_onl_p.cb29f859','Bạn có chắc muốn đăng xuất khỏi hệ thống?'):'Bạn có chắc muốn đăng xuất khỏi hệ thống?')))) return;
+    try { await fetch('api/auth.php?action=logout'); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('online_orders_page.js', e) : console.debug('online_orders_page.js', e)); }
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_token');
     sessionStorage.clear();
@@ -9,14 +9,24 @@ async function handleOnlineLogout() {
     document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     window.location.replace('login.html?logout=1');
 }
-document.addEventListener('DOMContentLoaded', function() {
+function renderOnlineBackLinks() {
     var zone = document.getElementById('online-admin-badge-zone');
     var u = window.currentUser;
-    if (zone && u && (u.role === 'admin' || u.is_super_admin === true)) {
-        zone.innerHTML = '<a href="admin.html" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">'
-            + '<i class="fas fa-crown text-amber-400 text-xs"></i>'
-            + '<span class="hidden sm:inline font-bold text-amber-200">' + (u.fullname || u.username) + '</span>'
-            + '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">ADMIN</span>'
-            + '</a>';
+    if (!zone || !u) return;
+    var tr = function (k, fb) { return (typeof window.cnxT === 'function') ? window.cnxT(k, fb) : fb; };
+    var isAdmin = (u.role === 'admin' || u.is_super_admin === true);
+    var isCashier = (u.role === 'cashier');
+    if (!isAdmin && !isCashier) { zone.innerHTML = ''; return; }
+    var html = '';
+    if (isAdmin) {
+        html += '<a href="admin.html" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/35 border-amber-400/40 text-amber-200"><i class="fas fa-arrow-left text-[10px]"></i><span>' + tr('common.back_admin', 'Quản Trị') + '</span></a>';
+        html += '<a href="index.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-200"><i class="fas fa-cash-register text-xs"></i><span>POS</span></a>';
+    } else if (isCashier) {
+        html += '<a href="index.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-200"><i class="fas fa-arrow-left text-[10px]"></i><span>' + tr('common.back_pos', 'Quay lại POS') + '</span></a>';
     }
-});
+    zone.innerHTML = html;
+}
+document.addEventListener('DOMContentLoaded', renderOnlineBackLinks);
+window.addEventListener('cybernexus:langchange', renderOnlineBackLinks);
+window.addEventListener('cnx:lang-changed', renderOnlineBackLinks);
+window.addEventListener('cnx:i18n-ready', renderOnlineBackLinks);

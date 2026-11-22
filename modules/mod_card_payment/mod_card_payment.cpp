@@ -11,6 +11,8 @@
 #include <random>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
 
 namespace fs = std::filesystem;
 using namespace CyberNexus;
@@ -18,6 +20,7 @@ using namespace CyberNexus;
 class CardPaymentPlugin : public IModulePlugin {
 private:
     sqlite3* m_db{nullptr};
+    bool m_ownsDb{false};
     std::string m_appVersion;
     mutable std::mutex m_dbMutex;
 
@@ -320,6 +323,306 @@ private:
         };
     }
 
+    static std::string normalizeSimBehaviorDb(const std::string& raw) {
+        if (raw == "SIMULATE_DECLINE_51" || raw == "DECLINE_INSUFFICIENT") return "DECLINE_51";
+        if (raw == "SIMULATE_EXPIRED" || raw == "DECLINE_EXPIRED") return "DECLINE_54";
+        if (raw == "SIMULATE_TIMEOUT") return "TIMEOUT";
+        return raw.empty() ? "AUTO_APPROVE" : raw;
+    }
+
+    static std::string normalizeSimBehaviorUi(const std::string& raw) {
+        if (raw == "DECLINE_51" || raw == "DECLINE_INSUFFICIENT") return "SIMULATE_DECLINE_51";
+        if (raw == "TIMEOUT" || raw == "DECLINE_91") return "SIMULATE_TIMEOUT";
+        return raw.empty() ? "AUTO_APPROVE" : raw;
+    }
+
+    json enrichConfigForUi(json cfg) const {
+        if (!cfg.is_object()) cfg = json::object();
+        std::string sec = cfg.value("api_secret", "");
+        if (sec.length() > 6) {
+            cfg["api_secret_masked"] = sec.substr(0, 4) + "••••••••" + sec.substr(sec.length() - 2);
+        } else {
+            cfg["api_secret_masked"] = "••••••••";
+        }
+        cfg["connection_type"] = cfg.value("connection_mode", "LAN_TCP");
+        cfg["tid"] = cfg.value("terminal_id_tid", "TID88901");
+        cfg["mid"] = cfg.value("merchant_id_mid", "MID000890123456");
+        cfg["simulation_behavior"] = normalizeSimBehaviorUi(cfg.value("sim_behavior", "AUTO_APPROVE"));
+        cfg.erase("api_secret");
+        return cfg;
+    }
+
+    static json enrichCatalogForUi(const json& catalog) {
+        json out = json::array();
+        if (!catalog.is_array()) return out;
+        for (auto item : catalog) {
+            if (!item.is_object()) continue;
+            item["security_standard"] = item.value("pci_standard", "PCI PTS 6.x");
+            item["protocol"] = item.value("protocol_family", "");
+            std::string ifaces = item.value("connection_type", "LAN TCP/IP");
+            if (item.value("supports_nfc", 1)) ifaces += ", NFC";
+            if (item.value("supports_chip", 1)) ifaces += ", EMV Chip";
+            if (item.value("supports_qr", 1)) ifaces += ", QR";
+            item["supported_interfaces"] = ifaces;
+            out.push_back(item);
+        }
+        return out;
+    }
+
+    static bool sendLanTcpEcr(const std::string& ip, int port, int timeoutSec, const json& reqJson,
+                              json& respJsonOut, long long& latencyMsOut, std::string& errOut) {
+        auto t0 = std::chrono::steady_clock::now();
+        if (ip.empty() || port <= 0 || port > 65535) {
+            errOut = "Địa chỉ IP hoặc Port ECR không hợp lệ (" + ip + ":" + std::to_string(port) + ")";
+            latencyMsOut = 0;
+            return false;
+        }
+#ifdef _WIN32
+        WSADATA wsaData{};
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+        struct addrinfo hints{};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = IPPROTO_TCP;
+        struct addrinfo* resInfo = nullptr;
+        std::string portStr = std::to_string(port);
+        if (getaddrinfo(ip.c_str(), portStr.c_str(), &hints, &resInfo) != 0 || !resInfo) {
+            latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+            errOut = "Không phân giải được IP/Host SmartPOS: " + ip + ":" + portStr;
+            return false;
+        }
+
+        SOCKET sock = socket(resInfo->ai_family, resInfo->ai_socktype, resInfo->ai_protocol);
+        if (sock == INVALID_SOCKET) {
+            int wsaErr = WSAGetLastError();
+            freeaddrinfo(resInfo);
+            latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+            errOut = "Không tạo được TCP Socket tới SmartPOS (WSA " + std::to_string(wsaErr) + ")";
+            return false;
+        }
+
+        u_long nonBlock = 1;
+        ioctlsocket(sock, FIONBIO, &nonBlock);
+        int connRc = connect(sock, resInfo->ai_addr, static_cast<int>(resInfo->ai_addrlen));
+        if (connRc == SOCKET_ERROR) {
+            int wsaErr = WSAGetLastError();
+            if (wsaErr != WSAEWOULDBLOCK && wsaErr != WSAEINPROGRESS) {
+                closesocket(sock);
+                freeaddrinfo(resInfo);
+                latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                errOut = "Kết nối TCP SmartPOS thất bại (" + ip + ":" + portStr + ", WSA " + std::to_string(wsaErr) + ")";
+                return false;
+            }
+            fd_set writeSet, errSet;
+            FD_ZERO(&writeSet);
+            FD_ZERO(&errSet);
+            FD_SET(sock, &writeSet);
+            FD_SET(sock, &errSet);
+            timeval tv{};
+            tv.tv_sec = std::max(2, std::min(timeoutSec, 5));
+            tv.tv_usec = 0;
+            int sel = select(0, nullptr, &writeSet, &errSet, &tv);
+            if (sel <= 0 || FD_ISSET(sock, &errSet) || !FD_ISSET(sock, &writeSet)) {
+                closesocket(sock);
+                freeaddrinfo(resInfo);
+                latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                errOut = "Hết thời gian kết nối tới máy SmartPOS LAN (" + ip + ":" + portStr + ")";
+                return false;
+            }
+            int soErr = 0;
+            int soLen = sizeof(soErr);
+            getsockopt(sock, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&soErr), &soLen);
+            if (soErr != 0) {
+                closesocket(sock);
+                freeaddrinfo(resInfo);
+                latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                errOut = "SmartPOS từ chối kết nối TCP tại " + ip + ":" + portStr + " (SO_ERROR=" + std::to_string(soErr) + ")";
+                return false;
+            }
+        }
+        freeaddrinfo(resInfo);
+
+        nonBlock = 0;
+        ioctlsocket(sock, FIONBIO, &nonBlock);
+        DWORD ioMs = static_cast<DWORD>(std::max(3, timeoutSec) * 1000);
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&ioMs), sizeof(ioMs));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&ioMs), sizeof(ioMs));
+
+        std::string wireOut = reqJson.dump() + "\n";
+        size_t sentTotal = 0;
+        while (sentTotal < wireOut.size()) {
+            int s = send(sock, wireOut.data() + sentTotal, static_cast<int>(wireOut.size() - sentTotal), 0);
+            if (s <= 0) {
+                int wsaErr = WSAGetLastError();
+                closesocket(sock);
+                latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                errOut = "Gửi lệnh ECR qua TCP thất bại (WSA " + std::to_string(wsaErr) + ")";
+                return false;
+            }
+            sentTotal += static_cast<size_t>(s);
+        }
+
+        std::string rawResp;
+        char buf[2048];
+        while (true) {
+            int r = recv(sock, buf, sizeof(buf), 0);
+            if (r > 0) {
+                rawResp.append(buf, r);
+                if (rawResp.find('\n') != std::string::npos || rawResp.size() > 65536) break;
+            } else {
+                break;
+            }
+        }
+        closesocket(sock);
+        latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+        while (!rawResp.empty() && (rawResp.back() == '\n' || rawResp.back() == '\r' || rawResp.back() == '\x03')) rawResp.pop_back();
+        if (!rawResp.empty() && rawResp.front() == '\x02') rawResp.erase(rawResp.begin());
+        if (rawResp.empty()) {
+            errOut = "SmartPOS đóng kết nối hoặc quá hạn đọc phản hồi từ " + ip + ":" + portStr;
+            return false;
+        }
+        respJsonOut = json::parse(rawResp, nullptr, false);
+        if (respJsonOut.is_discarded() || !respJsonOut.is_object()) {
+            errOut = "Phản hồi TCP từ SmartPOS không đúng định dạng JSON: " + rawResp.substr(0, 100);
+            return false;
+        }
+        return true;
+#else
+        (void)timeoutSec;
+        (void)reqJson;
+        (void)respJsonOut;
+        latencyMsOut = 0;
+        errOut = "LAN TCP ECR yêu cầu Windows Winsock runtime";
+        return false;
+#endif
+    }
+
+    static bool sendWifiRestEcr(const std::string& ip, int port, const std::string& secret, const std::string& path,
+                               int timeoutSec, const json& reqJson, json& respJsonOut, long long& latencyMsOut, std::string& errOut) {
+        auto t0 = std::chrono::steady_clock::now();
+        if (ip.empty() || port <= 0 || port > 65535) {
+            errOut = "IP/Port Wi-Fi REST ECR không hợp lệ";
+            latencyMsOut = 0;
+            return false;
+        }
+        httplib::Client cli(ip, port);
+        cli.set_connection_timeout(std::max(2, std::min(timeoutSec, 5)), 0);
+        cli.set_read_timeout(std::max(3, timeoutSec), 0);
+        httplib::Headers hdrs;
+        if (!secret.empty()) hdrs.emplace("X-ECR-Secret", secret);
+        auto res = cli.Post(path.c_str(), hdrs, reqJson.dump(), "application/json");
+        latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+        if (!res) {
+            errOut = "Không kết nối được Wi-Fi REST SmartPOS (" + ip + ":" + std::to_string(port) + path + ")";
+            return false;
+        }
+        respJsonOut = json::parse(res->body, nullptr, false);
+        if (respJsonOut.is_discarded() || !respJsonOut.is_object()) {
+            errOut = "HTTP " + std::to_string(res->status) + " từ SmartPOS không trả JSON hợp lệ";
+            return false;
+        }
+        if (res->status >= 500) {
+            errOut = respJsonOut.value("message", "SmartPOS HTTP " + std::to_string(res->status));
+            return false;
+        }
+        return true;
+    }
+
+    static bool sendUsbSerialEcr(const std::string& comPortIn, int timeoutSec, const json& reqJson,
+                                 json& respJsonOut, long long& latencyMsOut, std::string& errOut) {
+        auto t0 = std::chrono::steady_clock::now();
+        std::string portUpper = comPortIn;
+        for (char& c : portUpper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        bool validCom = (portUpper.rfind("COM", 0) == 0 && portUpper.size() >= 4 && portUpper.size() <= 6);
+        if (validCom) {
+            for (size_t i = 3; i < portUpper.size(); ++i) {
+                if (!std::isdigit(static_cast<unsigned char>(portUpper[i]))) { validCom = false; break; }
+            }
+        }
+        if (!validCom) {
+            latencyMsOut = 0;
+            errOut = "Tên cổng USB-CDC COM không hợp lệ (ví dụ: COM3, nhập thực tế vào ô IP/COM): " + comPortIn;
+            return false;
+        }
+#ifdef _WIN32
+        std::string devPath = "\\\\.\\" + portUpper;
+        HANDLE hCom = CreateFileA(devPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (hCom == INVALID_HANDLE_VALUE) {
+            DWORD gle = GetLastError();
+            latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+            errOut = "Không mở được cổng nối tiếp " + portUpper + " (Win32 Error " + std::to_string(gle) + ")";
+            return false;
+        }
+        DCB dcb{};
+        dcb.DCBlength = sizeof(dcb);
+        if (GetCommState(hCom, &dcb)) {
+            dcb.BaudRate = CBR_115200;
+            dcb.ByteSize = 8;
+            dcb.Parity = NOPARITY;
+            dcb.StopBits = ONESTOPBIT;
+            SetCommState(hCom, &dcb);
+        }
+        COMMTIMEOUTS tos{};
+        tos.ReadIntervalTimeout = 50;
+        tos.ReadTotalTimeoutConstant = static_cast<DWORD>(std::max(3, timeoutSec) * 1000);
+        tos.ReadTotalTimeoutMultiplier = 10;
+        tos.WriteTotalTimeoutConstant = 3000;
+        tos.WriteTotalTimeoutMultiplier = 10;
+        SetCommTimeouts(hCom, &tos);
+
+        std::string frame = "\x02" + reqJson.dump() + "\x03\n";
+        DWORD written = 0;
+        if (!WriteFile(hCom, frame.data(), static_cast<DWORD>(frame.size()), &written, nullptr) || written == 0) {
+            DWORD gle = GetLastError();
+            CloseHandle(hCom);
+            latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+            errOut = "Ghi dữ liệu ra cổng " + portUpper + " thất bại (Win32 Error " + std::to_string(gle) + ")";
+            return false;
+        }
+        std::string rawResp;
+        char buf[1024];
+        DWORD readBytes = 0;
+        while (ReadFile(hCom, buf, sizeof(buf), &readBytes, nullptr) && readBytes > 0) {
+            rawResp.append(buf, readBytes);
+            if (rawResp.find('\n') != std::string::npos || rawResp.find('\x03') != std::string::npos || rawResp.size() > 65536) break;
+        }
+        CloseHandle(hCom);
+        latencyMsOut = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+        while (!rawResp.empty() && (rawResp.back() == '\n' || rawResp.back() == '\r' || rawResp.back() == '\x03')) rawResp.pop_back();
+        if (!rawResp.empty() && rawResp.front() == '\x02') rawResp.erase(rawResp.begin());
+        if (rawResp.empty()) {
+            errOut = "Không nhận được phản hồi từ thiết bị SmartPOS trên " + portUpper;
+            return false;
+        }
+        respJsonOut = json::parse(rawResp, nullptr, false);
+        if (respJsonOut.is_discarded() || !respJsonOut.is_object()) {
+            errOut = "Phản hồi COM từ SmartPOS không đúng định dạng JSON";
+            return false;
+        }
+        return true;
+#else
+        (void)timeoutSec;
+        (void)reqJson;
+        (void)respJsonOut;
+        latencyMsOut = 0;
+        errOut = "USB_CDC COM chỉ hỗ trợ trên Windows";
+        return false;
+#endif
+    }
+
+    static bool dispatchTerminalCommand(const std::string& connMode, const std::string& ipOrCom, int port,
+                                        const std::string& secret, int timeoutSec, const std::string& restPath,
+                                        const json& reqJson, json& respJsonOut, long long& latencyMsOut, std::string& errOut) {
+        if (connMode == "WIFI_REST" || connMode == "REST") {
+            return sendWifiRestEcr(ipOrCom, port, secret, restPath, timeoutSec, reqJson, respJsonOut, latencyMsOut, errOut);
+        }
+        if (connMode == "USB_CDC" || connMode == "SERIAL_COM") {
+            return sendUsbSerialEcr(ipOrCom, timeoutSec, reqJson, respJsonOut, latencyMsOut, errOut);
+        }
+        return sendLanTcpEcr(ipOrCom, port, timeoutSec, reqJson, respJsonOut, latencyMsOut, errOut);
+    }
+
 public:
     ModuleMetadata getMetadata() const override {
         ModuleMetadata m;
@@ -337,23 +640,30 @@ public:
 
     bool onLoad(const CoreContext& ctx) override {
         m_appVersion = ctx.appVersion;
+        // DLL compiles its own static sqlite3.c, so open DB path directly instead of sharing exe sqlite3*.
         std::string dbPath = "./database/store_local.db";
+        if (const char* envDb = std::getenv("CYBERNEXUS_DB_PATH"); envDb && *envDb) {
+            dbPath = envDb;
+        }
         if (sqlite3_open_v2(dbPath.c_str(), &m_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr) != SQLITE_OK) {
             std::cerr << "[mod_card_payment Error] Khong the mo CSDL tai " << dbPath << std::endl;
             return false;
         }
+        m_ownsDb = true;
+        sqlite3_busy_timeout(m_db, 5000);
         execSql("PRAGMA journal_mode = WAL;");
         ensureTables();
-        std::cout << "[mod_card_payment] Kích hoạt Cổng Cà Thẻ Tín Dụng & SmartPOS Adapter (10 dòng máy đời mới)." << std::endl;
+        std::cout << "[mod_card_payment] Kích hoạt Cổng Cà Thẻ Tín Dụng & SmartPOS Adapter (LAN TCP / Wi-Fi REST / USB-CDC COM + Simulation)." << std::endl;
         return true;
     }
 
     void onUnload() override {
         std::lock_guard<std::mutex> lock(m_dbMutex);
-        if (m_db) {
+        if (m_db && m_ownsDb) {
             sqlite3_close(m_db);
-            m_db = nullptr;
         }
+        m_db = nullptr;
+        m_ownsDb = false;
         std::cout << "[mod_card_payment] Đã đóng kết nối Cổng Cà Thẻ Tín Dụng." << std::endl;
     }
 
@@ -361,18 +671,12 @@ public:
         // 1. GET /api/card/status - Lấy trạng thái bản quyền ON/OFF/BLOCK, cấu hình adapter & danh mục máy đời mới
         svr.Get("/api/card/status", [this](const httplib::Request&, httplib::Response& res) {
             json lic = getLicenseState();
-            json cfg = queryOne("SELECT * FROM card_terminal_config WHERE id = 1");
-            json catalog = queryAll("SELECT * FROM card_terminal_catalog ORDER BY id ASC");
+            json rawCfg = queryOne("SELECT * FROM card_terminal_config WHERE id = 1");
+            json rawCatalog = queryAll("SELECT * FROM card_terminal_catalog ORDER BY id ASC");
+            json catalog = enrichCatalogForUi(rawCatalog);
             json summary = getSummaryMetrics();
-
-            if (!cfg.is_null() && cfg.is_object()) {
-                std::string sec = cfg.value("api_secret", "");
-                if (sec.length() > 6) {
-                    cfg["api_secret_masked"] = sec.substr(0, 4) + "••••••••" + sec.substr(sec.length() - 2);
-                } else {
-                    cfg["api_secret_masked"] = "••••••••";
-                }
-            }
+            json cfg = enrichConfigForUi(rawCfg);
+            bool isSim = (cfg.value("simulation_mode", 1) != 0);
 
             json out = {
                 {"success", true},
@@ -380,9 +684,11 @@ public:
                 {"module_state", lic["module_state"]},
                 {"is_enabled", lic["is_enabled"]},
                 {"is_blocked", lic["is_blocked"]},
+                {"simulation_mode", isSim},
                 {"master_fee_percent", lic["master_fee_percent"]},
                 {"config", cfg},
                 {"catalog", catalog},
+                {"compatible_terminals", catalog},
                 {"summary", summary}
             };
             res.set_content(out.dump(), "application/json; charset=utf-8");
@@ -404,7 +710,8 @@ public:
 
             try {
                 json body = json::parse(req.body);
-                std::string modelCode = body.value("model_code", "PAX_A920_PRO");
+                json prevCfg = queryOne("SELECT * FROM card_terminal_config WHERE id = 1");
+                std::string modelCode = body.value("model_code", prevCfg.value("model_code", "PAX_A920_PRO"));
 
                 // Kiểm tra bắt buộc thuộc danh mục máy đời mới tương thích
                 json modelRow = queryOne("SELECT * FROM card_terminal_catalog WHERE model_code = '" + sqlEscape(modelCode) + "' LIMIT 1");
@@ -419,17 +726,33 @@ public:
                     return;
                 }
 
-                std::string acquirerBank = body.value("acquirer_bank", "Vietcombank (VCB SmartPOS)");
-                std::string connMode = body.value("connection_mode", "LAN_TCP");
-                std::string termIp = body.value("terminal_ip", "10.0.126.250");
-                int termPort = body.value("terminal_port", modelRow.value("default_port", 10009));
-                std::string tid = body.value("terminal_id_tid", "TID88901");
-                std::string mid = body.value("merchant_id_mid", "MID000890123456");
-                std::string secret = body.value("api_secret", "");
-                int timeoutSec = std::max(10, std::min(180, body.value("timeout_seconds", 60)));
-                double surchargePct = std::max(0.0, std::min(10.0, body.value("customer_surcharge_percent", 0.0)));
-                int simMode = body.value("simulation_mode", 1);
-                std::string simBehavior = body.value("sim_behavior", "AUTO_APPROVE");
+                std::string acquirerBank = body.value("acquirer_bank", prevCfg.value("acquirer_bank", "Vietcombank (VCB SmartPOS)"));
+                std::string connMode = body.contains("connection_mode")
+                    ? body.value("connection_mode", "LAN_TCP")
+                    : body.value("connection_type", prevCfg.value("connection_mode", "LAN_TCP"));
+                std::string termIp = body.value("terminal_ip", prevCfg.value("terminal_ip", "10.0.126.250"));
+                int termPort = body.value("terminal_port", modelRow.value("default_port", prevCfg.value("terminal_port", 10009)));
+                std::string tid = body.contains("terminal_id_tid")
+                    ? body.value("terminal_id_tid", "TID88901")
+                    : body.value("tid", prevCfg.value("terminal_id_tid", "TID88901"));
+                std::string mid = body.contains("merchant_id_mid")
+                    ? body.value("merchant_id_mid", "MID000890123456")
+                    : body.value("mid", prevCfg.value("merchant_id_mid", "MID000890123456"));
+                std::string secret = body.contains("api_secret")
+                    ? body.value("api_secret", "")
+                    : body.value("secret_key", "");
+                int timeoutSec = std::max(5, std::min(180, body.value("timeout_seconds", prevCfg.value("timeout_seconds", 60))));
+                double surchargePct = std::max(0.0, std::min(10.0, body.value("customer_surcharge_percent", prevCfg.value("customer_surcharge_percent", 0.0))));
+                int simMode = prevCfg.value("simulation_mode", 1);
+                if (body.contains("simulation_mode")) {
+                    if (body["simulation_mode"].is_boolean()) simMode = body["simulation_mode"].get<bool>() ? 1 : 0;
+                    else if (body["simulation_mode"].is_number_integer()) simMode = body["simulation_mode"].get<int>() != 0 ? 1 : 0;
+                    else if (body["simulation_mode"].is_string()) simMode = (body["simulation_mode"].get<std::string>() == "0" || body["simulation_mode"].get<std::string>() == "false") ? 0 : 1;
+                }
+                std::string simBehavior = body.contains("sim_behavior")
+                    ? body.value("sim_behavior", "AUTO_APPROVE")
+                    : body.value("simulation_behavior", prevCfg.value("sim_behavior", "AUTO_APPROVE"));
+                simBehavior = normalizeSimBehaviorDb(simBehavior);
 
                 std::string secretSql = "";
                 if (!secret.empty() && secret.find("••") == std::string::npos) {
@@ -454,10 +777,12 @@ public:
 
                 execSql(sql.str());
 
+                json saved = enrichConfigForUi(queryOne("SELECT * FROM card_terminal_config WHERE id = 1"));
                 json out = {
                     {"success", true},
-                    {"message", "Đã lưu cấu hình Adapter liên kết máy cà thẻ " + modelRow.value("model_name", modelCode) + " thành công!"},
-                    {"config", queryOne("SELECT * FROM card_terminal_config WHERE id = 1")}
+                    {"simulation_mode", simMode != 0},
+                    {"message", "Đã lưu cấu hình Adapter " + modelRow.value("model_name", modelCode) + (simMode ? " (Chế độ Mô phỏng)!" : " (Kết nối Thiết bị Thật " + connMode + " " + termIp + ":" + std::to_string(termPort) + ")!")},
+                    {"config", saved}
                 };
                 res.set_content(out.dump(), "application/json; charset=utf-8");
             } catch (const std::exception& e) {
@@ -466,7 +791,7 @@ public:
             }
         });
 
-        // 3. POST /api/card/test-connection - Kiểm tra kết nối Handshake ECR với máy POS
+        // 3. POST /api/card/test-connection - Kiểm tra kết nối Handshake ECR với máy POS (Mô phỏng hoặc LAN TCP / Wi-Fi REST / USB-CDC COM)
         svr.Post("/api/card/test-connection", [this](const httplib::Request& req, httplib::Response& res) {
             json lic = getLicenseState();
             if (!lic.value("is_enabled", false)) {
@@ -483,10 +808,28 @@ public:
 
             json cfg = queryOne("SELECT * FROM card_terminal_config WHERE id = 1");
             std::string modelCode = cfg.value("model_code", "PAX_A920_PRO");
+            std::string connMode = cfg.value("connection_mode", "LAN_TCP");
+            std::string termIp = cfg.value("terminal_ip", "10.0.126.250");
+            int termPort = cfg.value("terminal_port", 10009);
+            std::string tid = cfg.value("terminal_id_tid", "TID88901");
+            std::string mid = cfg.value("merchant_id_mid", "MID000890123456");
+            std::string secret = cfg.value("api_secret", "");
+            int simMode = cfg.value("simulation_mode", 1);
+
             if (!req.body.empty()) {
                 try {
                     json b = json::parse(req.body);
-                    if (b.contains("model_code")) modelCode = b.value("model_code", modelCode);
+                    if (b.is_object()) {
+                        if (b.contains("model_code") && b["model_code"].is_string()) modelCode = b["model_code"].get<std::string>();
+                        if (b.contains("connection_mode") && b["connection_mode"].is_string()) connMode = b["connection_mode"].get<std::string>();
+                        else if (b.contains("connection_type") && b["connection_type"].is_string()) connMode = b["connection_type"].get<std::string>();
+                        if (b.contains("terminal_ip") && b["terminal_ip"].is_string() && !b["terminal_ip"].get<std::string>().empty()) termIp = b["terminal_ip"].get<std::string>();
+                        if (b.contains("terminal_port") && b["terminal_port"].is_number_integer()) termPort = b["terminal_port"].get<int>();
+                        if (b.contains("simulation_mode")) {
+                            if (b["simulation_mode"].is_boolean()) simMode = b["simulation_mode"].get<bool>() ? 1 : 0;
+                            else if (b["simulation_mode"].is_number_integer()) simMode = b["simulation_mode"].get<int>() != 0 ? 1 : 0;
+                        }
+                    }
                 } catch (...) {}
             }
 
@@ -496,22 +839,92 @@ public:
                 res.set_content("{\"success\":false,\"message\":\"Model máy không hợp lệ hoặc không thuộc thế hệ SmartPOS đời mới!\"}", "application/json; charset=utf-8");
                 return;
             }
+            std::string modelName = modelRow.value("model_name", modelCode);
 
+            if (simMode != 0) {
+                json out = {
+                    {"success", true},
+                    {"status", "CONNECTED"},
+                    {"simulation_mode", true},
+                    {"terminal_name", modelName},
+                    {"firmware", "ECR-Sim v3.2"},
+                    {"latency_ms", 12},
+                    {"message", "Bắt tay ECR Handshake thành công (CHẾ ĐỘ MÔ PHỎNG — CHƯA NỐI THIẾT BỊ THẬT)!"},
+                    {"handshake", {
+                        {"terminal_model", modelName},
+                        {"brand", modelRow.value("brand", "")},
+                        {"os_type", modelRow.value("os_type", "")},
+                        {"protocol", modelRow.value("protocol_family", "")},
+                        {"pci_standard", modelRow.value("pci_standard", "PCI PTS 6.x")},
+                        {"endpoint", termIp + ":" + std::to_string(termPort)},
+                        {"tid", tid},
+                        {"mid", mid},
+                        {"acquirer_bank", cfg.value("acquirer_bank", "Vietcombank")},
+                        {"latency_ms", 12},
+                        {"status", "READY_FOR_SALE"}
+                    }}
+                };
+                res.set_content(out.dump(), "application/json; charset=utf-8");
+                return;
+            }
+
+            json echoReq = {
+                {"cmd", "ECHO"},
+                {"model_code", modelCode},
+                {"tid", tid},
+                {"mid", mid}
+            };
+            json hwResp;
+            long long latMs = 0;
+            std::string errMsg;
+            if (!dispatchTerminalCommand(connMode, termIp, termPort, secret, 4, "/ecr/echo", echoReq, hwResp, latMs, errMsg)) {
+                res.status = 502;
+                res.set_content(json({
+                    {"success", false},
+                    {"status", "DISCONNECTED"},
+                    {"simulation_mode", false},
+                    {"connection_mode", connMode},
+                    {"endpoint", termIp + ":" + std::to_string(termPort)},
+                    {"latency_ms", latMs},
+                    {"message", errMsg}
+                }).dump(), "application/json; charset=utf-8");
+                return;
+            }
+
+            std::string hwStatus = hwResp.value("status", "CONNECTED");
+            bool hwOk = hwResp.value("success", hwResp.value("ok", (hwStatus == "CONNECTED" || hwStatus == "READY_FOR_SALE" || hwStatus == "OK")));
+            if (!hwOk) {
+                res.status = 502;
+                res.set_content(json({
+                    {"success", false},
+                    {"status", "DISCONNECTED"},
+                    {"simulation_mode", false},
+                    {"latency_ms", latMs},
+                    {"message", hwResp.value("message", "SmartPOS từ chối gói tin ECHO HANDSHAKE.")}
+                }).dump(), "application/json; charset=utf-8");
+                return;
+            }
+
+            std::string fw = hwResp.value("firmware", "SmartPOS-ECR v1.0");
+            std::string hwName = hwResp.value("terminal_name", modelName);
             json out = {
                 {"success", true},
-                {"simulation_mode", true},
-                {"message", "Bắt tay ECR Handshake thành công (Chế độ Mô Phỏng Sẵn Sàng)!"},
+                {"status", "CONNECTED"},
+                {"simulation_mode", false},
+                {"connection_mode", connMode},
+                {"terminal_name", hwName},
+                {"firmware", fw},
+                {"latency_ms", latMs},
+                {"message", "Kết nối thiết bị thật thành công (" + connMode + " • " + termIp + (connMode == "USB_CDC" ? "" : (":" + std::to_string(termPort))) + ")!"},
                 {"handshake", {
-                    {"terminal_model", modelRow.value("model_name", "")},
+                    {"terminal_model", hwName},
                     {"brand", modelRow.value("brand", "")},
-                    {"os_type", modelRow.value("os_type", "")},
                     {"protocol", modelRow.value("protocol_family", "")},
-                    {"pci_standard", modelRow.value("pci_standard", "PCI PTS 6.x")},
-                    {"endpoint", cfg.value("terminal_ip", "10.0.126.250") + ":" + std::to_string(cfg.value("terminal_port", 10009))},
-                    {"tid", cfg.value("terminal_id_tid", "TID88901")},
-                    {"mid", cfg.value("merchant_id_mid", "MID000890123456")},
-                    {"acquirer_bank", cfg.value("acquirer_bank", "Vietcombank")},
-                    {"latency_ms", 12},
+                    {"endpoint", termIp + (connMode == "USB_CDC" ? "" : (":" + std::to_string(termPort)))},
+                    {"tid", tid},
+                    {"mid", mid},
+                    {"latency_ms", latMs},
+                    {"firmware", fw},
                     {"status", "READY_FOR_SALE"}
                 }}
             };
@@ -584,22 +997,74 @@ public:
                 std::string status = "APPROVED";
                 std::string respCode = "00";
                 std::string respMsg = "GIAO DỊCH THÀNH CÔNG (APPROVED)";
+                int isSimTx = (cfg.value("simulation_mode", 1) != 0) ? 1 : 0;
+                std::string cardholderName = "CHU THE NGAN HANG";
 
-                if (behavior == "DECLINE_INSUFFICIENT" || behavior == "DECLINE_51") {
-                    status = "DECLINED";
-                    respCode = "51";
-                    respMsg = "TỪ CHỐI (51): Tài khoản thẻ không đủ số dư hoặc vượt hạn mức";
-                    approvalCode = "";
-                } else if (behavior == "DECLINE_EXPIRED" || behavior == "DECLINE_54") {
-                    status = "DECLINED";
-                    respCode = "54";
-                    respMsg = "TỪ CHỐI (54): Thẻ đã hết hạn sử dụng";
-                    approvalCode = "";
-                } else if (behavior == "TIMEOUT" || behavior == "DECLINE_91") {
-                    status = "DECLINED";
-                    respCode = "91";
-                    respMsg = "LỖI KẾT NỐI (91): Quá thời gian chờ khách chạm/quẹt thẻ trên thiết bị POS";
-                    approvalCode = "";
+                if (isSimTx == 0) {
+                    std::string connMode = cfg.value("connection_mode", "LAN_TCP");
+                    std::string termIp = cfg.value("terminal_ip", "10.0.126.250");
+                    int termPort = cfg.value("terminal_port", 10009);
+                    std::string secret = cfg.value("api_secret", "");
+                    int timeoutSec = cfg.value("timeout_seconds", 60);
+
+                    json saleReq = {
+                        {"cmd", "SALE"},
+                        {"tx_ref", txRef},
+                        {"amount", totalCharged},
+                        {"base_amount", baseAmount},
+                        {"surcharge_amount", surchargeAmt},
+                        {"currency", "VND"},
+                        {"order_id", orderId},
+                        {"table_code", tableCode},
+                        {"tid", tid},
+                        {"mid", mid},
+                        {"batch_no", batchStr},
+                        {"card_scheme", schemeHint},
+                        {"entry_mode", entryHint}
+                    };
+                    json hwResp;
+                    long long latMs = 0;
+                    std::string errMsg;
+                    if (!dispatchTerminalCommand(connMode, termIp, termPort, secret, timeoutSec, "/ecr/sale", saleReq, hwResp, latMs, errMsg)) {
+                        res.status = 502;
+                        res.set_content(json({
+                            {"success", false},
+                            {"status", "ERROR"},
+                            {"response_code", "91"},
+                            {"is_simulation", 0},
+                            {"message", "Lỗi kết nối máy SmartPOS thật: " + errMsg}
+                        }).dump(), "application/json; charset=utf-8");
+                        return;
+                    }
+
+                    bool hwApproved = hwResp.value("approved", hwResp.value("success", hwResp.value("status", "") == "APPROVED"));
+                    respCode = hwResp.value("response_code", hwApproved ? "00" : "05");
+                    status = hwResp.value("status", hwApproved ? "APPROVED" : "DECLINED");
+                    respMsg = hwResp.value("response_message", hwResp.value("message", hwApproved ? "GIAO DỊCH THÀNH CÔNG (SMARTPOS)" : "MÁY POS TỪ CHỐI GIAO DỊCH"));
+                    approvalCode = hwResp.value("approval_code", hwApproved ? approvalCode : "");
+                    if (hwResp.contains("rrn") && hwResp["rrn"].is_string() && !hwResp["rrn"].get<std::string>().empty()) rrn = hwResp["rrn"].get<std::string>();
+                    if (hwResp.contains("trace_no") && hwResp["trace_no"].is_string() && !hwResp["trace_no"].get<std::string>().empty()) traceNo = hwResp["trace_no"].get<std::string>();
+                    if (hwResp.contains("masked_pan") && hwResp["masked_pan"].is_string() && !hwResp["masked_pan"].get<std::string>().empty()) maskedPan = hwResp["masked_pan"].get<std::string>();
+                    if (hwResp.contains("card_scheme") && hwResp["card_scheme"].is_string() && !hwResp["card_scheme"].get<std::string>().empty()) schemeHint = hwResp["card_scheme"].get<std::string>();
+                    if (hwResp.contains("entry_mode") && hwResp["entry_mode"].is_string() && !hwResp["entry_mode"].get<std::string>().empty()) entryHint = hwResp["entry_mode"].get<std::string>();
+                    if (hwResp.contains("cardholder_name") && hwResp["cardholder_name"].is_string() && !hwResp["cardholder_name"].get<std::string>().empty()) cardholderName = hwResp["cardholder_name"].get<std::string>();
+                } else {
+                    if (behavior == "DECLINE_INSUFFICIENT" || behavior == "DECLINE_51" || behavior == "SIMULATE_DECLINE_51") {
+                        status = "DECLINED";
+                        respCode = "51";
+                        respMsg = "TỪ CHỐI (51): Tài khoản thẻ không đủ số dư hoặc vượt hạn mức";
+                        approvalCode = "";
+                    } else if (behavior == "DECLINE_EXPIRED" || behavior == "DECLINE_54" || behavior == "SIMULATE_EXPIRED") {
+                        status = "DECLINED";
+                        respCode = "54";
+                        respMsg = "TỪ CHỐI (54): Thẻ đã hết hạn sử dụng";
+                        approvalCode = "";
+                    } else if (behavior == "TIMEOUT" || behavior == "DECLINE_91" || behavior == "SIMULATE_TIMEOUT") {
+                        status = "DECLINED";
+                        respCode = "91";
+                        respMsg = "LỖI KẾT NỐI (91): Quá thời gian chờ khách chạm/quẹt thẻ trên thiết bị POS";
+                        approvalCode = "";
+                    }
                 }
 
                 std::ostringstream ins;
@@ -625,7 +1090,7 @@ public:
                     << "'" << sqlEscape(schemeHint) << "', "
                     << "'" << sqlEscape(entryHint) << "', "
                     << "'" << sqlEscape(maskedPan) << "', "
-                    << "'CHU THE NGAN HANG', "
+                    << "'" << sqlEscape(cardholderName) << "', "
                     << "'" << sqlEscape(approvalCode) << "', "
                     << "'" << sqlEscape(rrn) << "', "
                     << "'" << sqlEscape(batchStr) << "', "
@@ -633,7 +1098,7 @@ public:
                     << "'" << sqlEscape(status) << "', "
                     << "'" << sqlEscape(respCode) << "', "
                     << "'" << sqlEscape(respMsg) << "', "
-                    << "1, "
+                    << isSimTx << ", "
                     << "'" << sqlEscape(cashierName) << "'"
                     << ");";
 
@@ -644,6 +1109,7 @@ public:
 
                 json out = {
                     {"success", ok},
+                    {"is_simulation", isSimTx != 0},
                     {"status", status},
                     {"response_code", respCode},
                     {"message", respMsg},
@@ -694,6 +1160,36 @@ public:
                     return;
                 }
 
+                json cfg = queryOne("SELECT * FROM card_terminal_config WHERE id = 1");
+                if (row.value("is_simulation", 1) == 0 || (cfg.is_object() && cfg.value("simulation_mode", 1) == 0)) {
+                    json voidReq = {
+                        {"cmd", "VOID"},
+                        {"tx_ref", row.value("tx_ref", "")},
+                        {"trace_no", row.value("trace_no", "")},
+                        {"approval_code", row.value("approval_code", "")},
+                        {"rrn", row.value("rrn", "")},
+                        {"amount", row.value("total_charged", 0.0)},
+                        {"reason", reason},
+                        {"tid", cfg.value("terminal_id_tid", "TID88901")},
+                        {"mid", cfg.value("merchant_id_mid", "MID000890123456")}
+                    };
+                    json hwResp;
+                    long long latMs = 0;
+                    std::string errMsg;
+                    if (!dispatchTerminalCommand(cfg.value("connection_mode", "LAN_TCP"), cfg.value("terminal_ip", ""),
+                                                 cfg.value("terminal_port", 10009), cfg.value("api_secret", ""),
+                                                 cfg.value("timeout_seconds", 30), "/ecr/void", voidReq, hwResp, latMs, errMsg)) {
+                        res.status = 502;
+                        res.set_content(json({{"success", false}, {"message", "SmartPOS từ chối/lỗi Void: " + errMsg}}).dump(), "application/json; charset=utf-8");
+                        return;
+                    }
+                    if (!hwResp.value("success", hwResp.value("ok", true))) {
+                        res.status = 502;
+                        res.set_content(json({{"success", false}, {"message", hwResp.value("message", "SmartPOS từ chối lệnh Void giao dịch")}}).dump(), "application/json; charset=utf-8");
+                        return;
+                    }
+                }
+
                 execSql("UPDATE card_transactions SET status = 'VOIDED', void_reason = '" + sqlEscape(reason) + "' WHERE id = " + std::to_string(row.value("id", 0LL)));
 
                 // Ghi vào bảng audit_logs của cửa hàng
@@ -725,6 +1221,33 @@ public:
             if (cnt == 0) {
                 res.set_content("{\"success\":true,\"settled_count\":0,\"settled_total\":0,\"message\":\"Không có giao dịch nào đang chờ kết toán lô (Batch trống).\"}", "application/json; charset=utf-8");
                 return;
+            }
+
+            json cfg = queryOne("SELECT * FROM card_terminal_config WHERE id = 1");
+            if (cfg.is_object() && cfg.value("simulation_mode", 1) == 0) {
+                json settleReq = {
+                    {"cmd", "SETTLE"},
+                    {"batch_no", cfg.value("current_batch_no", 101)},
+                    {"tx_count", cnt},
+                    {"total_amount", totalAmt},
+                    {"tid", cfg.value("terminal_id_tid", "TID88901")},
+                    {"mid", cfg.value("merchant_id_mid", "MID000890123456")}
+                };
+                json hwResp;
+                long long latMs = 0;
+                std::string errMsg;
+                if (!dispatchTerminalCommand(cfg.value("connection_mode", "LAN_TCP"), cfg.value("terminal_ip", ""),
+                                             cfg.value("terminal_port", 10009), cfg.value("api_secret", ""),
+                                             cfg.value("timeout_seconds", 60), "/ecr/settle", settleReq, hwResp, latMs, errMsg)) {
+                    res.status = 502;
+                    res.set_content(json({{"success", false}, {"message", "Kết toán lô (Settle) tới SmartPOS thất bại: " + errMsg}}).dump(), "application/json; charset=utf-8");
+                    return;
+                }
+                if (!hwResp.value("success", hwResp.value("ok", true))) {
+                    res.status = 502;
+                    res.set_content(json({{"success", false}, {"message", hwResp.value("message", "SmartPOS từ chối kết toán lô (Settle)")}}).dump(), "application/json; charset=utf-8");
+                    return;
+                }
             }
 
             execSql("UPDATE card_transactions SET status = 'SETTLED', settled_at = datetime('now', 'localtime') WHERE status = 'APPROVED';");

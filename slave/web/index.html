@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CyberNexus POS - Màn Hình POS Bán Hàng</title>
+    <title data-i18n="ui.pos_html.title_aef5dd3b">CyberNexus POS - Màn Hình POS Bán Hàng</title>
     <link rel="icon" type="image/png" href="favicon.png?v=20261118">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
     
@@ -119,124 +119,112 @@
     <div class="liquid-blob-2"></div>
 
     <!-- Top Header (Liquid Glass Aesthetic - 100% No-Wrap) -->
-    <header class="liquid-header px-2.5 sm:px-4 py-2 flex items-center justify-between z-30 shrink-0 gap-2 border-b border-white/10">
-        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0 shrink-0">
+    <header class="liquid-header cn-top-nav z-30 shrink-0 border-b border-white/10">
+        <div class="cn-nav-left">
             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/25 shrink-0 overflow-hidden">
                 <i class="fas fa-mug-saucer text-white text-xs sm:text-sm"></i>
             </div>
             <div class="min-w-0 shrink-0">
-                <div class="flex items-center gap-2.5 whitespace-nowrap">
-                    <h1 class="font-black text-xs sm:text-sm md:text-base tracking-wide uppercase text-white whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                    <h1 class="font-black text-xs sm:text-sm md:text-base tracking-wide uppercase text-white whitespace-nowrap shrink-0 flex items-center gap-1.5" data-i18n="ui.pos_html.h1_61fd0aec">
                         <span class="text-sky-400 font-black" data-store-name>CyberNexus POS</span>
                     </h1>
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/35 whitespace-nowrap shrink-0 shadow-sm">
                         <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
-                        POS Thu Ngân
+                        <span data-i18n="nav.pos_badge">POS THU NGÂN</span>
                     </span>
                 </div>
                 <div class="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-400 whitespace-nowrap mt-0.5">
-                    <span class="text-slate-400">Bàn chọn:</span>
+                    <span class="text-slate-400" data-i18n="ui.pos_html.span_97cc1a8b">Bàn chọn:</span>
                     <span id="current-table-label" class="px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 font-bold text-xs border border-sky-500/30 font-mono">MV1</span>
                 </div>
             </div>
         </div>
 
-        <!-- Clock & Controls -->
-        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            
-                <a href="kitchen.html" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Màn hình chế biến bếp & pha chế">
-                    <i class="fas fa-fire-burner text-xs text-amber-400"></i>
-                    <span class="hidden lg:inline">Bếp<span class="hidden xl:inline"> / Bar</span></span>
-                </a>
-
-                <a href="order.html" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Màn hình nhận order cho nhân viên bàn">
-                    <i class="fas fa-clipboard-list text-xs text-sky-400"></i>
-                    <span class="hidden lg:inline">Order<span class="hidden xl:inline"> Phục Vụ</span></span>
-                </a>
-            
-
-            <button type="button" onclick="POS.loadTables()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 flex items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Làm mới trạng thái">
-                <i class="fas fa-sync-alt text-sky-400 text-xs"></i>
-                <span class="hidden lg:inline">Làm mới</span>
-            </button>
-
-            <!-- Lịch Sử Thanh Toán & In Lại HĐ -->
-            <button type="button" onclick="POS.openReprintModal()" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-sm" title="Tra cứu lịch sử thanh toán & in lại hóa đơn">
-                <i class="fas fa-receipt text-sky-400 text-xs"></i>
-                <span class="hidden lg:inline">Lịch Sử Đơn</span>
-            </button>
-
-            <!-- Thống Kê Doanh Thu Thu Ngân -->
-            <button type="button" onclick="POS.openRevenueStatsModal()" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-sm" title="Thống kê doanh thu ca & trong ngày">
-                <i class="fas fa-chart-pie text-emerald-400 text-xs"></i>
-                <span class="hidden lg:inline">Thống Kê</span>
-            </button>
-
-            <!-- Quản Lý Ca & Sổ Quỹ Tiền Mặt Tại Quầy -->
-            <button type="button" onclick="POS.openShiftModal()" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap shadow-sm" title="Mở ca, Phiếu Thu/Chi nhanh & Kết ca đối soát tiền mặt">
+        <!-- 2. Center: Screen Links | Cashier Counter Ops | Utilities -->
+        <div class="cn-nav-center">
+            <span id="pos-admin-back-zone" class="flex items-center shrink-0"></span>
+            <a href="kitchen.html" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40" title="Màn hình chế biến bếp & pha chế" data-i18n-title="ui.pos_html.a_title_6cb35038">
+                <i class="fas fa-fire-burner text-xs text-amber-400"></i>
+                <span class="hidden xl:inline" data-i18n="ui.adm_html.span_590a5f5b">Bếp</span>
+            </a>
+            <a href="order.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40" title="Màn hình nhận order cho nhân viên bàn" data-i18n-title="ui.pos_html.a_title_bbef54c6">
+                <i class="fas fa-clipboard-list text-xs text-sky-400"></i>
+                <span class="hidden xl:inline" data-i18n="ui.adm_html.span_2b11c9eb">Phục Vụ</span>
+            </a>
+            <a href="online_orders.html" class="btn-glass cn-nav-btn bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border-indigo-500/40" title="Xử lý đơn đặt online" data-i18n-title="ui.pos_html.a_title_69395295">
+                <i class="fas fa-bag-shopping text-indigo-300 text-xs"></i>
+                <span class="hidden xl:inline" data-i18n="ui.adm_html.span_61048c54">Đơn Online</span>
+            </a>
+            <span class="cn-nav-divider"></span>
+            <button type="button" onclick="POS.openShiftModal()" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40" title="Mở ca, Phiếu Thu/Chi nhanh & Kết ca đối soát tiền mặt" data-i18n-title="ui.pos_html.button_title_a55e2341">
                 <i class="fas fa-cash-register text-amber-400 text-xs"></i>
-                <span class="hidden lg:inline">Giao Ca / Quỹ</span>
+                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_7f54146c">Giao Ca / Quỹ</span>
             </button>
-
-            
-                <a href="online_orders.html" class="flex btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/40 items-center gap-1 font-bold shrink-0 whitespace-nowrap" title="Xử lý đơn đặt online">
-                    <i class="fas fa-bag-shopping text-indigo-300 text-xs"></i>
-                    <span class="hidden lg:inline">Đơn Online</span>
-                </a>
-            
-
-            <!-- Nút Mở ĐT (Giữ nút QR trên mọi thiết bị, bỏ chữ hoàn toàn) -->
-            <button type="button" onclick="showLanQrModal()" class="btn-glass text-xs py-1.5 px-2 sm:px-2.5 bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border-purple-500/40 flex items-center justify-center font-bold shrink-0 whitespace-nowrap" title="Mở trên điện thoại / tablet qua Wi-Fi">
+            <button type="button" onclick="POS.openReprintModal()" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40" title="Tra cứu lịch sử thanh toán & in lại hóa đơn" data-i18n-title="ui.pos_html.button_title_215cbfa2">
+                <i class="fas fa-receipt text-sky-400 text-xs"></i>
+                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_03f468ef">Lịch Sử Đơn</span>
+            </button>
+            <button type="button" onclick="POS.openRevenueStatsModal()" class="btn-glass cn-nav-btn bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40" title="Thống kê doanh thu ca & trong ngày" data-i18n-title="ui.pos_html.button_title_27fba175">
+                <i class="fas fa-chart-pie text-emerald-400 text-xs"></i>
+                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_3a41fd36">Thống Kê</span>
+            </button>
+            <button type="button" onclick="window.ReceiptTemplate?.openNoSaleDrawerModal()" class="btn-glass cn-nav-btn bg-slate-800/90 hover:bg-amber-500/20 text-amber-200 border border-white/10" title="Mở két tiền ngoài giao dịch (yêu cầu PIN Quản lý & Audit Log)" data-i18n-title="ui.pos_html.button_title_87f3aac8">
+                <i class="fas fa-key text-amber-400 text-xs"></i>
+                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_eeb2898f">Mở Két</span>
+            </button>
+            <span class="cn-nav-divider"></span>
+            <button type="button" onclick="POS.loadTables()" class="btn-glass cn-nav-btn bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10" title="Làm mới trạng thái" data-i18n-title="ui.pos_html.button_title_c4bd47f4">
+                <i class="fas fa-sync-alt text-sky-400 text-xs"></i>
+                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_771032ac">Làm mới</span>
+            </button>
+            <button type="button" onclick="showLanQrModal()" class="btn-glass cn-nav-btn bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border-purple-500/40" title="Mở trên điện thoại / tablet qua Wi-Fi" data-i18n-title="ui.pos_html.button_title_c277121d">
                 <i class="fas fa-qrcode text-xs sm:text-sm"></i>
             </button>
-
-            <!-- Jukebox Mini Controller on POS Header (Cố định 1 kích thước, Marquee direction left) -->
-            <div id="pos-jukebox-pill" class="juke-pill-fixed flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-fuchsia-500/30 hover:border-fuchsia-500/60 shadow-md shadow-fuchsia-500/10 transition-all cursor-pointer select-none shrink-0" onclick="POSJukebox.openModal()" title="Hệ Thống Âm Nhạc & Jukebox Quán">
+            <div id="pos-jukebox-pill" class="juke-pill-fixed flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-fuchsia-500/30 hover:border-fuchsia-500/60 shadow-md shadow-fuchsia-500/10 transition-all cursor-pointer select-none shrink-0" onclick="POSJukebox.openModal()" title="Hệ Thống Âm Nhạc & Jukebox Quán" data-i18n-title="ui.pos_html.div_title_b83e3cfc">
                 <div class="w-6 h-6 rounded-lg bg-gradient-to-tr from-fuchsia-600 to-pink-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-fuchsia-500/40">
                     <i id="pos-juke-disc" class="fas fa-compact-disc text-xs"></i>
                 </div>
                 <div class="juke-text-box">
-                    <div id="pos-juke-title" class="text-xs font-bold text-white leading-tight">Jukebox Âm Nhạc</div>
-                    <div id="pos-juke-artist" class="text-[10px] text-fuchsia-300 truncate leading-tight">Hệ thống sẵn sàng</div>
+                    <div id="pos-juke-title" class="text-xs font-bold text-white leading-tight" data-i18n="nav.jukebox">Jukebox Âm Nhạc</div>
+                    <div id="pos-juke-artist" class="text-[10px] text-fuchsia-300 truncate leading-tight" data-i18n="ui.adm_html.div_5db208a0">Hệ thống sẵn sàng</div>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
-                    <!-- Quick Play/Pause button -->
-                    <button type="button" onclick="event.stopPropagation(); JukeboxEngine.togglePlay()" class="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-[10px] transition shrink-0" title="Phát / Tạm dừng">
+                    <button type="button" onclick="event.stopPropagation(); JukeboxEngine.togglePlay()" class="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-[10px] transition shrink-0" title="Phát / Tạm dừng" data-i18n-title="ui.adm_html.button_title_c034ac30">
                         <i id="pos-juke-play-icon" class="fas fa-play"></i>
                     </button>
-                    <!-- Quick Skip button -->
-                    <button type="button" onclick="event.stopPropagation(); JukeboxEngine.skip()" class="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-[10px] transition shrink-0" title="Chuyển bài tiếp theo">
+                    <button type="button" onclick="event.stopPropagation(); JukeboxEngine.skip()" class="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-[10px] transition shrink-0" title="Chuyển bài tiếp theo" data-i18n-title="ui.adm_html.button_title_81923cda">
                         <i class="fas fa-forward-step"></i>
                     </button>
                 </div>
             </div>
+        </div>
 
-            <div class="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/60 border border-white/10 text-xs font-mono text-slate-300 shrink-0 whitespace-nowrap">
-                <i class="far fa-clock text-sky-400"></i>
-                <span id="current-time-display">--:--:--</span>
+        <!-- 3. Right Fixed: VI/EN -> Theme -> User -> Logout -->
+        <div class="cn-nav-right">
+            <div class="cn-lang-pill" title="Language / Ngôn ngữ" data-i18n-title="ui.sa_html.div_title_c60b3893">
+                <button type="button" data-cnx-lang-btn="vi" onclick="window.CNX_I18N && CNX_I18N.setLang('vi')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">VI</button>
+                <button type="button" data-cnx-lang-btn="en" onclick="window.CNX_I18N && CNX_I18N.setLang('en')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">EN</button>
             </div>
-
-            
-            <!-- User Authentication Zone: Hiển thị Đăng Nhập hoặc Thông tin User sau khi Login -->
-            <div id="user-auth-zone" class="flex items-center gap-2 shrink-0">
-                <button type="button" onclick="openLoginModal()" class="btn-glass-primary text-xs py-1.5 px-3 sm:px-4 font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-lg shadow-sky-500/20">
+            <span id="cn-theme-slot"></span>
+            <div id="user-auth-zone" class="flex items-center gap-1.5 shrink-0">
+                <button type="button" onclick="openLoginModal()" class="btn-glass-primary cn-nav-btn shadow-lg shadow-sky-500/20">
                     <i class="fas fa-lock text-xs"></i>
-                    <span>Đăng Nhập</span>
+                    <span data-i18n="ui.pos_html.button_9364125f">Đăng Nhập</span>
                 </button>
             </div>
-            
         </div>
     </header>
 
     <!-- Mobile Mode Switcher (Chuyển nhanh Thực Đơn & Hóa Đơn trên điện thoại < lg) -->
     <div class="lg:hidden flex items-center justify-around bg-slate-900/90 border-b border-white/10 p-1.5 z-20 shrink-0 gap-2">
-        <button type="button" id="pos-tab-menu-btn" onclick="switchPosMobileView('menu')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm transition-all">
+        <button type="button" id="pos-tab-menu-btn" onclick="switchPosMobileView('menu')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm transition-all" data-i18n="ui.pos_html.button_99834d73">
             <i class="fas fa-utensils"></i>
-            <span>Thực Đơn & Bàn</span>
+            <span data-i18n="ui.pos_html.span_46617063">Thực Đơn & Bàn</span>
         </button>
         <button type="button" id="pos-tab-cart-btn" onclick="switchPosMobileView('cart')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-all relative">
             <i class="fas fa-receipt"></i>
-            <span>Hóa Đơn</span>
+            <span data-i18n="ui.pos_html.span_4009cbf0">Hóa Đơn</span>
             <span id="pos-mobile-cart-badge" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black min-w-[18px] text-center hidden">0</span>
         </button>
     </div>
@@ -245,9 +233,9 @@
     <div id="pos-kitchen-cancel-alert" class="hidden mx-2 mt-1.5 p-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white flex items-center justify-between text-xs font-bold shadow-xl shadow-rose-950/40 z-40 shrink-0 border border-rose-400 animate-pulse">
         <div class="flex items-center gap-2 min-w-0 pr-2">
             <i class="fas fa-triangle-exclamation text-base text-amber-300 shrink-0"></i>
-            <span id="pos-kitchen-cancel-msg" class="truncate font-bold">Bếp đã hủy món ...</span>
+            <span id="pos-kitchen-cancel-msg" class="truncate font-bold" data-i18n="ui.pos_html.span_fcbe0bb1">Bếp đã hủy món ...</span>
         </div>
-        <button type="button" onclick="POS.ackCancelAlert()" class="px-2.5 py-1 rounded-lg bg-slate-950 text-rose-300 text-[11px] font-bold shadow active:scale-95 shrink-0">
+        <button type="button" onclick="POS.ackCancelAlert()" class="px-2.5 py-1 rounded-lg bg-slate-950 text-rose-300 text-[11px] font-bold shadow active:scale-95 shrink-0" data-i18n="ui.pos_html.button_5d24ecdd">
             ĐÃ HIỂU
         </button>
     </div>
@@ -260,53 +248,53 @@
             
             <!-- Mobile Quick Return Bar -->
             <div class="lg:hidden p-2 bg-slate-950/80 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
-                <button type="button" onclick="switchPosMobileView('tables')" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                <button type="button" onclick="switchPosMobileView('tables')" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform" data-i18n="ui.pos_html.button_403cb943">
                     <i class="fas fa-arrow-left text-[10px]"></i>
                     <i class="fas fa-chair"></i>
-                    <span>Đổi Hóa Đơn Khác</span>
+                    <span data-i18n="ui.pos_html.button_403cb943">Đổi Hóa Đơn Khác</span>
                 </button>
-                <button type="button" onclick="switchPosMobileView('menu')" class="py-1.5 px-3 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                <button type="button" onclick="switchPosMobileView('menu')" class="py-1.5 px-3 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform" data-i18n="ui.pos_html.button_45673e12">
                     <i class="fas fa-plus"></i>
-                    <span>Thêm Món</span>
+                    <span data-i18n="ui.pos_html.button_45673e12">Thêm Món</span>
                 </button>
             </div>
 
             <!-- Quick Action Toolbar (Cố định 52px bằng pos-quick-actions, chống dãn đè iPad Safari) -->
             <div class="px-2 py-1.5 border-b border-white/10 bg-slate-900/80 pos-quick-actions text-[11px] shrink-0">
-                <button type="button" onclick="POS.cancelOrder()" class="rounded-xl bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-center min-w-0" title="Hủy hóa đơn">
+                <button type="button" onclick="POS.cancelOrder()" class="rounded-xl bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-center min-w-0" title="Hủy hóa đơn" data-i18n="ui.pos_html.button_c3ce454f" data-i18n-title="ui.pos_html.button_title_8b512862">
                     <i class="fas fa-times-circle text-xs shrink-0"></i>
-                    <span class="truncate text-[10px] font-bold">Hủy HĐ</span>
+                    <span class="truncate text-[10px] font-bold" data-i18n="ui.pos_html.button_c3ce454f">Hủy HĐ</span>
                 </button>
-                <button type="button" onclick="POS.openDiscountModal()" class="rounded-xl bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 text-center min-w-0" title="Giảm giá">
+                <button type="button" onclick="POS.openDiscountModal()" class="rounded-xl bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 text-center min-w-0" title="Giảm giá" data-i18n="ui.pos_html.button_3d9dea05" data-i18n-title="ui.pos_html.button_3d9dea05">
                     <i class="fas fa-tag text-xs shrink-0"></i>
-                    <span class="truncate text-[10px] font-bold">Giảm giá</span>
+                    <span class="truncate text-[10px] font-bold" data-i18n="ui.pos_html.button_3d9dea05">Giảm giá</span>
                 </button>
-                <button type="button" onclick="POS.openSwitchTableModal()" class="rounded-xl bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/30 text-center min-w-0" title="Chuyển bàn">
+                <button type="button" onclick="POS.openSwitchTableModal()" class="rounded-xl bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/30 text-center min-w-0" title="Chuyển bàn" data-i18n="ui.pos_html.button_28d19883" data-i18n-title="ui.pos_html.button_title_d4106281">
                     <i class="fas fa-exchange-alt text-xs shrink-0"></i>
-                    <span class="truncate text-[10px] font-bold">Chuyển</span>
+                    <span class="truncate text-[10px] font-bold" data-i18n="ui.pos_html.button_28d19883">Chuyển</span>
                 </button>
-                <button type="button" onclick="POS.openMergeTableModal()" class="rounded-xl bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/30 text-center min-w-0" title="Gộp bàn">
+                <button type="button" onclick="POS.openMergeTableModal()" class="rounded-xl bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/30 text-center min-w-0" title="Gộp bàn" data-i18n="ui.pos_html.button_1688623b" data-i18n-title="ui.pos_html.button_1688623b">
                     <i class="fas fa-compress-arrows-alt text-xs shrink-0"></i>
-                    <span class="truncate text-[10px] font-bold">Gộp bàn</span>
+                    <span class="truncate text-[10px] font-bold" data-i18n="ui.pos_html.button_1688623b">Gộp bàn</span>
                 </button>
-                <button type="button" id="btn-print-temp" onclick="POS.printTemporaryReceipt()" class="rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-center min-w-0 hidden transition-all" title="In phiếu tạm tính cho đơn đang tạo">
+                <button type="button" id="btn-print-temp" onclick="POS.printTemporaryReceipt()" class="rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-center min-w-0 hidden transition-all" title="In phiếu tạm tính cho đơn đang tạo" data-i18n="ui.pos_html.button_c6bf220f" data-i18n-title="ui.pos_html.button_title_85fd68d0">
                     <i class="fas fa-print text-xs shrink-0"></i>
-                    <span class="truncate text-[10px] font-bold">In tạm</span>
+                    <span class="truncate text-[10px] font-bold" data-i18n="ui.pos_html.button_c6bf220f">In tạm</span>
                 </button>
             </div>
 
             <!-- Invoice Header Information -->
             <div class="px-3 py-1.5 border-b border-white/10 bg-slate-900/60 text-xs shrink-0">
                 <div class="flex items-center justify-between mb-1">
-                    <span class="text-slate-400">Mã đơn: <b id="order-code-display" class="text-sky-400 font-mono">Đang tạo...</b></span>
+                    <span class="text-slate-400" data-i18n="ui.pos_html.span_f33aeab8">Mã đơn: <b id="order-code-display" class="text-sky-400 font-mono" data-i18n="ui.pos_html.b_ff1b681e">Đang tạo...</b></span>
                     <div class="flex items-center gap-1">
-                        <span class="text-slate-400">Khách:</span>
+                        <span class="text-slate-400" data-i18n="ui.pos_html.span_126cb08b">Khách:</span>
                         <input type="number" id="cart-guest-count" value="1" min="1" max="99" class="w-10 bg-slate-800 border border-white/10 rounded px-1 py-0.5 text-center font-bold text-sky-400 text-xs outline-none" />
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <i class="fas fa-user text-slate-500 text-xs"></i>
-                    <input type="text" id="cart-customer-name" placeholder="Tên khách hàng..." value="Khách vãng lai" class="flex-1 bg-transparent border-b border-white/10 focus:border-sky-400 text-xs py-0.5 text-slate-200 outline-none transition-colors" />
+                    <input type="text" id="cart-customer-name" placeholder="Tên khách hàng..." data-i18n-placeholder="ui.pos_html.ph_52a27e25" value="Khách vãng lai" class="flex-1 bg-transparent border-b border-white/10 focus:border-sky-400 text-xs py-0.5 text-slate-200 outline-none transition-colors" />
                 </div>
             </div>
 
@@ -318,34 +306,34 @@
             <!-- Cart Totals & Checkout -->
             <div class="p-2 sm:p-2.5 border-t border-white/10 bg-slate-950/95 space-y-1.5 shrink-0 cart-checkout-footer">
                 <div class="flex justify-between items-center text-xs text-slate-300">
-                    <span>Tiền hàng (<span id="cart-items-count" class="font-bold text-sky-400">0</span> món):</span>
-                    <span class="font-mono font-bold text-sm"><span id="cart-subtotal">0</span> <span class="text-[10px] text-slate-400">đ</span></span>
+                    <span data-i18n="ui.pos_html.span_218f6568">Tiền hàng (<span id="cart-items-count" class="font-bold text-sky-400">0</span> món):</span>
+                    <span class="font-mono font-bold text-sm"><span id="cart-subtotal">0</span> <span class="text-[10px] text-slate-400" data-i18n="ui.adm_html.span_e53c1767">đ</span></span>
                 </div>
                 <div class="flex justify-between items-center text-xs text-rose-400">
-                    <span>Giảm giá:</span>
-                    <span class="font-mono font-bold">-<span id="cart-discount">0</span> <span class="text-[10px]">đ</span></span>
+                    <span data-i18n="ui.pos_html.span_607b5d46">Giảm giá:</span>
+                    <span class="font-mono font-bold">-<span id="cart-discount">0</span> <span class="text-[10px]" data-i18n="ui.adm_html.span_e53c1767">đ</span></span>
                 </div>
 
                 <!-- Big Highlight Total Box (Matching Legacy POS Screen) -->
                 <div class="rounded-xl p-2 bg-gradient-to-r from-red-600/90 to-rose-700/90 border border-rose-400/50 shadow-lg flex items-center justify-between">
-                    <span class="font-black text-xs md:text-sm tracking-wider uppercase text-white">TỔNG CỘNG</span>
+                    <span class="font-black text-xs md:text-sm tracking-wider uppercase text-white" data-i18n="ui.pos_html.span_c0144eba">TỔNG CỘNG</span>
                     <span class="font-black text-lg md:text-xl font-mono text-white tracking-tight">
-                        <span id="cart-total">0</span> <span class="text-xs font-normal opacity-90">VNĐ</span>
+                        <span id="cart-total">0</span> <span class="text-xs font-normal opacity-90" data-i18n="ui.pos_html.span_a0cb4ccf">VNĐ</span>
                     </span>
                 </div>
 
                 <!-- Payment & VietQR Row -->
-                <div class="grid grid-cols-3 gap-1.5">
+                <div style="display:grid;grid-template-columns:minmax(84px,1fr) minmax(0,2fr);gap:6px;width:100%;">
                     
-                    <button type="button" onclick="POS.showCurrentVietQr()" class="col-span-1 py-2 px-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/40 shadow-lg shadow-sky-500/10 active:scale-95 transition-transform" title="Hiển thị mã VietQR thanh toán nhanh">
+                    <button type="button" onclick="POS.showCurrentVietQr()" style="min-width:0;" class="py-2 px-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/40 shadow-lg shadow-sky-500/10 active:scale-95 transition-transform whitespace-nowrap" title="Hiển thị mã VietQR thanh toán nhanh" data-i18n="ui.pos_html.button_1f02ce8e" data-i18n-title="ui.pos_html.button_title_a0d4f5a6">
                         <i class="fas fa-qrcode text-sm text-sky-400"></i>
                         <span>VietQR</span>
                     </button>
                     
 
-                    <button type="button" id="btn-pos-checkout" onclick="POS.handleCheckoutClick()" class=" btn-glass-success py-2 px-2 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl shadow-emerald-600/30 active:scale-95 transition-transform truncate">
+                    <button type="button" id="btn-pos-checkout" onclick="POS.handleCheckoutClick()" style="min-width:0;width:100%;" class="btn-glass-success py-2 px-2.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl shadow-emerald-600/30 active:scale-95 transition-transform whitespace-nowrap" data-i18n="ui.pos_html.button_4f333d3f">
                         <i class="fas fa-hand-holding-dollar text-sm"></i>
-                        <span>THANH TOÁN (F9)</span>
+                        <span data-i18n="ui.pos_html.button_4f333d3f">THANH TOÁN (F9)</span>
                     </button>
                 </div>
             </div>
@@ -359,7 +347,7 @@
             <div class="p-2 border-b border-white/10 bg-slate-900/50 space-y-2 shrink-0">
                 <!-- Row 1: Mang Về (MV1, MV2...) -->
                 <div class="flex items-center gap-2">
-                    <div class="w-20 shrink-0 text-center py-1 px-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider">
+                    <div class="w-20 shrink-0 text-center py-1 px-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider" data-i18n="ui.customer_html.button_78e6716b">
                         Mang Về
                     </div>
                     <div id="tables-mangve" class="flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -369,7 +357,7 @@
 
                 <!-- Row 2: Tại Quán (TQ1, TQ2...) -->
                 <div class="flex items-center gap-2">
-                    <div class="w-20 shrink-0 text-center py-1 px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-black uppercase tracking-wider">
+                    <div class="w-20 shrink-0 text-center py-1 px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-black uppercase tracking-wider" data-i18n="ui.pos_html.div_2fa80da1">
                         Tại Quán
                     </div>
                     <div id="tables-taiquan" class="flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -383,7 +371,7 @@
                 <!-- Search Input with Touch Numpad trigger -->
                 <div class="relative w-28 sm:w-56 md:w-72 shrink-0">
                     <i class="fas fa-search absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
-                    <input type="search" id="search-product" name="dish_search_filter" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tìm món..." class="liquid-input w-full pl-7 sm:pl-8 pr-2 sm:pr-8 text-xs py-1.5 sm:py-2 placeholder:text-slate-500" />
+                    <input type="search" id="search-product" name="dish_search_filter" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tìm món..." data-i18n-placeholder="ui.pos_html.ph_80044f6a" class="liquid-input w-full pl-7 sm:pl-8 pr-2 sm:pr-8 text-xs py-1.5 sm:py-2 placeholder:text-slate-500" />
                     <button type="button" class="hidden sm:block absolute right-2 top-2 text-slate-400 hover:text-sky-400" onclick="VirtualNumpad.open(document.getElementById('search-product'), 'Tìm kiếm món ăn')">
                         <i class="fas fa-keyboard text-xs"></i>
                     </button>
@@ -408,13 +396,13 @@
     <div id="lan-qr-modal" class="liquid-modal-overlay">
         <div class="liquid-glass liquid-modal-content p-6 w-[430px] max-w-[92vw] text-white shadow-2xl border border-sky-500/40 text-center rounded-2xl">
             <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
-                <h3 class="font-bold text-base text-sky-400 flex items-center gap-2">
+                <h3 class="font-bold text-base text-sky-400 flex items-center gap-2" data-i18n="ui.pos_html.h3_d5bc751b">
                     <i class="fas fa-qrcode text-purple-400"></i> Mã QR Khách Hàng Gọi Món
                 </h3>
                 <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="closeLanQrModal()">&times;</button>
             </div>
             
-            <p class="text-xs text-slate-300 mb-3">Khách dùng máy ảnh điện thoại quét mã bên dưới để xem menu và tự đặt món:</p>
+            <p class="text-xs text-slate-300 mb-3" data-i18n="ui.pos_html.p_545424ba">Khách dùng máy ảnh điện thoại quét mã bên dưới để xem menu và tự đặt món:</p>
             
             <div class="bg-white p-3 rounded-2xl inline-flex items-center justify-center shadow-xl shadow-black/50 mb-3 mx-auto">
                 <div id="index-customer-qr-canvas" class="flex items-center justify-center min-w-[190px] min-h-[190px]"></div>
@@ -422,8 +410,8 @@
 
             <div class="bg-slate-900/90 p-3 rounded-xl border border-sky-500/30 text-xs mb-3 text-left">
                 <div class="text-slate-400 text-[11px] mb-1.5 flex items-center justify-between">
-                    <span>Đường dẫn gọi món (Customer Menu):</span>
-                    <button type="button" onclick="copyCustomerUrl()" class="text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer">
+                    <span data-i18n="ui.pos_html.span_cc6ece42">Đường dẫn gọi món (Customer Menu):</span>
+                    <button type="button" onclick="copyCustomerUrl()" class="text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer" data-i18n="ui.pos_html.button_b80d8a2d">
                         <i class="fas fa-copy"></i> Sao chép
                     </button>
                 </div>
@@ -431,10 +419,10 @@
             </div>
 
             <div class="mt-4 flex items-center justify-between gap-2">
-                <a id="index-customer-direct-link" href="customer.html" target="_blank" class="btn-glass text-xs py-2 px-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold flex items-center gap-1.5 rounded-xl">
+                <a id="index-customer-direct-link" href="customer.html" target="_blank" class="btn-glass text-xs py-2 px-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold flex items-center gap-1.5 rounded-xl" data-i18n="ui.pos_html.a_46900950">
                     <i class="fas fa-external-link-alt"></i> Mở trang khách
                 </a>
-                <button type="button" class="btn-glass text-xs py-2 px-5 font-bold rounded-xl" onclick="closeLanQrModal()">Đóng</button>
+                <button type="button" class="btn-glass text-xs py-2 px-5 font-bold rounded-xl" onclick="closeLanQrModal()" data-i18n="ui.pos_html.button_cee55387">Đóng</button>
             </div>
         </div>
     </div>
@@ -449,11 +437,11 @@
                         <i class="fas fa-receipt"></i>
                     </span>
                     <div>
-                        <h3 class="font-black text-sm sm:text-base text-white flex items-center gap-2 flex-wrap">
-                            <span>LỊCH SỬ THANH TOÁN &amp; TRA CỨU HÓA ĐƠN</span>
-                            <span class="text-[10px] font-normal px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase tracking-wider whitespace-nowrap shrink-0">Hóa đơn đã lưu</span>
+                        <h3 class="font-black text-sm sm:text-base text-white flex items-center gap-2 flex-wrap" data-i18n="ui.pos_html.h3_40e0d01f">
+                            <span data-i18n="ui.pos_html.span_bb29c1fc">LỊCH SỬ THANH TOÁN &amp; TRA CỨU HÓA ĐƠN</span>
+                            <span class="text-[10px] font-normal px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase tracking-wider whitespace-nowrap shrink-0" data-i18n="ui.pos_html.span_64978096">Hóa đơn đã lưu</span>
                         </h3>
-                        <p class="text-xs text-slate-400">Xem lịch sử thu ngân, số tiền, phương thức thanh toán và in lại hóa đơn</p>
+                        <p class="text-xs text-slate-400" data-i18n="ui.pos_html.p_65d11cd0">Xem lịch sử thu ngân, số tiền, phương thức thanh toán và in lại hóa đơn</p>
                     </div>
                 </div>
                 <button type="button" class="text-slate-400 hover:text-white text-2xl leading-none px-2 py-1" onclick="POS.closeReprintModal()">&times;</button>
@@ -466,7 +454,7 @@
                     <div class="relative flex-1">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                         <input type="text" id="reprint-search-input" 
-                               placeholder="Nhập mã HĐ (VD: HD261030-0007), tên bàn (MV1, TQ2), người tạo..."
+                               placeholder="Nhập mã HĐ (VD: HD261030-0007), tên bàn (MV1, TQ2), người tạo..." data-i18n-placeholder="ui.pos_html.ph_2f87e0ad"
                                class="w-full bg-slate-900/80 border border-white/10 rounded-xl pl-8 pr-8 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 transition-all font-sans"
                                onkeyup="POS.handleReprintSearchKeyup(event)">
                         <button type="button" id="reprint-search-clear" onclick="POS.clearReprintSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs">
@@ -476,11 +464,11 @@
 
                     <!-- Date Range Filters -->
                     <div class="flex items-center gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
-                        <input type="date" id="reprint-date-from" class="bg-slate-900/80 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" title="Từ ngày" onchange="POS.loadReprintOrders()">
-                        <span class="text-xs text-slate-400">đến</span>
-                        <input type="date" id="reprint-date-to" class="bg-slate-900/80 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" title="Đến ngày" onchange="POS.loadReprintOrders()">
+                        <input type="date" id="reprint-date-from" class="bg-slate-900/80 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" title="Từ ngày" onchange="POS.loadReprintOrders()" data-i18n-title="ui.admin_html.label_d51ea658">
+                        <span class="text-xs text-slate-400" data-i18n="ui.pos_html.span_53a64988">đến</span>
+                        <input type="date" id="reprint-date-to" class="bg-slate-900/80 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" title="Đến ngày" onchange="POS.loadReprintOrders()" data-i18n-title="ui.admin_html.label_b6227c80">
                         
-                        <button type="button" onclick="POS.loadReprintOrders()" class="btn-glass text-xs py-2 px-3 bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 border-sky-500/40 flex items-center gap-1 font-bold">
+                        <button type="button" onclick="POS.loadReprintOrders()" class="btn-glass text-xs py-2 px-3 bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 border-sky-500/40 flex items-center gap-1 font-bold" data-i18n="ui.pos_html.button_fb93ae32">
                             <i class="fas fa-filter text-xs"></i> Lọc
                         </button>
                     </div>
@@ -489,16 +477,16 @@
                 <!-- Quick Filter Presets -->
                 <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span class="text-slate-400 mr-1"><i class="far fa-clock"></i> Nhanh:</span>
-                    <button type="button" onclick="POS.setReprintDatePreset('today')" id="preset-today" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold hover:bg-sky-500/30">Hôm nay</button>
-                    <button type="button" onclick="POS.setReprintDatePreset('yesterday')" id="preset-yesterday" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700">Hôm qua</button>
-                    <button type="button" onclick="POS.setReprintDatePreset('7days')" id="preset-7days" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700">7 ngày qua</button>
-                    <button type="button" onclick="POS.setReprintDatePreset('all')" id="preset-all" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700">Tất cả thời gian</button>
+                    <button type="button" onclick="POS.setReprintDatePreset('today')" id="preset-today" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold hover:bg-sky-500/30" data-i18n="ui.pos_html.button_9107428d">Hôm nay</button>
+                    <button type="button" onclick="POS.setReprintDatePreset('yesterday')" id="preset-yesterday" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700" data-i18n="ui.pos_html.button_307cc0c7">Hôm qua</button>
+                    <button type="button" onclick="POS.setReprintDatePreset('7days')" id="preset-7days" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700" data-i18n="ui.pos_html.button_b928f554">7 ngày qua</button>
+                    <button type="button" onclick="POS.setReprintDatePreset('all')" id="preset-all" class="reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700" data-i18n="ui.pos_html.button_a3d7bac3">Tất cả thời gian</button>
                     
                     <div class="ml-auto flex items-center gap-1.5">
-                        <span class="text-slate-400">Trạng thái:</span>
+                        <span class="text-slate-400" data-i18n="ui.pos_html.span_0916ee9e">Trạng thái:</span>
                         <select id="reprint-status-filter" onchange="POS.loadReprintOrders()" class="bg-slate-900/80 border border-white/10 rounded-lg px-2 py-0.5 text-xs text-white">
-                            <option value="completed" selected>Đã thanh toán</option>
-                            <option value="all">Tất cả (cả chờ TT)</option>
+                            <option value="completed" selected data-i18n="ui.pos_html.option_405bdd67">Đã thanh toán</option>
+                            <option value="all" data-i18n="ui.pos_html.option_3afb81ea">Tất cả (cả chờ TT)</option>
                         </select>
                     </div>
                 </div>
@@ -507,20 +495,20 @@
             <!-- Live Revenue & Payment Summary for Filtered Orders -->
             <div id="reprint-summary-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2 border-b border-white/10 shrink-0">
                 <div class="p-2 rounded-xl bg-slate-900/80 border border-sky-500/30 text-center">
-                    <div class="text-[10px] text-slate-400 uppercase font-semibold">TỔNG DOANH THU</div>
-                    <div id="reprint-stat-total" class="font-mono font-black text-sm sm:text-base text-sky-400">0 đ</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold" data-i18n="ui.pos_html.div_5b2be271">TỔNG DOANH THU</div>
+                    <div id="reprint-stat-total" class="font-mono font-black text-sm sm:text-base text-sky-400" data-i18n="ui.sa_html.div_e995e897">0 đ</div>
                 </div>
                 <div class="p-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-center">
-                    <div class="text-[10px] text-slate-400 uppercase font-semibold">TIỀN MẶT</div>
-                    <div id="reprint-stat-cash" class="font-mono font-black text-sm sm:text-base text-emerald-400">0 đ</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold" data-i18n="ui.pos_html.div_e7191dc6">TIỀN MẶT</div>
+                    <div id="reprint-stat-cash" class="font-mono font-black text-sm sm:text-base text-emerald-400" data-i18n="ui.sa_html.div_e995e897">0 đ</div>
                 </div>
                 <div class="p-2 rounded-xl bg-slate-900/80 border border-purple-500/30 text-center">
                     <div class="text-[10px] text-slate-400 uppercase font-semibold">VIETQR / CK</div>
-                    <div id="reprint-stat-banking" class="font-mono font-black text-sm sm:text-base text-purple-400">0 đ</div>
+                    <div id="reprint-stat-banking" class="font-mono font-black text-sm sm:text-base text-purple-400" data-i18n="ui.sa_html.div_e995e897">0 đ</div>
                 </div>
                 <div class="p-2 rounded-xl bg-slate-900/80 border border-amber-500/30 text-center">
-                    <div class="text-[10px] text-slate-400 uppercase font-semibold">SỐ HÓA ĐƠN</div>
-                    <div id="reprint-stat-count" class="font-mono font-black text-sm sm:text-base text-amber-300">0 đơn</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold" data-i18n="ui.pos_html.div_d1dc9b18">SỐ HÓA ĐƠN</div>
+                    <div id="reprint-stat-count" class="font-mono font-black text-sm sm:text-base text-amber-300" data-i18n="ui.pos_html.div_1bd1d197">0 đơn</div>
                 </div>
             </div>
 
@@ -531,11 +519,11 @@
 
             <!-- Footer -->
             <div class="pt-2.5 border-t border-white/10 flex items-center justify-between gap-2 shrink-0 text-xs">
-                <div id="reprint-orders-count" class="text-slate-400">
+                <div id="reprint-orders-count" class="text-slate-400" data-i18n="ui.pos_html.div_84f67156">
                     Đang tải danh sách hóa đơn...
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" class="btn-glass text-xs py-2 px-4 text-slate-300" onclick="POS.closeReprintModal()">
+                    <button type="button" class="btn-glass text-xs py-2 px-4 text-slate-300" onclick="POS.closeReprintModal()" data-i18n="ui.pos_html.button_cee55387">
                         Đóng
                     </button>
                 </div>
@@ -553,11 +541,11 @@
                         <i class="fas fa-chart-pie"></i>
                     </span>
                     <div>
-                        <h3 class="font-black text-sm sm:text-base text-white flex items-center gap-2 flex-wrap">
-                            <span>THỐNG KÊ DOANH THU THU NGÂN</span>
-                            <span class="text-[10px] font-normal px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider whitespace-nowrap shrink-0">Hôm nay</span>
+                        <h3 class="font-black text-sm sm:text-base text-white flex items-center gap-2 flex-wrap" data-i18n="ui.pos_html.h3_cc6bf41d">
+                            <span data-i18n="ui.pos_html.span_ede54085">THỐNG KÊ DOANH THU THU NGÂN</span>
+                            <span class="text-[10px] font-normal px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider whitespace-nowrap shrink-0" data-i18n="ui.pos_html.button_9107428d">Hôm nay</span>
                         </h3>
-                        <p class="text-xs text-slate-400">Báo cáo doanh số bán hàng, tiền mặt và chuyển khoản theo ca trực</p>
+                        <p class="text-xs text-slate-400" data-i18n="ui.pos_html.p_3cb1c9c0">Báo cáo doanh số bán hàng, tiền mặt và chuyển khoản theo ca trực</p>
                     </div>
                 </div>
                 <button type="button" class="text-slate-400 hover:text-white text-2xl leading-none px-2 py-1" onclick="POS.closeRevenueStatsModal()">&times;</button>
@@ -570,10 +558,10 @@
 
             <!-- Footer Actions -->
             <div class="pt-3 border-t border-white/10 flex items-center justify-between gap-2 shrink-0 text-xs">
-                <button type="button" onclick="POS.printShiftReport()" class="btn-glass text-xs py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 flex items-center gap-1.5 font-bold">
+                <button type="button" onclick="POS.printShiftReport()" class="btn-glass text-xs py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 flex items-center gap-1.5 font-bold" data-i18n="ui.pos_html.button_d1fd06fd">
                     <i class="fas fa-print text-sky-400"></i> In Báo Cáo Ca
                 </button>
-                <button type="button" class="btn-glass text-xs py-2 px-4 text-slate-300" onclick="POS.closeRevenueStatsModal()">
+                <button type="button" class="btn-glass text-xs py-2 px-4 text-slate-300" onclick="POS.closeRevenueStatsModal()" data-i18n="ui.pos_html.button_cee55387">
                     Đóng
                 </button>
             </div>
@@ -589,8 +577,8 @@
                         <i class="fas fa-check-circle"></i>
                     </span>
                     <div>
-                        <h3 id="receipt-modal-title" class="font-extrabold text-sm text-white">THANH TOÁN THÀNH CÔNG</h3>
-                        <p id="receipt-modal-subtitle" class="text-[11px] text-slate-400">Xem trước & In hóa đơn nhiệt</p>
+                        <h3 id="receipt-modal-title" class="font-extrabold text-sm text-white" data-i18n="ui.pos_html.h3_b9280d4b">THANH TOÁN THÀNH CÔNG</h3>
+                        <p id="receipt-modal-subtitle" class="text-[11px] text-slate-400" data-i18n="ui.pos_html.p_806a0482">Xem trước & In hóa đơn nhiệt</p>
                     </div>
                 </div>
                 <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="POS.closeReceiptModal()">&times;</button>
@@ -606,11 +594,11 @@
             <!-- Modal Actions -->
             <div class="pt-2.5 border-t border-white/10 flex items-center justify-between gap-2 shrink-0">
                 <button type="button" class="btn-glass text-xs py-2 px-3 text-slate-300" onclick="POS.closeReceiptModal()">
-                    <i class="fas fa-times mr-1"></i> <span id="receipt-modal-close-text">Đóng (Tạo đơn mới)</span>
+                    <i class="fas fa-times mr-1"></i> <span id="receipt-modal-close-text" data-i18n="ui.pos_html.span_236b0f9e">Đóng (Tạo đơn mới)</span>
                 </button>
                 <button type="button" class="btn-glass-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5 shadow-lg shadow-sky-500/30" onclick="POS.triggerThermalPrint()">
                     <i class="fas fa-print"></i>
-                    <span id="receipt-modal-print-btn-text">In Hóa Đơn (80mm)</span>
+                    <span id="receipt-modal-print-btn-text" data-i18n="ui.pos_html.span_c3942868">In Hóa Đơn (80mm)</span>
                 </button>
             </div>
         </div>
@@ -620,17 +608,17 @@
     <div id="pos-vietqr-modal" class="liquid-modal-overlay">
         <div class="liquid-glass liquid-modal-content p-5 w-96 max-w-[95vw] text-slate-100 shadow-2xl border border-sky-500/40 text-center flex flex-col">
             <div class="flex justify-between items-center pb-2 border-b border-white/10 shrink-0">
-                <h3 class="font-bold text-sm text-sky-400 flex items-center gap-2">
+                <h3 class="font-bold text-sm text-sky-400 flex items-center gap-2" data-i18n="ui.pos_html.h3_82e32693">
                     <i class="fas fa-qrcode text-sky-400"></i> Mã Thanh Toán VietQR
                 </h3>
                 <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="POS.closeVietQrModal()">&times;</button>
             </div>
             
             <div class="py-3 flex flex-col items-center">
-                <div class="text-xs text-slate-400 mb-1">
+                <div class="text-xs text-slate-400 mb-1" data-i18n="ui.pos_html.div_1c36b836">
                     Bàn: <b id="pos-vietqr-table" class="text-white">MV1</b> • Mã đơn: <b id="pos-vietqr-code" class="text-sky-300 font-mono">---</b>
                 </div>
-                <div class="text-xl font-mono font-black text-emerald-400 mb-3 tracking-tight">
+                <div class="text-xl font-mono font-black text-emerald-400 mb-3 tracking-tight" data-i18n="ui.pos_html.span_a0cb4ccf">
                     <span id="pos-vietqr-amount">0</span> VNĐ
                 </div>
                 
@@ -641,29 +629,29 @@
                 
                 <div class="w-full mt-3 p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-left space-y-1">
                     <div class="flex justify-between">
-                        <span class="text-slate-400">Ngân hàng:</span>
+                        <span class="text-slate-400" data-i18n="ui.cust_html.div_77c3e8e1">Ngân hàng:</span>
                         <span id="pos-vietqr-bank" class="font-bold text-slate-200"></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-400">Số tài khoản:</span>
+                        <span class="text-slate-400" data-i18n="ui.cust_html.div_61be3f65">Số tài khoản:</span>
                         <span id="pos-vietqr-account" class="font-mono font-bold text-sky-400 select-all"></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-400">Chủ tài khoản:</span>
+                        <span class="text-slate-400" data-i18n="ui.cust_html.div_bdf20ddf">Chủ tài khoản:</span>
                         <span id="pos-vietqr-account-name" class="font-bold text-slate-200 uppercase"></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-400">Nội dung CK:</span>
+                        <span class="text-slate-400" data-i18n="ui.adm_html.div_52e4a600">Nội dung CK:</span>
                         <span id="pos-vietqr-note" class="font-mono font-bold text-amber-400 select-all">POS-HD...</span>
                     </div>
                 </div>
             </div>
             
             <div class="pt-2 border-t border-white/10 flex justify-end gap-2">
-                <button type="button" class="btn-glass text-xs py-2 px-4" onclick="POS.closeVietQrModal()">Đóng</button>
-                <button type="button" class="btn-glass-success text-xs py-2 px-4 font-bold flex items-center gap-1.5" onclick="POS.closeVietQrModal(); POS.openPaymentModal();">
+                <button type="button" class="btn-glass text-xs py-2 px-4" onclick="POS.closeVietQrModal()" data-i18n="ui.pos_html.button_cee55387">Đóng</button>
+                <button type="button" class="btn-glass-success text-xs py-2 px-4 font-bold flex items-center gap-1.5" onclick="POS.closeVietQrModal(); POS.openPaymentModal();" data-i18n="ui.pos_html.button_780a6862">
                     <i class="fas fa-check"></i>
-                    <span>Đã Nhận Tiền / Hoàn Tất</span>
+                    <span data-i18n="ui.pos_html.button_780a6862">Đã Nhận Tiền / Hoàn Tất</span>
                 </button>
             </div>
         </div>
@@ -678,13 +666,16 @@
     </script>
     <script src="assets/js/virtual-keyboard.js"></script>
     <script>window.SALEAPP_VIETQR_ENABLED = true;</script>
+    <script src="assets/js/i18n.js?v=2"></script>
     <script src="assets/js/date_format_ddmmyy.js?v=1"></script>
-    <script src="assets/js/security_utils.js?v=1"></script>
-<script src="assets/js/pos.js?v=7"></script>
+    <script src="assets/js/security_utils.js?v=2"></script>
+    <script src="assets/js/receipt_template.js?v=1"></script>
+    <script src="assets/js/pos.js?v=7"></script>
+    <script src="assets/js/pos_shift_reports.js?v=1"></script>
     <script>
         let indexCustomerQrInstance = null;
         function getCustomerMenuUrl() {
-            var cached = localStorage.getItem('server_lan_base_url');
+            var cached = window.CN_SERVER_LAN_BASE_URL || '';
             var hostname = window.location.hostname;
             var isLocalhost = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1');
             if (!isLocalhost && hostname) {
@@ -743,7 +734,7 @@
                     var port = json.data.server_port || window.location.port || '8501';
                     if (ip) {
                         var base = 'http://' + ip + ':' + port + '/';
-                        localStorage.setItem('server_lan_base_url', base);
+                        window.CN_SERVER_LAN_BASE_URL = base;
                         var freshUrl = base + 'customer.html';
                         if (freshUrl !== initialUrl) {
                             renderIndexCustomerQr(freshUrl);
@@ -827,7 +818,7 @@
             function sendPosHeartbeat() {
                 fetch('api/auth.php?action=heartbeat').catch(() => {});
             }
-            setInterval(sendPosHeartbeat, 45000);
+            setInterval(sendPosHeartbeat, 30000);
             // Tự động khôi phục kết nối và gửi heartbeat ngay khi máy tỉnh giấc (wake from sleep) hoặc có mạng trở lại
             window.addEventListener('online', sendPosHeartbeat);
             document.addEventListener('visibilitychange', () => {
@@ -838,42 +829,50 @@
 
         function updateAuthHeaderUI() {
             const zone = document.getElementById('user-auth-zone');
+            const backZone = document.getElementById('pos-admin-back-zone');
             if (!zone) return;
             const u = window.currentUser;
+            const tr = (k, fb) => (typeof window.cnxT === 'function' ? window.cnxT(k, fb) : fb);
             if (u && u.username) {
                 const isAdmin = u.role === 'admin' || u.is_super_admin === true;
+                if (backZone) {
+                    backZone.innerHTML = isAdmin
+                        ? `<a href="admin.html" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border-amber-400/40 mr-1" title="${tr('common.back_admin', 'Quản Trị')}"><i class="fas fa-arrow-left text-[10px]"></i> <span data-i18n="common.back_admin">${tr('common.back_admin', 'Quản Trị')}</span></a>`
+                        : '';
+                }
                 const roleBadge = isAdmin ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' : 'bg-sky-500/20 text-sky-300 border-sky-400/40';
                 const roleIcon = isAdmin ? 'fa-crown text-amber-400' : 'fa-user-tag text-sky-400';
-                const roleName = isAdmin ? 'ADMIN' : (u.role || 'NHÂN VIÊN').toUpperCase();
+                const roleName = isAdmin ? tr('nav.role_admin', 'ADMIN') : tr('nav.role_cashier', 'THU NGÂN');
+                const rawName = u.fullname || u.username || '';
+                const prettyName = (isAdmin && /Quản Trị Viên/i.test(rawName)) ? tr('nav.owner_name', 'Chủ quán') : rawName;
+                const dispName = String(prettyName).replace(/</g, '&lt;');
 
-                const userBadgeHtml = isAdmin
-                    ? `<a href="admin.html" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">
-                        <i class="fas ${roleIcon} text-xs"></i>
-                        <span class="font-bold text-amber-200">${u.fullname || u.username}</span>
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${roleBadge} border">${roleName}</span>
-                    </a>`
-                    : `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs shrink-0 whitespace-nowrap shadow-sm">
-                        <i class="fas ${roleIcon} text-xs"></i>
-                        <span class="font-bold text-slate-200">${u.fullname || u.username}</span>
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${roleBadge} border">${roleName}</span>
-                    </div>`;
+                const userBadgeHtml = `<div class="cn-user-pill ${isAdmin ? 'bg-slate-800/90 border border-amber-500/40 text-amber-200' : 'bg-slate-800/80 border border-white/10 text-slate-200'}">
+                    <i class="fas ${roleIcon} text-xs"></i>
+                    <span class="cn-user-name font-bold">${dispName}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${roleBadge} border">${roleName}</span>
+                </div>`;
 
                 zone.innerHTML = `
                     ${userBadgeHtml}
-                    <button type="button" onclick="handleLogout()" class="btn-glass text-xs py-1.5 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 shrink-0 flex items-center gap-1 font-bold shadow-sm whitespace-nowrap" title="Đăng xuất">
-                        <i class="fas fa-sign-out-alt text-rose-300 text-xs"></i>
-                        <span class="hidden md:inline">Thoát</span>
+                    <button type="button" onclick="handleLogout()" class="cn-nav-btn cn-nav-btn--danger" title="${tr('common.logout', 'Đăng xuất')}">
+                        <i class="fas fa-sign-out-alt text-xs"></i>
+                        <span data-i18n="common.logout">${tr('common.logout', 'Đăng xuất')}</span>
                     </button>
                 `;
             } else {
+                if (backZone) backZone.innerHTML = '';
                 zone.innerHTML = `
-                    <a href="login.html?redirect=index.html" class="btn-glass-primary text-xs py-1.5 px-3 sm:px-4 font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-lg shadow-sky-500/20">
+                    <a href="login.html?redirect=index.html" class="btn-glass-primary cn-nav-btn shadow-lg shadow-sky-500/20">
                         <i class="fas fa-lock text-xs"></i>
-                        <span>Đăng Nhập</span>
+                        <span data-i18n="ui.pos_html.button_9364125f">${tr('ui.pos_html.button_9364125f', 'Đăng Nhập')}</span>
                     </a>
                 `;
             }
         }
+        window.addEventListener('cybernexus:langchange', updateAuthHeaderUI);
+        window.addEventListener('cnx:lang-changed', updateAuthHeaderUI);
+        window.addEventListener('cnx:i18n-ready', updateAuthHeaderUI);
 
         async function handleLogout() {
             if (!confirm('Bạn có chắc muốn đăng xuất khỏi hệ thống?')) return;

@@ -14,6 +14,8 @@ public:
     // Helpers
     static void sendJson(httplib::Response& res, const json& data, int statusCode = 200);
     static void sendError(httplib::Response& res, const std::string& message, int statusCode = 400);
+    static void sendErrorCode(httplib::Response& res, const std::string& code, const std::string& message, const json& params = json::object(), int statusCode = 400);
+    static std::string inferErrorCode(const std::string& message);
     static json parseBody(const httplib::Request& req);
 
     // Individual Handlers
@@ -33,6 +35,9 @@ public:
     static void handleAdvertising(const httplib::Request& req, httplib::Response& res);
     static void handlePromotions(const httplib::Request& req, httplib::Response& res);
     static void handleMediaTracks(const httplib::Request& req, httplib::Response& res);
+
+    // Periodic background maintenance
+    static void runPeriodicShiftMaintenance();
 };
 
 } // namespace SaleApp::Backend

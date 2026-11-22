@@ -1,4 +1,5 @@
 #include "PluginManager.hpp"
+#include "license_crypto.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -92,32 +93,42 @@ PluginManager::~PluginManager() {
 }
 
 bool PluginManager::verifyPluginSignature(const std::string& dllFilePath) {
-    // [BẢO MẬT SUPERADMIN]:
-    // Kiểm tra xem có file chữ ký .sig đi kèm không (ví dụ: libmod_pos_core.dll.sig)
+    // [SEC-10] Kiểm tra chữ ký số bất đối xứng ECDSA P-256 CNG bắt buộc trên mọi DLL plugin
     std::string sigPath = dllFilePath + ".sig";
+    std::string filename = fs::path(dllFilePath).filename().string();
     if (!fs::exists(sigPath)) {
-        std::cout << "[Security Guard] Cảnh báo: File " << dllFilePath << " chưa có chữ ký số của SuperAdmin (.sig)." << std::endl;
-        return true;
+        std::cerr << "[Security Guard] CHẶN NẠP MODULE: Thiếu file chữ ký số ECDSA (.sig): " << sigPath << std::endl;
+        return false;
     }
 
     try {
         std::ifstream sf(sigPath);
         json sigJson;
         sf >> sigJson;
-        std::string expectedHash = sigJson.value("sha256", "");
-        std::string sigToken = sigJson.value("sig", "");
-        std::string actualHash = computeFileSha256(dllFilePath);
-        std::string payload = "CBNX_SIG_V1:" + actualHash + ":SAAS_2026";
-        std::string expectedSig = sha256Hex(reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
-
-        if (actualHash.empty() || actualHash != expectedHash || sigToken != expectedSig) {
-            std::cerr << "[Security Guard] CHẶN NẠP MODULE: Chữ ký số .sig không khớp hoặc file DLL đã bị chỉnh sửa: " << dllFilePath << std::endl;
+        if (!sigJson.is_object()) {
+            std::cerr << "[Security Guard] CHẶN NẠP MODULE: File .sig không hợp lệ: " << sigPath << std::endl;
             return false;
         }
-        std::cout << "[Security Guard] Đã xác thực chữ ký số .sig hợp lệ: " << fs::path(dllFilePath).filename().string() << std::endl;
+        std::string expectedHash = sigJson.value("sha256", "");
+        std::string declaredFile = sigJson.value("file", filename);
+        std::string ecdsaSig = sigJson.value("ecdsa_sig", "");
+        std::string actualHash = computeFileSha256(dllFilePath);
+
+        if (actualHash.empty() || actualHash != expectedHash || declaredFile != filename || ecdsaSig.empty()) {
+            std::cerr << "[Security Guard] CHẶN NẠP MODULE: Thiếu ecdsa_sig hoặc sai SHA-256 / tên file DLL: " << dllFilePath << std::endl;
+            return false;
+        }
+
+        std::string canonical = SaleApp::LicenseCrypto::buildDllSigPayload(filename, actualHash);
+        if (!SaleApp::LicenseCrypto::verifyLicensePayload(canonical, ecdsaSig)) {
+            std::cerr << "[Security Guard] CHẶN NẠP MODULE: Chữ ký ECDSA P-256 .sig không hợp lệ hoặc DLL bị chỉnh sửa: " << dllFilePath << std::endl;
+            return false;
+        }
+
+        std::cout << "[Security Guard] Đã xác thực chữ ký ECDSA P-256 .sig hợp lệ: " << filename << std::endl;
         return true;
     } catch (...) {
-        std::cerr << "[Security Guard] Lỗi đọc file chữ ký số .sig: " << sigPath << std::endl;
+        std::cerr << "[Security Guard] CHẶN NẠP MODULE: Lỗi đọc/kiểm chứng file chữ ký số .sig: " << sigPath << std::endl;
         return false;
     }
 }

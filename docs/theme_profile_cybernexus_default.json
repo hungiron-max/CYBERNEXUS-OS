@@ -1,0 +1,26 @@
+{
+  "template_name": "CyberNexus Default Glass (Extracted)",
+  "version": "1.0",
+  "radius": 16,
+  "blur": 16,
+  "font": "system-ui, -apple-system, sans-serif",
+  "slogan": "Hệ thống Bán Hàng & Vận Hành POS Thông Minh",
+  "dark": {
+    "primary": "#38bdf8",
+    "accent": "#8b5cf6",
+    "bg_start": "#070d1b",
+    "bg_end": "#0f172a",
+    "card_bg": "rgba(15, 23, 42, 0.78)",
+    "card_border": "rgba(56, 189, 248, 0.25)",
+    "text": "#f1f5f9"
+  },
+  "light": {
+    "primary": "#0369a1",
+    "accent": "#6b21a8",
+    "bg_start": "#d7edff",
+    "bg_end": "#eef4fa",
+    "card_bg": "rgba(255, 255, 255, 0.84)",
+    "card_border": "rgba(100, 116, 139, 0.26)",
+    "text": "#17243b"
+  }
+}

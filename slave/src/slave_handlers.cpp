@@ -1,4 +1,5 @@
 #include "handlers.hpp"
+#include "slave_dot6_handlers.hpp"
 #include "slave_tunnel.h"
 #include "slave_net_info.h"
 #include "slave_updater.h"
@@ -11,6 +12,11 @@
 #include "PluginManager.hpp"
 #include "gemini_client.hpp"
 #include "pin_vault.hpp"
+#include "rate_limiter.hpp"
+#include "upload_guard.hpp"
+#include "printer_bridge.hpp"
+#include "hikvision_isapi.hpp"
+#include "vietqr_emvco.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -19,6 +25,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #ifdef _WIN32
 #include <iphlpapi.h>
 #include <winhttp.h>
@@ -36,12 +43,34 @@ void ApiHandlers::sendJson(httplib::Response& res, const json& data, int statusC
     res.set_content(data.dump(), "application/json; charset=utf-8");
 }
 
-void ApiHandlers::sendError(httplib::Response& res, const std::string& message, int statusCode) {
+std::string ApiHandlers::inferErrorCode(const std::string& message) {
+    if (message.find("Chủ quán (Admin)") != std::string::npos) return "ADMIN_REQUIRED";
+    if (message.find("lý do") != std::string::npos) return "ATTENDANCE_REASON_REQUIRED";
+    if (message.find("khóa sổ") != std::string::npos || message.find("đã xác nhận chi trả") != std::string::npos) return "PAYROLL_CYCLE_LOCKED";
+    if (message.find("Giờ ra (Check-out) phải sau") != std::string::npos) return "ATTENDANCE_INVALID_TIME";
+    if (message.find("Chưa có ca làm việc") != std::string::npos || message.find("Không có ca làm việc nào đang mở") != std::string::npos) return "POS_SHIFT_NOT_OPEN";
+    if (message.find("một ca làm việc đang mở") != std::string::npos) return "POS_SHIFT_ALREADY_OPEN";
+    if (message.find("Giỏ hàng") != std::string::npos || message.find("chưa có sản phẩm") != std::string::npos) return "POS_ORDER_EMPTY";
+    if (message.find("Không tìm thấy đơn hàng") != std::string::npos) return "ORDER_NOT_FOUND";
+    if (message.find("Không tìm thấy bàn") != std::string::npos || message.find("Bàn đã chọn không tồn tại") != std::string::npos) return "POS_TABLE_NOT_FOUND";
+    if (message.find("mức lương") != std::string::npos) return "HR_INVALID_RATE";
+    if (message.find("tồn kho") != std::string::npos) return "INVENTORY_INSUFFICIENT";
+    if (message.find("Chưa đăng nhập") != std::string::npos) return "AUTH_REQUIRED";
+    return "API_ERROR";
+}
+
+void ApiHandlers::sendErrorCode(httplib::Response& res, const std::string& code, const std::string& message, const json& params, int statusCode) {
     json err = {
         {"success", false},
+        {"code", code.empty() ? inferErrorCode(message) : code},
+        {"params", params.is_object() ? params : json::object()},
         {"message", message}
     };
     sendJson(res, err, statusCode);
+}
+
+void ApiHandlers::sendError(httplib::Response& res, const std::string& message, int statusCode) {
+    sendErrorCode(res, inferErrorCode(message), message, json::object(), statusCode);
 }
 
 static bool requireModule(httplib::Response& res, const std::string& modCode, const std::string& label) {
@@ -49,6 +78,8 @@ static bool requireModule(httplib::Response& res, const std::string& modCode, co
     ApiHandlers::sendJson(res, {
         {"success", false},
         {"locked", true},
+        {"code", "MODULE_LOCKED"},
+        {"params", {{"module", label}, {"module_code", modCode}}},
         {"module_code", modCode},
         {"message", "Module [" + label + "] chưa được cấp phép hoặc đã bị Master tắt/khóa!"}
     }, 403);
@@ -150,6 +181,7 @@ static std::string getCurrentDate() {
 }
 
 static void ensureOrderWorkflowSchema(Database& db) {
+    Dot6Handlers::ensureDot6Schema(db);
     static bool migrated = false;
     if (migrated) return;
     migrated = true;
@@ -468,18 +500,165 @@ static bool isPromoEligibleNow(Database& db, const json& promo, double subtotal,
     return true;
 }
 
+static void ensureInventoryRecipeSchema(Database& db) {
+    static std::atomic<bool> s_recipeInit{false};
+    if (s_recipeInit.load()) return;
+    try {
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS product_recipes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                material_id INTEGER NOT NULL,
+                quantity_per_unit REAL NOT NULL DEFAULT 0,
+                UNIQUE(product_id, material_id)
+            )
+        )");
+        try { db.execute("ALTER TABLE orders ADD COLUMN stock_deducted INTEGER DEFAULT 0"); } catch (...) {}
+        s_recipeInit.store(true);
+    } catch (...) {}
+}
+
+static void deductInventoryForOrder(Database& db, int64_t orderId) {
+    if (orderId <= 0) return;
+    ensureInventoryRecipeSchema(db);
+    auto ord = db.queryRow("SELECT id, order_code, COALESCE(stock_deducted, 0) as stock_deducted FROM orders WHERE id = :id", {{":id", orderId}});
+    if (ord.is_null() || ord.value("stock_deducted", int64_t(0)) != 0) return;
+
+    auto rows = db.query(R"(
+        SELECT pr.material_id, m.name as material_name, m.unit, COALESCE(m.cost_price, 0) as cost_price,
+               SUM(oi.quantity * pr.quantity_per_unit) as deduct_qty
+        FROM order_items oi
+        JOIN product_recipes pr ON pr.product_id = oi.product_id
+        JOIN materials m ON m.id = pr.material_id
+        WHERE oi.order_id = :oid
+          AND COALESCE(oi.cancel_status, 'none') NOT IN ('approved', 'out_of_stock')
+          AND pr.quantity_per_unit > 0
+        GROUP BY pr.material_id
+    )", {{":oid", orderId}});
+
+    std::string oCode = ord.value("order_code", std::to_string(orderId));
+    for (const auto& r : rows) {
+        int64_t matId = r.value("material_id", int64_t(0));
+        double dQty = r.value("deduct_qty", 0.0);
+        if (matId <= 0 || dQty <= 0.0) continue;
+        std::string matName = r.value("material_name", "");
+        std::string unit = r.value("unit", "kg");
+        double unitPrice = r.value("cost_price", 0.0);
+        db.execute("UPDATE materials SET quantity = MAX(0, COALESCE(quantity, 0) - :q) WHERE id = :id",
+                   {{":q", dQty}, {":id", matId}});
+        db.execute(R"(
+            INSERT INTO material_transactions (material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, note)
+            VALUES (:id, :name, 'sale_deduct', :qty, :unit, :price, :cost, :note)
+        )", {
+            {":id", matId}, {":name", matName}, {":qty", dQty}, {":unit", unit},
+            {":price", unitPrice}, {":cost", dQty * unitPrice},
+            {":note", "Tự động trừ kho theo định lượng đơn #" + oCode}
+        });
+    }
+    db.execute("UPDATE orders SET stock_deducted = 1 WHERE id = :id", {{":id", orderId}});
+}
+
+static void restoreInventoryForOrder(Database& db, int64_t orderId, const std::string& reason = "") {
+    if (orderId <= 0) return;
+    ensureInventoryRecipeSchema(db);
+    auto ord = db.queryRow("SELECT id, order_code, COALESCE(stock_deducted, 0) as stock_deducted FROM orders WHERE id = :id", {{":id", orderId}});
+    if (ord.is_null() || ord.value("stock_deducted", int64_t(0)) == 0) return;
+
+    auto rows = db.query(R"(
+        SELECT pr.material_id, m.name as material_name, m.unit, COALESCE(m.cost_price, 0) as cost_price,
+               SUM(oi.quantity * pr.quantity_per_unit) as restore_qty
+        FROM order_items oi
+        JOIN product_recipes pr ON pr.product_id = oi.product_id
+        JOIN materials m ON m.id = pr.material_id
+        WHERE oi.order_id = :oid
+          AND pr.quantity_per_unit > 0
+        GROUP BY pr.material_id
+    )", {{":oid", orderId}});
+
+    std::string oCode = ord.value("order_code", std::to_string(orderId));
+    for (const auto& r : rows) {
+        int64_t matId = r.value("material_id", int64_t(0));
+        double rQty = r.value("restore_qty", 0.0);
+        if (matId <= 0 || rQty <= 0.0) continue;
+        std::string matName = r.value("material_name", "");
+        std::string unit = r.value("unit", "kg");
+        double unitPrice = r.value("cost_price", 0.0);
+        db.execute("UPDATE materials SET quantity = COALESCE(quantity, 0) + :q WHERE id = :id",
+                   {{":q", rQty}, {":id", matId}});
+        db.execute(R"(
+            INSERT INTO material_transactions (material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, note)
+            VALUES (:id, :name, 'sale_restore', :qty, :unit, :price, :cost, :note)
+        )", {
+            {":id", matId}, {":name", matName}, {":qty", rQty}, {":unit", unit},
+            {":price", unitPrice}, {":cost", rQty * unitPrice},
+            {":note", "Hoàn kho hủy đơn #" + oCode + (reason.empty() ? "" : (" (" + reason + ")"))}
+        });
+    }
+    db.execute("UPDATE orders SET stock_deducted = 0 WHERE id = :id", {{":id", orderId}});
+}
+
+static json findBestAutoPromotion(Database& db, double subtotal) {
+    ensurePromotionSchema(db);
+    auto rows = db.query("SELECT * FROM promotions WHERE is_active = 1 AND promo_mode = 'auto' ORDER BY id DESC");
+    json best = nullptr;
+    double bestDisc = 0.0;
+    for (const auto& p : rows) {
+        std::string pErr;
+        if (!isPromoEligibleNow(db, p, subtotal, pErr)) continue;
+        double d = computePromoDiscount(p, subtotal);
+        if (d > bestDisc) {
+            bestDisc = d;
+            best = p;
+        }
+    }
+    return best;
+}
+
+static void ensureNotifI18nSchema(Database& db) {
+    static std::mutex s_notifSchemaMtx;
+    static bool s_checked = false;
+    std::lock_guard<std::mutex> lk(s_notifSchemaMtx);
+    if (s_checked) return;
+    auto addCols = [&](const char* tbl) {
+        try {
+            json cols = db.query(std::string("PRAGMA table_info(") + tbl + ")");
+            auto has = [&](const char* cName) {
+                for (const auto& c : cols) if (c.value("name", "") == cName) return true;
+                return false;
+            };
+            if (!has("title_key")) db.execute(std::string("ALTER TABLE ") + tbl + " ADD COLUMN title_key TEXT DEFAULT ''");
+            if (!has("msg_key")) db.execute(std::string("ALTER TABLE ") + tbl + " ADD COLUMN msg_key TEXT DEFAULT ''");
+            if (!has("msg_params_json")) db.execute(std::string("ALTER TABLE ") + tbl + " ADD COLUMN msg_params_json TEXT DEFAULT '{}'");
+        } catch (...) {}
+    };
+    addCols("app_notifications");
+    addCols("order_alerts");
+    s_checked = true;
+}
+
 static void createOrderAlert(Database& db, int64_t orderId, const std::string& orderCode,
                              int64_t tableId, const std::string& tableCode,
                              const std::string& alertType, const std::string& title,
-                             const std::string& message, const std::string& targetRole = "all") {
+                             const std::string& message, const std::string& targetRole = "all",
+                             const std::string& titleKey = "", const std::string& msgKey = "",
+                             const json& msgParams = json::object()) {
     ensureOrderWorkflowSchema(db);
+    ensureNotifI18nSchema(db);
+    std::string tk = titleKey.empty() ? ("notif.alert_" + alertType + "_title") : titleKey;
+    std::string mk = msgKey.empty() ? ("notif.alert_" + alertType + "_msg") : msgKey;
+    json p = msgParams.is_object() ? msgParams : json::object();
+    if (!p.contains("table")) p["table"] = tableCode;
+    if (!p.contains("order_code")) p["order_code"] = orderCode;
+    if (!p.contains("title")) p["title"] = title;
+    if (!p.contains("message")) p["message"] = message;
     db.execute(R"(
-        INSERT INTO order_alerts (order_id, order_code, table_id, table_code, alert_type, title, message, target_role, created_at)
-        VALUES (:oid, :oc, :tid, :tc, :at, :ttl, :msg, :tr, :cat)
+        INSERT INTO order_alerts (order_id, order_code, table_id, table_code, alert_type, title, message, title_key, msg_key, msg_params_json, target_role, created_at)
+        VALUES (:oid, :oc, :tid, :tc, :at, :ttl, :msg, :tk, :mk, :mp, :tr, :cat)
     )", {
         {":oid", orderId}, {":oc", orderCode}, {":tid", tableId}, {":tc", tableCode},
-        {":at", alertType}, {":ttl", title}, {":msg", message}, {":tr", targetRole},
-        {":cat", getCurrentTimestamp()}
+        {":at", alertType}, {":ttl", title}, {":msg", message},
+        {":tk", tk}, {":mk", mk}, {":mp", p.dump()},
+        {":tr", targetRole}, {":cat", getCurrentTimestamp()}
     });
 }
 
@@ -505,6 +684,13 @@ static json recalculateOrderTotalsAndSettlement(Database& db, int64_t orderId) {
     std::string payStatus = ord.contains("payment_status") && ord["payment_status"].is_string() ? ord["payment_status"].get<std::string>() : "unpaid";
 
     double dAmt = (dType == "percent") ? (newSub * std::min(100.0, std::max(0.0, dVal)) / 100.0) : std::min(newSub, std::max(0.0, dVal));
+    int64_t promoId = ord.contains("promo_id") && ord["promo_id"].is_number() ? ord["promo_id"].get<int64_t>() : 0;
+    if (promoId > 0 && dType == "percent") {
+        auto pRow = db.queryRow("SELECT max_discount_amount FROM promotions WHERE id = :pid LIMIT 1", {{":pid", promoId}});
+        double maxDisc = (!pRow.is_null() && pRow.contains("max_discount_amount") && pRow["max_discount_amount"].is_number()) ? pRow["max_discount_amount"].get<double>() : 0.0;
+        if (maxDisc > 0.0 && dAmt > maxDisc) dAmt = maxDisc;
+    }
+    dAmt = std::min(newSub, std::max(0.0, dAmt));
     double afterDisc = std::max(0.0, newSub - dAmt);
     double vatAmt = afterDisc * std::max(0.0, vatPct) / 100.0;
     double newTot = afterDisc + vatAmt;
@@ -550,7 +736,114 @@ struct ShiftCfg {
     std::string s2End = "22:30";
     int graceMinutes = 15;
     bool autoClose = true;
+    int disconnectTimeoutMinutes = 30;
+    bool overtimeEnabled = true;
+    double otWeekdayRate = 1.5;
+    double otWeekendRate = 2.0;
+    double otHolidayRate = 3.0;
+    double nightBonusPct = 0.3;
+    double standardDailyHours = 8.0;
+    bool allowOvernightShift = false;
+    bool posBlindHandover = false;
+    double kpiPointValueVnd = 5000.0;
 };
+
+static std::string formatLocalTimestamp(std::time_t t) {
+    if (t <= 0) return "";
+    std::tm tmBuf{};
+#ifdef _WIN32
+    localtime_s(&tmBuf, &t);
+#else
+    localtime_r(&t, &tmBuf);
+#endif
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+                  tmBuf.tm_year + 1900, tmBuf.tm_mon + 1, tmBuf.tm_mday,
+                  tmBuf.tm_hour, tmBuf.tm_min, tmBuf.tm_sec);
+    return std::string(buf);
+}
+
+static std::string getCurrentDate();
+static std::string getCurrentTimestamp();
+
+static void ensureHrPayrollSchema(Database& db) {
+    Dot6Handlers::ensureDot6Schema(db);
+    static std::mutex s_hrSchemaMutex;
+    static bool s_hrSchemaInit = false;
+    std::lock_guard<std::mutex> lock(s_hrSchemaMutex);
+    if (s_hrSchemaInit) return;
+    s_hrSchemaInit = true;
+
+    const char* attAlterCols[] = {
+        "ALTER TABLE attendances ADD COLUMN last_heartbeat_at TEXT DEFAULT ''",
+        "ALTER TABLE attendances ADD COLUMN shift_type TEXT DEFAULT 'regular'",
+        "ALTER TABLE attendances ADD COLUMN regular_hours REAL DEFAULT 0",
+        "ALTER TABLE attendances ADD COLUMN overtime_hours REAL DEFAULT 0",
+        "ALTER TABLE attendances ADD COLUMN overtime_multiplier REAL DEFAULT 1.0",
+        "ALTER TABLE attendances ADD COLUMN overtime_pay REAL DEFAULT 0",
+        "ALTER TABLE attendances ADD COLUMN is_overtime_approved INTEGER DEFAULT 0",
+        "ALTER TABLE attendances ADD COLUMN approved_by TEXT DEFAULT ''"
+    };
+    for (const char* sql : attAlterCols) {
+        try { db.execute(sql); } catch (...) {}
+    }
+
+    try {
+        db.execute("ALTER TABLE finance_expenses ADD COLUMN source TEXT DEFAULT 'manual'");
+    } catch (...) {}
+    try {
+        db.execute("UPDATE finance_expenses SET source = 'pos_cash_tx' WHERE COALESCE(source, 'manual') = 'manual' AND description LIKE '[CA-%]%'");
+    } catch (...) {}
+
+    try {
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS payroll_cycles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                month_key TEXT NOT NULL UNIQUE,
+                status TEXT DEFAULT 'draft',
+                total_staff INTEGER DEFAULT 0,
+                total_hours REAL DEFAULT 0,
+                total_overtime_hours REAL DEFAULT 0,
+                total_gross REAL DEFAULT 0,
+                total_net REAL DEFAULT 0,
+                locked_by TEXT DEFAULT '',
+                locked_at TEXT DEFAULT '',
+                paid_by TEXT DEFAULT '',
+                paid_at TEXT DEFAULT '',
+                note TEXT DEFAULT '',
+                updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        )");
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS payroll_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cycle_id INTEGER DEFAULT 0,
+                month_key TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                user_code TEXT DEFAULT '',
+                user_name TEXT DEFAULT '',
+                user_role TEXT DEFAULT '',
+                hourly_rate REAL DEFAULT 0,
+                total_shifts INTEGER DEFAULT 0,
+                regular_hours REAL DEFAULT 0,
+                overtime_hours REAL DEFAULT 0,
+                base_pay REAL DEFAULT 0,
+                overtime_pay REAL DEFAULT 0,
+                kpi_score INTEGER DEFAULT 0,
+                kpi_bonus REAL DEFAULT 0,
+                allowance REAL DEFAULT 0,
+                advance_deduction REAL DEFAULT 0,
+                penalty REAL DEFAULT 0,
+                net_pay REAL DEFAULT 0,
+                is_paid INTEGER DEFAULT 0,
+                paid_at TEXT DEFAULT '',
+                paid_method TEXT DEFAULT 'cash',
+                note TEXT DEFAULT '',
+                UNIQUE(month_key, user_id)
+            )
+        )");
+    } catch (...) {}
+}
 
 static int parseHHMMToMinutes(const std::string& hhmm, int fallbackMin) {
     int h = 0, m = 0;
@@ -596,21 +889,122 @@ static std::string formatElapsedHMS(const std::string& startTs, const std::strin
 
 static ShiftCfg loadShiftCfg(Database& db) {
     ShiftCfg cfg;
-    json rows = db.query("SELECT setting_key, setting_value FROM store_settings WHERE setting_key LIKE 'shift%'");
+    json rows = db.query(R"(
+        SELECT setting_key, setting_value FROM store_settings
+        WHERE setting_key LIKE 'shift%'
+           OR setting_key LIKE 'ot_%'
+           OR setting_key IN ('overtime_enabled', 'night_shift_bonus_pct', 'standard_daily_hours', 'allow_overnight_shift', 'pos_blind_handover', 'kpi_point_value_vnd')
+    )");
     for (const auto& r : rows) {
         std::string k = r.value("setting_key", "");
         std::string v = r.value("setting_value", "");
         if (v.empty()) continue;
-        if (k == "shift1_name") cfg.s1Name = v;
-        else if (k == "shift1_start") cfg.s1Start = v;
-        else if (k == "shift1_end") cfg.s1End = v;
-        else if (k == "shift2_name") cfg.s2Name = v;
-        else if (k == "shift2_start") cfg.s2Start = v;
-        else if (k == "shift2_end") cfg.s2End = v;
-        else if (k == "shift_grace_minutes") { try { cfg.graceMinutes = std::max(0, std::stoi(v)); } catch (...) {} }
-        else if (k == "shift_autoclose_enabled") cfg.autoClose = (v == "1" || v == "true");
+        try {
+            if (k == "shift1_name") cfg.s1Name = v;
+            else if (k == "shift1_start") cfg.s1Start = v;
+            else if (k == "shift1_end") cfg.s1End = v;
+            else if (k == "shift2_name") cfg.s2Name = v;
+            else if (k == "shift2_start") cfg.s2Start = v;
+            else if (k == "shift2_end") cfg.s2End = v;
+            else if (k == "shift_grace_minutes") cfg.graceMinutes = std::max(0, std::stoi(v));
+            else if (k == "shift_autoclose_enabled") cfg.autoClose = (v == "1" || v == "true");
+            else if (k == "shift_disconnect_timeout_minutes") cfg.disconnectTimeoutMinutes = std::max(5, std::stoi(v));
+            else if (k == "overtime_enabled") cfg.overtimeEnabled = (v == "1" || v == "true");
+            else if (k == "ot_weekday_rate") cfg.otWeekdayRate = std::max(1.0, std::stod(v));
+            else if (k == "ot_weekend_rate") cfg.otWeekendRate = std::max(1.0, std::stod(v));
+            else if (k == "ot_holiday_rate") cfg.otHolidayRate = std::max(1.0, std::stod(v));
+            else if (k == "night_shift_bonus_pct") cfg.nightBonusPct = std::max(0.0, std::stod(v));
+            else if (k == "standard_daily_hours") cfg.standardDailyHours = std::max(1.0, std::stod(v));
+            else if (k == "allow_overnight_shift") cfg.allowOvernightShift = (v == "1" || v == "true");
+            else if (k == "pos_blind_handover") cfg.posBlindHandover = (v == "1" || v == "true");
+            else if (k == "kpi_point_value_vnd") cfg.kpiPointValueVnd = std::max(0.0, std::stod(v));
+        } catch (...) {}
     }
     return cfg;
+}
+
+static void computeAttendancePay(const ShiftCfg& cfg, const std::string& inTs, const std::string& outTs,
+                                 double rate, bool isOtApproved, double customMult,
+                                 double& outTotalHrs, double& outRegHrs, double& outOtHrs,
+                                 double& outMult, double& outOtPay, double& outTotalPay) {
+    outTotalHrs = 0.0; outRegHrs = 0.0; outOtHrs = 0.0;
+    outMult = (customMult > 1.0) ? customMult : 1.0;
+    outOtPay = 0.0; outTotalPay = 0.0;
+
+    std::time_t t1 = parseTimestampLocal(inTs);
+    std::time_t t2 = parseTimestampLocal(outTs);
+    if (t1 <= 0 || t2 <= t1) return;
+
+    outTotalHrs = std::round((static_cast<double>(t2 - t1) / 3600.0) * 100.0) / 100.0;
+    if (outTotalHrs <= 0.0) return;
+
+    std::tm inTm{};
+#ifdef _WIN32
+    localtime_s(&inTm, &t1);
+#else
+    localtime_r(&t1, &inTm);
+#endif
+    int s2StartMin = parseHHMMToMinutes(cfg.s2Start, 12 * 60 + 30);
+    int s2EndMin = parseHHMMToMinutes(cfg.s2End, 22 * 60 + 30);
+    std::tm s2EndTm = inTm;
+    s2EndTm.tm_hour = s2EndMin / 60;
+    s2EndTm.tm_min = s2EndMin % 60;
+    s2EndTm.tm_sec = 0;
+    s2EndTm.tm_isdst = -1;
+    std::time_t s2EndT = std::mktime(&s2EndTm);
+    if (cfg.allowOvernightShift && s2EndMin < s2StartMin) {
+        s2EndT += 24 * 3600;
+    }
+
+    if (cfg.overtimeEnabled && (isOtApproved || customMult > 1.0)) {
+        if (s2EndT > 0 && !(cfg.allowOvernightShift && s2EndMin < s2StartMin)) {
+            if (t1 >= s2EndT) {
+                outOtHrs = outTotalHrs;
+                outRegHrs = 0.0;
+            } else if (t2 > s2EndT) {
+                outRegHrs = std::round((static_cast<double>(s2EndT - t1) / 3600.0) * 100.0) / 100.0;
+                outOtHrs = std::max(0.0, std::round((outTotalHrs - outRegHrs) * 100.0) / 100.0);
+            } else {
+                outRegHrs = outTotalHrs;
+            }
+        } else {
+            outRegHrs = outTotalHrs;
+        }
+        if (outRegHrs > cfg.standardDailyHours) {
+            outOtHrs = std::round((outOtHrs + (outRegHrs - cfg.standardDailyHours)) * 100.0) / 100.0;
+            outRegHrs = cfg.standardDailyHours;
+        }
+        if (customMult > 1.0) {
+            outMult = customMult;
+        } else {
+            bool isWeekend = (inTm.tm_wday == 0 || inTm.tm_wday == 6);
+            outMult = isWeekend ? cfg.otWeekendRate : cfg.otWeekdayRate;
+        }
+    } else {
+        outRegHrs = outTotalHrs;
+        outOtHrs = 0.0;
+        outMult = 1.0;
+    }
+
+    double nightBonusPay = 0.0;
+    if (cfg.nightBonusPct > 0.0 && (isOtApproved || cfg.allowOvernightShift)) {
+        double nightSec = 0.0;
+        std::tm dayBase = inTm;
+        dayBase.tm_hour = 0; dayBase.tm_min = 0; dayBase.tm_sec = 0; dayBase.tm_isdst = -1;
+        std::time_t day0 = std::mktime(&dayBase);
+        for (int dOffset = -1; dOffset <= 1; ++dOffset) {
+            std::time_t wStart = day0 + dOffset * 86400 + 22 * 3600;
+            std::time_t wEnd = day0 + (dOffset + 1) * 86400 + 6 * 3600;
+            std::time_t ovStart = std::max(t1, wStart);
+            std::time_t ovEnd = std::min(t2, wEnd);
+            if (ovEnd > ovStart) nightSec += static_cast<double>(ovEnd - ovStart);
+        }
+        double nightHrs = std::round((nightSec / 3600.0) * 100.0) / 100.0;
+        nightBonusPay = std::round(nightHrs * rate * cfg.nightBonusPct);
+    }
+
+    outOtPay = std::round(outOtHrs * rate * outMult) + nightBonusPay;
+    outTotalPay = std::round(outRegHrs * rate) + outOtPay;
 }
 
 static std::string shortDeviceLabel(const std::string& ua) {
@@ -623,25 +1017,46 @@ static std::string shortDeviceLabel(const std::string& ua) {
 }
 
 static void closeStaffAttendance(Database& db, int64_t attId, const std::string& checkOutTs, const std::string& note) {
-    auto row = db.queryRow("SELECT check_in_time, hourly_rate FROM attendances WHERE id = :id", {{":id", attId}});
+    ensureHrPayrollSchema(db);
+    auto row = db.queryRow("SELECT check_in_time, hourly_rate, COALESCE(is_overtime_approved, 0) as ot_app, COALESCE(overtime_multiplier, 1.0) as ot_mult, COALESCE(shift_type, 'regular') as stype FROM attendances WHERE id = :id", {{":id", attId}});
     if (row.is_null()) return;
     std::string inTs = row.value("check_in_time", "");
+    std::string safeOutTs = checkOutTs;
+    std::time_t tIn = parseTimestampLocal(inTs);
+    std::time_t tOut = parseTimestampLocal(checkOutTs);
+    if (tIn > 0 && tOut > 0 && tOut < tIn) {
+        safeOutTs = inTs;
+    }
+
     double rate = 25000.0;
     try { if (row.contains("hourly_rate") && row["hourly_rate"].is_number()) rate = row["hourly_rate"].get<double>(); } catch (...) {}
-    double hrs = calcHoursBetween(inTs, checkOutTs);
-    double pay = std::round(hrs * rate);
+    bool isOt = (row.value("ot_app", 0) == 1) || (row.value("stype", "regular") == "overtime");
+    double multIn = 1.0;
+    try { if (row.contains("ot_mult") && row["ot_mult"].is_number()) multIn = row["ot_mult"].get<double>(); } catch (...) {}
+
+    ShiftCfg cfg = loadShiftCfg(db);
+    double hrs = 0.0, regHrs = 0.0, otHrs = 0.0, multOut = 1.0, otPay = 0.0, totalPay = 0.0;
+    computeAttendancePay(cfg, inTs, safeOutTs, rate, isOt, multIn, hrs, regHrs, otHrs, multOut, otPay, totalPay);
+
     db.execute(R"(
         UPDATE attendances
-        SET check_out_time = :out, work_hours = :hrs, total_pay = :pay, status = 'completed',
+        SET check_out_time = :out, work_hours = :hrs, regular_hours = :rh, overtime_hours = :oh,
+            overtime_multiplier = :om, overtime_pay = :op, total_pay = :pay, status = 'completed',
             note = CASE WHEN :note != '' THEN :note ELSE note END
         WHERE id = :id
     )", {
-        {":out", checkOutTs}, {":hrs", hrs}, {":pay", pay}, {":note", note}, {":id", attId}
+        {":out", safeOutTs}, {":hrs", hrs}, {":rh", regHrs}, {":oh", otHrs},
+        {":om", multOut}, {":op", otPay}, {":pay", totalPay}, {":note", note}, {":id", attId}
     });
 }
 
-static void ensureStaffCheckIn(Database& db, int64_t userId, const std::string& userAgent) {
+static double getDouble(const json& j, const std::string& key, double def);
+static int64_t getInt(const json& j, const std::string& key, int64_t def);
+static std::string getString(const json& j, const std::string& key, const std::string& def);
+
+static void ensureStaffCheckIn(Database& db, int64_t userId, const std::string& userAgent, bool isHeartbeat = false, const std::string& clientIp = "") {
     if (userId <= 0) return;
+    ensureHrPayrollSchema(db);
     auto u = db.queryRow("SELECT id, username, fullname, user_code, role, COALESCE(hourly_rate, 25000) as hourly_rate FROM users WHERE id = :id", {{":id", userId}});
     if (u.is_null()) return;
     std::string role = u.value("role", "cashier");
@@ -650,91 +1065,202 @@ static void ensureStaffCheckIn(Database& db, int64_t userId, const std::string& 
     std::string today = getCurrentDate();
     std::string nowTs = getCurrentTimestamp();
     std::string dev = shortDeviceLabel(userAgent);
+    if (!clientIp.empty()) dev += " (" + clientIp + ")";
+    ShiftCfg cfg = loadShiftCfg(db);
 
     db.execute("UPDATE users SET is_online = 1, last_active_at = :now WHERE id = :id", {{":now", nowTs}, {":id", userId}});
 
-    auto openRow = db.queryRow("SELECT id FROM attendances WHERE user_id = :uid AND work_date = :wd AND status = 'working' ORDER BY id DESC LIMIT 1", {{":uid", userId}, {":wd", today}});
+    auto openRow = db.queryRow(R"(
+        SELECT id, work_date, COALESCE(is_overtime_approved, 0) as ot_app, COALESCE(shift_type, 'regular') as stype,
+               COALESCE(source, 'auto_login') as source
+        FROM attendances
+        WHERE user_id = :uid AND status = 'working'
+          AND (work_date = :wd OR COALESCE(is_overtime_approved, 0) = 1 OR COALESCE(shift_type, 'regular') = 'overtime' OR :ov = 1)
+        ORDER BY id DESC LIMIT 1
+    )", {{":uid", userId}, {":wd", today}, {":ov", cfg.allowOvernightShift ? 1 : 0}});
     if (!openRow.is_null()) {
-        if (!userAgent.empty()) {
-            db.execute("UPDATE attendances SET device_info = :dev WHERE id = :id", {{":dev", dev}, {":id", openRow["id"]}});
+        std::string srcType = getString(openRow, "source", "auto_login");
+        if (!userAgent.empty() && srcType == "auto_login") {
+            db.execute("UPDATE attendances SET last_heartbeat_at = :hb, device_info = :dev WHERE id = :id",
+                       {{":hb", nowTs}, {":dev", dev}, {":id", openRow["id"]}});
+        } else {
+            db.execute("UPDATE attendances SET last_heartbeat_at = :hb WHERE id = :id",
+                       {{":hb", nowTs}, {":id", openRow["id"]}});
         }
         return;
+    }
+
+    std::time_t nowT = std::time(nullptr);
+    std::tm nowTm{};
+#ifdef _WIN32
+    localtime_s(&nowTm, &nowT);
+#else
+    localtime_r(&nowT, &nowTm);
+#endif
+    int nowMin = nowTm.tm_hour * 60 + nowTm.tm_min;
+    int s2StartMin = parseHHMMToMinutes(cfg.s2Start, 12 * 60 + 30);
+    int s2EndMin = parseHHMMToMinutes(cfg.s2End, 22 * 60 + 30);
+    bool pastAutoCloseEnd = cfg.autoClose && !cfg.allowOvernightShift && (s2EndMin >= s2StartMin) && (nowMin > s2EndMin + cfg.graceMinutes);
+
+    // [HR-01] Never auto-create 0.0h ghost shifts on periodic heartbeat after shift2_end + grace
+    if (pastAutoCloseEnd && isHeartbeat) {
+        return;
+    }
+    std::string shiftType = "regular";
+    if (pastAutoCloseEnd) {
+        if (!cfg.overtimeEnabled) return;
+        shiftType = "overtime";
     }
 
     std::string fullname = u.value("fullname", u.value("username", "Nhân viên"));
     std::string userCode = u.value("user_code", "");
     double rate = 25000.0;
     try { if (u.contains("hourly_rate") && u["hourly_rate"].is_number()) rate = u["hourly_rate"].get<double>(); } catch (...) {}
+    std::string cinNote = (shiftType == "overtime") ? "Đăng nhập ngoài giờ (chờ duyệt OT)" : "Tự động check-in khi đăng nhập";
 
     db.execute(R"(
-        INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, hourly_rate, status, device_info, note)
-        VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :rate, 'working', :dev, 'Tự động check-in khi đăng nhập')
+        INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, hourly_rate, status, device_info, last_heartbeat_at, shift_type, is_overtime_approved, overtime_multiplier, note)
+        VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :rate, 'working', :dev, :hb, :stype, 0, 1.0, :nt)
     )", {
         {":uid", userId}, {":uname", fullname}, {":ucode", userCode}, {":urole", role},
-        {":wd", today}, {":cin", nowTs}, {":rate", rate}, {":dev", dev}
+        {":wd", today}, {":cin", nowTs}, {":rate", rate}, {":dev", dev}, {":hb", nowTs},
+        {":stype", shiftType}, {":nt", cinNote}
     });
 }
 
 static void autoProcessShifts(Database& db) {
+    static std::mutex s_shiftAutoMutex;
+    std::lock_guard<std::mutex> lock(s_shiftAutoMutex);
+    ensureHrPayrollSchema(db);
+
     ShiftCfg cfg = loadShiftCfg(db);
     std::string today = getCurrentDate();
     std::string nowTs = getCurrentTimestamp();
     std::time_t nowT = std::time(nullptr);
-    std::tm* nowTm = std::localtime(&nowT);
-    int nowMin = nowTm ? (nowTm->tm_hour * 60 + nowTm->tm_min) : 0;
+    std::tm nowTm{};
+#ifdef _WIN32
+    localtime_s(&nowTm, &nowT);
+#else
+    localtime_r(&nowT, &nowTm);
+#endif
+    int nowMin = nowTm.tm_hour * 60 + nowTm.tm_min;
     int s1EndMin = parseHHMMToMinutes(cfg.s1End, 12 * 60 + 30);
+    int s2StartMin = parseHHMMToMinutes(cfg.s2Start, 12 * 60 + 30);
     int s2EndMin = parseHHMMToMinutes(cfg.s2End, 22 * 60 + 30);
 
     json openRows = db.query(R"(
         SELECT a.id, a.user_id, a.user_name, a.user_code, a.user_role, a.work_date, a.check_in_time,
-               a.hourly_rate, a.device_info, COALESCE(u.last_active_at, '') as last_active_at
+               a.hourly_rate, a.device_info, COALESCE(a.last_heartbeat_at, '') as last_heartbeat_at,
+               COALESCE(a.shift_type, 'regular') as shift_type, COALESCE(a.is_overtime_approved, 0) as is_overtime_approved,
+               COALESCE(a.source, 'auto_login') as source,
+               COALESCE(u.last_active_at, '') as last_active_at
         FROM attendances a
         LEFT JOIN users u ON u.id = a.user_id
         WHERE a.status = 'working'
     )");
 
     for (const auto& r : openRows) {
-        int64_t attId = r.value("id", static_cast<int64_t>(0));
-        int64_t uid = r.value("user_id", static_cast<int64_t>(0));
-        std::string wd = r.value("work_date", "");
-        std::string cin = r.value("check_in_time", "");
-        std::string lastAct = r.value("last_active_at", "");
+        int64_t attId = getInt(r, "id", 0);
+        int64_t uid = getInt(r, "user_id", 0);
+        std::string wd = getString(r, "work_date", "");
+        std::string cin = getString(r, "check_in_time", "");
+        std::string hbAt = getString(r, "last_heartbeat_at", "");
+        std::string lastAct = getString(r, "last_active_at", "");
+        std::string shiftType = getString(r, "shift_type", "regular");
+        bool isOtApproved = (getInt(r, "is_overtime_approved", 0) == 1);
+        std::string attSource = getString(r, "source", "auto_login");
+        bool isBiometricOrManual = (attSource == "hikvision_device" || attSource == "kiosk_pin" || attSource == "web_personal");
 
-        if (wd < today) {
-            closeStaffAttendance(db, attId, wd + " " + cfg.s2End + ":00", "Tự động chốt ca qua ngày");
+        std::time_t inT = parseTimestampLocal(cin);
+        std::string lastSigTs = !hbAt.empty() ? hbAt : (!lastAct.empty() ? lastAct : cin);
+        std::time_t lastSigT = parseTimestampLocal(lastSigTs);
+        if (lastSigT <= 0) lastSigT = inT;
+
+        // Approved OT or explicit overtime session: never force-close at shift2_end; only guard extended inactivity (>45m) or >16h
+        if (isOtApproved || shiftType == "overtime") {
+            int otTimeoutSec = std::max(cfg.disconnectTimeoutMinutes, 45) * 60;
+            bool inactiveLong = (lastSigT > 0 && nowT > lastSigT && (nowT - lastSigT) > otTimeoutSec);
+            bool maxDuration = (inT > 0 && nowT > inT && (nowT - inT) > 16 * 3600);
+            if (inactiveLong || maxDuration) {
+                std::time_t capT = std::min(nowT, std::max(inT, lastSigT + cfg.graceMinutes * 60));
+                closeStaffAttendance(db, attId, formatLocalTimestamp(capT), "Tự động chốt ca tăng ca");
+            }
             continue;
         }
+
+        // Compute shift2_end timestamp relative to row's work_date
+        std::time_t s2EndT = parseTimestampLocal(wd + " " + cfg.s2End + ":00");
+        bool isOvernightSchedule = cfg.allowOvernightShift && (s2EndMin < s2StartMin);
+        if (s2EndT > 0 && isOvernightSchedule) {
+            s2EndT += 24 * 3600;
+        }
+
+        // Previous date open shift handling (supporting overnight when configured)
+        if (wd < today) {
+            if (isOvernightSchedule && s2EndT > 0 && nowT <= s2EndT + cfg.graceMinutes * 60) {
+                if (!isBiometricOrManual && lastSigT > 0 && (nowT - lastSigT) > cfg.disconnectTimeoutMinutes * 60) {
+                    std::time_t closeT = std::min(nowT, std::max(inT, lastSigT + cfg.graceMinutes * 60));
+                    closeStaffAttendance(db, attId, formatLocalTimestamp(closeT), "Tự động chốt ca đêm (mất tín hiệu cuối)");
+                }
+                continue;
+            }
+            std::time_t fallbackEndT = (s2EndT > 0) ? s2EndT : nowT;
+            std::time_t closeT = std::min(fallbackEndT, std::max(inT, lastSigT + cfg.graceMinutes * 60));
+            if (closeT < inT) closeT = inT;
+            closeStaffAttendance(db, attId, formatLocalTimestamp(closeT), "Tự động chốt ca qua ngày");
+            continue;
+        }
+
         if (!cfg.autoClose || wd != today) continue;
 
         std::string cinHHMM = (cin.size() >= 16) ? cin.substr(11, 5) : "00:00";
         int inMin = parseHHMMToMinutes(cinHHMM, 0);
 
-        // If checked in during Ca 1 and past Ca 1 end + grace
+        // Checked in during Ca 1 and past Ca 1 end + grace
         if (inMin < s1EndMin && nowMin > s1EndMin + cfg.graceMinutes) {
             std::string s1CloseTs = today + " " + cfg.s1End + ":00";
-            std::time_t actT = parseTimestampLocal(lastAct);
-            bool stillActive = (actT > 0 && (nowT - actT) <= 20 * 60);
-            closeStaffAttendance(db, attId, s1CloseTs, stillActive ? "Tự động tách ca hết Ca 1" : "Tự động chốt hết Ca 1");
+            std::time_t s1CloseT = parseTimestampLocal(s1CloseTs);
+            // Tighter 10-minute signal threshold avoids granting an unearned full Ca 2 if staff left early without logout
+            bool stillActive = (lastSigT > 0 && nowT >= lastSigT && (nowT - lastSigT) <= 10 * 60);
+            std::time_t c1EndT = stillActive
+                ? s1CloseT
+                : std::min(s1CloseT, std::max(inT, lastSigT + cfg.graceMinutes * 60));
+            if (c1EndT < inT) c1EndT = inT;
+            closeStaffAttendance(db, attId, formatLocalTimestamp(c1EndT), stillActive ? "Tự động tách ca hết Ca 1" : "Tự động chốt hết Ca 1");
 
-            if (stillActive && nowMin <= s2EndMin + cfg.graceMinutes) {
-                double rate = 25000.0;
-                try { if (r.contains("hourly_rate") && r["hourly_rate"].is_number()) rate = r["hourly_rate"].get<double>(); } catch (...) {}
-                db.execute(R"(
-                    INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, hourly_rate, status, device_info, note)
-                    VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :rate, 'working', :dev, 'Tự động tách sang Ca 2')
-                )", {
-                    {":uid", uid},
-                    {":uname", r.value("user_name", "")},
-                    {":ucode", r.value("user_code", "")},
-                    {":urole", r.value("user_role", "cashier")},
-                    {":wd", today},
-                    {":cin", s1CloseTs},
-                    {":rate", rate},
-                    {":dev", r.value("device_info", "POS / Web")}
-                });
+            if (stillActive && (isOvernightSchedule || nowMin <= s2EndMin + cfg.graceMinutes)) {
+                // Respect configured shift2_start if there is a lunch break gap between Ca 1 and Ca 2
+                std::string nextInTs = (s2StartMin > s1EndMin) ? (today + " " + cfg.s2Start + ":00") : s1CloseTs;
+                std::time_t nextInT = parseTimestampLocal(nextInTs);
+                if (nowT >= nextInT) {
+                    double rate = 25000.0;
+                    try { if (r.contains("hourly_rate") && r["hourly_rate"].is_number()) rate = r["hourly_rate"].get<double>(); } catch (...) {}
+                    db.execute(R"(
+                        INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, hourly_rate, status, device_info, last_heartbeat_at, shift_type, is_overtime_approved, overtime_multiplier, note)
+                        VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :rate, 'working', :dev, :hb, 'regular', 0, 1.0, 'Tự động tách sang Ca 2')
+                    )", {
+                        {":uid", uid},
+                        {":uname", r.value("user_name", "")},
+                        {":ucode", r.value("user_code", "")},
+                        {":urole", r.value("user_role", "cashier")},
+                        {":wd", today},
+                        {":cin", nextInTs},
+                        {":rate", rate},
+                        {":dev", r.value("device_info", "POS / Web")},
+                        {":hb", nowTs}
+                    });
+                }
             }
-        } else if (nowMin > s2EndMin + cfg.graceMinutes) {
-            closeStaffAttendance(db, attId, today + " " + cfg.s2End + ":00", "Tự động chốt hết Ca 2");
+        } else if (!isOvernightSchedule && (nowMin > s2EndMin + cfg.graceMinutes)) {
+            std::time_t closeT = (s2EndT > inT)
+                ? std::min(s2EndT, std::max(inT, lastSigT + cfg.graceMinutes * 60))
+                : std::max(inT, lastSigT + cfg.graceMinutes * 60);
+            closeT = std::min(nowT, closeT);
+            if (closeT < inT) closeT = inT;
+            closeStaffAttendance(db, attId, formatLocalTimestamp(closeT), "Tự động chốt hết Ca 2");
+        } else if (!isBiometricOrManual && lastSigT > 0 && nowT > lastSigT && (nowT - lastSigT) > cfg.disconnectTimeoutMinutes * 60) {
+            std::time_t closeT = std::min(nowT, std::max(inT, lastSigT + cfg.graceMinutes * 60));
+            closeStaffAttendance(db, attId, formatLocalTimestamp(closeT), "Tự động chốt (mất tín hiệu cuối)");
         }
     }
 }
@@ -815,6 +1341,7 @@ static void syncOrderStatus(Database& db, int64_t orderId) {
             SET status = 'completed', completed_at = COALESCE(completed_at, datetime('now'))
             WHERE id = :id
         )", {{":id", orderId}});
+        deductInventoryForOrder(db, orderId);
 
         // Release table
         if (!order["table_id"].is_null()) {
@@ -903,20 +1430,40 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         std::string password = BodyParser::getParam(req, body, "password");
 
         if (username.empty() || password.empty()) {
-            sendJson(res, {{"success", false}, {"message", "Vui lòng nhập tên đăng nhập và mật khẩu!"}}, 400);
+            sendErrorCode(res, "AUTH_MISSING_CREDENTIALS", "Vui lòng nhập tên đăng nhập và mật khẩu!", json::object(), 400);
+            return;
+        }
+
+        std::string clientIp = req.get_header_value("X-Forwarded-For");
+        if (clientIp.empty()) clientIp = req.remote_addr;
+        if (clientIp.empty()) clientIp = "127.0.0.1";
+        std::string lowerU = username;
+        std::transform(lowerU.begin(), lowerU.end(), lowerU.begin(), ::tolower);
+        std::string rlKey = clientIp + ":" + lowerU;
+        int retryAfter = 0;
+        if (SaleApp::Security::RateLimiter::instance().isLocked("slave_auth", rlKey, retryAfter)) {
+            sendJson(res, {
+                {"success", false},
+                {"code", "AUTH_RATE_LIMITED"},
+                {"retry_after", retryAfter},
+                {"message", "Đăng nhập sai quá 5 lần. Vui lòng thử lại sau " + std::to_string(retryAfter) + " giây."}
+            }, 429);
             return;
         }
 
         auto result = auth.login(username, password);
         if (result.value("success", false)) {
+            SaleApp::Security::RateLimiter::instance().clearFailures("slave_auth", rlKey);
             if (result.contains("user") && result["user"].contains("id")) {
-                ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"));
+                ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"), false, req.remote_addr);
             }
             std::string token = result.value("token", "");
             res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", token));
             res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
             sendJson(res, result);
         } else {
+            SaleApp::Security::RateLimiter::instance().recordFailure("slave_auth", rlKey, 5, 300, 300);
+            if (!result.contains("code")) result["code"] = "AUTH_INVALID_CREDENTIALS";
             sendJson(res, result, 401);
         }
         return;
@@ -925,23 +1472,23 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
     if (action == "change_my_pin") {
         auto userOpt = auth.authenticate(req);
         if (!userOpt.has_value()) {
-            sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập!"}}, 401);
+            sendErrorCode(res, "AUTH_REQUIRED", "Chưa đăng nhập!", json::object(), 401);
             return;
         }
         std::string newPin = BodyParser::getParam(req, body, "new_pin");
         if (!CyberNexus::PinVault::isValidPin6(newPin)) {
-            sendJson(res, {{"success", false}, {"message", "Mã PIN mới phải gồm đúng 6 chữ số!"}}, 400);
+            sendErrorCode(res, "AUTH_INVALID_PIN6", "Mã PIN mới phải gồm đúng 6 chữ số!", json::object(), 400);
             return;
         }
         auto uRow = db.queryRow("SELECT default_pin_sha256 FROM users WHERE id = :id", {{":id", userOpt->id}});
         std::string defSha = uRow.is_null() ? "" : uRow.value("default_pin_sha256", "");
         if (!defSha.empty() && AuthService::sha256(newPin) == defSha) {
-            sendJson(res, {{"success", false}, {"message", "Không được phép đặt mã PIN mới trùng với PIN mặc định 6 số ban đầu!"}}, 400);
+            sendErrorCode(res, "AUTH_PIN_SAME_AS_DEFAULT", "Không được phép đặt mã PIN mới trùng với PIN mặc định 6 số ban đầu!", json::object(), 400);
             return;
         }
         db.execute("UPDATE users SET pin_code = :p, pin_must_change = 0 WHERE id = :id",
                    {{":p", newPin}, {":id", userOpt->id}});
-        sendJson(res, {{"success", true}, {"message", "Đã cập nhật mã PIN 6 số mới thành công!"}});
+        sendJson(res, {{"success", true}, {"code", "AUTH_PIN_UPDATED"}, {"message", "Đã cập nhật mã PIN 6 số mới thành công!"}});
         return;
     }
 
@@ -951,20 +1498,36 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
         if (pin.empty()) pin = BodyParser::getParam(req, body, "pin");
 
         if (!CyberNexus::PinVault::isValidPin6(pin)) {
-            sendJson(res, {{"success", false}, {"message", "Vui lòng nhập đúng mã PIN 6 chữ số!"}}, 400);
+            sendErrorCode(res, "AUTH_INVALID_PIN6", "Vui lòng nhập đúng mã PIN 6 chữ số!", json::object(), 400);
+            return;
+        }
+
+        std::string clientIp = req.get_header_value("X-Forwarded-For");
+        if (clientIp.empty()) clientIp = req.remote_addr;
+        if (clientIp.empty()) clientIp = "127.0.0.1";
+        int retryAfter = 0;
+        if (SaleApp::Security::RateLimiter::instance().isLocked("slave_pin", clientIp, retryAfter)) {
+            sendJson(res, {
+                {"success", false},
+                {"code", "AUTH_RATE_LIMITED"},
+                {"retry_after", retryAfter},
+                {"message", "Nhập sai PIN quá 5 lần. Vui lòng thử lại sau " + std::to_string(retryAfter) + " giây."}
+            }, 429);
             return;
         }
 
         auto result = auth.loginPin(pin);
         if (result.value("success", false)) {
+            SaleApp::Security::RateLimiter::instance().clearFailures("slave_pin", clientIp);
             if (result.contains("user") && result["user"].contains("id")) {
-                ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"));
+                ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"), false, req.remote_addr);
             }
             std::string token = result.value("token", "");
             res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", token));
             res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
             sendJson(res, result);
         } else {
+            SaleApp::Security::RateLimiter::instance().recordFailure("slave_pin", clientIp, 5, 300, 300);
             sendJson(res, result, 401);
         }
         return;
@@ -1003,8 +1566,8 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 
         std::string token = auth.extractToken(req);
         auth.touchSession(token);
-        ensureStaffCheckIn(db, userOpt->id, req.get_header_value("User-Agent"));
         autoProcessShifts(db);
+        ensureStaffCheckIn(db, userOpt->id, req.get_header_value("User-Agent"), true, req.remote_addr);
 
         sendJson(res, {
             {"success", true},
@@ -1183,6 +1746,7 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
 // ==========================================
 void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Response& res) {
     auto& db = Database::instance();
+    Dot6Handlers::ensureDot6Schema(db);
     json body = parseBody(req);
     std::string action = getAction(req, body);
 
@@ -1288,6 +1852,7 @@ void ApiHandlers::handleCategories(const httplib::Request& req, httplib::Respons
 // ==========================================
 void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response& res) {
     auto& db = Database::instance();
+    Dot6Handlers::ensureDot6Schema(db);
     json body = parseBody(req);
     std::string action = getAction(req, body);
 
@@ -1391,14 +1956,21 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             ? ("Món '" + prodName + "' (" + prodCode + ") đã bị TẠM KHÓA trên thực đơn (Báo hết hàng bởi " + uName + ").")
             : ("Món '" + prodName + "' (" + prodCode + ") đã được MỞ BÁN LẠI trên thực đơn bởi " + uName + ".");
 
-        // Thông báo chuông cho nhân viên quầy và phục vụ
+        // Thông báo chuông cho nhân viên quầy và phục vụ (kèm key/params i18n)
+        ensureNotifI18nSchema(db);
+        std::string nTitleKey = isLocked ? "notif.product_locked_title" : "notif.product_unlocked_title";
+        std::string nMsgKey = isLocked ? "notif.product_locked_msg" : "notif.product_unlocked_msg";
+        json nParams = {{"product", prodName}, {"code", prodCode}, {"user", uName}};
         db.execute(R"(
-            INSERT INTO app_notifications (type, order_id, table_code, title, message, is_read_waiter, is_read_cashier, created_at)
-            VALUES (:type, 0, 'THỰC ĐƠN', :title, :message, 0, 0, datetime('now'))
+            INSERT INTO app_notifications (type, order_id, table_code, title, message, title_key, msg_key, msg_params_json, is_read_waiter, is_read_cashier, created_at)
+            VALUES (:type, 0, 'THỰC ĐƠN', :title, :message, :tk, :mk, :mp, 0, 0, datetime('now'))
         )", {
             {":type", isLocked ? "product_locked" : "product_unlocked"},
             {":title", notifTitle},
-            {":message", notifMsg}
+            {":message", notifMsg},
+            {":tk", nTitleKey},
+            {":mk", nMsgKey},
+            {":mp", nParams.dump()}
         });
 
         // Ghi nhật ký bếp (kitchen_service_logs)
@@ -1462,19 +2034,19 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
             errOut = "Dữ liệu ảnh không hợp lệ!";
             return false;
         }
-        std::string ext = (mime.find("jpeg") != std::string::npos || mime.find("jpg") != std::string::npos) ? ".jpg" : ".png";
-        auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
-        std::string saveName = "dish_" + AuthService::sha256(nameHint + std::to_string(nowMs)).substr(0, 20) + ext;
-        namespace fs = std::filesystem;
-        fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "products";
-        fs::create_directories(targetDir);
-        std::ofstream ofs(targetDir / saveName, std::ios::binary);
-        if (!ofs) {
-            errOut = "Không thể lưu file ảnh trên server!";
+        std::string extHint = (mime.find("jpeg") != std::string::npos || mime.find("jpg") != std::string::npos) ? ".jpg" : ((mime.find("webp") != std::string::npos) ? ".webp" : ".png");
+        auto vImg = SaleApp::Security::UploadGuard::validate(imgBytes, "dish" + extHint, SaleApp::Security::UploadKind::Image);
+        if (!vImg.ok) {
+            errOut = vImg.error;
             return false;
         }
-        ofs.write(imgBytes.data(), imgBytes.size());
-        ofs.close();
+        std::string saveName = SaleApp::Security::UploadGuard::makeRandomUuidName("dish", vImg.ext);
+        namespace fs = std::filesystem;
+        fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "products";
+        fs::path fullPath;
+        if (!SaleApp::Security::UploadGuard::writeSafeFile(targetDir, saveName, imgBytes, fullPath, errOut)) {
+            return false;
+        }
         webUrlOut = "uploads/products/" + saveName;
         if (prodId > 0) {
             db.execute("UPDATE products SET image = :img WHERE id = :id", {{":img", webUrlOut}, {":id", prodId}});
@@ -1573,6 +2145,15 @@ void ApiHandlers::handleProducts(const httplib::Request& req, httplib::Response&
     if (action == "fetch_dish_image") {
         std::string fullUrl = BodyParser::getParam(req, body, "full_url");
         std::string thumbUrl = BodyParser::getParam(req, body, "thumb_url");
+        std::string ssrfReason;
+        if (!fullUrl.empty() && SaleApp::Security::isPrivateOrLocalUrl(fullUrl, &ssrfReason)) {
+            sendError(res, "Từ chối URL nội bộ (SSRF): " + ssrfReason, 400);
+            return;
+        }
+        if (!thumbUrl.empty() && SaleApp::Security::isPrivateOrLocalUrl(thumbUrl, &ssrfReason)) {
+            sendError(res, "Từ chối Thumbnail URL nội bộ (SSRF): " + ssrfReason, 400);
+            return;
+        }
         json proxyResp;
         std::string err;
         if (!callMasterAiProxy({{"action", "fetch_dish_image"}, {"full_url", fullUrl}, {"thumb_url", thumbUrl}}, proxyResp, err)) {
@@ -1699,10 +2280,11 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
     ensureOrderWorkflowSchema(db);
     json body = parseBody(req);
     std::string action = getAction(req, body);
+    if (Dot6Handlers::handleDot6Tables(action, req, res, db, body)) return;
 
     if (req.method == "GET" && action == "public_tables") {
         json rows = db.query(R"(
-            SELECT t.id, t.code, t.name, t.area_type,
+            SELECT t.id, t.code, t.name, t.area_type, COALESCE(t.i18n_json, '{}') as i18n_json,
                    CASE WHEN o.id IS NOT NULL THEN 'occupied' ELSE 'free' END as status
             FROM tables_areas t
             LEFT JOIN orders o ON o.id = COALESCE(
@@ -1742,6 +2324,7 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
                 t.code,
                 t.name,
                 t.area_type,
+                COALESCE(t.i18n_json, '{}') as i18n_json,
                 CASE WHEN o.id IS NOT NULL THEN 'occupied' ELSE 'free' END as status,
                 o.id as active_order_id,
                 COALESCE(o.guest_count, t.guest_count, 1) as guest_count,
@@ -2070,8 +2653,45 @@ void ApiHandlers::handleTables(const httplib::Request& req, httplib::Response& r
 void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& res) {
     try {
         auto& db = Database::instance();
+        ensureOrderWorkflowSchema(db);
         json body = parseBody(req);
         std::string action = getAction(req, body);
+
+        static const std::vector<std::string> kPublicOrderActions = {
+            "vietqr", "preview_quote", "customer_status", "check_payment", "customer_order", "customer_mark_transfer", "submit_review"
+        };
+        bool isPublicOrderAction = (std::find(kPublicOrderActions.begin(), kPublicOrderActions.end(), action) != kPublicOrderActions.end());
+        auto authUserOpt = AuthService::instance().authenticate(req);
+        if (!isPublicOrderAction) {
+            if (!authUserOpt.has_value()) {
+                sendErrorCode(res, "AUTH_REQUIRED", "Vui lòng đăng nhập để thao tác hóa đơn!", json::object(), 401);
+                return;
+            }
+            if (authUserOpt->role == "customer") {
+                sendError(res, "Tài khoản khách hàng không có quyền thao tác hệ thống POS!", 403);
+                return;
+            }
+            bool isAdminOrCashier = (authUserOpt->role == "admin" || authUserOpt->role == "cashier" || authUserOpt->is_super_admin);
+            bool isKitchenAllowed = isAdminOrCashier || (authUserOpt->role == "kitchen");
+            if (action == "checkout" || action == "pay_order" || action == "confirm_payment" ||
+                action == "settle_delta" || action == "cancel_order" || action == "change_payment_method" ||
+                action == "online_order_delivered") {
+                if (!isAdminOrCashier) {
+                    sendError(res, "Chỉ Thu ngân hoặc Chủ quán mới có quyền thực hiện thao tác thanh toán/hủy đơn!", 403);
+                    return;
+                }
+            } else if (action == "kitchen_ready" || action == "kitchen_cancel_item" || action == "kitchen_reject_cancel_item" ||
+                       action == "kitchen_resolve_cancel_item" || action == "kitchen_out_of_stock" ||
+                       action == "kitchen_request_cancel_order" || action == "kitchen_reopen" || action == "kitchen_archive") {
+                if (!isKitchenAllowed) {
+                    sendError(res, "Chỉ Bếp / Thu ngân / Admin mới có quyền cập nhật trạng thái bếp!", 403);
+                    return;
+                }
+            }
+        }
+        if (req.method == "POST") {
+            if (Dot6Handlers::handleDot6Orders(action, req, res, db, body)) return;
+        }
 
         // VietQR (Bước 3.4) - Hỗ trợ cả GET và POST
         if (action == "vietqr") {
@@ -2113,14 +2733,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
             std::string accName = store.value("bank_account_name", "NGUYEN CHI HUNG");
             std::string transferNote = "TT " + orderCode;
 
-            std::stringstream ss;
-            ss << "https://img.vietqr.io/image/" << bankId << "-" << accNo << "-compact2.png?amount="
-               << static_cast<int64_t>(amount) << "&addInfo=" << transferNote
-               << "&accountName=" << accName;
+            int64_t amtInt = static_cast<int64_t>(std::llround(amount));
+            std::string emvPayload = SaleApp::VietQr::buildEmvCoPayload(bankId, accNo, amtInt, transferNote, accName);
+            std::string localSvgUrl = "/api/payment/vietqr_svg?bank_id=" + bankId + "&account_no=" + accNo +
+                                      "&amount=" + std::to_string(amtInt) + "&order_code=" + orderCode;
 
             sendJson(res, {
                 {"success", true},
-                {"vietqr_url", ss.str()},
+                {"vietqr_url", localSvgUrl},
+                {"vietqr_payload", emvPayload},
+                {"vietqr_bin", SaleApp::VietQr::bankIdToBin(bankId)},
                 {"bank_id", bankId},
                 {"account_no", accNo},
                 {"account_name", accName},
@@ -2235,11 +2857,19 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
             if (action == "customer_status") {
                 std::string token = BodyParser::getParam(req, body, "token", BodyParser::getParam(req, body, "code", ""));
                 if (token.empty() && req.has_param("token")) token = req.get_param_value("token");
+                std::string accessTok = BodyParser::getParam(req, body, "access_token", "");
+                if (accessTok.empty()) accessTok = req.get_header_value("X-Order-Token");
                 auto ord = db.queryRow("SELECT * FROM orders WHERE order_code = :c OR id = :c LIMIT 1", {{":c", token}});
                 if (ord.is_null()) {
                     sendJson(res, {{"success", false}, {"message", "Không tìm thấy đơn hàng!"}}, 404);
                     return;
                 }
+                std::string dbAccess = ord.contains("access_token") && ord["access_token"].is_string() ? ord["access_token"].get<std::string>() : "";
+                if (!dbAccess.empty() && accessTok != dbAccess && !AuthService::instance().authenticate(req).has_value()) {
+                    sendJson(res, {{"success", false}, {"code", "ORDER_ACCESS_DENIED"}, {"message", "Thiếu hoặc sai mã truy cập đơn hàng (access_token)!"}}, 403);
+                    return;
+                }
+                if (ord.contains("access_token")) ord.erase("access_token");
                 sendJson(res, {
                     {"success", true},
                     {"order", ord}
@@ -2247,13 +2877,51 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
+            if (action == "check_notifications") {
+                ensureNotifI18nSchema(db);
+                std::string role = BodyParser::getParam(req, body, "role", "cashier");
+                std::string col = (role == "waiter") ? "is_read_waiter" : "is_read_cashier";
+                json cancellations = json::array();
+                json readyAlerts = json::array();
+                try {
+                    auto rows = db.query(
+                        "SELECT id, type, order_id, table_code, title, message, "
+                        "COALESCE(title_key, '') as title_key, COALESCE(msg_key, '') as msg_key, "
+                        "COALESCE(msg_params_json, '{}') as msg_params_json, created_at "
+                        "FROM app_notifications WHERE COALESCE(" + col + ", 0) = 0 AND type NOT IN ('SYSTEM_NOTIFY', 'SYSTEM_UPDATE') ORDER BY id DESC LIMIT 30"
+                    );
+                    for (const auto& r : rows) {
+                        std::string tp = r.value("type", "");
+                        if (tp == "kitchen_ready" || tp == "KITCHEN_READY") readyAlerts.push_back(r);
+                        else cancellations.push_back(r);
+                    }
+                } catch (...) {}
+                sendJson(res, {{"success", true}, {"cancellations", cancellations}, {"ready_alerts", readyAlerts}});
+                return;
+            }
+
+            if (action == "ack_notification") {
+                std::string role = BodyParser::getParam(req, body, "role", "cashier");
+                std::string col = (role == "waiter") ? "is_read_waiter" : "is_read_cashier";
+                int64_t nid = 0;
+                try { nid = std::stoll(BodyParser::getParam(req, body, "notification_id", "0")); } catch (...) {}
+                try {
+                    if (nid > 0) db.execute("UPDATE app_notifications SET " + col + " = 1 WHERE id = :id", {{":id", nid}});
+                    else db.execute("UPDATE app_notifications SET " + col + " = 1 WHERE type NOT IN ('SYSTEM_NOTIFY', 'SYSTEM_UPDATE')");
+                } catch (...) {}
+                sendJson(res, {{"success", true}});
+                return;
+            }
+
             if (action == "check_payment") {
                 std::string code = BodyParser::getParam(req, body, "order_code", BodyParser::getParam(req, body, "code", ""));
                 if (code.empty() && req.has_param("order_code")) code = req.get_param_value("order_code");
+                std::string accessTok = BodyParser::getParam(req, body, "access_token", "");
+                if (accessTok.empty()) accessTok = req.get_header_value("X-Order-Token");
                 auto ord = db.queryRow(
                     "SELECT id, order_code, table_code, total_amount, COALESCE(paid_amount, 0) as paid_amount, "
                     "payment_status, kitchen_status, status, COALESCE(settlement_status, 'settled') as settlement_status, "
-                    "COALESCE(payment_verified_by, '') as payment_verified_by "
+                    "COALESCE(payment_verified_by, '') as payment_verified_by, COALESCE(access_token, '') as access_token "
                     "FROM orders WHERE order_code = :c OR id = :c LIMIT 1",
                     {{":c", code}}
                 );
@@ -2261,6 +2929,12 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     sendError(res, "Không tìm thấy đơn hàng!", 404);
                     return;
                 }
+                std::string dbAccess = ord.value("access_token", "");
+                if (!dbAccess.empty() && accessTok != dbAccess && !AuthService::instance().authenticate(req).has_value()) {
+                    sendErrorCode(res, "ORDER_ACCESS_DENIED", "Thiếu hoặc sai mã truy cập đơn hàng (access_token)!", json::object(), 403);
+                    return;
+                }
+                ord.erase("access_token");
                 sendJson(res, {{"success", true}, {"data", ord}});
                 return;
             }
@@ -2448,8 +3122,29 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
             if (action == "save_order" || action == "save" || action == "customer_order") {
                 bool isCustomerQr = (action == "customer_order");
                 std::string orderMode = BodyParser::getParam(req, body, "order_mode", "");
+                std::string clientIp = req.get_header_value("X-Forwarded-For");
+                if (!clientIp.empty()) {
+                    size_t cm = clientIp.find(',');
+                    if (cm != std::string::npos) clientIp = clientIp.substr(0, cm);
+                    while (!clientIp.empty() && clientIp.front() == ' ') clientIp.erase(clientIp.begin());
+                }
+                if (clientIp.empty()) clientIp = req.remote_addr;
+                if (clientIp == "::1" || clientIp == "::ffff:127.0.0.1") clientIp = "127.0.0.1";
+                else if (clientIp.rfind("::ffff:", 0) == 0) clientIp = clientIp.substr(7);
+                if (clientIp.empty()) clientIp = "127.0.0.1";
                 if (isCustomerQr) {
                     if (!requireModule(res, "qr_customer_order", "Thực Đơn QR Khách Hàng")) return;
+                    std::string prePhone = BodyParser::getParam(req, body, "customer_phone", "");
+                    std::string blReason;
+                    if (Dot6Handlers::isQrClientBlacklisted(db, clientIp, prePhone, blReason)) {
+                        sendJson(res, {{"success", false}, {"code", "QR_CLIENT_BLACKLISTED"}, {"message", blReason}}, 403);
+                        return;
+                    }
+                    int retryQr = 0;
+                    if (!SaleApp::Security::RateLimiter::instance().allow("qr_order", clientIp, 3, 600, retryQr)) {
+                        sendJson(res, {{"success", false}, {"code", "QR_RATE_LIMITED"}, {"retry_after", retryQr}, {"message", "Đặt món QR quá nhanh! Vui lòng đợi " + std::to_string(retryQr) + " giây."}}, 429);
+                        return;
+                    }
                 }
                 int64_t tableId = 0;
                 try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
@@ -2463,18 +3158,42 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 if (isCustomerQr) {
                     if (orderType == "dine_in") {
                         if (tableId <= 0) {
-                            sendJson(res, {{"success", false}, {"message", "Vui lòng chọn đúng bàn đang trống trên sơ đồ quán!"}}, 400);
+                            sendErrorCode(res, "POS_TABLE_REQUIRED", "Vui lòng chọn đúng bàn đang trống trên sơ đồ quán!", json::object(), 400);
                             return;
                         }
                         auto tblCheck = db.queryRow("SELECT id, code, area_type FROM tables_areas WHERE id = :id LIMIT 1", {{":id", tableId}});
                         if (tblCheck.is_null()) {
-                            sendJson(res, {{"success", false}, {"message", "Bàn đã chọn không tồn tại!"}}, 400);
+                            sendErrorCode(res, "POS_TABLE_NOT_FOUND", "Bàn đã chọn không tồn tại!", json::object(), 400);
                             return;
                         }
                         tableCode = getString(tblCheck, "code", tableCode);
                         auto busyRow = db.queryRow("SELECT id FROM orders WHERE table_id = :tid AND status = 'pending' LIMIT 1", {{":tid", tableId}});
                         if (!busyRow.is_null()) {
-                            sendJson(res, {{"success", false}, {"table_conflict", true}, {"message", "Bàn " + tableCode + " vừa có khách đặt trước. Vui lòng chọn bàn trống khác hoặc nhờ nhân viên hỗ trợ!"}}, 409);
+                            auto dupEarly = db.queryRow(R"(
+                                SELECT id, order_code, table_id, table_code, kitchen_status, COALESCE(access_token, '') AS access_token
+                                FROM orders
+                                WHERE id = :bid AND status = 'pending' AND payment_status = 'unpaid'
+                                  AND client_ip = :ip
+                                  AND datetime(created_at) >= datetime('now', 'localtime', '-60 seconds')
+                                LIMIT 1
+                            )", {{":bid", getInt(busyRow, "id", 0)}, {":ip", clientIp}});
+                            if (!dupEarly.is_null()) {
+                                sendJson(res, {
+                                    {"success", true},
+                                    {"dedup_reused", true},
+                                    {"message", "Đơn hàng vừa được tiếp nhận trước đó!"},
+                                    {"order_id", getInt(dupEarly, "id", 0)},
+                                    {"order_code", getString(dupEarly, "order_code", "")},
+                                    {"tracking_token", getString(dupEarly, "order_code", "")},
+                                    {"access_token", getString(dupEarly, "access_token", "")},
+                                    {"table_id", getInt(dupEarly, "table_id", 0)},
+                                    {"table_code", getString(dupEarly, "table_code", "")},
+                                    {"kitchen_status", getString(dupEarly, "kitchen_status", "awaiting_waiter")},
+                                    {"payment_status", "unpaid"}
+                                });
+                                return;
+                            }
+                            sendJson(res, {{"success", false}, {"code", "POS_TABLE_CONFLICT"}, {"params", {{"table", tableCode}}}, {"table_conflict", true}, {"message", "Bàn " + tableCode + " vừa có khách đặt trước. Vui lòng chọn bàn trống khác hoặc nhờ nhân viên hỗ trợ!"}}, 409);
                             return;
                         }
                         initialKitchenStatus = "awaiting_waiter";
@@ -2527,25 +3246,74 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
 
                 if (items.empty()) {
-                    sendJson(res, {{"success", false}, {"message", "Giỏ hàng không có sản phẩm nào!"}}, 400);
+                    sendErrorCode(res, "POS_ORDER_EMPTY", "Giỏ hàng không có sản phẩm nào!", json::object(), 400);
                     return;
                 }
 
-                // Auto fill item info if missing (e.g. from customer_order)
-                for (auto& item : items) {
-                    int64_t pid = getInt(item, "id", getInt(item, "product_id", 0));
-                    if (pid > 0 && (getDouble(item, "price", 0.0) <= 0 || getString(item, "name", "").empty())) {
-                        auto pRow = db.queryRow("SELECT id, code, name, sale_price as price, unit FROM products WHERE id = :id", {{":id", pid}});
-                        if (!pRow.is_null()) {
-                            if (getString(item, "code", "").empty()) item["code"] = getString(pRow, "code", "");
-                            if (getString(item, "name", "").empty()) item["name"] = getString(pRow, "name", "");
-                            if (getDouble(item, "price", 0.0) <= 0) item["price"] = getDouble(pRow, "price", 0.0);
-                            if (getString(item, "unit", "").empty()) item["unit"] = getString(pRow, "unit", "phần");
+                if (isCustomerQr) {
+                    std::string tableSig = BodyParser::getParam(req, body, "table_sig", "");
+                    auto strictRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'qr_strict_signature' LIMIT 1");
+                    bool strictSig = (!strictRow.is_null() && getString(strictRow, "setting_value", "0") == "1");
+                    if ((!tableSig.empty()) || (strictSig && orderType == "dine_in")) {
+                        std::string expectedSig = Dot6Handlers::hmacSha256Hex(Dot6Handlers::getOrCreateStoreSecret(db, "qr_hmac_secret"), tableCode).substr(0, 24);
+                        if (tableSig != expectedSig) {
+                            sendJson(res, {{"success", false}, {"code", "QR_INVALID_SIGNATURE"}, {"message", "Chữ ký QR bàn không hợp lệ hoặc đã bị giả mạo!"}}, 403);
+                            return;
                         }
+                    }
+                    if (items.size() > 30) {
+                        sendJson(res, {{"success", false}, {"code", "QR_LIMIT_EXCEEDED"}, {"message", "Đơn QR tối đa 30 dòng món!"}}, 400);
+                        return;
+                    }
+                    int64_t totalQtyCap = 0;
+                    for (const auto& itCheck : items) {
+                        int64_t q = getInt(itCheck, "quantity", 1);
+                        if (q < 1 || q > 20) {
+                            sendJson(res, {{"success", false}, {"code", "QR_LIMIT_EXCEEDED"}, {"message", "Số lượng mỗi món trên đơn QR chỉ từ 1 đến 20!"}}, 400);
+                            return;
+                        }
+                        totalQtyCap += q;
+                    }
+                    if (totalQtyCap > 50) {
+                        sendJson(res, {{"success", false}, {"code", "QR_LIMIT_EXCEEDED"}, {"message", "Tổng số lượng món mỗi đơn QR tối đa 50 phần!"}}, 400);
+                        return;
                     }
                 }
 
-                auto userOpt = AuthService::instance().authenticate(req);
+                // Server-authoritative DB pricing (PAY-02): overwrite item prices from DB catalog
+                for (auto& item : items) {
+                    int64_t pid = getInt(item, "id", getInt(item, "product_id", 0));
+                    if (pid <= 0 && isCustomerQr) {
+                        sendJson(res, {{"success", false}, {"code", "INVALID_PRODUCT"}, {"message", "Món đặt QR không có mã sản phẩm hợp lệ!"}}, 400);
+                        return;
+                    }
+                    if (pid > 0) {
+                        auto pRow = db.queryRow("SELECT id, code, name, sale_price as price, unit FROM products WHERE id = :id", {{":id", pid}});
+                        if (pRow.is_null()) {
+                            sendJson(res, {{"success", false}, {"code", "INVALID_PRODUCT"}, {"message", "Sản phẩm ID " + std::to_string(pid) + " không tồn tại!"}}, 400);
+                            return;
+                        }
+                        if (getString(item, "code", "").empty()) item["code"] = getString(pRow, "code", "");
+                        if (getString(item, "name", "").empty()) item["name"] = getString(pRow, "name", "");
+                        if (getString(item, "unit", "").empty()) item["unit"] = getString(pRow, "unit", "phần");
+                        double basePrice = std::max(0.0, getDouble(pRow, "price", 0.0));
+                        double topExtra = 0.0;
+                        if (item.contains("toppings") && item["toppings"].is_array()) {
+                            for (const auto& tp : item["toppings"]) {
+                                int64_t tpid = getInt(tp, "id", 0);
+                                if (tpid > 0) {
+                                    auto tpRow = db.queryRow("SELECT sale_price FROM products WHERE id = :tid", {{":tid", tpid}});
+                                    if (!tpRow.is_null()) topExtra += std::max(0.0, getDouble(tpRow, "sale_price", 0.0));
+                                } else if (!isCustomerQr) {
+                                    topExtra += std::max(0.0, getDouble(tp, "price", 0.0));
+                                }
+                            }
+                        }
+                        item["price"] = basePrice + topExtra;
+                    }
+                }
+
+                auto userOpt = authUserOpt;
                 int64_t userId = userOpt.has_value() ? userOpt->id : 1;
                 std::string userName = userOpt.has_value() ? userOpt->fullname : "Thu ngân";
                 std::string userRole = userOpt.has_value() ? userOpt->role : "cashier";
@@ -2590,23 +3358,84 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     std::transform(upCode.begin(), upCode.end(), upCode.begin(), ::toupper);
                     auto pRow = db.queryRow("SELECT * FROM promotions WHERE UPPER(code) = :c LIMIT 1", {{":c", upCode}});
                     std::string pErr;
-                    if (!pRow.is_null() && isPromoEligibleNow(db, pRow, subtotal, pErr)) {
-                        promoId = getInt(pRow, "id", 0);
-                        promoCode = getString(pRow, "code", upCode);
-                        promoName = getString(pRow, "name", "");
-                        discountType = getString(pRow, "discount_type", "percent");
-                        discountValue = getDouble(pRow, "discount_value", 0.0);
-                        discountAmount = computePromoDiscount(pRow, subtotal);
-                    } else if (discountValue > 0) {
-                        discountAmount = (discountType == "percent")
-                            ? (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0
-                            : std::min(subtotal, std::max(0.0, discountValue));
+                    if (pRow.is_null() || !isPromoEligibleNow(db, pRow, subtotal, pErr)) {
+                        sendErrorCode(res, "PROMO_INVALID", pErr.empty() ? ("Mã khuyến mãi [" + upCode + "] không tồn tại hoặc chưa đủ điều kiện áp dụng!") : pErr, json::object(), 400);
+                        return;
+                    }
+                    promoId = getInt(pRow, "id", 0);
+                    promoCode = getString(pRow, "code", upCode);
+                    promoName = getString(pRow, "name", "");
+                    discountType = getString(pRow, "discount_type", "percent");
+                    discountValue = getDouble(pRow, "discount_value", 0.0);
+                    discountAmount = computePromoDiscount(pRow, subtotal);
+                } else if (discountValue <= 0.0) {
+                    auto autoP = findBestAutoPromotion(db, subtotal);
+                    if (!autoP.is_null()) {
+                        promoId = getInt(autoP, "id", 0);
+                        promoCode = getString(autoP, "code", "");
+                        promoName = getString(autoP, "name", "");
+                        discountType = getString(autoP, "discount_type", "percent");
+                        discountValue = getDouble(autoP, "discount_value", 0.0);
+                        discountAmount = computePromoDiscount(autoP, subtotal);
                     }
                 } else if (discountType == "percent") {
                     discountAmount = (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0;
                 } else {
                     discountAmount = std::min(subtotal, std::max(0.0, discountValue));
                 }
+
+                if (promoId <= 0 && discountAmount > 0.5) {
+                    bool isHighDisc = (discountAmount >= 50000.0) || (discountType == "percent" && discountValue >= 20.0) || (subtotal > 0.0 && (discountAmount / subtotal) >= 0.20);
+                    if (isHighDisc && (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin))) {
+                        std::string mgrPin = BodyParser::getParam(req, body, "manager_pin", "");
+                        json mgr;
+                        if (!Dot6Handlers::verifyManagerPin(db, mgrPin, mgr)) {
+                            sendErrorCode(res, "MANAGER_PIN_REQUIRED", "Chiết khấu >= 20% hoặc >= 50.000đ yêu cầu mã PIN Chủ quán (Admin)!", json::object(), 403);
+                            return;
+                        }
+                    }
+                }
+
+                if (isCustomerQr) {
+                    auto dupOrd = db.queryRow(R"(
+                        SELECT o.id, o.order_code, o.table_id, o.table_code, o.kitchen_status, o.total_amount,
+                               COALESCE(o.access_token, '') as access_token,
+                               (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as icnt
+                        FROM orders o
+                        WHERE o.status = 'pending' AND o.payment_status = 'unpaid'
+                          AND o.client_ip = :ip AND o.table_code = :tc
+                          AND ABS(o.subtotal - :sub) < 1.0
+                          AND datetime(o.created_at) >= datetime('now', 'localtime', '-60 seconds')
+                        ORDER BY o.id DESC LIMIT 1
+                    )", {{":ip", clientIp}, {":tc", tableCode}, {":sub", subtotal}});
+                    if (!dupOrd.is_null() && getInt(dupOrd, "icnt", 0) == static_cast<int64_t>(items.size())) {
+                        sendJson(res, {
+                            {"success", true},
+                            {"dedup_reused", true},
+                            {"message", "Đơn hàng vừa được tiếp nhận trước đó!"},
+                            {"order_id", getInt(dupOrd, "id", 0)},
+                            {"order_code", getString(dupOrd, "order_code", "")},
+                            {"tracking_token", getString(dupOrd, "order_code", "")},
+                            {"access_token", getString(dupOrd, "access_token", "")},
+                            {"table_id", getInt(dupOrd, "table_id", 0)},
+                            {"table_code", getString(dupOrd, "table_code", "")},
+                            {"kitchen_status", getString(dupOrd, "kitchen_status", "awaiting_waiter")},
+                            {"payment_status", "unpaid"},
+                            {"total_amount", getDouble(dupOrd, "total_amount", subtotal)}
+                        });
+                        return;
+                    }
+                    int64_t pendingByIp = db.queryScalar(
+                        "SELECT COUNT(*) FROM orders WHERE status = 'pending' AND payment_status = 'unpaid' AND client_ip = :ip AND order_type IN ('dine_in', 'takeaway', 'delivery', 'qr', 'online')",
+                        {{":ip", clientIp}}
+                    ).get<int64_t>();
+                    if (pendingByIp >= 2) {
+                        sendJson(res, {{"success", false}, {"code", "QR_PENDING_LIMIT"}, {"message", "Thiết bị của bạn đã có 2 đơn QR chưa thanh toán đang chờ xử lý!"}}, 429);
+                        return;
+                    }
+                }
+
+                std::string qrAccessToken = isCustomerQr ? SaleApp::Security::UploadGuard::makeRandomUuidName("q", "").substr(2) : "";
 
                 double afterDiscount = std::max(0.0, subtotal - discountAmount);
                 double vatAmount = (afterDiscount * std::max(0.0, vatPercent)) / 100.0;
@@ -2652,6 +3481,32 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         });
                         totalAmount = newTot;
                     } else {
+                        // Replace mode: audit quantity drops/removals (PAY-02)
+                        try {
+                            json oldItRows = db.query("SELECT product_name, quantity, subtotal FROM order_items WHERE order_id = :id", {{":id", orderId}});
+                            int64_t oldQtySum = 0;
+                            double oldSubVal = 0.0;
+                            for (const auto& oir : oldItRows) {
+                                oldQtySum += getInt(oir, "quantity", 0);
+                                oldSubVal += getDouble(oir, "subtotal", 0.0);
+                            }
+                            int64_t newQtySum = 0;
+                            for (const auto& nir : items) newQtySum += std::max<int64_t>(1, getInt(nir, "quantity", 1));
+                            if (newQtySum < oldQtySum || subtotal + 0.5 < oldSubVal) {
+                                db.execute(R"(
+                                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                                    VALUES ('ORDER_ITEM_MODIFIED', :lbl, 'WARN', :oid, :oc, :tc, :amt, 'Chỉnh sửa/giảm món ở chế độ Replace', :uid, :un, :ur, :dtl, :cat)
+                                )", {
+                                    {":lbl", "Sửa/giảm món bàn " + tableCode},
+                                    {":oid", orderId}, {":oc", orderCode}, {":tc", tableCode},
+                                    {":amt", std::max(0.0, oldSubVal - subtotal)},
+                                    {":uid", userId}, {":un", userName}, {":ur", userRole},
+                                    {":dtl", "SL cũ: " + std::to_string(oldQtySum) + " -> SL mới: " + std::to_string(newQtySum)},
+                                    {":cat", nowStr}
+                                });
+                            }
+                        } catch (...) {}
+
                         // Replace mode
                         db.execute(R"(
                             UPDATE orders SET
@@ -2702,11 +3557,11 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         INSERT INTO orders (
                             order_code, table_id, table_code, customer_name, guest_count,
                             subtotal, discount_type, discount_value, discount_amount, vat_percent, vat_amount,
-                            total_amount, status, payment_status, kitchen_status, kitchen_sent_at, order_type, promo_id, promo_code, promo_name, user_id, user_name, note, created_at
+                            total_amount, status, payment_status, kitchen_status, kitchen_sent_at, order_type, promo_id, promo_code, promo_name, user_id, user_name, note, access_token, client_ip, created_at
                         ) VALUES (
                             :code, :tid, :tcode, :cname, :gc,
                             :sub, :dt, :dv, :da, :vp, :va,
-                            :tot, 'pending', 'unpaid', :kstat, :ksent, :otype, :pid, :pcode, :pname, :uid, :uname, :note, :created
+                            :tot, 'pending', 'unpaid', :kstat, :ksent, :otype, :pid, :pcode, :pname, :uid, :uname, :note, :atok, :cip, :created
                         )
                     )", {
                         {":code", orderCode}, {":tid", tableId > 0 ? json(tableId) : json(nullptr)},
@@ -2715,7 +3570,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         {":vp", vatPercent}, {":va", vatAmount}, {":tot", totalAmount},
                         {":kstat", initialKitchenStatus}, {":ksent", initialKitchenSentAt}, {":otype", orderType},
                         {":pid", promoId}, {":pcode", promoCode}, {":pname", promoName},
-                        {":uid", userId}, {":uname", userName}, {":note", note}, {":created", nowStr}
+                        {":uid", userId}, {":uname", userName}, {":note", note}, {":atok", qrAccessToken}, {":cip", clientIp}, {":created", nowStr}
                     });
 
                     if (orderId <= 0) {
@@ -2820,6 +3675,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     {"order_id", orderId},
                     {"order_code", orderCode},
                     {"tracking_token", orderCode},
+                    {"access_token", qrAccessToken},
                     {"table_id", tableId},
                     {"table_code", tableCode},
                     {"order_type", orderType},
@@ -2921,23 +3777,28 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     {":cat", nowStr}
                 });
 
-                // Gửi chuông thông báo phục vụ
+                // Gửi chuông thông báo phục vụ (kèm key/params i18n)
+                ensureNotifI18nSchema(db);
+                json krParams = {{"table", tCode}, {"order_code", oCode}, {"prep_minutes", prepMinutes}};
                 db.execute(R"(
                     INSERT INTO app_notifications (
-                        type, order_id, table_code, title, message, is_read_waiter, is_read_cashier, created_at
+                        type, order_id, table_code, title, message, title_key, msg_key, msg_params_json, is_read_waiter, is_read_cashier, created_at
                     ) VALUES (
-                        'kitchen_ready', :oid, :tcode, :title, :msg, 0, 0, :cat
+                        'kitchen_ready', :oid, :tcode, :title, :msg, 'notif.kitchen_ready_title', 'notif.kitchen_ready_msg', :mp, 0, 0, :cat
                     )
                 )", {
                     {":oid", orderId}, {":tcode", tCode},
                     {":title", "🔔 Bếp báo xong món: " + tCode},
                     {":msg", "Món ăn bàn " + tCode + " đã chế biến xong, vui lòng bưng ra!"},
+                    {":mp", krParams.dump()},
                     {":cat", nowStr}
                 });
                 db.commit();
 
                 sendJson(res, {
                     {"success", true},
+                    {"code", "KDS_READY_SENT"},
+                    {"params", krParams},
                     {"message", "Đã thông báo xong món cho bàn " + tCode + " đến phục vụ!"},
                     {"table_code", tCode}
                 });
@@ -3022,8 +3883,35 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 return;
             }
 
+            if (action == "kitchen_reopen") {
+                int64_t orderId = 0;
+                try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
+                if (orderId <= 0) { sendError(res, "Thiếu order_id!"); return; }
+                db.execute("UPDATE orders SET kitchen_status = 'preparing', status = 'pending', completed_at = NULL WHERE id = :id AND status != 'cancelled'", {{":id", orderId}});
+                sendJson(res, {{"success", true}, {"message", "Đã mở lại phiếu bếp!"}});
+                return;
+            }
+
             // Step 3.4: Checkout & Payment (Thanh toán hóa đơn)
             if (action == "checkout" || action == "pay_order") {
+                std::string idempKey = req.get_header_value("X-Idempotency-Key");
+                if (idempKey.empty()) idempKey = BodyParser::getParam(req, body, "idempotency_key", "");
+                if (!idempKey.empty()) {
+                    auto prevPaid = db.queryRow("SELECT * FROM orders WHERE idempotency_key = :ik AND payment_status = 'paid' LIMIT 1", {{":ik", idempKey}});
+                    if (!prevPaid.is_null()) {
+                        json prevItems = db.query("SELECT * FROM order_items WHERE order_id = :id ORDER BY id ASC", {{":id", getInt(prevPaid, "id", 0)}});
+                        sendJson(res, {
+                            {"success", true},
+                            {"idempotent_replay", true},
+                            {"message", "Đơn đã được thanh toán trước đó (Idempotent)."},
+                            {"order", prevPaid},
+                            {"items", prevItems},
+                            {"store", getStoreInfo(db)}
+                        });
+                        return;
+                    }
+                }
+
                 int64_t orderId = 0, tableId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
                 try { tableId = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
@@ -3048,13 +3936,14 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     "SELECT COUNT(*) FROM order_items WHERE order_id = :oid AND COALESCE(cancel_status, 'none') = 'pending_kitchen'",
                     {{":oid", orderId}}
                 ).get<int64_t>();
-                if (pendingVoidCnt > 0) {
-                    sendJson(res, {{"success", false}, {"pending_void", true}, {"message", "Đơn này đang có " + std::to_string(pendingVoidCnt) + " món chờ Bếp duyệt hủy. Vui lòng để Bếp xác nhận trước khi thanh toán!"}}, 409);
+                if (pendingVoidCnt > 0 || getInt(ord, "pending_void", 0) == 1 || getString(ord, "kitchen_status", "") == "cancel_requested") {
+                    sendJson(res, {{"success", false}, {"code", "ORDER_PENDING_VOID"}, {"pending_void", true}, {"message", "Đơn này đang có yêu cầu hủy/món chờ Bếp duyệt hủy. Vui lòng xử lý trước khi thanh toán!"}}, 409);
                     return;
                 }
 
                 std::string paymentMethod = BodyParser::getParam(req, body, "payment_method", "cash");
-                if (paymentMethod != "banking" && paymentMethod != "card") paymentMethod = "cash";
+                if (paymentMethod != "banking" && paymentMethod != "card" && paymentMethod != "split") paymentMethod = "cash";
+                std::string cardTxRef = BodyParser::getParam(req, body, "card_tx_ref", "");
 
                 double subtotal = getDouble(ord, "subtotal", 0.0);
                 double discountValue = getDouble(ord, "discount_value", 0.0);
@@ -3087,22 +3976,47 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     std::transform(upCode.begin(), upCode.end(), upCode.begin(), ::toupper);
                     auto pRow = db.queryRow("SELECT * FROM promotions WHERE UPPER(code) = :c LIMIT 1", {{":c", upCode}});
                     std::string pErr;
-                    if (!pRow.is_null() && isPromoEligibleNow(db, pRow, subtotal, pErr)) {
-                        promoId = getInt(pRow, "id", 0);
-                        promoCode = getString(pRow, "code", upCode);
-                        promoName = getString(pRow, "name", "");
-                        discountType = getString(pRow, "discount_type", "percent");
-                        discountValue = getDouble(pRow, "discount_value", 0.0);
-                        discountAmount = computePromoDiscount(pRow, subtotal);
-                    } else if (discountValue > 0) {
-                        discountAmount = (discountType == "percent")
-                            ? (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0
-                            : std::min(subtotal, std::max(0.0, discountValue));
+                    if (pRow.is_null() || !isPromoEligibleNow(db, pRow, subtotal, pErr)) {
+                        sendErrorCode(res, "PROMO_INVALID", pErr.empty() ? ("Mã khuyến mãi [" + upCode + "] không tồn tại hoặc không hợp lệ!") : pErr, json::object(), 400);
+                        return;
+                    }
+                    promoId = getInt(pRow, "id", 0);
+                    promoCode = getString(pRow, "code", upCode);
+                    promoName = getString(pRow, "name", "");
+                    discountType = getString(pRow, "discount_type", "percent");
+                    discountValue = getDouble(pRow, "discount_value", 0.0);
+                    discountAmount = computePromoDiscount(pRow, subtotal);
+                } else if (discountValue <= 0.0) {
+                    auto autoP = findBestAutoPromotion(db, subtotal);
+                    if (!autoP.is_null()) {
+                        promoId = getInt(autoP, "id", 0);
+                        promoCode = getString(autoP, "code", "");
+                        promoName = getString(autoP, "name", "");
+                        discountType = getString(autoP, "discount_type", "percent");
+                        discountValue = getDouble(autoP, "discount_value", 0.0);
+                        discountAmount = computePromoDiscount(autoP, subtotal);
                     }
                 } else if (discountType == "percent") {
                     discountAmount = (subtotal * std::min(100.0, std::max(0.0, discountValue))) / 100.0;
                 } else {
                     discountAmount = std::min(subtotal, std::max(0.0, discountValue));
+                }
+
+                auto userOpt = authUserOpt;
+                int64_t cUserId = userOpt.has_value() ? userOpt->id : 1;
+                std::string cUserName = userOpt.has_value() ? userOpt->fullname : "Thu ngân";
+                std::string cRole = userOpt.has_value() ? userOpt->role : "cashier";
+
+                if (promoId <= 0 && discountAmount > 0.5) {
+                    bool isHighDisc = (discountAmount >= 50000.0) || (discountType == "percent" && discountValue >= 20.0) || (subtotal > 0.0 && (discountAmount / subtotal) >= 0.20);
+                    if (isHighDisc && (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin))) {
+                        std::string mgrPin = BodyParser::getParam(req, body, "manager_pin", "");
+                        json mgr;
+                        if (!Dot6Handlers::verifyManagerPin(db, mgrPin, mgr)) {
+                            sendErrorCode(res, "MANAGER_PIN_REQUIRED", "Chiết khấu >= 20% hoặc >= 50.000đ yêu cầu mã PIN Chủ quán (Admin)!", json::object(), 403);
+                            return;
+                        }
+                    }
                 }
 
                 double afterDiscount = std::max(0.0, subtotal - discountAmount);
@@ -3115,19 +4029,28 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     if (!crStr.empty()) cashReceived = std::stod(crStr);
                 } catch (...) {}
 
+                double sCash = std::max(0.0, getDouble(body, "split_cash", 0.0));
+                double sBank = std::max(0.0, getDouble(body, "split_banking", 0.0));
+                double sCard = std::max(0.0, getDouble(body, "split_card", 0.0));
+                std::string breakdownJsonStr = "";
+
                 double changeAmount = 0.0;
-                if (paymentMethod == "cash") {
+                if (paymentMethod == "split") {
+                    double splitSum = sCash + sBank + sCard;
+                    if (splitSum + 1.0 < totalAmount) {
+                        sendErrorCode(res, "SPLIT_UNDERPAID", "Tổng tiền tách thanh toán chưa đủ tổng hóa đơn!", json::object(), 400);
+                        return;
+                    }
+                    cashReceived = sCash;
+                    changeAmount = std::max(0.0, splitSum - totalAmount);
+                    breakdownJsonStr = json({{"cash", sCash}, {"banking", sBank}, {"card", sCard}}).dump();
+                } else if (paymentMethod == "cash") {
                     if (cashReceived < totalAmount) cashReceived = totalAmount;
                     changeAmount = std::max(0.0, cashReceived - totalAmount);
                 } else {
                     cashReceived = totalAmount;
                     changeAmount = 0.0;
                 }
-
-                auto userOpt = AuthService::instance().authenticate(req);
-                int64_t cUserId = userOpt.has_value() ? userOpt->id : 1;
-                std::string cUserName = userOpt.has_value() ? userOpt->fullname : "Thu ngân";
-                std::string cRole = userOpt.has_value() ? userOpt->role : "cashier";
 
                 std::string nowStr = getCurrentTimestamp();
 
@@ -3139,29 +4062,43 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         vat_percent = :vp, vat_amount = :va, total_amount = :tot,
                         paid_amount = :tot, settlement_status = 'settled',
                         payment_method = :pm, cash_received = :cr, change_amount = :ca,
-                        payment_status = 'paid', payment_verified_by = :vby, paid_at = :pat
+                        payment_status = 'paid', payment_verified_by = :vby, paid_at = :pat,
+                        card_tx_ref = :cref, idempotency_key = :ikey, payment_breakdown_json = :pbrk
                     WHERE id = :id
                 )", {
                     {":dt", discountType}, {":dv", discountValue}, {":da", discountAmount},
                     {":pid", promoId}, {":pcode", promoCode}, {":pname", promoName},
                     {":vp", vatPercent}, {":va", vatAmount}, {":tot", totalAmount},
                     {":pm", paymentMethod}, {":cr", cashReceived}, {":ca", changeAmount},
-                    {":vby", cUserName}, {":pat", nowStr}, {":id", orderId}
+                    {":vby", cUserName}, {":pat", nowStr}, {":cref", cardTxRef},
+                    {":ikey", idempKey}, {":pbrk", breakdownJsonStr}, {":id", orderId}
                 });
-                db.execute(R"(
-                    INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, verified_by, note, created_at)
-                    VALUES (:oid, :oc, 'pay', :pm, :amt, :vby, 'Thanh toán tại quầy POS', :cat)
-                )", {
-                    {":oid", orderId}, {":oc", getString(ord, "order_code", "")},
-                    {":pm", paymentMethod}, {":amt", totalAmount}, {":vby", cUserName}, {":cat", nowStr}
-                });
+                if (paymentMethod == "split") {
+                    auto insertLeg = [&](const std::string& m, double amt, const std::string& ref) {
+                        if (amt <= 0.5) return;
+                        db.execute(R"(
+                            INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, bank_ref, verified_by, note, created_at)
+                            VALUES (:oid, :oc, 'pay', :pm, :amt, :bref, :vby, 'Thanh toán tách phương thức (Split)', :cat)
+                        )", {
+                            {":oid", orderId}, {":oc", getString(ord, "order_code", "")},
+                            {":pm", m}, {":amt", amt}, {":bref", ref}, {":vby", cUserName}, {":cat", nowStr}
+                        });
+                    };
+                    insertLeg("cash", std::max(0.0, sCash - changeAmount), "");
+                    insertLeg("banking", sBank, "");
+                    insertLeg("card", sCard, cardTxRef);
+                } else {
+                    db.execute(R"(
+                        INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, bank_ref, verified_by, note, created_at)
+                        VALUES (:oid, :oc, 'pay', :pm, :amt, :bref, :vby, 'Thanh toán tại quầy POS', :cat)
+                    )", {
+                        {":oid", orderId}, {":oc", getString(ord, "order_code", "")},
+                        {":pm", paymentMethod}, {":amt", totalAmount}, {":bref", cardTxRef}, {":vby", cUserName}, {":cat", nowStr}
+                    });
+                }
 
-                // Evaluate 3 factors
+                // Evaluate 3 factors (Single ORDER_PAID emitted strictly post-commit below)
                 syncOrderStatus(db, orderId);
-                CyberNexus::PluginManager::instance().dispatchEvent("ORDER_PAID", {
-                    {"order_id", orderId},
-                    {"client_ip", getString(body, "client_ip", req.remote_addr)}
-                });
 
                 // Fetch completed order & items
                 auto completedOrder = db.queryRow("SELECT * FROM orders WHERE id = :id", {{":id", orderId}});
@@ -3226,14 +4163,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 json store = getStoreInfo(db);
                 json vietQrUrl = nullptr;
-                if (paymentMethod == "banking") {
-                    std::stringstream ss;
-                    ss << "https://img.vietqr.io/image/" << store.value("bank_id", "OCB") << "-"
-                       << store.value("bank_account_no", "0918608073") << "-compact2.png?amount="
-                       << static_cast<int64_t>(totalAmount) << "&addInfo=TT%20"
-                       << getString(completedOrder, "order_code", "") << "&accountName="
-                       << store.value("bank_account_name", "NGUYEN CHI HUNG");
-                    vietQrUrl = ss.str();
+                json vietQrPayload = nullptr;
+                if (paymentMethod == "banking" || paymentMethod == "split") {
+                    std::string bId = store.value("bank_id", "OCB");
+                    std::string aNo = store.value("bank_account_no", "0918608073");
+                    std::string aNm = store.value("bank_account_name", "NGUYEN CHI HUNG");
+                    std::string oCd = getString(completedOrder, "order_code", "");
+                    int64_t amtInt = static_cast<int64_t>(std::llround(totalAmount));
+                    vietQrPayload = SaleApp::VietQr::buildEmvCoPayload(bId, aNo, amtInt, "TT " + oCd, aNm);
+                    vietQrUrl = "/api/payment/vietqr_svg?bank_id=" + bId + "&account_no=" + aNo +
+                                "&amount=" + std::to_string(amtInt) + "&order_code=" + oCd;
                 }
 
                 sendJson(res, {
@@ -3242,7 +4181,8 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     {"order", completedOrder},
                     {"items", items},
                     {"store", store},
-                    {"vietqr_url", vietQrUrl}
+                    {"vietqr_url", vietQrUrl},
+                    {"vietqr_payload", vietQrPayload}
                 });
                 return;
             }
@@ -3291,10 +4231,22 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
             // Khách báo đã chuyển khoản VietQR (chuyển sang chờ đối soát, KHÔNG tự động paid)
             if (action == "customer_mark_transfer") {
+                std::string clientIpT = req.remote_addr.empty() ? "127.0.0.1" : req.remote_addr;
+                int retryT = 0;
+                if (!SaleApp::Security::RateLimiter::instance().allow("qr_transfer", clientIpT, 5, 300, retryT)) {
+                    sendJson(res, {{"success", false}, {"code", "QR_RATE_LIMITED"}, {"message", "Thao tác báo chuyển khoản quá nhanh!"}}, 429);
+                    return;
+                }
                 std::string oCode = BodyParser::getParam(req, body, "order_code", "");
+                std::string accTok = BodyParser::getParam(req, body, "access_token", "");
                 auto ord = db.queryRow("SELECT * FROM orders WHERE order_code = :oc LIMIT 1", {{":oc", oCode}});
                 if (ord.is_null()) {
                     sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                std::string dbTok = getString(ord, "access_token", "");
+                if (!dbTok.empty() && accTok != dbTok && !authUserOpt.has_value()) {
+                    sendErrorCode(res, "ORDER_ACCESS_DENIED", "Thiếu hoặc sai mã truy cập đơn hàng!", json::object(), 403);
                     return;
                 }
                 if (getString(ord, "payment_status", "unpaid") != "paid") {
@@ -3438,22 +4390,28 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     recordKpiEvent(db, kUid, kUname, "kitchen", orderId, getString(ord, "order_code", ""), getString(ord, "table_code", ""),
                         "kitchen_rushed", -kPenalty, uName + " hối Bếp lần " + std::to_string(nextRush) + " (quá SLA " + std::to_string(slaCfg.kitchenSla) + "p)");
                 }
+                ensureNotifI18nSchema(db);
+                std::string tCodeRush = getString(ord, "table_code", "");
+                json rushParams = {{"table", tCodeRush}, {"user", uName}, {"rush_count", nextRush}};
                 db.execute(
-                    "INSERT INTO order_alerts (order_id, order_code, table_id, table_code, alert_type, title, message, target_role, created_at) "
-                    "VALUES (:oid, :ocode, :tid, :tcode, 'kitchen_rush', :title, :msg, 'kitchen', :at)",
+                    "INSERT INTO order_alerts (order_id, order_code, table_id, table_code, alert_type, title, message, title_key, msg_key, msg_params_json, target_role, created_at) "
+                    "VALUES (:oid, :ocode, :tid, :tcode, 'kitchen_rush', :title, :msg, 'notif.kitchen_rush_title', 'notif.kitchen_rush_msg', :mp, 'kitchen', :at)",
                     {
                         {":oid", orderId},
                         {":ocode", getString(ord, "order_code", "")},
                         {":tid", getInt(ord, "table_id", 0)},
-                        {":tcode", getString(ord, "table_code", "")},
-                        {":title", "🔥 HỐI MÓN BÀN " + getString(ord, "table_code", "")},
+                        {":tcode", tCodeRush},
+                        {":title", "🔥 HỐI MÓN BÀN " + tCodeRush},
                         {":msg", uName + " hối Bếp lần " + std::to_string(nextRush) + " (khách đợi lâu)"},
+                        {":mp", rushParams.dump()},
                         {":at", nowStr}
                     }
                 );
                 db.commit();
                 sendJson(res, {
                     {"success", true},
+                    {"code", "KITCHEN_RUSH_SENT"},
+                    {"params", rushParams},
                     {"rush_count", nextRush},
                     {"last_rushed_at", nowStr},
                     {"last_rushed_by", uName},
@@ -3465,7 +4423,16 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
             // Khách hàng đánh giá Sao sau khi hoàn thành đơn
             if (action == "submit_review") {
                 ensureOrderWorkflowSchema(db);
+                std::string clientIp = req.get_header_value("X-Forwarded-For");
+                if (clientIp.empty()) clientIp = req.remote_addr;
+                if (clientIp.empty()) clientIp = "127.0.0.1";
+                int retryRev = 0;
+                if (!SaleApp::Security::RateLimiter::instance().allow("qr_review", clientIp, 5, 300, retryRev)) {
+                    sendJson(res, {{"success", false}, {"code", "QR_RATE_LIMITED"}, {"retry_after", retryRev}, {"message", "Gửi đánh giá quá nhanh!"}}, 429);
+                    return;
+                }
                 std::string orderCode = BodyParser::getParam(req, body, "order_code", BodyParser::getParam(req, body, "token", ""));
+                std::string accessTok = BodyParser::getParam(req, body, "access_token", "");
                 int64_t orderId = 0;
                 try { orderId = std::stoll(BodyParser::getParam(req, body, "order_id", "0")); } catch (...) {}
                 int rating = 0;
@@ -3480,6 +4447,11 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     : db.queryRow("SELECT * FROM orders WHERE order_code = :c LIMIT 1", {{":c", orderCode}});
                 if (ord.is_null()) {
                     sendError(res, "Không tìm thấy đơn hàng!", 404);
+                    return;
+                }
+                std::string dbAccess = ord.contains("access_token") && ord["access_token"].is_string() ? ord["access_token"].get<std::string>() : "";
+                if (!dbAccess.empty() && accessTok != dbAccess && !AuthService::instance().authenticate(req).has_value()) {
+                    sendErrorCode(res, "ORDER_ACCESS_DENIED", "Thiếu hoặc sai mã truy cập đơn hàng!", json::object(), 403);
                     return;
                 }
                 orderId = getInt(ord, "id", 0);
@@ -3879,9 +4851,30 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
 
                 db.beginTransaction();
                 double paidAmt = getDouble(order, "paid_amount", 0.0);
+                if (paidAmt > 0.5 && (!userOpt.has_value() || (userOpt->role != "admin" && !userOpt->is_super_admin))) {
+                    std::string mgrPin = BodyParser::getParam(req, body, "manager_pin", "");
+                    json mgr;
+                    if (!Dot6Handlers::verifyManagerPin(db, mgrPin, mgr)) {
+                        db.rollback();
+                        sendErrorCode(res, "MANAGER_PIN_REQUIRED", "Hủy đơn ĐÃ THANH TOÁN yêu cầu mã PIN Chủ quán (Admin)!", json::object(), 403);
+                        return;
+                    }
+                }
+                if (paidAmt > 0.5) {
+                    db.execute(R"(
+                        INSERT INTO payment_transactions (order_id, order_code, tx_type, method, amount, verified_by, note, created_at)
+                        VALUES (:oid, :oc, 'refund', :pm, :neg, :vb, :nt, :cat)
+                    )", {
+                        {":oid", orderId}, {":oc", oCode},
+                        {":pm", getString(order, "payment_method", "cash")},
+                        {":neg", -paidAmt}, {":vb", uName}, {":nt", "Hoàn tiền do hủy đơn đã thanh toán: " + reason},
+                        {":cat", nowStr}
+                    });
+                }
                 std::string settleUpdate = (paidAmt > 0.5) ? ", total_amount = 0, settlement_status = 'refund_due'" : "";
                 db.execute("UPDATE orders SET status = 'cancelled'" + settleUpdate + ", note = COALESCE(note, '') || ' | [HỦY: ' || :rsn || ']' WHERE id = :id",
                            {{":rsn", reason}, {":id", orderId}});
+                restoreInventoryForOrder(db, orderId, reason);
                 if (!order["table_id"].is_null() && paidAmt <= 0.5) {
                     int64_t tid = getInt(order, "table_id", 0);
                     db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE id = :id", {{":id", tid}});
@@ -4236,11 +5229,13 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                        COALESCE(SUM(CASE WHEN COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' THEN total_amount ELSE 0 END), 0) as cash_revenue,
                        COALESCE(SUM(CASE WHEN COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' THEN 1 ELSE 0 END), 0) as cash_orders,
                        COALESCE(SUM(CASE WHEN payment_method IN ('banking', 'transfer', 'qr') THEN total_amount ELSE 0 END), 0) as banking_revenue,
-                       COALESCE(SUM(CASE WHEN payment_method IN ('banking', 'transfer', 'qr') THEN 1 ELSE 0 END), 0) as banking_orders
+                       COALESCE(SUM(CASE WHEN payment_method IN ('banking', 'transfer', 'qr') THEN 1 ELSE 0 END), 0) as banking_orders,
+                       COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total_amount ELSE 0 END), 0) as card_revenue,
+                       COALESCE(SUM(CASE WHEN payment_method = 'card' THEN 1 ELSE 0 END), 0) as card_orders
                 FROM orders
                 WHERE status = 'completed'
-                  AND substr(created_at, 1, 10) >= :df
-                  AND substr(created_at, 1, 10) <= :dt
+                  AND substr(COALESCE(NULLIF(paid_at, ''), created_at), 1, 10) >= :df
+                  AND substr(COALESCE(NULLIF(paid_at, ''), created_at), 1, 10) <= :dt
             )", p);
 
             int64_t totalOrders = getInt(agg, "total_orders", 0);
@@ -4255,8 +5250,8 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                 FROM order_items oi
                 JOIN orders o ON oi.order_id = o.id
                 WHERE o.status = 'completed'
-                  AND substr(o.created_at, 1, 10) >= :df
-                  AND substr(o.created_at, 1, 10) <= :dt
+                  AND substr(COALESCE(NULLIF(o.paid_at, ''), o.created_at), 1, 10) >= :df
+                  AND substr(COALESCE(NULLIF(o.paid_at, ''), o.created_at), 1, 10) <= :dt
                 GROUP BY oi.product_name
                 ORDER BY revenue DESC
                 LIMIT 5
@@ -4288,6 +5283,8 @@ void ApiHandlers::handleReports(const httplib::Request& req, httplib::Response& 
                     {"cash_orders", getInt(agg, "cash_orders", 0)},
                     {"banking_revenue", getDouble(agg, "banking_revenue", 0.0)},
                     {"banking_orders", getInt(agg, "banking_orders", 0)},
+                    {"card_revenue", getDouble(agg, "card_revenue", 0.0)},
+                    {"card_orders", getInt(agg, "card_orders", 0)},
                     {"avg_order_value", avgOrderValue},
                     {"total_discount", getDouble(agg, "total_discount", 0.0)},
                     {"top_products", topProducts},
@@ -4470,10 +5467,12 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 } catch (...) {}
 
                 // Real-time Labor cost from attendances (completed + live working shifts)
+                ensureHrPayrollSchema(db);
+                ShiftCfg finShiftCfg = loadShiftCfg(db);
                 json attRows = json::array();
                 try {
                     attRows = db.query(
-                        "SELECT check_in_time, work_hours, hourly_rate, total_pay, status FROM attendances WHERE work_date BETWEEN :ps AND :pe",
+                        "SELECT check_in_time, work_hours, hourly_rate, total_pay, status, COALESCE(is_overtime_approved, 0) as ot_app, COALESCE(overtime_multiplier, 1.0) as ot_mult, COALESCE(shift_type, 'regular') as stype FROM attendances WHERE work_date BETWEEN :ps AND :pe",
                         {{":ps", periodStart}, {":pe", periodEnd}}
                     );
                 } catch (...) {}
@@ -4486,8 +5485,10 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     double rate = a.value("hourly_rate", 0.0);
                     if (st == "working") {
                         workingStaffCount++;
-                        double hrs = calcHoursBetween(a.value("check_in_time", ""), nowTs);
-                        double pay = std::round(hrs * rate);
+                        bool isOt = (a.value("ot_app", 0) == 1) || (a.value("stype", "regular") == "overtime");
+                        double cMult = a.value("ot_mult", 1.0);
+                        double hrs = 0.0, rh = 0.0, oh = 0.0, om = 1.0, op = 0.0, pay = 0.0;
+                        computeAttendancePay(finShiftCfg, a.value("check_in_time", ""), nowTs, rate, isOt, cMult, hrs, rh, oh, om, op, pay);
                         laborHours += hrs;
                         laborCost += pay;
                         laborRealtimeAccrued += pay;
@@ -4499,14 +5500,16 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 laborHours = std::round(laborHours * 100.0) / 100.0;
                 laborCost = std::round(laborCost);
 
-                // Finance expenses & Payables (Công nợ phải trả)
+                // Finance expenses & Payables ([HR-02] Exclude pos_cash_tx & payroll_payout to prevent double counting)
                 json expAgg = db.queryRow(R"(
-                    SELECT COALESCE(SUM(CASE WHEN category NOT IN ('Nguyên Vật Liệu', 'Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
-                           COALESCE(SUM(CASE WHEN category IN ('Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as bonus_expenses,
-                           COALESCE(SUM(CASE WHEN category = 'Nguyên Vật Liệu' THEN amount ELSE 0 END), 0) as nvl_expenses,
-                           COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') != 'unpaid' THEN amount ELSE 0 END), 0) as paid_expenses,
-                           COALESCE(SUM(amount), 0) as total_expenses,
-                           COALESCE(SUM(vat_amount), 0) as vat_input,
+                    SELECT COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) NOT IN ('nguyên vật liệu', 'lương', 'thưởng & phụ cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) = 'thưởng & phụ cấp' THEN amount ELSE 0 END), 0) as bonus_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) = 'lương' THEN amount ELSE 0 END), 0) as manual_salary_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) = 'nguyên vật liệu' THEN amount ELSE 0 END), 0) as nvl_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND COALESCE(payment_status, 'paid') != 'unpaid' THEN amount ELSE 0 END), 0) as paid_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'payroll_payout' THEN amount ELSE 0 END), 0) as payroll_paid_cash,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' THEN amount ELSE 0 END), 0) as total_expenses,
+                           COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' THEN vat_amount ELSE 0 END), 0) as vat_input,
                            COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') = 'unpaid' THEN amount ELSE 0 END), 0) as payable_debt,
                            COALESCE(SUM(CASE WHEN COALESCE(payment_status, 'paid') = 'unpaid' THEN 1 ELSE 0 END), 0) as payable_count
                     FROM finance_expenses
@@ -4514,9 +5517,10 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 )", {{":ps", periodStart}, {":pe", periodEnd}});
 
                 double opexExpenses = getDouble(expAgg, "opex_expenses", 0.0);
-                double bonusCost = getDouble(expAgg, "bonus_expenses", 0.0);
+                double bonusCost = getDouble(expAgg, "bonus_expenses", 0.0) + ((laborCost <= 0.0) ? getDouble(expAgg, "manual_salary_expenses", 0.0) : 0.0);
                 double nvlExpenses = getDouble(expAgg, "nvl_expenses", 0.0);
                 double paidFinanceExpenses = getDouble(expAgg, "paid_expenses", 0.0);
+                double payrollPaidCash = getDouble(expAgg, "payroll_paid_cash", 0.0);
                 double vatInput = getDouble(expAgg, "vat_input", 0.0);
                 double expPayableDebt = getDouble(expAgg, "payable_debt", 0.0);
                 int64_t expPayableCount = getInt(expAgg, "payable_count", 0);
@@ -4562,6 +5566,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     SELECT category, SUM(amount) as amount, SUM(vat_amount) as vat, COUNT(*) as count
                     FROM finance_expenses
                     WHERE substr(expense_date, 1, 10) BETWEEN :ps AND :pe
+                      AND COALESCE(source, 'manual') = 'manual'
                     GROUP BY category
                     ORDER BY amount DESC
                 )", {{":ps", periodStart}, {":pe", periodEnd}});
@@ -4664,7 +5669,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
                 // Cashflow (Dòng tiền thực tế thu/chi trong kỳ) & COGS Data Quality
                 double cashInflow = std::max(0.0, revenue - receivableAmount);
-                double cashOutflow = supplierPaidInPeriod + paidFinanceExpenses + cashOutCounter;
+                double cashOutflow = supplierPaidInPeriod + paidFinanceExpenses + cashOutCounter + payrollPaidCash;
                 double netCashflow = cashInflow - cashOutflow;
                 double estimatedCogs = std::max(0.0, cogs - directCogs);
                 double cogsCoveragePct = (revenue > 0.0) ? std::min(100.0, std::round((costedRev / revenue) * 100.0)) : 100.0;
@@ -4803,14 +5808,19 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                         cogs = std::round(revenue * 0.35);
                     }
 
+                    ensureHrPayrollSchema(db);
+                    ShiftCfg cmpShiftCfg = loadShiftCfg(db);
                     json aRows = db.query(
-                        "SELECT check_in_time, work_hours, hourly_rate, total_pay, status FROM attendances WHERE work_date BETWEEN :ps AND :pe",
+                        "SELECT check_in_time, work_hours, hourly_rate, total_pay, status, COALESCE(is_overtime_approved, 0) as ot_app, COALESCE(overtime_multiplier, 1.0) as ot_mult, COALESCE(shift_type, 'regular') as stype FROM attendances WHERE work_date BETWEEN :ps AND :pe",
                         {{":ps", pStart}, {":pe", pEnd}}
                     );
                     double laborCost = 0.0;
                     for (const auto& a : aRows) {
                         if (a.value("status", "") == "working") {
-                            laborCost += std::round(calcHoursBetween(a.value("check_in_time", ""), nowTs) * a.value("hourly_rate", 0.0));
+                            bool isOt = (a.value("ot_app", 0) == 1) || (a.value("stype", "regular") == "overtime");
+                            double hrs = 0.0, rh = 0.0, oh = 0.0, om = 1.0, op = 0.0, pay = 0.0;
+                            computeAttendancePay(cmpShiftCfg, a.value("check_in_time", ""), nowTs, a.value("hourly_rate", 0.0), isOt, a.value("ot_mult", 1.0), hrs, rh, oh, om, op, pay);
+                            laborCost += pay;
                         } else {
                             laborCost += a.value("total_pay", 0.0);
                         }
@@ -4818,13 +5828,14 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     laborCost = std::round(laborCost);
 
                     json eAgg = db.queryRow(R"(
-                        SELECT COALESCE(SUM(CASE WHEN category NOT IN ('Nguyên Vật Liệu', 'Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
-                               COALESCE(SUM(CASE WHEN category IN ('Lương', 'Thưởng & Phụ Cấp') THEN amount ELSE 0 END), 0) as bonus_expenses
+                        SELECT COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) NOT IN ('nguyên vật liệu', 'lương', 'thưởng & phụ cấp') THEN amount ELSE 0 END), 0) as opex_expenses,
+                               COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) = 'thưởng & phụ cấp' THEN amount ELSE 0 END), 0) as bonus_expenses,
+                               COALESCE(SUM(CASE WHEN COALESCE(source, 'manual') = 'manual' AND LOWER(category) = 'lương' THEN amount ELSE 0 END), 0) as manual_salary_expenses
                         FROM finance_expenses
                         WHERE substr(expense_date, 1, 10) BETWEEN :ps AND :pe
                     )", {{":ps", pStart}, {":pe", pEnd}});
                     double opex = getDouble(eAgg, "opex_expenses", 0.0);
-                    double bonus = getDouble(eAgg, "bonus_expenses", 0.0);
+                    double bonus = getDouble(eAgg, "bonus_expenses", 0.0) + ((laborCost <= 0.0) ? getDouble(eAgg, "manual_salary_expenses", 0.0) : 0.0);
 
                     double cashOut = db.queryScalar(
                         "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE trans_type = 'out' AND substr(created_at, 1, 10) BETWEEN :ps AND :pe",
@@ -4881,11 +5892,19 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
             // Trạng thái Ca làm việc hiện tại của Thu ngân (Kế toán Ca & Sổ quỹ tại quầy)
             if (action == "shift_status") {
+                ShiftCfg sCfg = loadShiftCfg(db);
+                int64_t openOrdersCnt = 0;
+                try {
+                    openOrdersCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status NOT IN ('completed', 'cancelled')").get<int64_t>();
+                } catch (...) {}
+
                 auto shift = db.queryRow("SELECT * FROM pos_shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1");
                 if (shift.is_null()) {
                     sendJson(res, {
                         {"success", true},
                         {"has_open_shift", false},
+                        {"blind_handover", sCfg.posBlindHandover},
+                        {"open_orders_count", openOrdersCnt},
                         {"shift", nullptr},
                         {"transactions", json::array()}
                     });
@@ -4897,15 +5916,15 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 double openingCash = getDouble(shift, "opening_cash", 0.0);
 
                 double cashSales = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' AND paid_at >= :oa",
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' AND COALESCE(NULLIF(paid_at, ''), created_at) >= :oa",
                     {{":oa", openedAt}}
                 ).get<double>();
                 double bankingSales = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'banking' AND paid_at >= :oa",
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method IN ('banking', 'transfer', 'qr') AND COALESCE(NULLIF(paid_at, ''), created_at) >= :oa",
                     {{":oa", openedAt}}
                 ).get<double>();
                 double cardSales = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'card' AND paid_at >= :oa",
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'card' AND COALESCE(NULLIF(paid_at, ''), created_at) >= :oa",
                     {{":oa", openedAt}}
                 ).get<double>();
 
@@ -4919,17 +5938,32 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 ).get<double>();
 
                 double expectedCash = openingCash + cashSales + cashIn - cashOut;
+                int64_t refundDueCnt = 0, extraDueCnt = 0, pendingVoidCnt = 0, voidCnt = 0, discCnt = 0;
+                try {
+                    refundDueCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE COALESCE(settlement_status, 'settled') = 'refund_due'").get<int64_t>();
+                    extraDueCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE COALESCE(settlement_status, 'settled') = 'extra_due'").get<int64_t>();
+                    pendingVoidCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'pending' AND (COALESCE(pending_void, 0) = 1 OR kitchen_status = 'cancel_requested')").get<int64_t>();
+                    voidCnt = db.queryScalar("SELECT COUNT(*) FROM audit_logs WHERE action_code IN ('VOID_ORDER', 'VOID_PAID_ORDER') AND created_at >= :oa", {{":oa", openedAt}}).get<int64_t>();
+                    discCnt = db.queryScalar("SELECT COUNT(*) FROM audit_logs WHERE action_code = 'MANUAL_DISCOUNT' AND created_at >= :oa", {{":oa", openedAt}}).get<int64_t>();
+                } catch (...) {}
                 shift["cash_sales"] = cashSales;
                 shift["banking_sales"] = bankingSales;
                 shift["card_sales"] = cardSales;
                 shift["cash_in"] = cashIn;
                 shift["cash_out"] = cashOut;
                 shift["expected_cash"] = expectedCash;
+                shift["refund_due_count"] = refundDueCnt;
+                shift["extra_due_count"] = extraDueCnt;
+                shift["pending_void_count"] = pendingVoidCnt;
+                shift["void_count"] = voidCnt;
+                shift["discount_count"] = discCnt;
 
                 json txs = db.query("SELECT * FROM cash_transactions WHERE shift_id = :sid ORDER BY id DESC LIMIT 30", {{":sid", shiftId}});
                 sendJson(res, {
                     {"success", true},
                     {"has_open_shift", true},
+                    {"blind_handover", sCfg.posBlindHandover},
+                    {"open_orders_count", openOrdersCnt},
                     {"shift", shift},
                     {"transactions", txs}
                 });
@@ -5049,7 +6083,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
                 auto existing = db.queryRow("SELECT id FROM pos_shifts WHERE status = 'open' LIMIT 1");
                 if (!existing.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "Hiện đang có một ca làm việc đang mở! Vui lòng kết ca cũ trước khi mở ca mới."}}, 400);
+                    sendErrorCode(res, "POS_SHIFT_ALREADY_OPEN", "Hiện đang có một ca làm việc đang mở! Vui lòng kết ca cũ trước khi mở ca mới.", json::object(), 400);
                     return;
                 }
 
@@ -5119,6 +6153,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 }
 
                 std::string nowStr = getCurrentTimestamp();
+                ensureHrPayrollSchema(db);
                 db.beginTransaction();
                 db.execute(R"(
                     INSERT INTO cash_transactions (shift_id, trans_type, category, amount, reason, user_id, user_name, created_at)
@@ -5128,11 +6163,11 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     {":amt", amount}, {":rsn", reason}, {":uid", uId}, {":uname", uName}, {":dt", nowStr}
                 });
 
-                // Nếu là Phiếu Chi tại quầy (out), tự động đồng bộ sang bảng Sổ quỹ Kế toán (finance_expenses)
+                // Nếu là Phiếu Chi tại quầy (out), đồng bộ bảng Sổ quỹ với source='pos_cash_tx' để P&L/Cashflow không trừ trùng
                 if (transType == "out") {
                     db.execute(R"(
-                        INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, created_by, created_at)
-                        VALUES (:d, :c, :n, :s, :a, 0, :u, :dt)
+                        INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, source, created_by, created_at)
+                        VALUES (:d, :c, :n, :s, :a, 0, 'pos_cash_tx', :u, :dt)
                     )", {
                         {":d", getCurrentDate()},
                         {":c", category},
@@ -5176,7 +6211,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
                 auto shift = db.queryRow("SELECT * FROM pos_shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1");
                 if (shift.is_null()) {
-                    sendJson(res, {{"success", false}, {"message", "Không có ca làm việc nào đang mở để kết ca!"}}, 400);
+                    sendErrorCode(res, "POS_SHIFT_NOT_OPEN", "Không có ca làm việc nào đang mở để kết ca!", json::object(), 400);
                     return;
                 }
 
@@ -5185,18 +6220,50 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 std::string openedAt = getString(shift, "opened_at", "2000-01-01 00:00:00");
                 double openingCash = getDouble(shift, "opening_cash", 0.0);
 
+                int64_t unsettledCnt = 0;
+                try {
+                    unsettledCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE COALESCE(settlement_status, 'settled') IN ('refund_due', 'extra_due')").get<int64_t>();
+                } catch (...) {}
+                if (unsettledCnt > 0) {
+                    bool forceClose = (getInt(body, "force_close", 0) != 0) || (body.contains("force_close") && body["force_close"].is_boolean() && body["force_close"].get<bool>());
+                    bool allowForce = forceClose && userOpt.has_value() && (userOpt->role == "admin" || userOpt->is_super_admin);
+                    if (forceClose && !allowForce) {
+                        json mgr;
+                        allowForce = Dot6Handlers::verifyManagerPin(db, BodyParser::getParam(req, body, "manager_pin", ""), mgr);
+                    }
+                    if (!allowForce) {
+                        sendErrorCode(res, "SHIFT_UNSETTLED_ORDERS",
+                            "Còn " + std::to_string(unsettledCnt) + " đơn hàng chờ hoàn tiền / thu thêm chưa tất toán! Vui lòng xử lý hoặc dùng PIN Admin để ép kết ca.",
+                            {{"unsettled_count", unsettledCnt}}, 400);
+                        return;
+                    }
+                }
+
                 double cashSales = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' AND paid_at >= :oa",
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND COALESCE(NULLIF(payment_method, ''), 'cash') = 'cash' AND COALESCE(NULLIF(paid_at, ''), created_at) >= :oa",
                     {{":oa", openedAt}}
                 ).get<double>();
+                try {
+                    cashSales += db.queryScalar(
+                        "SELECT COALESCE(SUM(pt.amount), 0) FROM payment_transactions pt JOIN orders o ON pt.order_id = o.id "
+                        "WHERE o.status = 'completed' AND o.payment_method = 'split' AND pt.tx_type = 'pay' AND pt.method = 'cash' "
+                        "AND COALESCE(NULLIF(o.paid_at, ''), o.created_at) >= :oa",
+                        {{":oa", openedAt}}
+                    ).get<double>();
+                } catch (...) {}
                 double bankingSales = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'banking' AND paid_at >= :oa",
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method IN ('banking', 'transfer', 'qr') AND COALESCE(NULLIF(paid_at, ''), created_at) >= :oa",
                     {{":oa", openedAt}}
                 ).get<double>();
                 double cardSales = db.queryScalar(
-                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'card' AND paid_at >= :oa",
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'completed' AND payment_method = 'card' AND COALESCE(NULLIF(paid_at, ''), created_at) >= :oa",
                     {{":oa", openedAt}}
                 ).get<double>();
+
+                int64_t openOrdersCnt = 0;
+                try {
+                    openOrdersCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status NOT IN ('completed', 'cancelled')").get<int64_t>();
+                } catch (...) {}
 
                 double cashIn = db.queryScalar(
                     "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE shift_id = :sid AND trans_type = 'in'",
@@ -5249,12 +6316,26 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 });
                 db.commit();
 
+                bool checkedOutAtt = false;
+                if (body.value("also_checkout_attendance", false) && userOpt.has_value()) {
+                    json openAtts = db.query("SELECT id FROM attendances WHERE user_id = :uid AND status = 'working'", {{":uid", userOpt->id}});
+                    for (const auto& ar : openAtts) {
+                        closeStaffAttendance(db, ar.value("id", int64_t(0)), nowStr, "Check-out cùng lúc kết ca POS");
+                        checkedOutAtt = true;
+                    }
+                    if (checkedOutAtt) {
+                        db.execute("UPDATE users SET is_online = 0 WHERE id = :id", {{":id", userOpt->id}});
+                    }
+                }
+
                 sendJson(res, {
                     {"success", true},
                     {"message", "Đã kết ca " + shiftCode + " thành công! Đối soát két: " + diffLabel},
                     {"expected_cash", expectedCash},
                     {"actual_cash", actualCash},
-                    {"discrepancy", discrepancy}
+                    {"discrepancy", discrepancy},
+                    {"open_orders_count", openOrdersCnt},
+                    {"checked_out_attendance", checkedOutAtt}
                 });
                 return;
             }
@@ -5694,6 +6775,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
     auto& db = Database::instance();
     json body = parseBody(req);
     std::string action = getAction(req, body);
+    if (Dot6Handlers::handleDot6Operations(action, req, res, db, body)) return;
 
     if (req.method == "GET") {
         if (action == "materials" || action.empty()) {
@@ -5716,6 +6798,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         }
         if (action == "get_realtime_staff") {
             if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
             autoProcessShifts(db);
             std::string nowTs = getCurrentTimestamp();
             std::time_t nowSec = parseTimestampLocal(nowTs);
@@ -5724,6 +6807,14 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             json rows = db.query(R"(
                 SELECT a.id AS attendance_id, a.user_id, a.check_in_time, a.device_info,
                        a.hourly_rate AS att_rate,
+                       COALESCE(a.last_heartbeat_at, '') AS last_heartbeat_at,
+                       COALESCE(a.shift_type, 'regular') AS shift_type,
+                       COALESCE(a.is_overtime_approved, 0) AS is_overtime_approved,
+                       COALESCE(a.overtime_multiplier, 1.0) AS overtime_multiplier,
+                       COALESCE(a.source, 'auto_login') AS source,
+                       COALESCE(a.device_name, '') AS device_name,
+                       COALESCE(a.verify_mode, '') AS verify_mode,
+                       COALESCE(a.photo_path, '') AS photo_path,
                        u.username, u.fullname, u.user_code, u.role,
                        u.hourly_rate AS user_rate, u.last_active_at
                 FROM attendances a
@@ -5747,7 +6838,8 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 double userRate = r.value("user_rate", 0.0);
                 double rate = (attRate > 0.0) ? attRate : userRate;
 
-                std::string lastActive = r.value("last_active_at", "");
+                std::string hbAt = r.value("last_heartbeat_at", "");
+                std::string lastActive = !hbAt.empty() ? hbAt : r.value("last_active_at", "");
                 std::time_t activeSec = parseTimestampLocal(lastActive);
                 bool recentlyActive = (activeSec > 0 && nowSec >= activeSec && (nowSec - activeSec) <= 120);
 
@@ -5762,6 +6854,14 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                     {"elapsed_display", formatElapsedHMS(checkIn, nowTs)},
                     {"hourly_rate", rate},
                     {"is_recently_active", recentlyActive},
+                    {"last_heartbeat_at", lastActive},
+                    {"shift_type", r.value("shift_type", "regular")},
+                    {"is_overtime_approved", r.value("is_overtime_approved", 0) == 1},
+                    {"overtime_multiplier", r.value("overtime_multiplier", 1.0)},
+                    {"source", r.value("source", "auto_login")},
+                    {"device_name", r.value("device_name", "")},
+                    {"verify_mode", r.value("verify_mode", "")},
+                    {"photo_path", r.value("photo_path", "")},
                     {"device_info", r.value("device_info", "")}
                 });
             }
@@ -5782,21 +6882,45 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         }
         if (action == "get_payroll") {
             if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
             autoProcessShifts(db);
+            ShiftCfg cfg = loadShiftCfg(db);
             std::string nowTs = getCurrentTimestamp();
             std::string month = req.has_param("month") ? req.get_param_value("month") : getCurrentDate().substr(0, 7);
             if (month.empty()) month = getCurrentDate().substr(0, 7);
             std::string monthPrefix = month + "%";
 
-            json users = db.query("SELECT id, user_code, fullname, username, role, hourly_rate FROM users WHERE status = 'active' ORDER BY id ASC");
+            // [HR-04] Include inactive/former staff who still have attendance records in the selected month
+            json users = db.query(
+                "SELECT id, user_code, fullname, username, role, hourly_rate, status FROM users "
+                "WHERE status = 'active' OR id IN (SELECT DISTINCT user_id FROM attendances WHERE work_date LIKE :mp) "
+                "ORDER BY id ASC",
+                {{":mp", monthPrefix}}
+            );
             json monthAtts = db.query(
-                "SELECT id, user_id, work_date, check_in_time, check_out_time, work_hours, hourly_rate, total_pay, status "
+                "SELECT id, user_id, work_date, check_in_time, check_out_time, work_hours, "
+                "COALESCE(regular_hours, 0) as regular_hours, COALESCE(overtime_hours, 0) as overtime_hours, "
+                "COALESCE(overtime_multiplier, 1.0) as overtime_multiplier, COALESCE(overtime_pay, 0) as overtime_pay, "
+                "COALESCE(is_overtime_approved, 0) as is_overtime_approved, COALESCE(shift_type, 'regular') as shift_type, "
+                "hourly_rate, total_pay, status "
                 "FROM attendances WHERE work_date LIKE :mp ORDER BY id DESC",
                 {{":mp", monthPrefix}}
             );
 
+            std::map<int64_t, int> kpiScoreMap;
+            try {
+                json kRows = db.query("SELECT user_id, COALESCE(SUM(points_delta), 0) as pts FROM kpi_logs WHERE substr(created_at, 1, 7) = :m GROUP BY user_id", {{":m", month}});
+                for (const auto& kr : kRows) {
+                    kpiScoreMap[kr.value("user_id", int64_t(0))] = kr.value("pts", 0);
+                }
+            } catch (...) {}
+
             struct UserAgg {
+                double regularHours = 0.0;
+                double overtimeHours = 0.0;
                 double totalHours = 0.0;
+                double basePay = 0.0;
+                double overtimePay = 0.0;
                 double totalSalary = 0.0;
                 std::map<std::string, int> shiftsPerDay;
             };
@@ -5806,20 +6930,38 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 int64_t uid = a.value("user_id", int64_t(0));
                 std::string wdate = a.value("work_date", "");
                 std::string status = a.value("status", "");
-                double hrs = a.value("work_hours", 0.0);
                 double rate = a.value("hourly_rate", 0.0);
+                double hrs = a.value("work_hours", 0.0);
+                double regH = a.value("regular_hours", 0.0);
+                double otH = a.value("overtime_hours", 0.0);
+                double otPay = a.value("overtime_pay", 0.0);
                 double pay = a.value("total_pay", 0.0);
                 if (status == "working") {
-                    hrs = calcHoursBetween(a.value("check_in_time", ""), nowTs);
-                    pay = std::round(hrs * rate);
+                    bool isOt = (a.value("is_overtime_approved", 0) == 1) || (a.value("shift_type", "regular") == "overtime");
+                    double multOut = 1.0;
+                    computeAttendancePay(cfg, a.value("check_in_time", ""), nowTs, rate, isOt, a.value("overtime_multiplier", 1.0), hrs, regH, otH, multOut, otPay, pay);
+                } else if (regH <= 0.0 && otH <= 0.0 && hrs > 0.0) {
+                    regH = hrs;
                 }
                 auto& ag = aggMap[uid];
+                ag.regularHours += regH;
+                ag.overtimeHours += otH;
                 ag.totalHours += hrs;
+                ag.overtimePay += otPay;
+                ag.basePay += std::max(0.0, pay - otPay);
                 ag.totalSalary += pay;
                 if (!wdate.empty()) ag.shiftsPerDay[wdate]++;
             }
 
+            json cycleRow = db.queryRow("SELECT * FROM payroll_cycles WHERE month_key = :m LIMIT 1", {{":m", month}});
+            json savedItems = db.query("SELECT * FROM payroll_items WHERE month_key = :m ORDER BY user_id ASC", {{":m", month}});
+            std::map<int64_t, json> savedItemMap;
+            for (const auto& si : savedItems) {
+                savedItemMap[si.value("user_id", int64_t(0))] = si;
+            }
+
             double totalCompanyHours = 0.0;
+            double totalCompanyOtHours = 0.0;
             double totalCompanySalary = 0.0;
             json payrollSummary = json::array();
             for (const auto& u : users) {
@@ -5832,20 +6974,61 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 for (const auto& kv : ag.shiftsPerDay) {
                     totalShifts += std::min(kv.second, 2);
                 }
+                double regRounded = std::round(ag.regularHours * 100.0) / 100.0;
+                double otRounded = std::round(ag.overtimeHours * 100.0) / 100.0;
                 double hrsRounded = std::round(ag.totalHours * 100.0) / 100.0;
+                double baseRounded = std::round(ag.basePay);
+                double otPayRounded = std::round(ag.overtimePay);
                 double salRounded = std::round(ag.totalSalary);
+                int kpiScore = kpiScoreMap.count(uid) ? kpiScoreMap[uid] : 0;
+
+                double kpiBonus = 0.0, allowance = 0.0, advDed = 0.0, penalty = 0.0, netPay = salRounded;
+                int isPaid = 0;
+                std::string itemNote;
+                if (savedItemMap.count(uid)) {
+                    const auto& si = savedItemMap[uid];
+                    kpiBonus = si.value("kpi_bonus", 0.0);
+                    allowance = si.value("allowance", 0.0);
+                    advDed = si.value("advance_deduction", 0.0);
+                    penalty = si.value("penalty", 0.0);
+                    isPaid = si.value("is_paid", 0);
+                    itemNote = si.value("note", "");
+                    if (!cycleRow.is_null() && cycleRow.value("status", "draft") != "draft") {
+                        netPay = si.value("net_pay", salRounded);
+                    } else {
+                        netPay = std::max(0.0, std::round(salRounded + kpiBonus + allowance - advDed - penalty));
+                    }
+                } else {
+                    kpiBonus = (kpiScore > 0) ? std::round(kpiScore * cfg.kpiPointValueVnd) : 0.0;
+                    netPay = std::max(0.0, std::round(salRounded + kpiBonus));
+                }
+
                 totalCompanyHours += hrsRounded;
-                totalCompanySalary += salRounded;
+                totalCompanyOtHours += otRounded;
+                totalCompanySalary += netPay;
 
                 payrollSummary.push_back({
                     {"user_id", uid},
                     {"user_code", u.value("user_code", "")},
                     {"fullname", fullname},
                     {"role", u.value("role", "")},
+                    {"user_status", u.value("status", "active")},
                     {"hourly_rate", rate},
                     {"total_shifts", totalShifts},
+                    {"regular_hours", regRounded},
+                    {"overtime_hours", otRounded},
                     {"total_hours", hrsRounded},
-                    {"total_salary", salRounded}
+                    {"base_pay", baseRounded},
+                    {"overtime_pay", otPayRounded},
+                    {"total_salary", salRounded},
+                    {"kpi_score", kpiScore},
+                    {"kpi_bonus", kpiBonus},
+                    {"allowance", allowance},
+                    {"advance_deduction", advDed},
+                    {"penalty", penalty},
+                    {"net_pay", netPay},
+                    {"is_paid", isPaid == 1},
+                    {"note", itemNote}
                 });
             }
 
@@ -5872,7 +7055,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             }
             if (!filterUid.empty() && filterUid != "all") {
                 whereSql += " AND user_id = :fuid";
-                params.emplace_back(":fuid", static_cast<int64_t>(std::stoll(filterUid)));
+                try { params.emplace_back(":fuid", static_cast<int64_t>(std::stoll(filterUid))); } catch (...) { params.emplace_back(":fuid", int64_t(0)); }
             }
             if (!filterStatus.empty() && filterStatus != "all") {
                 whereSql += " AND status = :fstatus";
@@ -5885,27 +7068,54 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 params.emplace_back(":fsearch", "%" + sLower + "%");
             }
 
+            // [HR-04] Server-side pagination (or full export when limit=all) instead of hardcoded LIMIT 200 truncation
+            std::string limitParam = req.has_param("limit") ? req.get_param_value("limit") : "";
+            int page = 1;
+            int pageSize = 50;
+            try { if (req.has_param("page")) page = std::max(1, std::stoi(req.get_param_value("page"))); } catch (...) {}
+            try { if (req.has_param("page_size")) pageSize = std::max(10, std::min(500, std::stoi(req.get_param_value("page_size")))); } catch (...) {}
+            bool fetchAll = (limitParam == "all");
+            int64_t totalRecords = db.queryScalar("SELECT COUNT(*) FROM attendances " + whereSql, params).get<int64_t>();
+            std::string limitClause = fetchAll ? " LIMIT 5000" : (" LIMIT " + std::to_string(pageSize) + " OFFSET " + std::to_string((page - 1) * pageSize));
+
             json records = db.query(
                 "SELECT id, user_id, user_name, user_code, user_role, work_date, check_in_time, check_out_time, "
-                "work_hours, hourly_rate, total_pay, status, device_info, note "
-                "FROM attendances " + whereSql + " ORDER BY id DESC LIMIT 200",
+                "work_hours, COALESCE(regular_hours, 0) as regular_hours, COALESCE(overtime_hours, 0) as overtime_hours, "
+                "COALESCE(overtime_multiplier, 1.0) as overtime_multiplier, COALESCE(overtime_pay, 0) as overtime_pay, "
+                "COALESCE(is_overtime_approved, 0) as is_overtime_approved, COALESCE(shift_type, 'regular') as shift_type, "
+                "COALESCE(last_heartbeat_at, '') as last_heartbeat_at, "
+                "COALESCE(source, 'auto_login') as source, COALESCE(device_name, '') as device_name, "
+                "COALESCE(verify_mode, '') as verify_mode, COALESCE(photo_path, '') as photo_path, "
+                "hourly_rate, total_pay, status, device_info, note "
+                "FROM attendances " + whereSql + " ORDER BY id DESC" + limitClause,
                 params
             );
             for (auto& rec : records) {
                 if (rec.value("status", "") == "working") {
-                    double hrs = calcHoursBetween(rec.value("check_in_time", ""), nowTs);
-                    double rate = rec.value("hourly_rate", 0.0);
+                    bool isOt = (rec.value("is_overtime_approved", 0) == 1) || (rec.value("shift_type", "regular") == "overtime");
+                    double hrs = 0.0, rh = 0.0, oh = 0.0, om = 1.0, op = 0.0, pay = 0.0;
+                    computeAttendancePay(cfg, rec.value("check_in_time", ""), nowTs, rec.value("hourly_rate", 0.0), isOt, rec.value("overtime_multiplier", 1.0), hrs, rh, oh, om, op, pay);
                     rec["work_hours"] = hrs;
-                    rec["total_pay"] = std::round(hrs * rate);
+                    rec["regular_hours"] = rh;
+                    rec["overtime_hours"] = oh;
+                    rec["overtime_multiplier"] = om;
+                    rec["overtime_pay"] = op;
+                    rec["total_pay"] = pay;
                 }
             }
 
             sendJson(res, {
                 {"success", true},
+                {"month", month},
                 {"total_company_hours", std::round(totalCompanyHours * 100.0) / 100.0},
+                {"total_company_ot_hours", std::round(totalCompanyOtHours * 100.0) / 100.0},
                 {"total_company_salary", std::round(totalCompanySalary)},
                 {"payroll_summary", payrollSummary},
-                {"attendance_records", records}
+                {"attendance_records", records},
+                {"total_records", totalRecords},
+                {"page", fetchAll ? 1 : page},
+                {"page_size", fetchAll ? static_cast<int>(totalRecords) : pageSize},
+                {"cycle", cycleRow.is_null() ? json(nullptr) : cycleRow}
             });
             return;
         }
@@ -5922,7 +7132,17 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                     {"shift2_start", cfg.s2Start},
                     {"shift2_end", cfg.s2End},
                     {"shift_grace_minutes", cfg.graceMinutes},
-                    {"shift_autoclose_enabled", cfg.autoClose ? 1 : 0}
+                    {"shift_autoclose_enabled", cfg.autoClose ? 1 : 0},
+                    {"shift_disconnect_timeout_minutes", cfg.disconnectTimeoutMinutes},
+                    {"overtime_enabled", cfg.overtimeEnabled ? 1 : 0},
+                    {"ot_weekday_rate", cfg.otWeekdayRate},
+                    {"ot_weekend_rate", cfg.otWeekendRate},
+                    {"ot_holiday_rate", cfg.otHolidayRate},
+                    {"night_shift_bonus_pct", cfg.nightBonusPct},
+                    {"standard_daily_hours", cfg.standardDailyHours},
+                    {"allow_overnight_shift", cfg.allowOvernightShift ? 1 : 0},
+                    {"pos_blind_handover", cfg.posBlindHandover ? 1 : 0},
+                    {"kpi_point_value_vnd", cfg.kpiPointValueVnd}
                 }}
             });
             return;
@@ -5934,6 +7154,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
             int64_t matId = body.value("material_id", 0);
             std::string type = body.value("trans_type", "in"); // in, out, loss
+            std::string dbType = (type == "in") ? "import" : type;
             double qty = body.value("quantity", 0.0);
             double price = body.value("unit_price", 0.0);
             std::string note = body.value("note", "");
@@ -5947,14 +7168,14 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             std::string matName = mat.value("name", "");
             std::string unit = mat.value("unit", "kg");
             double currentQty = mat.value("quantity", 0.0);
-            double newQty = (type == "in") ? (currentQty + qty) : (currentQty - qty);
+            double newQty = (type == "in" || type == "import") ? (currentQty + qty) : (currentQty - qty);
 
             db.beginTransaction();
             db.execute(R"(
                 INSERT INTO material_transactions (material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, note)
                 VALUES (:id, :name, :type, :qty, :unit, :price, :cost, :note)
             )", {
-                {":id", matId}, {":name", matName}, {":type", type},
+                {":id", matId}, {":name", matName}, {":type", dbType},
                 {":qty", qty}, {":unit", unit}, {":price", price},
                 {":cost", qty * price}, {":note", note}
             });
@@ -5963,6 +7184,40 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             db.commit();
 
             sendJson(res, {{"success", true}, {"message", "Ghi nhận phiếu kho thành công!"}, {"new_quantity", newQty}});
+            return;
+        }
+        if (action == "get_recipes") {
+            ensureInventoryRecipeSchema(db);
+            int64_t prodId = 0;
+            try { prodId = std::stoll(BodyParser::getParam(req, body, "product_id", "0")); } catch (...) {}
+            if (prodId <= 0) {
+                auto all = db.query("SELECT pr.*, m.name as material_name, m.unit FROM product_recipes pr JOIN materials m ON m.id = pr.material_id ORDER BY pr.product_id ASC");
+                sendJson(res, {{"success", true}, {"data", all}});
+                return;
+            }
+            auto rows = db.query("SELECT pr.*, m.name as material_name, m.unit FROM product_recipes pr JOIN materials m ON m.id = pr.material_id WHERE pr.product_id = :pid ORDER BY m.name ASC", {{":pid", prodId}});
+            sendJson(res, {{"success", true}, {"data", rows}});
+            return;
+        }
+        if (action == "save_recipes") {
+            if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
+            ensureInventoryRecipeSchema(db);
+            int64_t prodId = body.value("product_id", int64_t(0));
+            if (prodId <= 0) { sendError(res, "Thiếu product_id!"); return; }
+            db.beginTransaction();
+            db.execute("DELETE FROM product_recipes WHERE product_id = :pid", {{":pid", prodId}});
+            if (body.contains("items") && body["items"].is_array()) {
+                for (const auto& it : body["items"]) {
+                    int64_t matId = it.value("material_id", int64_t(0));
+                    double qtyPerUnit = it.value("quantity_per_unit", 0.0);
+                    if (matId > 0 && qtyPerUnit > 0.0) {
+                        db.execute("INSERT INTO product_recipes (product_id, material_id, quantity_per_unit) VALUES (:pid, :mid, :q)",
+                                   {{":pid", prodId}, {":mid", matId}, {":q", qtyPerUnit}});
+                    }
+                }
+            }
+            db.commit();
+            sendJson(res, {{"success", true}, {"message", "Đã lưu định lượng công thức cho món!"}});
             return;
         }
         if (action == "manual_checkout") {
@@ -6017,6 +7272,12 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                     {{":k", k}, {":v", v}}
                 );
             };
+            auto boolFlag = [&](const char* key, int defVal) -> int {
+                if (!body.contains(key)) return defVal;
+                if (body[key].is_boolean()) return body[key].get<bool>() ? 1 : 0;
+                if (body[key].is_number()) return (body[key].get<int>() != 0) ? 1 : 0;
+                return (body.value(key, std::string(defVal ? "1" : "0")) != "0") ? 1 : 0;
+            };
             db.beginTransaction();
             upsert("shift1_name", body.value("shift1_name", std::string("Ca 1 (Ca Sáng)")));
             upsert("shift1_start", body.value("shift1_start", std::string("06:30")));
@@ -6024,19 +7285,478 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             upsert("shift2_name", body.value("shift2_name", std::string("Ca 2 (Ca Chiều / Tối)")));
             upsert("shift2_start", body.value("shift2_start", std::string("12:30")));
             upsert("shift2_end", body.value("shift2_end", std::string("22:30")));
-            int grace = body.value("shift_grace_minutes", 15);
-            upsert("shift_grace_minutes", std::to_string(std::max(0, grace)));
-            int autoClose = 1;
-            if (body.contains("shift_autoclose_enabled")) {
-                if (body["shift_autoclose_enabled"].is_boolean()) {
-                    autoClose = body["shift_autoclose_enabled"].get<bool>() ? 1 : 0;
+            upsert("shift_grace_minutes", std::to_string(std::max(0, body.value("shift_grace_minutes", 15))));
+            upsert("shift_autoclose_enabled", std::to_string(boolFlag("shift_autoclose_enabled", 1)));
+            upsert("shift_disconnect_timeout_minutes", std::to_string(std::max(5, body.value("shift_disconnect_timeout_minutes", 30))));
+            upsert("overtime_enabled", std::to_string(boolFlag("overtime_enabled", 1)));
+            upsert("ot_weekday_rate", std::to_string(std::max(1.0, body.value("ot_weekday_rate", 1.5))));
+            upsert("ot_weekend_rate", std::to_string(std::max(1.0, body.value("ot_weekend_rate", 2.0))));
+            upsert("ot_holiday_rate", std::to_string(std::max(1.0, body.value("ot_holiday_rate", 3.0))));
+            upsert("night_shift_bonus_pct", std::to_string(std::max(0.0, body.value("night_shift_bonus_pct", 0.3))));
+            upsert("standard_daily_hours", std::to_string(std::max(1.0, body.value("standard_daily_hours", 8.0))));
+            upsert("allow_overnight_shift", std::to_string(boolFlag("allow_overnight_shift", 0)));
+            upsert("pos_blind_handover", std::to_string(boolFlag("pos_blind_handover", 0)));
+            upsert("kpi_point_value_vnd", std::to_string(std::max(0.0, body.value("kpi_point_value_vnd", 5000.0))));
+            db.commit();
+            sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình ca làm việc, Tăng Ca (OT) & Blind Handover!"}});
+            return;
+        }
+        if (action == "approve_overtime") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được duyệt Tăng Ca (OT)!", 403);
+                return;
+            }
+            int64_t attId = body.value("attendance_id", int64_t(0));
+            bool approved = body.value("approved", true);
+            ShiftCfg cfg = loadShiftCfg(db);
+            double mult = body.value("overtime_multiplier", 0.0);
+            if (mult < 1.0) mult = cfg.otWeekdayRate;
+            if (!approved) mult = 1.0;
+
+            auto row = db.queryRow("SELECT * FROM attendances WHERE id = :id", {{":id", attId}});
+            if (row.is_null()) { sendError(res, "Không tìm thấy lượt chấm công!", 404); return; }
+            std::string monthKey = row.value("work_date", "").substr(0, 7);
+            auto cyc = db.queryRow("SELECT status FROM payroll_cycles WHERE month_key = :m", {{":m", monthKey}});
+            if (!cyc.is_null() && cyc.value("status", "draft") != "draft") {
+                sendError(res, "Kỳ lương tháng " + monthKey + " đã khóa sổ/chi trả, không thể thay đổi OT!", 400);
+                return;
+            }
+
+            db.execute(
+                "UPDATE attendances SET is_overtime_approved = :app, shift_type = :st, overtime_multiplier = :om, approved_by = :ab WHERE id = :id",
+                {{":app", approved ? 1 : 0}, {":st", approved ? "overtime" : "regular"}, {":om", mult}, {":ab", approved ? userOpt->fullname : ""}, {":id", attId}}
+            );
+            if (row.value("status", "") == "completed") {
+                closeStaffAttendance(db, attId, row.value("check_out_time", ""), row.value("note", ""));
+            }
+            try {
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('OVERTIME_APPROVE', :albl, 'INFO', :oid, :unm, 'NHÂN SỰ OT', :mult, :rsn, :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":albl", approved ? "Duyệt Tăng Ca (OT)" : "Hủy duyệt Tăng Ca (OT)"},
+                    {":oid", attId}, {":unm", row.value("user_name", "")}, {":mult", mult},
+                    {":rsn", approved ? ("Hệ số OT x" + std::to_string(mult)) : "Chuyển về ca thường"},
+                    {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":urole", userOpt->role},
+                    {":dtl", "Attendance ID #" + std::to_string(attId)}, {":cat", getCurrentTimestamp()}
+                });
+            } catch (...) {}
+            sendJson(res, {{"success", true}, {"message", approved ? "Đã bật duyệt Tăng Ca (OT) cho nhân viên!" : "Đã tắt chế độ OT, trở về ca thường!"}});
+            return;
+        }
+        if (action == "save_attendance_record") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được sửa/thêm công!", 403);
+                return;
+            }
+            int64_t attId = body.value("id", int64_t(0));
+            int64_t uid = body.value("user_id", int64_t(0));
+            std::string workDate = body.value("work_date", "");
+            std::string checkIn = body.value("check_in_time", "");
+            std::string checkOut = body.value("check_out_time", "");
+            std::string reason = body.value("edit_reason", body.value("note", ""));
+            bool isOtApproved = body.value("is_overtime_approved", false);
+            double otMult = body.value("overtime_multiplier", 1.5);
+            if (reason.empty()) {
+                sendError(res, "Vui lòng nhập lý do chỉnh sửa/bổ sung công (bắt buộc cho Audit Log)!", 400);
+                return;
+            }
+            if (checkIn.empty() || workDate.size() < 7) {
+                sendError(res, "Thiếu Ngày làm hoặc Giờ vào hợp lệ!", 400);
+                return;
+            }
+            if (!checkOut.empty() && parseTimestampLocal(checkOut) < parseTimestampLocal(checkIn)) {
+                sendError(res, "Giờ ra (Check-out) phải sau Giờ vào (Check-in)!", 400);
+                return;
+            }
+
+            std::string monthKey = workDate.substr(0, 7);
+            auto cyc = db.queryRow("SELECT status FROM payroll_cycles WHERE month_key = :m", {{":m", monthKey}});
+            if (!cyc.is_null() && cyc.value("status", "draft") != "draft") {
+                sendError(res, "Kỳ lương tháng " + monthKey + " đã khóa sổ/chi trả, không được sửa công!", 400);
+                return;
+            }
+
+            ShiftCfg cfg = loadShiftCfg(db);
+            double rate = body.value("hourly_rate", 0.0);
+            std::string stype = isOtApproved ? "overtime" : "regular";
+            if (!isOtApproved) otMult = 1.0;
+
+            if (attId > 0) {
+                auto oldRow = db.queryRow("SELECT * FROM attendances WHERE id = :id", {{":id", attId}});
+                if (oldRow.is_null()) { sendError(res, "Không tìm thấy bản ghi công!", 404); return; }
+                std::string oldMonth = oldRow.value("work_date", "").substr(0, 7);
+                auto oldCyc = db.queryRow("SELECT status FROM payroll_cycles WHERE month_key = :m", {{":m", oldMonth}});
+                if (!oldCyc.is_null() && oldCyc.value("status", "draft") != "draft") {
+                    sendError(res, "Kỳ lương tháng " + oldMonth + " đã khóa sổ, không được sửa công!", 400);
+                    return;
+                }
+                if (rate <= 0.0) rate = oldRow.value("hourly_rate", 25000.0);
+
+                double hrs = 0.0, rh = 0.0, oh = 0.0, om = otMult, op = 0.0, pay = 0.0;
+                std::string st = checkOut.empty() ? "working" : "completed";
+                if (!checkOut.empty()) {
+                    computeAttendancePay(cfg, checkIn, checkOut, rate, isOtApproved, otMult, hrs, rh, oh, om, op, pay);
+                }
+                db.execute(R"(
+                    UPDATE attendances SET work_date = :wd, check_in_time = :cin, check_out_time = :cout,
+                        hourly_rate = :rate, work_hours = :hrs, regular_hours = :rh, overtime_hours = :oh,
+                        overtime_multiplier = :om, overtime_pay = :op, total_pay = :pay, status = :st,
+                        shift_type = :stype, is_overtime_approved = :otapp, note = :nt
+                    WHERE id = :id
+                )", {
+                    {":wd", workDate}, {":cin", checkIn}, {":cout", checkOut.empty() ? json(nullptr) : json(checkOut)},
+                    {":rate", rate}, {":hrs", hrs}, {":rh", rh}, {":oh", oh}, {":om", om}, {":op", op},
+                    {":pay", pay}, {":st", st}, {":stype", stype}, {":otapp", isOtApproved ? 1 : 0},
+                    {":nt", reason}, {":id", attId}
+                });
+                try {
+                    db.execute(R"(
+                        INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                        VALUES ('ATTENDANCE_EDIT', 'Sửa giờ chấm công nhân viên', 'WARN', :oid, :unm, 'BẢNG CÔNG', :pay, :rsn, :uid, :uname, :urole, :dtl, :cat)
+                    )", {
+                        {":oid", attId}, {":unm", oldRow.value("user_name", "")}, {":pay", pay}, {":rsn", reason},
+                        {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":urole", userOpt->role},
+                        {":dtl", "Cũ: " + oldRow.value("check_in_time", "") + " -> " + oldRow.value("check_out_time", "---") + " | Mới: " + checkIn + " -> " + (checkOut.empty() ? "---" : checkOut)},
+                        {":cat", getCurrentTimestamp()}
+                    });
+                } catch (...) {}
+                sendJson(res, {{"success", true}, {"message", "Đã cập nhật lượt chấm công & ghi Audit Log!"}});
+            } else {
+                auto u = db.queryRow("SELECT id, username, fullname, user_code, role, COALESCE(hourly_rate, 25000) as hourly_rate FROM users WHERE id = :id", {{":id", uid}});
+                if (u.is_null()) { sendError(res, "Vui lòng chọn nhân viên hợp lệ!", 400); return; }
+                if (rate <= 0.0) rate = u.value("hourly_rate", 25000.0);
+                double hrs = 0.0, rh = 0.0, oh = 0.0, om = otMult, op = 0.0, pay = 0.0;
+                std::string st = checkOut.empty() ? "working" : "completed";
+                if (!checkOut.empty()) {
+                    computeAttendancePay(cfg, checkIn, checkOut, rate, isOtApproved, otMult, hrs, rh, oh, om, op, pay);
+                }
+                int64_t newAttId = db.execute(R"(
+                    INSERT INTO attendances (user_id, user_name, user_code, user_role, work_date, check_in_time, check_out_time,
+                        hourly_rate, work_hours, regular_hours, overtime_hours, overtime_multiplier, overtime_pay, total_pay,
+                        status, device_info, last_heartbeat_at, shift_type, is_overtime_approved, approved_by, note)
+                    VALUES (:uid, :uname, :ucode, :urole, :wd, :cin, :cout, :rate, :hrs, :rh, :oh, :om, :op, :pay, :st, 'Admin Manual', :hb, :stype, :otapp, :ab, :nt)
+                )", {
+                    {":uid", uid}, {":uname", u.value("fullname", u.value("username", ""))},
+                    {":ucode", u.value("user_code", "")}, {":urole", u.value("role", "cashier")},
+                    {":wd", workDate}, {":cin", checkIn}, {":cout", checkOut.empty() ? json(nullptr) : json(checkOut)},
+                    {":rate", rate}, {":hrs", hrs}, {":rh", rh}, {":oh", oh}, {":om", om}, {":op", op},
+                    {":pay", pay}, {":st", st}, {":hb", checkIn}, {":stype", stype},
+                    {":otapp", isOtApproved ? 1 : 0}, {":ab", userOpt->fullname}, {":nt", reason}
+                });
+                try {
+                    db.execute(R"(
+                        INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                        VALUES ('ATTENDANCE_ADD', 'Bổ sung công thủ công', 'WARN', :oid, :unm, 'BẢNG CÔNG', :pay, :rsn, :uid, :uname, :urole, :dtl, :cat)
+                    )", {
+                        {":oid", newAttId}, {":unm", u.value("fullname", u.value("username", ""))}, {":pay", pay}, {":rsn", reason},
+                        {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":urole", userOpt->role},
+                        {":dtl", workDate + " " + checkIn + " -> " + (checkOut.empty() ? "---" : checkOut)},
+                        {":cat", getCurrentTimestamp()}
+                    });
+                } catch (...) {}
+                sendJson(res, {{"success", true}, {"id", newAttId}, {"message", "Đã thêm công bổ sung & ghi Audit Log!"}});
+            }
+            return;
+        }
+        if (action == "delete_attendance_record") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được xóa lượt chấm công!", 403);
+                return;
+            }
+            int64_t attId = body.value("id", int64_t(0));
+            std::string reason = body.value("edit_reason", body.value("reason", ""));
+            if (reason.empty()) {
+                sendError(res, "Vui lòng nhập lý do xóa lượt công!", 400);
+                return;
+            }
+            auto row = db.queryRow("SELECT * FROM attendances WHERE id = :id", {{":id", attId}});
+            if (row.is_null()) { sendError(res, "Không tìm thấy bản ghi công!", 404); return; }
+            std::string monthKey = row.value("work_date", "").substr(0, 7);
+            auto cyc = db.queryRow("SELECT status FROM payroll_cycles WHERE month_key = :m", {{":m", monthKey}});
+            if (!cyc.is_null() && cyc.value("status", "draft") != "draft") {
+                sendError(res, "Kỳ lương tháng " + monthKey + " đã khóa sổ, không được xóa công!", 400);
+                return;
+            }
+            db.execute("DELETE FROM attendances WHERE id = :id", {{":id", attId}});
+            try {
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('ATTENDANCE_DELETE', 'Xóa lượt chấm công', 'CRITICAL', :oid, :unm, 'BẢNG CÔNG', :pay, :rsn, :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":oid", attId}, {":unm", row.value("user_name", "")}, {":pay", row.value("total_pay", 0.0)}, {":rsn", reason},
+                    {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":urole", userOpt->role},
+                    {":dtl", row.value("work_date", "") + " " + row.value("check_in_time", "") + " -> " + row.value("check_out_time", "")},
+                    {":cat", getCurrentTimestamp()}
+                });
+            } catch (...) {}
+            sendJson(res, {{"success", true}, {"message", "Đã xóa lượt công & ghi Audit Log!"}});
+            return;
+        }
+        if (action == "save_payroll_cycle") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được quản lý kỳ lương!", 403);
+                return;
+            }
+            std::string month = body.value("month", getCurrentDate().substr(0, 7));
+            if (month.size() < 7) month = getCurrentDate().substr(0, 7);
+            month = month.substr(0, 7);
+            std::string monthPrefix = month + "%";
+
+            auto existingCyc = db.queryRow("SELECT * FROM payroll_cycles WHERE month_key = :m", {{":m", month}});
+            if (!existingCyc.is_null() && existingCyc.value("status", "draft") != "draft") {
+                sendError(res, "Kỳ lương tháng " + month + " đã khóa sổ/thanh toán!", 400);
+                return;
+            }
+
+            if (existingCyc.is_null()) {
+                db.execute("INSERT INTO payroll_cycles (month_key, status, note) VALUES (:m, 'draft', :nt)",
+                           {{":m", month}, {":nt", body.value("note", "")}});
+                existingCyc = db.queryRow("SELECT * FROM payroll_cycles WHERE month_key = :m", {{":m", month}});
+            }
+            int64_t cycleId = existingCyc.value("id", int64_t(0));
+            ShiftCfg cfg = loadShiftCfg(db);
+
+            // Optional direct per-user adjustment
+            int64_t editUid = body.value("user_id", int64_t(0));
+            if (editUid > 0) {
+                auto exIt = db.queryRow("SELECT * FROM payroll_items WHERE month_key = :m AND user_id = :u", {{":m", month}, {":u", editUid}});
+                double kpiBonus = body.value("kpi_bonus", exIt.is_null() ? 0.0 : exIt.value("kpi_bonus", 0.0));
+                double allowance = body.value("allowance", exIt.is_null() ? 0.0 : exIt.value("allowance", 0.0));
+                double advDed = body.value("advance_deduction", exIt.is_null() ? 0.0 : exIt.value("advance_deduction", 0.0));
+                double penalty = body.value("penalty", exIt.is_null() ? 0.0 : exIt.value("penalty", 0.0));
+                std::string itNote = body.value("note", exIt.is_null() ? "" : exIt.value("note", ""));
+                if (exIt.is_null()) {
+                    auto uRow = db.queryRow("SELECT user_code, fullname, username, role, COALESCE(hourly_rate, 25000) as hourly_rate FROM users WHERE id = :u", {{":u", editUid}});
+                    std::string uname = uRow.is_null() ? "" : (uRow.value("fullname", "").empty() ? uRow.value("username", "") : uRow.value("fullname", ""));
+                    db.execute(R"(
+                        INSERT INTO payroll_items (cycle_id, month_key, user_id, user_code, user_name, user_role, hourly_rate, kpi_bonus, allowance, advance_deduction, penalty, net_pay, note)
+                        VALUES (:cid, :m, :u, :uc, :un, :ur, :hr, :kb, :al, :ad, :pn, 0, :nt)
+                    )", {
+                        {":cid", cycleId}, {":m", month}, {":u", editUid},
+                        {":uc", uRow.is_null() ? "" : uRow.value("user_code", "")}, {":un", uname},
+                        {":ur", uRow.is_null() ? "" : uRow.value("role", "")},
+                        {":hr", uRow.is_null() ? 25000.0 : uRow.value("hourly_rate", 25000.0)},
+                        {":kb", kpiBonus}, {":al", allowance}, {":ad", advDed}, {":pn", penalty}, {":nt", itNote}
+                    });
                 } else {
-                    autoClose = body.value("shift_autoclose_enabled", 1) ? 1 : 0;
+                    db.execute("UPDATE payroll_items SET kpi_bonus = :kb, allowance = :al, advance_deduction = :ad, penalty = :pn, note = :nt WHERE month_key = :m AND user_id = :u",
+                               {{":kb", kpiBonus}, {":al", allowance}, {":ad", advDed}, {":pn", penalty}, {":nt", itNote}, {":m", month}, {":u", editUid}});
                 }
             }
-            upsert("shift_autoclose_enabled", std::to_string(autoClose));
+
+            // Recompute payroll_items from live attendances + kpi_logs
+            std::string nowTs = getCurrentTimestamp();
+            json users = db.query(
+                "SELECT id, user_code, fullname, username, role, hourly_rate FROM users "
+                "WHERE status = 'active' OR id IN (SELECT DISTINCT user_id FROM attendances WHERE work_date LIKE :mp) ORDER BY id ASC",
+                {{":mp", monthPrefix}}
+            );
+            json monthAtts = db.query(
+                "SELECT user_id, work_date, check_in_time, work_hours, COALESCE(regular_hours, 0) as regular_hours, COALESCE(overtime_hours, 0) as overtime_hours, "
+                "COALESCE(overtime_multiplier, 1.0) as overtime_multiplier, COALESCE(overtime_pay, 0) as overtime_pay, "
+                "COALESCE(is_overtime_approved, 0) as is_overtime_approved, COALESCE(shift_type, 'regular') as shift_type, hourly_rate, total_pay, status "
+                "FROM attendances WHERE work_date LIKE :mp",
+                {{":mp", monthPrefix}}
+            );
+            std::map<int64_t, int> kpiMap;
+            try {
+                json kRows = db.query("SELECT user_id, COALESCE(SUM(points_delta), 0) as pts FROM kpi_logs WHERE substr(created_at, 1, 7) = :m GROUP BY user_id", {{":m", month}});
+                for (const auto& kr : kRows) kpiMap[kr.value("user_id", int64_t(0))] = kr.value("pts", 0);
+            } catch (...) {}
+
+            struct SyncAgg { double regH = 0, otH = 0, baseP = 0, otP = 0, totP = 0; std::map<std::string, int> dCnt; };
+            std::map<int64_t, SyncAgg> aggM;
+            for (const auto& a : monthAtts) {
+                int64_t uid = a.value("user_id", int64_t(0));
+                double hrs = a.value("work_hours", 0.0), regH = a.value("regular_hours", 0.0), otH = a.value("overtime_hours", 0.0), otP = a.value("overtime_pay", 0.0), pay = a.value("total_pay", 0.0);
+                if (a.value("status", "") == "working") {
+                    bool isOt = (a.value("is_overtime_approved", 0) == 1) || (a.value("shift_type", "regular") == "overtime");
+                    double om = 1.0;
+                    computeAttendancePay(cfg, a.value("check_in_time", ""), nowTs, a.value("hourly_rate", 0.0), isOt, a.value("overtime_multiplier", 1.0), hrs, regH, otH, om, otP, pay);
+                } else if (regH <= 0.0 && otH <= 0.0 && hrs > 0.0) {
+                    regH = hrs;
+                }
+                auto& ag = aggM[uid];
+                ag.regH += regH; ag.otH += otH; ag.otP += otP; ag.baseP += std::max(0.0, pay - otP); ag.totP += pay;
+                std::string wd = a.value("work_date", "");
+                if (!wd.empty()) ag.dCnt[wd]++;
+            }
+
+            double totHours = 0, totOtHours = 0, totGross = 0, totNet = 0;
+            int staffCnt = 0;
+            db.beginTransaction();
+            for (const auto& u : users) {
+                int64_t uid = u.value("id", int64_t(0));
+                std::string fullname = u.value("fullname", "").empty() ? u.value("username", "") : u.value("fullname", "");
+                const auto& ag = aggM[uid];
+                int shifts = 0;
+                for (const auto& kv : ag.dCnt) shifts += std::min(kv.second, 2);
+                double regH = std::round(ag.regH * 100.0) / 100.0;
+                double otH = std::round(ag.otH * 100.0) / 100.0;
+                double baseP = std::round(ag.baseP);
+                double otP = std::round(ag.otP);
+                int kpiPts = kpiMap.count(uid) ? kpiMap[uid] : 0;
+
+                auto exIt = db.queryRow("SELECT * FROM payroll_items WHERE month_key = :m AND user_id = :u", {{":m", month}, {":u", uid}});
+                double kpiBonus = exIt.is_null() ? ((kpiPts > 0) ? std::round(kpiPts * cfg.kpiPointValueVnd) : 0.0) : exIt.value("kpi_bonus", 0.0);
+                double allowance = exIt.is_null() ? 0.0 : exIt.value("allowance", 0.0);
+                double advDed = exIt.is_null() ? 0.0 : exIt.value("advance_deduction", 0.0);
+                double penalty = exIt.is_null() ? 0.0 : exIt.value("penalty", 0.0);
+                std::string itNote = exIt.is_null() ? "" : exIt.value("note", "");
+                double netP = std::max(0.0, std::round(baseP + otP + kpiBonus + allowance - advDed - penalty));
+
+                db.execute(R"(
+                    INSERT INTO payroll_items (cycle_id, month_key, user_id, user_code, user_name, user_role, hourly_rate, total_shifts, regular_hours, overtime_hours, base_pay, overtime_pay, kpi_score, kpi_bonus, allowance, advance_deduction, penalty, net_pay, note)
+                    VALUES (:cid, :m, :u, :uc, :un, :ur, :hr, :ts, :rh, :oh, :bp, :op, :ks, :kb, :al, :ad, :pn, :np, :nt)
+                    ON CONFLICT(month_key, user_id) DO UPDATE SET
+                        cycle_id = excluded.cycle_id, user_code = excluded.user_code, user_name = excluded.user_name,
+                        user_role = excluded.user_role, hourly_rate = excluded.hourly_rate, total_shifts = excluded.total_shifts,
+                        regular_hours = excluded.regular_hours, overtime_hours = excluded.overtime_hours,
+                        base_pay = excluded.base_pay, overtime_pay = excluded.overtime_pay, kpi_score = excluded.kpi_score,
+                        kpi_bonus = excluded.kpi_bonus, allowance = excluded.allowance, advance_deduction = excluded.advance_deduction,
+                        penalty = excluded.penalty, net_pay = excluded.net_pay, note = excluded.note
+                )", {
+                    {":cid", cycleId}, {":m", month}, {":u", uid}, {":uc", u.value("user_code", "")},
+                    {":un", fullname}, {":ur", u.value("role", "")}, {":hr", u.value("hourly_rate", 0.0)},
+                    {":ts", shifts}, {":rh", regH}, {":oh", otH}, {":bp", baseP}, {":op", otP},
+                    {":ks", kpiPts}, {":kb", kpiBonus}, {":al", allowance}, {":ad", advDed}, {":pn", penalty},
+                    {":np", netP}, {":nt", itNote}
+                });
+
+                staffCnt++;
+                totHours += regH + otH;
+                totOtHours += otH;
+                totGross += baseP + otP;
+                totNet += netP;
+            }
+            db.execute(R"(
+                UPDATE payroll_cycles SET total_staff = :ts, total_hours = :th, total_overtime_hours = :toh,
+                    total_gross = :tg, total_net = :tn, updated_at = :ua WHERE month_key = :m
+            )", {
+                {":ts", staffCnt}, {":th", std::round(totHours * 100.0) / 100.0},
+                {":toh", std::round(totOtHours * 100.0) / 100.0},
+                {":tg", std::round(totGross)}, {":tn", std::round(totNet)},
+                {":ua", nowTs}, {":m", month}
+            });
             db.commit();
-            sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình khung giờ ca!"}});
+            sendJson(res, {{"success", true}, {"message", "Đã chốt/cập nhật bảng lương nháp tháng " + month + "!"}, {"total_net", std::round(totNet)}});
+            return;
+        }
+        if (action == "lock_payroll_cycle") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được khóa sổ kỳ lương!", 403);
+                return;
+            }
+            std::string month = body.value("month", getCurrentDate().substr(0, 7)).substr(0, 7);
+            auto cyc = db.queryRow("SELECT * FROM payroll_cycles WHERE month_key = :m", {{":m", month}});
+            if (cyc.is_null()) {
+                sendError(res, "Vui lòng bấm Chốt / Cập nhật kỳ lương nháp trước khi khóa sổ!", 400);
+                return;
+            }
+            if (cyc.value("status", "draft") == "paid") {
+                sendError(res, "Kỳ lương tháng " + month + " đã xác nhận chi trả!", 400);
+                return;
+            }
+            std::string nowTs = getCurrentTimestamp();
+            db.execute("UPDATE payroll_cycles SET status = 'locked', locked_by = :lb, locked_at = :la, updated_at = :la WHERE month_key = :m",
+                       {{":lb", userOpt->fullname}, {":la", nowTs}, {":m", month}});
+            try {
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('PAYROLL_LOCK', 'Khóa sổ kỳ lương tháng', 'INFO', 0, :m, 'BẢNG LƯƠNG', :tn, 'Khóa sổ công & lương', :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":m", month}, {":tn", cyc.value("total_net", 0.0)}, {":uid", userOpt->id},
+                    {":uname", userOpt->fullname}, {":urole", userOpt->role},
+                    {":dtl", "Khóa kỳ " + month + " (" + std::to_string(cyc.value("total_staff", 0)) + " NV)"},
+                    {":cat", nowTs}
+                });
+            } catch (...) {}
+            sendJson(res, {{"success", true}, {"message", "Đã khóa sổ kỳ lương tháng " + month + "!"}});
+            return;
+        }
+        if (action == "unlock_payroll_cycle") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được mở khóa kỳ lương!", 403);
+                return;
+            }
+            std::string month = body.value("month", getCurrentDate().substr(0, 7)).substr(0, 7);
+            auto cyc = db.queryRow("SELECT * FROM payroll_cycles WHERE month_key = :m", {{":m", month}});
+            if (cyc.is_null() || cyc.value("status", "draft") == "paid") {
+                sendError(res, "Không thể mở khóa kỳ lương đã chi trả hoặc chưa tồn tại!", 400);
+                return;
+            }
+            db.execute("UPDATE payroll_cycles SET status = 'draft', updated_at = :ua WHERE month_key = :m",
+                       {{":ua", getCurrentTimestamp()}, {":m", month}});
+            sendJson(res, {{"success", true}, {"message", "Đã mở khóa kỳ lương tháng " + month + " về trạng thái Nháp!"}});
+            return;
+        }
+        if (action == "mark_payroll_paid") {
+            if (!requireModule(res, "staff_shifts", "Nhân Viên, Phân Ca & Chấm Công")) return;
+            ensureHrPayrollSchema(db);
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được xác nhận chi lương!", 403);
+                return;
+            }
+            std::string month = body.value("month", getCurrentDate().substr(0, 7)).substr(0, 7);
+            std::string paidMethod = body.value("paid_method", "banking");
+            auto cyc = db.queryRow("SELECT * FROM payroll_cycles WHERE month_key = :m", {{":m", month}});
+            if (cyc.is_null()) {
+                sendError(res, "Chưa có dữ liệu kỳ lương tháng " + month + " để chi trả!", 400);
+                return;
+            }
+            if (cyc.value("status", "draft") == "paid") {
+                sendError(res, "Kỳ lương tháng " + month + " đã được xác nhận chi trả trước đó!", 400);
+                return;
+            }
+            double totalNet = cyc.value("total_net", 0.0);
+            std::string nowTs = getCurrentTimestamp();
+            db.beginTransaction();
+            db.execute("UPDATE payroll_cycles SET status = 'paid', paid_by = :pb, paid_at = :pa, locked_by = CASE WHEN locked_by = '' THEN :pb ELSE locked_by END, locked_at = CASE WHEN locked_at = '' THEN :pa ELSE locked_at END, updated_at = :pa WHERE month_key = :m",
+                       {{":pb", userOpt->fullname}, {":pa", nowTs}, {":m", month}});
+            db.execute("UPDATE payroll_items SET is_paid = 1, paid_at = :pa, paid_method = :pm WHERE month_key = :m",
+                       {{":pa", nowTs}, {":pm", paidMethod}, {":m", month}});
+            if (totalNet > 0.0) {
+                db.execute(R"(
+                    INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, payment_status, source, created_by, created_at)
+                    VALUES (:d, 'Lương', :desc, 'Bảng lương tháng', :amt, 0, 'paid', 'payroll_payout', :cb, :ca)
+                )", {
+                    {":d", getCurrentDate()}, {":desc", "Chi trả kỳ lương tháng " + month},
+                    {":amt", totalNet}, {":cb", userOpt->fullname}, {":ca", nowTs}
+                });
+            }
+            try {
+                db.execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('PAYROLL_PAID', 'Xác nhận chi trả lương tháng', 'INFO', 0, :m, 'SỔ QUỸ LƯƠNG', :amt, :pm, :uid, :uname, :urole, :dtl, :cat)
+                )", {
+                    {":m", month}, {":amt", totalNet}, {":pm", "Phương thức: " + paidMethod},
+                    {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":urole", userOpt->role},
+                    {":dtl", "Chi trả kỳ " + month + " (" + std::to_string(cyc.value("total_staff", 0)) + " NV)"},
+                    {":cat", nowTs}
+                });
+            } catch (...) {}
+            db.commit();
+            sendJson(res, {{"success", true}, {"message", "Đã xác nhận chi trả kỳ lương tháng " + month + " & ghi sổ quỹ (source=payroll_payout)!"}, {"total_net", totalNet}});
             return;
         }
         if (action == "ai_parse_invoice") {
@@ -6921,45 +8641,40 @@ void ApiHandlers::handleAdvertising(const httplib::Request& req, httplib::Respon
             if (!requireModule(res, "advertising_promotions", "Quảng Cáo & Khuyến Mãi")) return;
         }
 
-        // Upload media (image or video)
+        // Upload media (image or video) - Admin Auth + UploadGuard (SEC-17)
         if (action == "upload_media" || req.has_file("media")) {
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được tải lên media quảng cáo!", userOpt ? 403 : 401);
+                return;
+            }
             if (req.has_file("media")) {
                 const auto& file = req.get_file_value("media");
-                std::string filename = file.filename;
-                std::string ext = "";
-                size_t dotPos = filename.find_last_of('.');
-                if (dotPos != std::string::npos) {
-                    ext = filename.substr(dotPos);
-                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                }
-                if (ext.empty()) ext = ".jpg";
-
-                bool isVideo = (ext == ".mp4" || ext == ".webm");
-                auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
-                std::string hashName = AuthService::sha256(filename + std::to_string(nowMs));
-                std::string saveName = hashName.substr(0, 32) + ext;
-
-                namespace fs = std::filesystem;
-                fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "advertisements";
-                fs::create_directories(targetDir);
-                fs::path targetPath = targetDir / saveName;
-
-                std::ofstream ofs(targetPath, std::ios::binary);
-                if (ofs) {
-                    ofs.write(file.content.data(), file.content.size());
-                    ofs.close();
-                    std::string webPath = "uploads/advertisements/" + saveName;
-                    sendJson(res, {
-                        {"success", true},
-                        {"media", {
-                            {"path", webPath},
-                            {"type", isVideo ? "video" : "image"}
-                        }}
-                    });
+                auto v = SaleApp::Security::UploadGuard::validate(file.content, file.filename, SaleApp::Security::UploadKind::MediaImageOrVideo);
+                if (!v.ok) {
+                    sendError(res, v.error, 400);
                     return;
                 }
+                std::string saveName = SaleApp::Security::UploadGuard::makeRandomUuidName("ad", v.ext);
+                namespace fs = std::filesystem;
+                fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "advertisements";
+                fs::path targetPath;
+                std::string wErr;
+                if (!SaleApp::Security::UploadGuard::writeSafeFile(targetDir, saveName, file.content, targetPath, wErr)) {
+                    sendError(res, wErr, 400);
+                    return;
+                }
+                std::string webPath = "uploads/advertisements/" + saveName;
+                sendJson(res, {
+                    {"success", true},
+                    {"media", {
+                        {"path", webPath},
+                        {"type", v.isVideo ? "video" : "image"}
+                    }}
+                });
+                return;
             }
-            sendJson(res, {{"success", false}, {"message", "Không thể lưu tệp tải lên."}}, 400);
+            sendJson(res, {{"success", false}, {"message", "Không có tệp hợp lệ để tải lên."}}, 400);
             return;
         }
 
@@ -7315,8 +9030,13 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
             action = BodyParser::getAction(req, body);
         }
 
-        // 1. Upload audio file(s) (MP3, WAV, FLAC, OGG) - Supports Single & Multiple Batch Files
+        // 1. Upload audio file(s) (MP3, WAV, FLAC, OGG) - Admin Auth + UploadGuard (SEC-17)
         if (action == "upload" || !req.files.empty()) {
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được tải lên tệp nhạc Jukebox!", userOpt ? 403 : 401);
+                return;
+            }
             namespace fs = std::filesystem;
             fs::path mediaDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "assets" / "media";
             try { fs::create_directories(mediaDir); } catch (...) {}
@@ -7324,30 +9044,27 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
             int uploadedCount = 0;
             std::string lastPath = "";
             int64_t lastId = 0;
+            std::string lastRejectErr;
 
             for (const auto& item : req.files) {
                 const auto& file = item.second;
-                std::string filename = file.filename;
+                std::string filename = fs::path(file.filename).filename().string();
                 if (filename.empty()) continue;
 
-                std::string ext = "";
+                auto vAud = SaleApp::Security::UploadGuard::validate(file.content, filename, SaleApp::Security::UploadKind::Audio);
+                if (!vAud.ok) {
+                    lastRejectErr = vAud.error;
+                    continue;
+                }
+
                 size_t dotPos = filename.find_last_of('.');
-                if (dotPos != std::string::npos) {
-                    ext = filename.substr(dotPos);
-                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                }
-                if (ext != ".mp3" && ext != ".wav" && ext != ".flac" && ext != ".ogg") {
-                    continue; // Skip non-audio files
-                }
-
                 std::string cleanName = (dotPos != std::string::npos) ? filename.substr(0, dotPos) : filename;
-                std::string saveFile = filename;
-                fs::path targetPath = mediaDir / saveFile;
-
-                std::ofstream ofs(targetPath, std::ios::binary);
-                if (ofs) {
-                    ofs.write(file.content.data(), file.content.size());
-                    ofs.close();
+                std::string saveFile = SaleApp::Security::UploadGuard::makeRandomUuidName("trk", vAud.ext);
+                fs::path targetPath;
+                std::string wErr;
+                if (!SaleApp::Security::UploadGuard::writeSafeFile(mediaDir, saveFile, file.content, targetPath, wErr)) {
+                    lastRejectErr = wErr;
+                    continue;
                 }
 
                 fs::path webMediaDir = SaleApp::Config::AppConfig::instance().getWebDir() / "assets" / "media";
@@ -7388,6 +9105,8 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
                 });
                 return;
             }
+            sendError(res, lastRejectErr.empty() ? "Không có tệp âm thanh hợp lệ!" : lastRejectErr, 400);
+            return;
         }
 
         // 2. Save / Edit track
@@ -7674,8 +9393,11 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
                 if (gotSec.rfind("Apikey ", 0) == 0) gotSec = gotSec.substr(7);
                 if (gotSec.rfind("Bearer ", 0) == 0) gotSec = gotSec.substr(7);
                 if (gotSec.empty()) gotSec = BodyParser::getParam(req, body, "secret", "");
-                if (gotSec != cfgSecret) {
-                    sendError(res, "Webhook secret không hợp lệ!", 401);
+                std::string xSig = req.get_header_value("X-Signature");
+                std::string expectedSig = Dot6Handlers::hmacSha256Hex(cfgSecret, req.body);
+                bool sigValid = (!xSig.empty() && xSig == expectedSig);
+                if (gotSec != cfgSecret && !sigValid) {
+                    sendError(res, "Webhook secret hoặc chữ ký X-Signature không hợp lệ!", 401);
                     return;
                 }
             }
@@ -7825,6 +9547,7 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         if (req.method == "GET") {
             std::string url = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
             json d = SlaveTunnelStatus::instance().toJson(url);
+            d["master_fallback_url"] = SaleApp::Config::AppConfig::instance().getMasterFallbackUrl();
             d["net_geo"] = SlaveNetInfoService::instance().toJson();
             sendJson(res, {{"success", true}, {"data", d}});
             return;
@@ -7856,18 +9579,133 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             return;
         }
         std::string newUrl = body.value("master_server_url", "");
+        std::string newFallback = body.contains("master_fallback_url") && body["master_fallback_url"].is_string()
+            ? body["master_fallback_url"].get<std::string>()
+            : SaleApp::Config::AppConfig::instance().getMasterFallbackUrl();
         bool enabled = body.value("enabled", true);
-        if (!newUrl.empty()) {
-            while (!newUrl.empty() && newUrl.back() == '/') newUrl.pop_back();
-            SaleApp::Config::AppConfig::instance().persistMasterServerUrl(newUrl);
-        }
+        while (!newUrl.empty() && newUrl.back() == '/') newUrl.pop_back();
+        while (!newFallback.empty() && newFallback.back() == '/') newFallback.pop_back();
+        std::string finalPrimary = newUrl.empty() ? SaleApp::Config::AppConfig::instance().getMasterServerUrl() : newUrl;
+        SaleApp::Config::AppConfig::instance().persistMasterUrls(finalPrimary, newFallback);
         SlaveTunnelStatus::instance().setEnabled(enabled);
         SlaveTunnelStatus::instance().requestReconnect();
-        std::string url = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
-        sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình kết nối Master và kết nối lại!"}, {"data", SlaveTunnelStatus::instance().toJson(url)}});
+        json d = SlaveTunnelStatus::instance().toJson(finalPrimary);
+        d["master_fallback_url"] = newFallback;
+        sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình kết nối Master và kết nối lại!"}, {"data", d}});
     };
     svr.Get("/api/wan_tunnel", handleWanTunnel);
     svr.Post("/api/wan_tunnel", handleWanTunnel);
+
+    // Cloud Sync & SQLite Backup (Master Cloud Backup + Local Snapshot)
+    auto handleCloudBackup = [](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt.has_value() || userOpt->role != "admin") {
+            sendJson(res, {{"success", false}, {"message", "Chỉ Chủ quán (Admin) mới có quyền sao lưu & đồng bộ Cloud!"}}, 403);
+            return;
+        }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string action = BodyParser::getParam(req, body, "action", "get_config");
+        std::string masterUrl = SaleApp::Config::AppConfig::instance().getMasterServerUrl();
+        if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
+        std::string fbUrl = SaleApp::Config::AppConfig::instance().getMasterFallbackUrl();
+
+        if (action == "get_config") {
+            auto lastRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'last_cloud_backup_at' LIMIT 1");
+            std::string lastAt = lastRow.is_null() ? "" : lastRow.value("setting_value", "");
+            sendJson(res, {
+                {"success", true},
+                {"data", {
+                    {"master_url", masterUrl},
+                    {"master_fallback_url", fbUrl},
+                    {"last_backup_at", lastAt},
+                    {"host", masterUrl},
+                    {"mode", "sqlite_master_cloud"}
+                }}
+            });
+            return;
+        }
+
+        if (action == "test_connection") {
+            auto tryPing = [](const std::string& url) {
+                httplib::Client cli(url);
+                cli.set_connection_timeout(3, 0);
+                cli.set_read_timeout(4, 0);
+                auto r = cli.Get("/api/license/ping");
+                return (r && r->status == 200);
+            };
+            bool ok = tryPing(masterUrl);
+            std::string used = masterUrl;
+            if (!ok && !fbUrl.empty() && fbUrl != masterUrl) {
+                ok = tryPing(fbUrl);
+                if (ok) used = fbUrl;
+            }
+            sendJson(res, {
+                {"success", ok},
+                {"message", ok ? ("Kết nối Master Cloud Backup thành công (" + used + ")!") : ("Không thể kết nối tới Master Server (" + masterUrl + ").")},
+                {"master_url", used}
+            }, ok ? 200 : 502);
+            return;
+        }
+
+        if (action == "sync_data" || action == "backup_now") {
+            if (!requireModule(res, "cloud_sync_backup", "Sao Lưu & Đồng Bộ Đám Mây")) return;
+            fs::path dbPath = SaleApp::Config::AppConfig::instance().getDatabasePath();
+            fs::path backupDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "backups";
+            std::error_code ec;
+            fs::create_directories(backupDir, ec);
+            std::string ts = getCurrentTimestamp();
+            for (char& c : ts) if (c == ':' || c == ' ' || c == '-') c = '_';
+            fs::path localSnap = backupDir / ("store_local_" + ts + ".db");
+            try {
+                db.execute("VACUUM INTO '" + localSnap.string() + "'");
+            } catch (...) {
+                fs::copy_file(dbPath, localSnap, fs::copy_options::overwrite_existing, ec);
+            }
+            if (!fs::exists(localSnap)) {
+                sendError(res, "Không thể tạo bản chụp SQLite cục bộ!", 500);
+                return;
+            }
+            std::ifstream ifs(localSnap, std::ios::binary);
+            std::string payload((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+            ifs.close();
+
+            std::string licKey = resolveRawLicenseKey();
+            std::string mid = LicenseService::instance().getMachineId();
+            auto uploadSnap = [&](const std::string& url) {
+                httplib::Client cli(url);
+                cli.set_connection_timeout(5, 0);
+                cli.set_read_timeout(30, 0);
+                httplib::Headers hdrs = {{"X-License-Key", licKey}, {"X-Machine-Id", mid}};
+                return cli.Post("/api/slave/backup", hdrs, payload, "application/octet-stream");
+            };
+            auto upRes = uploadSnap(masterUrl);
+            if ((!upRes || upRes->status != 200) && !fbUrl.empty() && fbUrl != masterUrl) {
+                upRes = uploadSnap(fbUrl);
+            }
+            bool cloudOk = (upRes && upRes->status == 200);
+            if (cloudOk) {
+                db.execute(
+                    "INSERT INTO store_settings (setting_key, setting_value) VALUES ('last_cloud_backup_at', :v) "
+                    "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                    {{":v", getCurrentTimestamp()}}
+                );
+            }
+            sendJson(res, {
+                {"success", true},
+                {"cloud_uploaded", cloudOk},
+                {"local_backup", localSnap.filename().string()},
+                {"size_bytes", payload.size()},
+                {"message", cloudOk ? "Đã sao lưu SQLite cục bộ và đồng bộ lên Master Cloud thành công!" : "Đã lưu bản sao lưu SQLite cục bộ (Master Cloud đang ngoại tuyến)."}
+            });
+            return;
+        }
+        sendError(res, "Invalid cloud backup action", 400);
+    };
+    svr.Get("/api/sync_mysql.php", handleCloudBackup);
+    svr.Post("/api/sync_mysql.php", handleCloudBackup);
+    svr.Get("/api/cloud_backup", handleCloudBackup);
+    svr.Post("/api/cloud_backup", handleCloudBackup);
 
     // AI Key Verification & Secure Auto-Save
     svr.Post("/api/ai/test", [](const httplib::Request& req, httplib::Response& res) {
@@ -7921,7 +9759,7 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             "JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND date(o.created_at) = :d "
             "GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5", {{":d", today}}
         );
-        auto lowMats = db.query("SELECT name, stock_qty, min_stock_qty, unit FROM materials WHERE stock_qty <= min_stock_qty LIMIT 5");
+        auto lowMats = db.query("SELECT name, quantity, min_quantity, unit FROM materials WHERE quantity <= min_quantity LIMIT 5");
         auto voidRow = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'cancelled' AND date(created_at) = :d", {{":d", today}});
         int64_t voidCnt = voidRow.is_number() ? voidRow.get<int64_t>() : 0;
         auto rushRow = db.queryScalar("SELECT COALESCE(SUM(rush_count), 0) FROM orders WHERE date(created_at) = :d", {{":d", today}});
@@ -8286,6 +10124,13 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         }
         sendError(res, "Invalid update action", 400);
     });
+
+    Dot6Handlers::registerDot6Routes(svr);
+}
+
+void ApiHandlers::runPeriodicShiftMaintenance() {
+    autoProcessShifts(Database::instance());
+    Dot6Handlers::runDot6PeriodicMaintenance();
 }
 
 } // namespace SaleApp::Backend

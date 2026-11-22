@@ -4,7 +4,9 @@
 #include <csignal>
 #include "httplib.h"
 #include "db.hpp"
+#include "auth.hpp"
 #include "license.hpp"
+#include "license_crypto.hpp"
 #include "master_handlers.hpp"
 #include "master_tunnel.h"
 #include "ConfigManager.hpp"
@@ -29,6 +31,48 @@ int main(int argc, char* argv[]) {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 #endif
+
+    // [SEC-10] Offline utility mode: sign DLL files with Master ECDSA P-256 CNG private key
+    if (argc >= 3 && std::string(argv[1]) == "--sign-dll") {
+        for (int i = 2; i < argc; ++i) {
+            std::string dllPath = argv[i];
+            std::ifstream ifs(dllPath, std::ios::binary);
+            if (!ifs) {
+                std::cerr << "[SignDLL] Cannot open file: " << dllPath << std::endl;
+                return 2;
+            }
+            std::string bytes((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+            if (bytes.empty()) {
+                std::cerr << "[SignDLL] Empty file: " << dllPath << std::endl;
+                return 3;
+            }
+            std::string sha256 = SaleApp::Backend::AuthService::sha256(bytes);
+            std::string filename = fs::path(dllPath).filename().string();
+            std::string canonical = SaleApp::LicenseCrypto::buildDllSigPayload(filename, sha256);
+            std::string sigHex = SaleApp::LicenseCrypto::signLicensePayload(canonical);
+            if (sigHex.empty() || !SaleApp::LicenseCrypto::verifyLicensePayload(canonical, sigHex)) {
+                std::cerr << "[SignDLL] ECDSA sign/verify failed for: " << dllPath << std::endl;
+                return 4;
+            }
+            nlohmann::json sigDoc = {
+                {"version", 2},
+                {"algorithm", "ECDSA-P256-SHA256"},
+                {"key_fingerprint", SaleApp::LicenseCrypto::getPublicKeyFingerprint()},
+                {"file", filename},
+                {"sha256", sha256},
+                {"ecdsa_sig", sigHex},
+                {"signed_by", "CyberNexus-SuperAdmin"}
+            };
+            std::ofstream ofs(dllPath + ".sig", std::ios::binary | std::ios::trunc);
+            if (!ofs) {
+                std::cerr << "[SignDLL] Cannot write .sig file: " << dllPath << ".sig" << std::endl;
+                return 5;
+            }
+            ofs << sigDoc.dump(2);
+            std::cout << "[SignDLL] OK " << filename << " sha256=" << sha256.substr(0, 16) << "... fp=" << SaleApp::LicenseCrypto::getPublicKeyFingerprint() << std::endl;
+        }
+        return 0;
+    }
 
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
@@ -83,6 +127,20 @@ int main(int argc, char* argv[]) {
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             )
         )");
+        Database::instance().execute(R"(
+            CREATE TABLE IF NOT EXISTS saas_pending_commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cmd_id TEXT UNIQUE NOT NULL,
+                tenant_id INTEGER NOT NULL,
+                cmd_type TEXT NOT NULL,
+                payload_json TEXT DEFAULT '{}',
+                status TEXT DEFAULT 'pending',
+                created_ms INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                delivered_at TEXT DEFAULT ''
+            )
+        )");
+        StoreTunnelManager::instance().loadPendingFromDb();
         // Đảm bảo bảng saas_tenants có đủ cột mở rộng mà không gây log duplicate column name
         {
             auto cols = Database::instance().query("PRAGMA table_info(saas_tenants)");
@@ -156,7 +214,14 @@ int main(int argc, char* argv[]) {
         {"X-Content-Type-Options", "nosniff"},
         {"X-Frame-Options", "SAMEORIGIN"},
         {"Referrer-Policy", "strict-origin-when-cross-origin"},
+        {"Access-Control-Allow-Origin", "*"},
+        {"Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"},
+        {"Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key"},
         {"Content-Security-Policy", "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://img.vietqr.io https://api.vietqr.io https:; media-src 'self' data: blob:; connect-src 'self' ws: wss: https://api.vietqr.io https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"}
+    });
+
+    svr.Options(".*", [](const httplib::Request&, httplib::Response& res) {
+        res.status = 204;
     });
 
     // Static files mount
@@ -171,6 +236,10 @@ int main(int argc, char* argv[]) {
     if (fs::exists(uploadsDir)) {
         svr.set_mount_point("/uploads", uploadsDir.string());
         std::cout << "[Master Static] Mount /uploads -> " << uploadsDir.string() << std::endl;
+    }
+    if (fs::exists(webDir / "locales")) {
+        svr.set_mount_point("/locales", (webDir / "locales").string());
+        std::cout << "[Master Static] Mount /locales -> " << (webDir / "locales").string() << std::endl;
     }
 
     fs::path packagesDir = config.getBaseDir() / "packages";
@@ -283,6 +352,7 @@ int main(int argc, char* argv[]) {
     std::cout << "     -> Cổng Quản Trị: http://" << config.getBindHost() << ":" << config.getBindPort() << "/super_admin" << std::endl;
     std::cout << "==========================================================" << std::endl;
 
+    svr.set_payload_max_length(105ULL * 1024ULL * 1024ULL);
     bool ok = svr.listen(config.getBindHost().c_str(), config.getBindPort());
     if (!ok) {
         std::cerr << "[Master Error] Khong the lang nghe tren port " << config.getBindPort() << std::endl;

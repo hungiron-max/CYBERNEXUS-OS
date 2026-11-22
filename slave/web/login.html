@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Đăng Nhập POS - CyberNexus POS</title>
+    <title data-i18n="ui.login_html.title_93dbe9c2">Đăng Nhập POS - CyberNexus POS</title>
     <link rel="icon" type="image/png" href="favicon.png?v=20261118">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
 
@@ -26,6 +26,8 @@
     </script>
 
     <link rel="stylesheet" href="assets/css/login.css?v=20261116">
+    <script src="assets/js/i18n.js?v=2"></script>
+    <script src="assets/js/security_utils.js?v=2"></script>
     <script src="assets/js/store_brand.js"></script>
 </head>
 <body>
@@ -42,10 +44,10 @@
                 <i class="fas fa-mug-hot"></i>
             </div>
             <div style="min-width: 0;">
-                <h1 style="font-size: 1.25rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.2; margin: 0;">
+                <h1 style="font-size: 1.25rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.2; margin: 0;" data-i18n="ui.login_html.h1_29d836a6">
                     <span style="background: linear-gradient(90deg, #fbbf24 0%, #fb923c 20%, #f87171 40%, #f43f5e 58%, #c084fc 78%, #38bdf8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; color: transparent; font-weight: 900; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));" data-store-name>CyberNexus POS</span>
                 </h1>
-                <p style="font-size: 11px; color: #94a3b8; margin: 3px 0 0 0; line-height: 1.3;">
+                <p style="font-size: 11px; color: #94a3b8; margin: 3px 0 0 0; line-height: 1.3;" data-i18n="ui.login_html.p_2033a1b1">
                     Hệ Thống Bán Hàng & Vận Hành POS (CyberNexus OS)
                 </p>
             </div>
@@ -57,24 +59,30 @@
             <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
-                    <h2 id="login-title-text" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #fff;">Đăng Nhập POS</h2>
+                    <h2 id="login-title-text" data-i18n="login.title" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #fff;">Đăng Nhập POS</h2>
                 </div>
-                <div style="display: flex; gap: 4px; background: rgba(2, 6, 23, 0.7); padding: 3px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                    <button type="button" id="tab-btn-pin" onclick="switchLoginTab('pin')" class="tab-btn active">Mã PIN</button>
-                    <button type="button" id="tab-btn-pass" onclick="switchLoginTab('pass')" class="tab-btn inactive">Tài Khoản</button>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="display: flex; gap: 2px; background: rgba(2, 6, 23, 0.7); padding: 2px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); font-size: 10px; font-weight: 800;">
+                        <button type="button" data-cnx-lang-btn="vi" onclick="window.CNX_I18N && CNX_I18N.setLang('vi')" style="padding: 3px 6px; border-radius: 7px; cursor: pointer;" data-i18n="ui.login_html.button_73eba311">VI</button>
+                        <button type="button" data-cnx-lang-btn="en" onclick="window.CNX_I18N && CNX_I18N.setLang('en')" style="padding: 3px 6px; border-radius: 7px; cursor: pointer;" data-i18n="ui.login_html.button_8e897f63">EN</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; background: rgba(2, 6, 23, 0.7); padding: 3px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                        <button type="button" id="tab-btn-pin" onclick="switchLoginTab('pin')" class="tab-btn active" data-i18n="ui.login_html.button_400bcf9d">Mã PIN</button>
+                        <button type="button" id="tab-btn-pass" onclick="switchLoginTab('pass')" class="tab-btn inactive" data-i18n="ui.login_html.button_9e706086">Tài Khoản</button>
+                    </div>
                 </div>
             </div>
 
             <!-- Error Banner -->
             <div id="login-error-msg" style="display: none; margin-bottom: 14px; padding: 10px 12px; border-radius: 12px; background: rgba(244, 63, 94, 0.2); border: 1px solid rgba(244, 63, 94, 0.4); font-size: 12px; color: #fda4af; align-items: center; gap: 8px;">
                 <i class="fas fa-circle-exclamation" style="color: #fb7185;"></i>
-                <span id="login-error-text">Lỗi đăng nhập</span>
+                <span id="login-error-text" data-i18n="ui.login_html.span_4fe96932">Lỗi đăng nhập</span>
             </div>
 
             <!-- TAB 1: PIN LOGIN (Dành riêng cho Màn hình cảm ứng POS) -->
             <div id="tab-pane-pin">
                 <div style="text-align: center;">
-                    <p style="font-size: 12px; color: #cbd5e1; font-weight: 600;">Nhập mã PIN cá nhân 6 số</p>
+                    <p style="font-size: 12px; color: #cbd5e1; font-weight: 600;" data-i18n="ui.login_html.p_297780c2">Nhập mã PIN cá nhân 6 số</p>
                     <div class="pin-dots-container">
                         <div class="pin-dot" id="dot-0"></div>
                         <div class="pin-dot" id="dot-1"></div>
@@ -96,33 +104,33 @@
                     <button type="button" class="numpad-key" onclick="pressPin('7')">7</button>
                     <button type="button" class="numpad-key" onclick="pressPin('8')">8</button>
                     <button type="button" class="numpad-key" onclick="pressPin('9')">9</button>
-                    <button type="button" class="numpad-key" onclick="clearPin()" title="Xóa hết" style="color: #fb7185; font-size: 16px;"><i class="fas fa-trash-can"></i></button>
+                    <button type="button" class="numpad-key" onclick="clearPin()" title="Xóa hết" style="color: #fb7185; font-size: 16px;" data-i18n-title="ui.admin_html.button_fddde8be"><i class="fas fa-trash-can"></i></button>
                     <button type="button" class="numpad-key" onclick="pressPin('0')">0</button>
-                    <button type="button" class="numpad-key" onclick="backspacePin()" title="Xóa 1 số" style="color: #fbbf24; font-size: 16px;"><i class="fas fa-delete-left"></i></button>
+                    <button type="button" class="numpad-key" onclick="backspacePin()" title="Xóa 1 số" style="color: #fbbf24; font-size: 16px;" data-i18n-title="ui.login_html.button_title_05a84713"><i class="fas fa-delete-left"></i></button>
                 </div>
             </div>
 
             <!-- TAB 2: USERNAME & PASSWORD (Chủ Quán / Quản Lý) -->
             <form id="tab-pane-pass" style="display: none;" onsubmit="handlePassLogin(event)">
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">Tên đăng nhập hoặc Mã nhân viên</label>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;" data-i18n="ui.login_html.label_d6b99c44">Tên đăng nhập hoặc Mã nhân viên</label>
                     <div style="position: relative;">
                         <i class="fas fa-user" style="position: absolute; left: 14px; top: 13px; font-size: 13px; color: #64748b;"></i>
-                        <input id="input-username" type="text" required class="dark-field" placeholder="Nhập tên đăng nhập..." />
+                        <input id="input-username" type="text" required class="dark-field" placeholder="Nhập tên đăng nhập..." data-i18n-placeholder="ui.login_html.ph_497e1f62" />
                     </div>
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">Mật khẩu</label>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;" data-i18n="ui.login_html.label_b164c0d0">Mật khẩu</label>
                     <div style="position: relative;">
                         <i class="fas fa-lock" style="position: absolute; left: 14px; top: 13px; font-size: 13px; color: #64748b;"></i>
-                        <input id="input-password" type="password" required class="dark-field" placeholder="Nhập mật khẩu..." />
+                        <input id="input-password" type="password" required class="dark-field" placeholder="Nhập mật khẩu..." data-i18n-placeholder="ui.login_html.ph_da99542a" />
                     </div>
                 </div>
 
-                <button id="btn-submit-pass" type="submit" class="submit-btn">
+                <button id="btn-submit-pass" type="submit" class="submit-btn" data-i18n="ui.login_html.button_5649b5d3">
                     <i class="fas fa-sign-in-alt"></i>
-                    <span>Đăng Nhập</span>
+                    <span data-i18n="ui.pos_html.button_9364125f">Đăng Nhập</span>
                 </button>
             </form>
         </div>
@@ -131,9 +139,9 @@
         <div style="margin-top: 14px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #94a3b8;">
                 <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
-                <span>Máy Chủ C++ Port 8500</span>
+                <span data-i18n="ui.login_html.span_c0b297d0">Máy Chủ C++ Port 8500</span>
             </div>
-            <button type="button" onclick="openHostControlModal()" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 800; color: #38bdf8; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;" onmouseover="this.style.background='rgba(56, 189, 248, 0.3)'" onmouseout="this.style.background='rgba(56, 189, 248, 0.15)'">
+            <button type="button" onclick="openHostControlModal()" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 800; color: #38bdf8; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;" onmouseover="this.style.background='rgba(56, 189, 248, 0.3)'" onmouseout="this.style.background='rgba(56, 189, 248, 0.15)'" data-i18n="ui.login_html.button_3834cf9b">
                 <i class="fas fa-gear"></i> Điều Khiển Host
             </button>
         </div>
@@ -148,7 +156,7 @@
         <div style="background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 20px; width: 440px; max-width: 95vw; padding: 22px; color: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);">
             <!-- Modal Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 16px;">
-                <div style="font-weight: 900; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
+                <div style="font-weight: 900; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 8px; text-transform: uppercase;" data-i18n="ui.login_html.div_1a6ee40d">
                     <i class="fas fa-server text-base"></i> Trung Tâm Điều Khiển C++ Host
                 </div>
                 <button type="button" onclick="closeHostControlModal()" style="background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
@@ -157,50 +165,50 @@
             <!-- Real-time Status Card -->
             <div style="background: rgba(2, 6, 23, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 12px; margin-bottom: 16px; font-size: 11px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="color: #94a3b8;">Trạng thái dịch vụ:</span>
-                    <span style="color: #34d399; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #94a3b8;" data-i18n="ui.login_html.span_9e5bfa05">Trạng thái dịch vụ:</span>
+                    <span style="color: #34d399; font-weight: 800; display: flex; align-items: center; gap: 5px;" data-i18n="ui.login_html.span_47bfccaa">
                         <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
                         Đang hoạt động (PORT 8500)
                     </span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="color: #94a3b8;">Nhân hệ điều hành:</span>
+                    <span style="color: #94a3b8;" data-i18n="ui.login_html.span_a07ae292">Nhân hệ điều hành:</span>
                     <span style="color: #38bdf8; font-family: monospace; font-weight: 700;">CyberNexus C++ Standalone</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="color: #94a3b8;">Cơ sở dữ liệu:</span>
+                    <span style="color: #94a3b8;" data-i18n="ui.login_html.span_84b92ec1">Cơ sở dữ liệu:</span>
                     <span style="color: #cbd5e1; font-family: monospace;">SQLite WAL Mode (Safe Flushing)</span>
                 </div>
             </div>
 
             <!-- Master PIN Verification -->
             <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 11px; font-weight: 800; color: #f59e0b; margin-bottom: 6px;">
+                <label style="display: block; font-size: 11px; font-weight: 800; color: #f59e0b; margin-bottom: 6px;" data-i18n="ui.login_html.label_dba30808">
                     <i class="fas fa-shield-halved"></i> Xác thực Master PIN Chủ Quán (9999):
                 </label>
-                <input id="host-ctrl-pin" type="password" maxlength="6" class="dark-field" placeholder="Nhập PIN 9999 để thực hiện..." style="text-align: center; font-size: 16px; letter-spacing: 4px; font-family: monospace;" />
+                <input id="host-ctrl-pin" type="password" maxlength="6" class="dark-field" placeholder="Nhập PIN 9999 để thực hiện..." data-i18n-placeholder="ui.login_html.ph_bfa94103" style="text-align: center; font-size: 16px; letter-spacing: 4px; font-family: monospace;" />
             </div>
 
             <!-- Control Actions Grid -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                <button type="button" onclick="executeHostAction('restart')" style="background: linear-gradient(135deg, #0284c7, #4f46e5); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 12px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); transition: all 0.2s;">
+                <button type="button" onclick="executeHostAction('restart')" style="background: linear-gradient(135deg, #0284c7, #4f46e5); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 12px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); transition: all 0.2s;" data-i18n="ui.login_html.button_96ef9955">
                     <i class="fas fa-arrows-rotate" style="font-size: 16px;"></i>
-                    <span>Khởi Động Lại Host</span>
+                    <span data-i18n="ui.login_html.button_96ef9955">Khởi Động Lại Host</span>
                 </button>
-                <button type="button" onclick="executeHostAction('stop')" style="background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 14px; padding: 12px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.35); transition: all 0.2s;">
+                <button type="button" onclick="executeHostAction('stop')" style="background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 14px; padding: 12px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.35); transition: all 0.2s;" data-i18n="ui.login_html.button_68a4d486">
                     <i class="fas fa-power-off" style="font-size: 16px;"></i>
-                    <span>Dừng / Tắt Máy Chủ</span>
+                    <span data-i18n="ui.login_html.button_68a4d486">Dừng / Tắt Máy Chủ</span>
                 </button>
             </div>
 
             <!-- License Key Section -->
             <div style="background: rgba(2, 6, 23, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 10px; margin-bottom: 14px;">
-                <div style="font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+                <div style="font-size: 11px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;" data-i18n="ui.login_html.div_6b5f3d6f">
                     <i class="fas fa-key text-amber-400"></i> Kích hoạt Bản quyền C++ Native
                 </div>
                 <div style="display: flex; gap: 6px;">
-                    <input id="host-license-key" type="text" placeholder="Nhập License Key..." class="dark-field" style="padding: 8px 10px; font-size: 11px; font-family: monospace;" />
-                    <button type="button" onclick="executeHostAction('activate_license')" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 10px; padding: 0 12px; color: #34d399; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;">Kích hoạt</button>
+                    <input id="host-license-key" type="text" placeholder="Nhập License Key..." data-i18n-placeholder="ui.login_html.ph_9b9e8a15" class="dark-field" style="padding: 8px 10px; font-size: 11px; font-family: monospace;" />
+                    <button type="button" onclick="executeHostAction('activate_license')" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 10px; padding: 0 12px; color: #34d399; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;" data-i18n="ui.login_html.button_f4847618">Kích hoạt</button>
                 </div>
             </div>
 
@@ -209,7 +217,7 @@
 
             <!-- Modal Footer -->
             <div style="display: flex; justify-content: flex-end;">
-                <button type="button" onclick="closeHostControlModal()" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 6px 18px; font-size: 11px; font-weight: 600; color: #cbd5e1; cursor: pointer;">Đóng</button>
+                <button type="button" onclick="closeHostControlModal()" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 6px 18px; font-size: 11px; font-weight: 600; color: #cbd5e1; cursor: pointer;" data-i18n="ui.login_html.button_4a9c8e23">Đóng</button>
             </div>
         </div>
     </div>

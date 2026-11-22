@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberNexus Theme &amp; Brand Studio (Dual-Mode)</title>
+  <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css" />
+  <script src="assets/js/security_utils.js?v=2"></script>
+  <script src="assets/js/i18n.js?v=2"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, sans-serif;
+      background: #060b16; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 20px; background: rgba(15, 23, 42, 0.92); border-bottom: 1px solid rgba(148,163,184,0.18);
+    }
+    .workspace { display: grid; grid-template-columns: 390px 1fr; flex: 1; min-height: 0; }
+    .controls {
+      padding: 16px; overflow-y: auto; border-right: 1px solid rgba(148,163,184,0.18);
+      background: rgba(9, 14, 28, 0.9); display: flex; flex-direction: column; gap: 14px;
+    }
+    .preview-pane { display: flex; flex-direction: column; padding: 16px; gap: 12px; background: #040812; overflow: hidden; }
+    .card { padding: 12px; border-radius: 12px; background: rgba(15,23,42,0.75); border: 1px solid rgba(148,163,184,0.16); }
+    .lbl { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+    select, input[type="text"], input[type="range"] {
+      width: 100%; padding: 8px 10px; border-radius: 9px; background: #020617; border: 1px solid rgba(148,163,184,0.25); color: #f8fafc; font-size: 12.5px;
+    }
+    .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .preset-btn {
+      padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.22); background: #0f172a; color: #e2e8f0;
+      font-size: 11.5px; font-weight: 600; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 7px;
+    }
+    .preset-btn:hover { border-color: #38bdf8; }
+    .dot { width: 12px; height: 12px; border-radius: 999px; flex-shrink: 0; }
+    .color-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .color-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+    .color-item input[type="color"] { width: 34px; height: 28px; border: none; background: transparent; cursor: pointer; padding: 0; }
+    .btn {
+      padding: 9px 14px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.25); background: #1e293b; color: #f1f5f9;
+      font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    }
+    .btn-primary { background: linear-gradient(90deg, #0ea5e9, #6366f1); border: none; color: #fff; }
+    .screen-tabs { display: flex; gap: 8px; align-items: center; }
+    .tab-pill { padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(148,163,184,0.22); background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .tab-pill.active { background: rgba(56,189,248,0.18); border-color: #38bdf8; color: #38bdf8; }
+    .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mode-btn {
+      padding: 8px; border-radius: 9px; border: 1px solid rgba(148,163,184,0.22); background: #0f172a; color: #94a3b8;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .mode-btn.active { background: rgba(56,189,248,0.2); border-color: #38bdf8; color: #fff; }
+    .stage {
+      flex: 1; border-radius: 18px; border: 1px solid rgba(148,163,184,0.2); overflow: hidden; display: flex;
+      align-items: center; justify-content: center; padding: 20px; transition: all .2s ease;
+    }
+    .contrast-badge { font-size: 11px; padding: 5px 10px; border-radius: 8px; font-weight: 700; }
+    .toast {
+      position: fixed; right: 20px; bottom: 20px; padding: 10px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
+      background: #0f172a; border: 1px solid #38bdf8; color: #f8fafc; box-shadow: 0 12px 30px rgba(0,0,0,0.5); display: none; z-index: 99;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/super_admin" class="btn" data-i18n="ui.theme_html.a_65d3e350"><i class="fas fa-arrow-left"></i> Về Master</a>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#38bdf8;"><i class="fas fa-palette"></i> CyberNexus Theme &amp; Brand Studio (2 Mode: Tối + Sáng)</div>
+        <div style="font-size:11px;color:#94a3b8;" data-i18n="ui.theme_html.div_0a208209">Mỗi template gồm cả Dark Mode &amp; Light Mode • Xem trước trực tiếp • Không mất khi nâng cấp OTA</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:inline-flex;align-items:center;border-radius:10px;background:#0f172a;border:1px solid rgba(148,163,184,0.25);padding:2px;font-size:11px;font-weight:700;">
+        <button type="button" data-cnx-lang-btn="vi" onclick="if(window.cnxSetLang)cnxSetLang('vi')" style="padding:4px 8px;border-radius:8px;border:none;background:transparent;color:#cbd5e1;cursor:pointer;">VI</button>
+        <button type="button" data-cnx-lang-btn="en" onclick="if(window.cnxSetLang)cnxSetLang('en')" style="padding:4px 8px;border-radius:8px;border:none;background:transparent;color:#cbd5e1;cursor:pointer;">EN</button>
+      </div>
+      <button type="button" class="btn" onclick="exportThemeJson()" data-i18n="ui.theme_html.button_03bb105f"><i class="fas fa-file-export"></i> Xuất JSON</button>
+      <label class="btn" style="margin:0;" data-i18n="ui.theme_html.label_afa533be"><i class="fas fa-file-import"></i> Nhập JSON<input type="file" accept=".json" style="display:none;" onchange="importThemeJson(this)"></label>
+      <button type="button" class="btn btn-primary" onclick="saveAndPushTheme()" data-i18n="ui.theme_html.button_e4074785"><i class="fas fa-paper-plane"></i> Lưu &amp; Đẩy Xuống Quán</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="controls">
+      <div class="card">
+        <label class="lbl" data-i18n="ui.theme_html.label_eee373d8">1. Chọn Quán Áp Dụng</label>
+        <select id="st-tenant" onchange="loadTenantTheme(this.value)"></select>
+      </div>
+
+      <div class="card">
+        <label class="lbl" data-i18n="ui.theme_html.label_f760e2d6">2. Mẫu Sắc Thái Nhanh (Đủ 2 Mode Tối + Sáng)</label>
+        <div class="preset-grid">
+          <button type="button" class="preset-btn" onclick="applyPreset('cyber')" data-i18n="ui.theme_html.button_38bc78c3"><span class="dot" style="background:#38bdf8"></span>Cyber Default</button>
+          <button type="button" class="preset-btn" onclick="applyPreset('espresso')" data-i18n="ui.theme_html.button_62f11825"><span class="dot" style="background:#d97706"></span>Warm Espresso</button>
+          <button type="button" class="preset-btn" onclick="applyPreset('boba')" data-i18n="ui.theme_html.button_2993e8dd"><span class="dot" style="background:#ec4899"></span>Pastel Boba</button>
+          <button type="button" class="preset-btn" onclick="applyPreset('bistro')" data-i18n="ui.theme_html.button_05afd9e0"><span class="dot" style="background:#eab308"></span>Midnight Bistro</button>
+          <button type="button" class="preset-btn" onclick="applyPreset('matcha')" data-i18n="ui.theme_html.button_d65cedd1"><span class="dot" style="background:#10b981"></span>Matcha Zen</button>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+        <label class="lbl" style="margin:0;" data-i18n="ui.theme_html.label_c4cb2bc1">3. Đang Chỉnh Bảng Màu Cho Chế Độ</label>
+        <div class="mode-switch">
+          <button type="button" id="mbtn-dark" class="mode-btn active" onclick="switchEditMode('dark')" data-i18n="ui.theme_html.button_51e8d2a2">🌙 Dark Mode</button>
+          <button type="button" id="mbtn-light" class="mode-btn" onclick="switchEditMode('light')" data-i18n="ui.theme_html.button_4554eda8">☀️ Light Mode</button>
+        </div>
+        <div class="color-row">
+          <div class="color-item"><span data-i18n="ui.theme_html.span_13b0dc35">Chủ đạo</span><input id="c-primary" type="color" value="#38bdf8" oninput="syncFromInputs()"></div>
+          <div class="color-item"><span data-i18n="ui.theme_html.span_fbd22cec">Điểm nhấn</span><input id="c-accent" type="color" value="#8b5cf6" oninput="syncFromInputs()"></div>
+          <div class="color-item"><span data-i18n="ui.theme_html.span_4b0f00ef">Nền 1</span><input id="c-bg1" type="color" value="#070d1b" oninput="syncFromInputs()"></div>
+          <div class="color-item"><span data-i18n="ui.theme_html.span_a74d9172">Nền 2</span><input id="c-bg2" type="color" value="#0f172a" oninput="syncFromInputs()"></div>
+          <div class="color-item"><span data-i18n="ui.theme_html.span_d348c910">Chữ chính</span><input id="c-text" type="color" value="#f1f5f9" oninput="syncFromInputs()"></div>
+        </div>
+        <div id="contrast-guard" class="contrast-badge" data-i18n="ui.theme_html.div_f1d4e392">Kiểm tra tương phản WCAG...</div>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+        <label class="lbl" style="margin:0;" data-i18n="ui.theme_html.label_a0030987">4. Hình Khối, Font &amp; Slogan (Dùng chung 2 Mode)</label>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px;"><span data-i18n="ui.theme_html.span_8cb2421b">Bo góc thẻ (Radius)</span><b id="v-radius">16px</b></div>
+          <input id="c-radius" type="range" min="6" max="26" value="16" oninput="syncFromInputs()">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px;"><span data-i18n="ui.theme_html.span_1aeb9f09">Độ mờ kính (Blur)</span><b id="v-blur">16px</b></div>
+          <input id="c-blur" type="range" min="4" max="24" value="16" oninput="syncFromInputs()">
+        </div>
+        <div>
+          <span style="font-size:11.5px;display:block;margin-bottom:4px;" data-i18n="ui.theme_html.span_4fe5fd30">Font chữ hiển thị</span>
+          <select id="c-font" onchange="syncFromInputs()">
+            <option value="system-ui, -apple-system, 'Segoe UI', sans-serif" data-i18n="ui.theme_html.option_57410ff6">Hiện đại (System UI)</option>
+            <option value="'Times New Roman', 'Palatino Linotype', serif" data-i18n="ui.theme_html.option_fed0d791">Cổ điển / Bistro (Serif)</option>
+            <option value="'Tahoma', 'Segoe UI', sans-serif" data-i18n="ui.theme_html.option_b3a1f93a">Trẻ trung / Trà sữa</option>
+            <option value="'Segoe UI', Arial, sans-serif" data-i18n="ui.theme_html.option_bad176b1">Gọn sắc nét (POS Pro)</option>
+          </select>
+        </div>
+        <div>
+          <span style="font-size:11.5px;display:block;margin-bottom:4px;" data-i18n="ui.theme_html.span_6672b043">Slogan quán (hiển thị trang Khách / Login)</span>
+          <input id="c-slogan" type="text" placeholder="Hương vị tinh tế mỗi ngày" data-i18n-placeholder="ui.theme_html.ph_3d1c745c" oninput="syncFromInputs()">
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-pane" id="preview-pane">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div class="screen-tabs">
+          <button type="button" class="tab-pill active" onclick="switchPreview('customer', this)" data-i18n="ui.theme_html.button_b9eb7c6c">Menu Khách QR</button>
+          <button type="button" class="tab-pill" onclick="switchPreview('login', this)" data-i18n="ui.theme_html.button_8ec88e2a">Màn Hình Đăng Nhập</button>
+          <button type="button" class="tab-pill" onclick="switchPreview('pos', this)" data-i18n="ui.theme_html.button_668d2f4a">POS Thu Ngân</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="preview-store-label" style="font-size:12px;color:#94a3b8;font-weight:700;" data-i18n="ui.theme_html.div_5e5590de">Xem trước trực tiếp</div>
+          <button type="button" id="btn-fullscreen" class="btn" style="padding:6px 12px;font-size:11.5px;" onclick="togglePreviewFullscreen()" data-i18n="ui.theme_html.button_008ebd89">
+            <i class="fas fa-expand"></i> Toàn Màn Hình
+          </button>
+        </div>
+      </div>
+
+      <div id="preview-stage" class="stage"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const PRESETS = {
+      cyber: {
+        template_name: 'CyberNexus Default Glass', radius: 16, blur: 16, font: 'system-ui, -apple-system, sans-serif', slogan: 'Hệ thống Bán Hàng & Vận Hành POS Thông Minh',
+        dark:  { primary: '#38bdf8', accent: '#8b5cf6', bg_start: '#070d1b', bg_end: '#0f172a', text: '#f1f5f9', card_bg: 'rgba(15,23,42,0.78)', card_border: 'rgba(56,189,248,0.25)' },
+        light: { primary: '#0369a1', accent: '#6b21a8', bg_start: '#d7edff', bg_end: '#eef4fa', text: '#17243b', card_bg: 'rgba(255,255,255,0.84)', card_border: 'rgba(100,116,139,0.26)' }
+      },
+      espresso: {
+        template_name: 'Warm Espresso Café', radius: 12, blur: 14, font: "'Times New Roman', 'Palatino Linotype', serif", slogan: 'Đậm đà hương vị rang xay',
+        dark:  { primary: '#d97706', accent: '#92400e', bg_start: '#1c120c', bg_end: '#2b1b12', text: '#fef3c7', card_bg: 'rgba(38,24,16,0.82)', card_border: 'rgba(217,119,6,0.35)' },
+        light: { primary: '#b45309', accent: '#78350f', bg_start: '#fef3c7', bg_end: '#fffbeb', text: '#451a03', card_bg: 'rgba(255,251,235,0.88)', card_border: 'rgba(180,83,9,0.25)' }
+      },
+      boba: {
+        template_name: 'Pastel Boba Tea', radius: 22, blur: 18, font: "'Tahoma', 'Segoe UI', sans-serif", slogan: 'Tươi mát & Ngọt ngào mỗi ngày',
+        dark:  { primary: '#ec4899', accent: '#a855f7', bg_start: '#251026', bg_end: '#1a1033', text: '#fdf2f8', card_bg: 'rgba(42,18,46,0.78)', card_border: 'rgba(236,72,153,0.35)' },
+        light: { primary: '#db2777', accent: '#7e22ce', bg_start: '#fce7f3', bg_end: '#f5f3ff', text: '#500724', card_bg: 'rgba(255,255,255,0.86)', card_border: 'rgba(219,39,119,0.24)' }
+      },
+      bistro: {
+        template_name: 'Midnight Bistro & Lounge', radius: 8, blur: 12, font: "'Times New Roman', 'Palatino Linotype', serif", slogan: 'Craft Kitchen & Lounge',
+        dark:  { primary: '#eab308', accent: '#ca8a04', bg_start: '#09090b', bg_end: '#18181b', text: '#fafafa', card_bg: 'rgba(24,24,27,0.86)', card_border: 'rgba(234,179,8,0.35)' },
+        light: { primary: '#a16207', accent: '#854d0e', bg_start: '#f4f4f5', bg_end: '#fafaf9', text: '#18181b', card_bg: 'rgba(255,255,255,0.90)', card_border: 'rgba(161,98,7,0.24)' }
+      },
+      matcha: {
+        template_name: 'Matcha Zen Studio', radius: 18, blur: 16, font: 'system-ui, -apple-system, sans-serif', slogan: 'Thanh khiết tự nhiên',
+        dark:  { primary: '#10b981', accent: '#059669', bg_start: '#071a14', bg_end: '#0d261e', text: '#ecfdf5', card_bg: 'rgba(10,36,27,0.80)', card_border: 'rgba(16,185,129,0.32)' },
+        light: { primary: '#047857', accent: '#065f46', bg_start: '#d1fae5', bg_end: '#ecfdf5', text: '#064e3b', card_bg: 'rgba(255,255,255,0.86)', card_border: 'rgba(4,120,87,0.24)' }
+      }
+    };
+
+    let currentScreen = 'customer';
+    let currentEditMode = 'dark';
+    let currentStoreName = 'Si Đô La Coffee';
+    let currentTheme = JSON.parse(JSON.stringify(PRESETS.cyber));
+
+    function toast(msg, err = false) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.borderColor = err ? '#f43f5e' : '#38bdf8';
+      el.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+    }
+
+    function hexToRgb(hex) {
+      const h = (hex || '#000000').replace('#', '');
+      const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    function luminance([r, g, b]) {
+      const a = [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+    }
+
+    function updateContrastGuard() {
+      const pal = currentTheme[currentEditMode] || currentTheme.dark;
+      const l1 = luminance(hexToRgb(pal.text));
+      const l2 = luminance(hexToRgb(pal.bg_end));
+      const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      const badge = document.getElementById('contrast-guard');
+      if (ratio >= 4.5) {
+        badge.textContent = `✅ [${currentEditMode.toUpperCase()}] Tương phản WCAG (${ratio.toFixed(1)}:1 — Dễ đọc)`;
+        badge.style.background = 'rgba(16,185,129,0.16)'; badge.style.color = '#6ee7b7';
+      } else {
+        badge.textContent = `⚠️ [${currentEditMode.toUpperCase()}] Tương phản thấp (${ratio.toFixed(1)}:1) — Khó đọc!`;
+        badge.style.background = 'rgba(244,63,94,0.16)'; badge.style.color = '#fda4af';
+      }
+    }
+
+    function setInputsFromTheme() {
+      const pal = currentTheme[currentEditMode] || currentTheme.dark;
+      document.getElementById('c-primary').value = pal.primary || '#38bdf8';
+      document.getElementById('c-accent').value = pal.accent || '#8b5cf6';
+      document.getElementById('c-bg1').value = pal.bg_start || '#070d1b';
+      document.getElementById('c-bg2').value = pal.bg_end || '#0f172a';
+      document.getElementById('c-text').value = pal.text || '#f1f5f9';
+      document.getElementById('c-radius').value = currentTheme.radius || 16;
+      document.getElementById('c-blur').value = currentTheme.blur || 16;
+      document.getElementById('c-font').value = currentTheme.font || 'system-ui, -apple-system, sans-serif';
+      document.getElementById('c-slogan').value = currentTheme.slogan || '';
+      document.getElementById('v-radius').textContent = (currentTheme.radius || 16) + 'px';
+      document.getElementById('v-blur').textContent = (currentTheme.blur || 16) + 'px';
+    }
+
+    function switchEditMode(mode) {
+      currentEditMode = mode === 'light' ? 'light' : 'dark';
+      document.getElementById('mbtn-dark').classList.toggle('active', currentEditMode === 'dark');
+      document.getElementById('mbtn-light').classList.toggle('active', currentEditMode === 'light');
+      setInputsFromTheme();
+      updateContrastGuard();
+      renderPreview();
+    }
+
+    function syncFromInputs() {
+      const p = document.getElementById('c-primary').value;
+      const [r, g, b] = hexToRgb(document.getElementById('c-bg2').value);
+      const [pr, pg, pb] = hexToRgb(p);
+      currentTheme[currentEditMode] = {
+        primary: p,
+        accent: document.getElementById('c-accent').value,
+        bg_start: document.getElementById('c-bg1').value,
+        bg_end: document.getElementById('c-bg2').value,
+        text: document.getElementById('c-text').value,
+        card_bg: currentEditMode === 'light' ? `rgba(255,255,255,0.84)` : `rgba(${r},${g},${b},0.80)`,
+        card_border: `rgba(${pr},${pg},${pb},0.32)`
+      };
+      currentTheme.radius = Number(document.getElementById('c-radius').value);
+      currentTheme.blur = Number(document.getElementById('c-blur').value);
+      currentTheme.font = document.getElementById('c-font').value;
+      currentTheme.slogan = document.getElementById('c-slogan').value.trim();
+      document.getElementById('v-radius').textContent = currentTheme.radius + 'px';
+      document.getElementById('v-blur').textContent = currentTheme.blur + 'px';
+      updateContrastGuard();
+      renderPreview();
+    }
+
+    function applyPreset(name) {
+      currentTheme = JSON.parse(JSON.stringify(PRESETS[name] || PRESETS.cyber));
+      setInputsFromTheme();
+      updateContrastGuard();
+      renderPreview();
+    }
+
+    function switchPreview(screen, btn) {
+      currentScreen = screen;
+      document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderPreview();
+    }
+
+    function renderPreview() {
+      const st = document.getElementById('preview-stage');
+      const t = currentTheme;
+      const pal = t[currentEditMode] || t.dark;
+      const boxBg = currentEditMode === 'light' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)';
+      st.style.background = `radial-gradient(circle at 15% 15%, ${pal.primary}33, transparent 45%), radial-gradient(circle at 85% 85%, ${pal.accent}33, transparent 45%), linear-gradient(145deg, ${pal.bg_start}, ${pal.bg_end})`;
+      st.style.color = pal.text;
+      st.style.fontFamily = t.font;
+      const cardCss = `background:${pal.card_bg};border:1px solid ${pal.card_border};border-radius:${t.radius}px;backdrop-filter:blur(${t.blur}px);padding:16px;`;
+      const btnCss = `background:linear-gradient(90deg,${pal.primary},${pal.accent});color:#fff;border:none;border-radius:${Math.max(6, t.radius - 4)}px;padding:9px 16px;font-weight:700;font-size:12.5px;`;
+
+      if (currentScreen === 'login') {
+        st.innerHTML = `
+          <div style="${cardCss}width:340px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.22);">
+            <div style="font-size:20px;font-weight:900;color:${pal.primary};text-transform:uppercase;">${currentStoreName}</div>
+            <div style="font-size:11.5px;opacity:.75;margin:4px 0 16px;">${t.slogan || 'Hệ thống bán hàng POS'}</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+              ${[1,2,3,4,5,6].map(n => `<div style="padding:12px;border-radius:${Math.max(6,t.radius-6)}px;background:${boxBg};border:1px solid ${pal.card_border};font-weight:800;">${n}</div>`).join('')}
+            </div>
+            <button style="${btnCss}width:100%;" data-i18n="ui.theme_html.button_d33b15e4">Đăng Nhập POS</button>
+          </div>`;
+      } else if (currentScreen === 'pos') {
+        st.innerHTML = `
+          <div style="width:100%;height:100%;display:grid;grid-template-columns:1fr 270px;gap:14px;">
+            <div style="${cardCss}display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <b style="color:${pal.primary};font-size:15px;">${currentStoreName} — Quầy POS (${currentEditMode.toUpperCase()})</b>
+                <span style="font-size:11px;padding:4px 10px;border-radius:999px;background:${pal.primary}22;color:${pal.primary};font-weight:700;">Bàn 02</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                ${[['Cà phê sữa đá','29.000đ'],['Trà đào cam sả','35.000đ'],['Bò bít tết','89.000đ']].map(([n,p]) => `
+                  <div style="padding:12px;border-radius:${Math.max(8,t.radius-4)}px;background:${boxBg};border:1px solid ${pal.card_border};">
+                    <div style="font-weight:700;font-size:12.5px;">${n}</div>
+                    <div style="color:${pal.primary};font-weight:800;margin-top:6px;">${p}</div>
+                  </div>`).join('')}
+              </div>
+            </div>
+            <div style="${cardCss}display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <b style="font-size:13px;">Hóa đơn tạm tính</b>
+                <div style="font-size:12px;opacity:.8;margin-top:10px;">1x Cà phê sữa đá • 29.000đ</div>
+              </div>
+              <button style="${btnCss}width:100%;" data-i18n="ui.theme_html.button_27070a9c">Thanh Toán • 29.000đ</button>
+            </div>
+          </div>`;
+      } else {
+        st.innerHTML = `
+          <div style="width:370px;${cardCss}display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 60px rgba(0,0,0,0.22);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:17px;font-weight:900;color:${pal.primary};">${currentStoreName}</div>
+                <div style="font-size:11px;opacity:.75;">${t.slogan || 'Chào mừng Quý khách'}</div>
+              </div>
+              <span style="font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid ${pal.card_border};">Bàn 05</span>
+            </div>
+            <div style="padding:12px;border-radius:${Math.max(8,t.radius-4)}px;background:linear-gradient(120deg,${pal.primary}28,${pal.accent}28);border:1px solid ${pal.card_border};">
+              <div style="font-size:12px;font-weight:800;">Món Đặc Biệt Hôm Nay</div>
+              <div style="font-size:11px;opacity:.85;margin-top:3px;">Quét mã gọi món nhanh tại bàn</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              ${[['Trà Sữa Ô Long','38.000đ'],['Cà Phê Muối','32.000đ']].map(([n,p]) => `
+                <div style="padding:10px;border-radius:${Math.max(8,t.radius-4)}px;background:${boxBg};border:1px solid ${pal.card_border};">
+                  <div style="font-weight:700;font-size:12px;">${n}</div>
+                  <div style="color:${pal.primary};font-weight:800;font-size:12px;margin-top:4px;">${p}</div>
+                </div>`).join('')}
+            </div>
+            <button style="${btnCss}width:100%;" data-i18n="ui.theme_html.button_e5c41f74">Xem Giỏ Hàng &amp; Đặt Món</button>
+          </div>`;
+      }
+    }
+
+    async function initStudio() {
+      const res = await fetch('/api/super_admin?action=get_tenants');
+      const data = await res.json();
+      const sel = document.getElementById('st-tenant');
+      const list = (data.success && Array.isArray(data.data)) ? data.data.filter(t => t.subscription_status !== 'deleted') : [];
+      sel.innerHTML = list.map(t => `<option value="${t.tenant_code}">${t.tenant_code} — ${t.store_name}</option>`).join('');
+      const qsCode = new URLSearchParams(location.search).get('tenant_code');
+      if (qsCode && list.some(t => t.tenant_code === qsCode)) sel.value = qsCode;
+      if (sel.value) await loadTenantTheme(sel.value);
+    }
+
+    async function loadTenantTheme(tc) {
+      const res = await fetch(`/api/super_admin?action=get_tenant_theme&tenant_code=${encodeURIComponent(tc)}`);
+      const data = await res.json();
+      if (data.success) {
+        currentStoreName = data.store_name || tc;
+        document.getElementById('preview-store-label').textContent = `Đang xem trước: ${currentStoreName} (${currentEditMode.toUpperCase()})`;
+        if (data.theme_json) {
+          try {
+            const parsed = JSON.parse(data.theme_json);
+            if (parsed.dark && parsed.light) currentTheme = parsed;
+            else currentTheme = JSON.parse(JSON.stringify(PRESETS.cyber));
+          } catch (e) {}
+        } else {
+          currentTheme = JSON.parse(JSON.stringify(PRESETS.cyber));
+        }
+        setInputsFromTheme();
+        updateContrastGuard();
+        renderPreview();
+      }
+    }
+
+    async function saveAndPushTheme() {
+      const tc = document.getElementById('st-tenant').value;
+      if (!tc) return;
+      const res = await fetch('/api/super_admin?action=save_tenant_theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_code: tc, theme_json: currentTheme })
+      });
+      const data = await res.json();
+      toast(data.message || (data.success ? 'Đã lưu!' : 'Lỗi lưu theme'), !data.success);
+    }
+
+    function exportThemeJson() {
+      const tc = document.getElementById('st-tenant').value || 'store';
+      const blob = new Blob([JSON.stringify(currentTheme, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `theme_profile_${tc}.json`;
+      a.click();
+    }
+
+    function importThemeJson(inp) {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const parsed = JSON.parse(r.result);
+          if (!parsed.dark || !parsed.light) throw new Error('Thiếu dark/light');
+          currentTheme = parsed;
+          setInputsFromTheme();
+          updateContrastGuard();
+          renderPreview();
+          toast('Đã nhập file theme Dual-Mode JSON!');
+        } catch (e) { toast('File JSON không hợp lệ (cần có cả dark & light)!', true); }
+      };
+      r.readAsText(f);
+    }
+
+    function togglePreviewFullscreen() {
+      const pane = document.getElementById('preview-pane');
+      if (!pane) return;
+      if (!document.fullscreenElement) {
+        if (pane.requestFullscreen) pane.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('btn-fullscreen');
+      if (!btn) return;
+      const isFs = Boolean(document.fullscreenElement);
+      btn.innerHTML = isFs
+        ? '<i class="fas fa-compress"></i> Thoát Toàn Màn Hình (ESC)'
+        : '<i class="fas fa-expand"></i> Toàn Màn Hình';
+    });
+
+    initStudio();
+  </script>
+</body>
+</html>

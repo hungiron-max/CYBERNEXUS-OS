@@ -9,9 +9,9 @@ window.ImageProcessor = (() => {
         return new Promise((resolve, reject) => {
             canvas.toBlob(blob => {
                 if (!blob) {
-                    reject(new Error('Trình duyệt không thể xử lý ảnh này.'));
+                    reject(new Error((window.cnxT?window.cnxT('js.m_img.5232f3ec','Trình duyệt không thể xử lý ảnh này.'):'Trình duyệt không thể xử lý ảnh này.')));
                 } else if (blob.type !== 'image/webp') {
-                    reject(new Error('Trình duyệt chưa hỗ trợ chuẩn WebP. Vui lòng dùng phiên bản trình duyệt mới hơn.'));
+                    reject(new Error((window.cnxT?window.cnxT('js.m_img.b994a2e7','Trình duyệt chưa hỗ trợ chuẩn WebP. Vui lòng dùng phiên bản trình duyệt mới hơn.'):'Trình duyệt chưa hỗ trợ chuẩn WebP. Vui lòng dùng phiên bản trình duyệt mới hơn.')));
                 } else {
                     resolve(blob);
                 }
@@ -42,9 +42,9 @@ window.ImageProcessor = (() => {
 
     async function processFile(file, presetName) {
         const preset = presets[presetName];
-        if (!preset) throw new Error('Không tìm thấy cấu hình xử lý ảnh.');
+        if (!preset) throw new Error((window.cnxT?window.cnxT('js.m_img.24136efc','Không tìm thấy cấu hình xử lý ảnh.'):'Không tìm thấy cấu hình xử lý ảnh.'));
         if (!file || !file.type.startsWith('image/') || file.size <= 0 || file.size > 30 * 1024 * 1024) {
-            throw new Error('Ảnh không hợp lệ hoặc vượt giới hạn 30 MB trước khi xử lý.');
+            throw new Error((window.cnxT?window.cnxT('js.m_img.fc231cf0','Ảnh không hợp lệ hoặc vượt giới hạn 30 MB trước khi xử lý.'):'Ảnh không hợp lệ hoặc vượt giới hạn 30 MB trước khi xử lý.'));
         }
 
         const image = await decodeImage(file);
@@ -52,7 +52,7 @@ window.ImageProcessor = (() => {
         const sourceHeight = image.height || image.naturalHeight;
         if (!sourceWidth || !sourceHeight || sourceWidth * sourceHeight > 60000000) {
             if (typeof image.close === 'function') image.close();
-            throw new Error('Kích thước ảnh không hợp lệ hoặc vượt giới hạn xử lý.');
+            throw new Error((window.cnxT?window.cnxT('js.m_img.71f88d8f','Kích thước ảnh không hợp lệ hoặc vượt giới hạn xử lý.'):'Kích thước ảnh không hợp lệ hoặc vượt giới hạn xử lý.'));
         }
 
         let scale = Math.min(1, preset.maxWidth / sourceWidth, preset.maxHeight / sourceHeight);
@@ -65,7 +65,7 @@ window.ImageProcessor = (() => {
                 canvas.width = width;
                 canvas.height = height;
                 const context = canvas.getContext('2d');
-                if (!context) throw new Error('Trình duyệt không tạo được bộ nhớ xử lý ảnh.');
+                if (!context) throw new Error((window.cnxT?window.cnxT('js.m_img.bb7aed5a','Trình duyệt không tạo được bộ nhớ xử lý ảnh.'):'Trình duyệt không tạo được bộ nhớ xử lý ảnh.'));
                 context.imageSmoothingEnabled = true;
                 context.imageSmoothingQuality = 'high';
                 context.drawImage(image, 0, 0, width, height);
@@ -84,7 +84,7 @@ window.ImageProcessor = (() => {
             if (typeof image.close === 'function') image.close();
         }
 
-        throw new Error(`Không thể nén ảnh xuống dưới ${(preset.maxBytes / 1024).toFixed(0)} KB mà vẫn giữ chất lượng tối thiểu.`);
+        throw new Error(`${window.cnxT?window.cnxT('js.m_img.06bb0a5d','Không thể nén ảnh xuống dưới'):'Không thể nén ảnh xuống dưới'} ${(preset.maxBytes / 1024).toFixed(0)} ${window.cnxT?window.cnxT('js.m_img.d99177ca','KB mà vẫn giữ chất lượng tối thiểu.'):'KB mà vẫn giữ chất lượng tối thiểu.'}`);
     }
 
     async function canvasToDataUrl(canvas, quality = 0.82, maxBytes = 256 * 1024) {
@@ -95,19 +95,19 @@ window.ImageProcessor = (() => {
                 return await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error('Không thể đọc ảnh đã xử lý.'));
+                    reader.onerror = () => reject(new Error((window.cnxT?window.cnxT('js.m_img.7e5f254c','Không thể đọc ảnh đã xử lý.'):'Không thể đọc ảnh đã xử lý.')));
                     reader.readAsDataURL(blob);
                 });
             }
         }
-        throw new Error(`Ảnh vượt giới hạn ${(maxBytes / 1024).toFixed(0)} KB.`);
+        throw new Error(`${window.cnxT?window.cnxT('js.m_img.f750fbed','Ảnh vượt giới hạn'):'Ảnh vượt giới hạn'} ${(maxBytes / 1024).toFixed(0)} KB.`);
     }
 
     async function fileToDataUrl(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Không thể đọc ảnh đã xử lý.'));
+            reader.onerror = () => reject(new Error((window.cnxT?window.cnxT('js.m_img.7e5f254c','Không thể đọc ảnh đã xử lý.'):'Không thể đọc ảnh đã xử lý.')));
             reader.readAsDataURL(file);
         });
     }

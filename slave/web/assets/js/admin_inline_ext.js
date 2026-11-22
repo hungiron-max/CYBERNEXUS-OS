@@ -2,10 +2,10 @@
     let user = null;
     try {
         user = JSON.parse(localStorage.getItem('pos_user') || 'null');
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_inline_ext.js', e) : console.debug('admin_inline_ext.js', e)); }
 
     if (!user || user.role !== 'admin') {
-        alert('Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.');
+        alert((window.cnxT?window.cnxT('js.s_ext.f8bcc5dc','Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.'):'Truy cập bị từ chối! Vui lòng đăng nhập tài khoản Quản Trị (Chủ Quán) để vào trang quản trị.'));
         window.location.replace('login.html?redirect=admin.html');
         return;
     }
@@ -15,11 +15,11 @@
 
 // Dừng / Tắt Máy Chủ C++ (Graceful Shutdown)
 async function handleAdminShutdownHost() {
-    if (!confirm('XÁC NHẬN TẮT MÁY CHỦ C++?\n\nToàn bộ kết nối POS, Bếp và Khách sẽ tạm dừng.\nDữ liệu hóa đơn và doanh thu sẽ được tự động lưu an toàn.')) return;
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_ext.98256545','XÁC NHẬN TẮT MÁY CHỦ C++?\n\nToàn bộ kết nối POS, Bếp và Khách sẽ tạm dừng.\nDữ liệu hóa đơn và doanh thu sẽ được tự động lưu an toàn.'):'XÁC NHẬN TẮT MÁY CHỦ C++?\n\nToàn bộ kết nối POS, Bếp và Khách sẽ tạm dừng.\nDữ liệu hóa đơn và doanh thu sẽ được tự động lưu an toàn.')))) return;
     try {
         const token = localStorage.getItem('pos_token') || '';
         if (!token) {
-            alert('Vui lòng đăng nhập lại bằng tài khoản Admin trước khi tắt máy chủ.');
+            alert((window.cnxT?window.cnxT('js.s_ext.a2da7a2d','Vui lòng đăng nhập lại bằng tài khoản Admin trước khi tắt máy chủ.'):'Vui lòng đăng nhập lại bằng tài khoản Admin trước khi tắt máy chủ.'));
             return;
         }
         await fetch('/api/system/control', {
@@ -30,21 +30,21 @@ async function handleAdminShutdownHost() {
             },
             body: JSON.stringify({ action: 'stop' })
         });
-        alert('Máy chủ C++ đã dừng an toàn thành công!\nBạn có thể đóng trình duyệt.');
+        alert((window.cnxT?window.cnxT('js.s_ext.55d27f2f','Máy chủ C++ đã dừng an toàn thành công!\nBạn có thể đóng trình duyệt.'):'Máy chủ C++ đã dừng an toàn thành công!\nBạn có thể đóng trình duyệt.'));
     } catch(e) {
-        alert('Máy chủ đã ngắt kết nối và tắt hoàn toàn!');
+        alert((window.cnxT?window.cnxT('js.s_ext.01259c7b','Máy chủ đã ngắt kết nối và tắt hoàn toàn!'):'Máy chủ đã ngắt kết nối và tắt hoàn toàn!'));
     }
 }
 
 // Xử lý đăng xuất Chủ Quán -> Quay về login.html
 async function handleAdminLogout() {
-    if (!confirm('Bạn có chắc chắn muốn đăng xuất tài khoản Chủ Quán?')) return;
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_ext.0528ee35','Bạn có chắc chắn muốn đăng xuất tài khoản Chủ Quán?'):'Bạn có chắc chắn muốn đăng xuất tài khoản Chủ Quán?')))) return;
     if (window.JukeboxEngine) {
         window.JukeboxEngine.stopAndLogout();
     }
     try {
         await fetch('api/auth.php?action=logout');
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_inline_ext.js', e) : console.debug('admin_inline_ext.js', e)); }
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_token');
     document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -54,50 +54,50 @@ async function handleAdminLogout() {
 
 // Master list of Vietnamese banks supported by VietQR / NAPAS 247
 const VIETQR_BANKS = [
-    { code: 'MB', bin: '970422', name: 'MBBank', full: 'Ngân hàng TMCP Quân Đội', popular: true },
-    { code: 'VCB', bin: '970436', name: 'Vietcombank', full: 'Ngân hàng TMCP Ngoại Thương Việt Nam', popular: true },
-    { code: 'TCB', bin: '970407', name: 'Techcombank', full: 'Ngân hàng TMCP Kỹ Thương Việt Nam', popular: true },
-    { code: 'ICB', bin: '970415', name: 'VietinBank', full: 'Ngân hàng TMCP Công Thương Việt Nam', popular: true },
-    { code: 'BIDV', bin: '970418', name: 'BIDV', full: 'Ngân hàng TMCP Đầu Tư và Phát Triển Việt Nam', popular: true },
-    { code: 'ACB', bin: '970416', name: 'ACB', full: 'Ngân hàng TMCP Á Châu', popular: true },
-    { code: 'VPB', bin: '970454', name: 'VPBank', full: 'Ngân hàng TMCP Việt Nam Thịnh Vượng', popular: true },
-    { code: 'TPB', bin: '970458', name: 'TPBank', full: 'Ngân hàng TMCP Tiên Phong', popular: true },
-    { code: 'STB', bin: '970403', name: 'Sacombank', full: 'Ngân hàng TMCP Sài Gòn Thương Tín', popular: true },
-    { code: 'VBA', bin: '970405', name: 'Agribank', full: 'Ngân hàng Nông Nghiệp và PTNT Việt Nam', popular: true },
-    { code: 'HDB', bin: '970437', name: 'HDBank', full: 'Ngân hàng TMCP Phát Triển TP.HCM' },
-    { code: 'VIB', bin: '970441', name: 'VIB', full: 'Ngân hàng TMCP Quốc Tế Việt Nam' },
-    { code: 'MSB', bin: '970426', name: 'MSB', full: 'Ngân hàng TMCP Hàng Hải Việt Nam' },
-    { code: 'SHB', bin: '970443', name: 'SHB', full: 'Ngân hàng TMCP Sài Gòn - Hà Nội' },
-    { code: 'OCB', bin: '970448', name: 'OCB', full: 'Ngân hàng TMCP Phương Đông' },
-    { code: 'LPB', bin: '970449', name: 'LPBank', full: 'Ngân hàng TMCP Lộc Phát Việt Nam' },
-    { code: 'SEAB', bin: '970440', name: 'SeABank', full: 'Ngân hàng TMCP Đông Nam Á' },
-    { code: 'NAB', bin: '970428', name: 'Nam A Bank', full: 'Ngân hàng TMCP Nam Á' },
-    { code: 'BVB', bin: '970455', name: 'BVBank', full: 'Ngân hàng TMCP Bản Việt' },
-    { code: 'TIMO', bin: '970454', name: 'Timo', full: 'Ngân hàng số Timo (BVBank)' },
-    { code: 'CAKE', bin: '970468', name: 'Cake', full: 'Ngân hàng số Cake by VPBank' },
-    { code: 'EIB', bin: '970431', name: 'Eximbank', full: 'Ngân hàng TMCP Xuất Nhập Khẩu Việt Nam' },
-    { code: 'PVCB', bin: '970412', name: 'PVcomBank', full: 'Ngân hàng TMCP Đại Chúng Việt Nam' },
-    { code: 'SHBVN', bin: '970424', name: 'Shinhan Bank', full: 'Ngân hàng TNHH MTV Shinhan Việt Nam' },
-    { code: 'WOO', bin: '970457', name: 'Woori Bank', full: 'Ngân hàng TNHH MTV Woori Việt Nam' },
-    { code: 'KLB', bin: '970452', name: 'Kienlongbank', full: 'Ngân hàng TMCP Kiên Long' },
-    { code: 'BAB', bin: '970409', name: 'Bac A Bank', full: 'Ngân hàng TMCP Bắc Á' },
-    { code: 'SGB', bin: '970400', name: 'Saigonbank', full: 'Ngân hàng TMCP Sài Gòn Công Thương' },
-    { code: 'BVBANK', bin: '970438', name: 'BaoVietBank', full: 'Ngân hàng TMCP Bảo Việt' },
-    { code: 'NCB', bin: '970419', name: 'NCB', full: 'Ngân hàng TMCP Quốc Dân' },
-    { code: 'VRB', bin: '970421', name: 'VRB', full: 'Ngân hàng Liên Doanh Việt - Nga' },
-    { code: 'VAB', bin: '970427', name: 'VietABank', full: 'Ngân hàng TMCP Việt Á' },
-    { code: 'VCCB', bin: '970455', name: 'Viet Capital Bank', full: 'Ngân hàng TMCP Bản Việt' }
+    { code: 'MB', bin: '970422', name: 'MBBank', full: (window.cnxT?window.cnxT('js.s_ext.44c0d7e1','Ngân hàng TMCP Quân Đội'):'Ngân hàng TMCP Quân Đội'), popular: true },
+    { code: 'VCB', bin: '970436', name: 'Vietcombank', full: (window.cnxT?window.cnxT('js.s_ext.30d64864','Ngân hàng TMCP Ngoại Thương Việt Nam'):'Ngân hàng TMCP Ngoại Thương Việt Nam'), popular: true },
+    { code: 'TCB', bin: '970407', name: 'Techcombank', full: (window.cnxT?window.cnxT('js.s_ext.7c536fe2','Ngân hàng TMCP Kỹ Thương Việt Nam'):'Ngân hàng TMCP Kỹ Thương Việt Nam'), popular: true },
+    { code: 'ICB', bin: '970415', name: 'VietinBank', full: (window.cnxT?window.cnxT('js.s_ext.9f5b25fc','Ngân hàng TMCP Công Thương Việt Nam'):'Ngân hàng TMCP Công Thương Việt Nam'), popular: true },
+    { code: 'BIDV', bin: '970418', name: 'BIDV', full: (window.cnxT?window.cnxT('js.s_ext.bd6f953b','Ngân hàng TMCP Đầu Tư và Phát Triển Việt Nam'):'Ngân hàng TMCP Đầu Tư và Phát Triển Việt Nam'), popular: true },
+    { code: 'ACB', bin: '970416', name: 'ACB', full: (window.cnxT?window.cnxT('js.s_ext.c1f0703a','Ngân hàng TMCP Á Châu'):'Ngân hàng TMCP Á Châu'), popular: true },
+    { code: 'VPB', bin: '970454', name: 'VPBank', full: (window.cnxT?window.cnxT('js.s_ext.a93d07c5','Ngân hàng TMCP Việt Nam Thịnh Vượng'):'Ngân hàng TMCP Việt Nam Thịnh Vượng'), popular: true },
+    { code: 'TPB', bin: '970458', name: 'TPBank', full: (window.cnxT?window.cnxT('js.s_ext.f47aa046','Ngân hàng TMCP Tiên Phong'):'Ngân hàng TMCP Tiên Phong'), popular: true },
+    { code: 'STB', bin: '970403', name: 'Sacombank', full: (window.cnxT?window.cnxT('js.s_ext.8a28ac8f','Ngân hàng TMCP Sài Gòn Thương Tín'):'Ngân hàng TMCP Sài Gòn Thương Tín'), popular: true },
+    { code: 'VBA', bin: '970405', name: 'Agribank', full: (window.cnxT?window.cnxT('js.s_ext.b20447b1','Ngân hàng Nông Nghiệp và PTNT Việt Nam'):'Ngân hàng Nông Nghiệp và PTNT Việt Nam'), popular: true },
+    { code: 'HDB', bin: '970437', name: 'HDBank', full: (window.cnxT?window.cnxT('js.s_ext.3822b482','Ngân hàng TMCP Phát Triển TP.HCM'):'Ngân hàng TMCP Phát Triển TP.HCM') },
+    { code: 'VIB', bin: '970441', name: 'VIB', full: (window.cnxT?window.cnxT('js.s_ext.2d8ce4c8','Ngân hàng TMCP Quốc Tế Việt Nam'):'Ngân hàng TMCP Quốc Tế Việt Nam') },
+    { code: 'MSB', bin: '970426', name: 'MSB', full: (window.cnxT?window.cnxT('js.s_ext.845c6797','Ngân hàng TMCP Hàng Hải Việt Nam'):'Ngân hàng TMCP Hàng Hải Việt Nam') },
+    { code: 'SHB', bin: '970443', name: 'SHB', full: (window.cnxT?window.cnxT('js.s_ext.525ef22b','Ngân hàng TMCP Sài Gòn - Hà Nội'):'Ngân hàng TMCP Sài Gòn - Hà Nội') },
+    { code: 'OCB', bin: '970448', name: 'OCB', full: (window.cnxT?window.cnxT('js.s_ext.a9076515','Ngân hàng TMCP Phương Đông'):'Ngân hàng TMCP Phương Đông') },
+    { code: 'LPB', bin: '970449', name: 'LPBank', full: (window.cnxT?window.cnxT('js.s_ext.840cfdd4','Ngân hàng TMCP Lộc Phát Việt Nam'):'Ngân hàng TMCP Lộc Phát Việt Nam') },
+    { code: 'SEAB', bin: '970440', name: 'SeABank', full: (window.cnxT?window.cnxT('js.s_ext.9c29fed8','Ngân hàng TMCP Đông Nam Á'):'Ngân hàng TMCP Đông Nam Á') },
+    { code: 'NAB', bin: '970428', name: 'Nam A Bank', full: (window.cnxT?window.cnxT('js.s_ext.c28d33fa','Ngân hàng TMCP Nam Á'):'Ngân hàng TMCP Nam Á') },
+    { code: 'BVB', bin: '970455', name: 'BVBank', full: (window.cnxT?window.cnxT('js.s_ext.3c2f5d5d','Ngân hàng TMCP Bản Việt'):'Ngân hàng TMCP Bản Việt') },
+    { code: 'TIMO', bin: '970454', name: 'Timo', full: (window.cnxT?window.cnxT('js.s_ext.2a9dd3ba','Ngân hàng số Timo (BVBank)'):'Ngân hàng số Timo (BVBank)') },
+    { code: 'CAKE', bin: '970468', name: 'Cake', full: (window.cnxT?window.cnxT('js.s_ext.01a87f04','Ngân hàng số Cake by VPBank'):'Ngân hàng số Cake by VPBank') },
+    { code: 'EIB', bin: '970431', name: 'Eximbank', full: (window.cnxT?window.cnxT('js.s_ext.b2dfa90f','Ngân hàng TMCP Xuất Nhập Khẩu Việt Nam'):'Ngân hàng TMCP Xuất Nhập Khẩu Việt Nam') },
+    { code: 'PVCB', bin: '970412', name: 'PVcomBank', full: (window.cnxT?window.cnxT('js.s_ext.899ec7c0','Ngân hàng TMCP Đại Chúng Việt Nam'):'Ngân hàng TMCP Đại Chúng Việt Nam') },
+    { code: 'SHBVN', bin: '970424', name: 'Shinhan Bank', full: (window.cnxT?window.cnxT('js.s_ext.5a11d58a','Ngân hàng TNHH MTV Shinhan Việt Nam'):'Ngân hàng TNHH MTV Shinhan Việt Nam') },
+    { code: 'WOO', bin: '970457', name: 'Woori Bank', full: (window.cnxT?window.cnxT('js.s_ext.8a80f778','Ngân hàng TNHH MTV Woori Việt Nam'):'Ngân hàng TNHH MTV Woori Việt Nam') },
+    { code: 'KLB', bin: '970452', name: 'Kienlongbank', full: (window.cnxT?window.cnxT('js.s_ext.b0457e22','Ngân hàng TMCP Kiên Long'):'Ngân hàng TMCP Kiên Long') },
+    { code: 'BAB', bin: '970409', name: 'Bac A Bank', full: (window.cnxT?window.cnxT('js.s_ext.36ca6d2a','Ngân hàng TMCP Bắc Á'):'Ngân hàng TMCP Bắc Á') },
+    { code: 'SGB', bin: '970400', name: 'Saigonbank', full: (window.cnxT?window.cnxT('js.s_ext.6584c17d','Ngân hàng TMCP Sài Gòn Công Thương'):'Ngân hàng TMCP Sài Gòn Công Thương') },
+    { code: 'BVBANK', bin: '970438', name: 'BaoVietBank', full: (window.cnxT?window.cnxT('js.s_ext.51ebc3e9','Ngân hàng TMCP Bảo Việt'):'Ngân hàng TMCP Bảo Việt') },
+    { code: 'NCB', bin: '970419', name: 'NCB', full: (window.cnxT?window.cnxT('js.s_ext.b1158480','Ngân hàng TMCP Quốc Dân'):'Ngân hàng TMCP Quốc Dân') },
+    { code: 'VRB', bin: '970421', name: 'VRB', full: (window.cnxT?window.cnxT('js.s_ext.773d634b','Ngân hàng Liên Doanh Việt - Nga'):'Ngân hàng Liên Doanh Việt - Nga') },
+    { code: 'VAB', bin: '970427', name: 'VietABank', full: (window.cnxT?window.cnxT('js.s_ext.2e20ce2f','Ngân hàng TMCP Việt Á'):'Ngân hàng TMCP Việt Á') },
+    { code: 'VCCB', bin: '970455', name: 'Viet Capital Bank', full: (window.cnxT?window.cnxT('js.s_ext.3c2f5d5d','Ngân hàng TMCP Bản Việt'):'Ngân hàng TMCP Bản Việt') }
 ];
 
 let adminAdSlides = [];
 let advertisingSlidesDirty = false;
 const adSlideLabels = {
-    store: 'Thông tin quán',
-    KM1: 'KM1 · Ưu đãi',
-    KM2: 'KM2 · Bán chạy',
-    KM3: 'KM3 · Món mới',
-    QC1: 'QC1 · Video quán',
-    QC2: 'QC2 · Khám phá quán'
+    store: (window.cnxT?window.cnxT('js.s_ext.56fca57c','Thông tin quán'):'Thông tin quán'),
+    KM1: (window.cnxT?window.cnxT('js.s_ext.fdd09f28','KM1 · Ưu đãi'):'KM1 · Ưu đãi'),
+    KM2: (window.cnxT?window.cnxT('js.s_ext.9a2bf998','KM2 · Bán chạy'):'KM2 · Bán chạy'),
+    KM3: (window.cnxT?window.cnxT('js.s_ext.83a7b696','KM3 · Món mới'):'KM3 · Món mới'),
+    QC1: (window.cnxT?window.cnxT('js.s_ext.4761aa80','QC1 · Video quán'):'QC1 · Video quán'),
+    QC2: (window.cnxT?window.cnxT('js.s_ext.8925894f','QC2 · Khám phá quán'):'QC2 · Khám phá quán')
 };
 
 function updateAdMediaPreview(path, type = null) {
@@ -122,32 +122,32 @@ function applySlidePreset(presetType) {
     const presets = {
         cafe: {
             label: 'KM1',
-            title: 'Hương Vị Cà Phê Pha Phin Truyền Thống',
-            description: 'Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.',
+            title: (window.cnxT?window.cnxT('js.s_ext.d6c1d51f','Hương Vị Cà Phê Pha Phin Truyền Thống'):'Hương Vị Cà Phê Pha Phin Truyền Thống'),
+            description: (window.cnxT?window.cnxT('ui.adm_html.textarea_a3533f2d','Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.'):'Đậm đà hương vị cà phê mộc nguyên chất, khởi đầu ngày mới tràn đầy sảng khoái và năng lượng.'),
             media_path: 'assets/images/dishes/dish_1793448692_5cbbfa81.jpg',
             media_type: 'image',
             duration: 6
         },
         banhmi: {
             label: 'KM2',
-            title: 'Bánh Mì Chảo Thơm Giòn Nóng Hổi',
-            description: 'Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.',
+            title: (window.cnxT?window.cnxT('ui.customer_html.h3_a5909b4d','Bánh Mì Chảo Thơm Giòn Nóng Hổi'):'Bánh Mì Chảo Thơm Giòn Nóng Hổi'),
+            description: (window.cnxT?window.cnxT('js.s_ext.310bc33a','Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.'):'Pate béo ngậy, xúc xích và trứng ốp la lòng đào sốt sánh mịn đậm vị khó cưỡng.'),
             media_path: 'assets/images/dishes/dish_1793438761_26c1602f.jpg',
             media_type: 'image',
             duration: 6
         },
         bittet: {
             label: 'KM3',
-            title: 'Bò Bít Tết Sốt Tiêu Đen Thượng Hạng',
-            description: 'Thịt bò tươi mềm mọng nước, sốt tiêu cay nồng thơm lừng kèm khoai tây chiên giòn tan.',
+            title: (window.cnxT?window.cnxT('js.s_ext.d37c4582','Bò Bít Tết Sốt Tiêu Đen Thượng Hạng'):'Bò Bít Tết Sốt Tiêu Đen Thượng Hạng'),
+            description: (window.cnxT?window.cnxT('js.s_ext.bacc71b7','Thịt bò tươi mềm mọng nước, sốt tiêu cay nồng thơm lừng kèm khoai tây chiên giòn tan.'):'Thịt bò tươi mềm mọng nước, sốt tiêu cay nồng thơm lừng kèm khoai tây chiên giòn tan.'),
             media_path: 'assets/images/dishes/dish_1793448377_d168bdbb.jpg',
             media_type: 'image',
             duration: 6
         },
         video: {
             label: 'QC1',
-            title: 'Không Gian Thư Giãn & Hương Vị Nguyên Bản',
-            description: 'Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.',
+            title: (window.cnxT?window.cnxT('ui.customer_html.h3_06d50aab','Không Gian Thư Giãn & Hương Vị Nguyên Bản'):'Không Gian Thư Giãn & Hương Vị Nguyên Bản'),
+            description: (window.cnxT?window.cnxT('js.s_ext.54bb6773','Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.'):'Khám phá quy trình pha chế kỳ công và không gian thoáng đãng tại Góc Phố.'),
             media_path: 'uploads/advertisements/65bfba6b4181d0e350ebcc94e7bcd240.mp4',
             media_type: 'video',
             duration: 0
@@ -175,7 +175,7 @@ function applySlidePreset(presetType) {
     if (durationSelect) durationSelect.value = String(p.duration);
 
     updateAdMediaPreview(p.media_path, p.media_type);
-    adManagerAlert(`Đã chọn mẫu: ${p.title}. Bấm “Thêm Vào Trình Chiếu” để bổ sung.`, true);
+    adManagerAlert(`${window.cnxT?window.cnxT('js.s_ext.75d748ce','Đã chọn mẫu:'):'Đã chọn mẫu:'} ${p.title}${window.cnxT?window.cnxT('js.s_ext.d017fbde','. Bấm “Thêm Vào Trình Chiếu” để bổ sung.'):'. Bấm “Thêm Vào Trình Chiếu” để bổ sung.'}`, true);
 }
 
 function orderAdvertisingSlides(slides) {
@@ -212,7 +212,7 @@ function renderAdvertisingSlides() {
     if (!adminAdSlides.length) {
         const empty = document.createElement('div');
         empty.className = 'rounded-xl border border-dashed border-white/15 bg-slate-950/40 p-6 text-center text-[11px] text-slate-400';
-        empty.innerHTML = '<i class="fas fa-photo-film mb-2 block text-xl text-fuchsia-300/70"></i>Chưa có slide nào. Hãy chọn mẫu ở trên hoặc tải ảnh lên để bắt đầu.';
+        empty.innerHTML = (window.cnxT?window.cnxT('js.s_ext.2199d5b0','<i class="fas fa-photo-film mb-2 block text-xl text-fuchsia-300/70"></i>Chưa có slide nào. Hãy chọn mẫu ở trên hoặc tải ảnh lên để bắt đầu.'):'<i class="fas fa-photo-film mb-2 block text-xl text-fuchsia-300/70"></i>Chưa có slide nào. Hãy chọn mẫu ở trên hoặc tải ảnh lên để bắt đầu.');
         list.appendChild(empty);
         return;
     }
@@ -248,7 +248,7 @@ function renderAdvertisingSlides() {
         metaRow.className = 'flex items-center gap-1.5 flex-wrap';
 
         const badgeEl = document.createElement('span');
-        const labelText = adSlideLabels[slide.label] || slide.label || (isVideo ? 'Video' : 'Ảnh');
+        const labelText = adSlideLabels[slide.label] || slide.label || (isVideo ? 'Video' : (window.cnxT?window.cnxT('ui.admin_html.th_d2c9a0e9','Ảnh'):'Ảnh'));
         badgeEl.className = `px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${isVideo ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : (slide.label === 'KM2' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30')}`;
         badgeEl.textContent = labelText;
 
@@ -261,22 +261,22 @@ function renderAdvertisingSlides() {
         if (isEditing) {
             const editingBadge = document.createElement('span');
             editingBadge.className = 'px-1.5 py-0.2 rounded text-[8px] font-black uppercase bg-amber-400 text-slate-950';
-            editingBadge.textContent = 'ĐANG SỬA';
+            editingBadge.textContent = (window.cnxT?window.cnxT('js.s_ext.889eb847','ĐANG SỬA'):'ĐANG SỬA');
             metaRow.append(editingBadge);
         }
 
         let cleanTitle = String(slide.title || '').trim();
         if (/^[a-f0-9_\-\.]{12,}$/i.test(cleanTitle)) {
-            cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+            cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : (window.cnxT?window.cnxT('js.s_ext.ea140217','Món Ngon Đặc Sản Góc Phố'):'Món Ngon Đặc Sản Góc Phố');
         }
 
         const titleEl = document.createElement('h5');
         titleEl.className = `text-xs font-bold truncate ${isEditing ? 'text-amber-200' : 'text-white'}`;
-        titleEl.textContent = cleanTitle || 'Slide không tên';
+        titleEl.textContent = cleanTitle || (window.cnxT?window.cnxT('js.s_ext.e0228e5c','Slide không tên'):'Slide không tên');
 
         const descEl = document.createElement('p');
         descEl.className = 'text-[10px] text-slate-400 truncate';
-        descEl.textContent = slide.description || 'Chưa có mô tả';
+        descEl.textContent = slide.description || (window.cnxT?window.cnxT('js.s_ext.56678b0e','Chưa có mô tả'):'Chưa có mô tả');
 
         info.append(metaRow, titleEl, descEl);
 
@@ -287,7 +287,7 @@ function renderAdvertisingSlides() {
         // NÚT CHỈNH SỬA (EDIT)
         const btnEdit = document.createElement('button');
         btnEdit.type = 'button';
-        btnEdit.title = 'Chỉnh sửa slide này';
+        btnEdit.title = (window.cnxT?window.cnxT('js.s_ext.85a5baef','Chỉnh sửa slide này'):'Chỉnh sửa slide này');
         btnEdit.innerHTML = '<i class="fas fa-pen-to-square text-[10px] pointer-events-none"></i>';
         btnEdit.className = `h-7 w-7 rounded-lg border flex items-center justify-center transition-all ${isEditing ? 'border-amber-400 bg-amber-400 text-slate-950 font-bold' : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/30 hover:text-white'}`;
         btnEdit.onclick = (e) => {
@@ -301,7 +301,7 @@ function renderAdvertisingSlides() {
 
         const btnPrev = document.createElement('button');
         btnPrev.type = 'button';
-        btnPrev.title = 'Xem trước toàn bộ slide bắt đầu từ slide này';
+        btnPrev.title = (window.cnxT?window.cnxT('js.s_ext.468895c8','Xem trước toàn bộ slide bắt đầu từ slide này'):'Xem trước toàn bộ slide bắt đầu từ slide này');
         btnPrev.innerHTML = '<i class="fas fa-eye text-[10px] pointer-events-none"></i>';
         btnPrev.className = 'h-7 w-7 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/30 hover:text-white flex items-center justify-center transition-all';
         btnPrev.onclick = (e) => {
@@ -311,7 +311,7 @@ function renderAdvertisingSlides() {
 
         const btnUp = document.createElement('button');
         btnUp.type = 'button';
-        btnUp.title = 'Di chuyển lên';
+        btnUp.title = (window.cnxT?window.cnxT('js.s_ext.329dd14f','Di chuyển lên'):'Di chuyển lên');
         btnUp.innerHTML = '<i class="fas fa-arrow-up text-[10px] pointer-events-none"></i>';
         btnUp.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
         btnUp.disabled = index === 0;
@@ -322,7 +322,7 @@ function renderAdvertisingSlides() {
 
         const btnDown = document.createElement('button');
         btnDown.type = 'button';
-        btnDown.title = 'Di chuyển xuống';
+        btnDown.title = (window.cnxT?window.cnxT('js.s_ext.f6326d6b','Di chuyển xuống'):'Di chuyển xuống');
         btnDown.innerHTML = '<i class="fas fa-arrow-down text-[10px] pointer-events-none"></i>';
         btnDown.className = 'h-7 w-7 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30';
         btnDown.disabled = index === adminAdSlides.length - 1;
@@ -333,7 +333,7 @@ function renderAdvertisingSlides() {
 
         const btnDel = document.createElement('button');
         btnDel.type = 'button';
-        btnDel.title = 'Xóa slide';
+        btnDel.title = (window.cnxT?window.cnxT('js.s_ext.bbbe2057','Xóa slide'):'Xóa slide');
         btnDel.innerHTML = '<i class="fas fa-trash-can text-[10px] pointer-events-none"></i>';
         btnDel.className = 'h-7 w-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/30 hover:text-rose-100 flex items-center justify-center transition-all';
         btnDel.onclick = (e) => {
@@ -370,7 +370,7 @@ function editAdvertisingSlide(index) {
 
     let cleanTitle = String(slide.title || '').trim();
     if (/^[a-f0-9_\-\.]{12,}$/i.test(cleanTitle)) {
-        cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+        cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : (window.cnxT?window.cnxT('js.s_ext.ea140217','Món Ngon Đặc Sản Góc Phố'):'Món Ngon Đặc Sản Góc Phố');
     }
     const titleInput = document.getElementById('ad-slide-title');
     if (titleInput) titleInput.value = cleanTitle;
@@ -380,14 +380,14 @@ function editAdvertisingSlide(index) {
 
     // Đổi tiêu đề Form và Nút Lưu thành Chế độ Chỉnh sửa
     const heading = document.getElementById('ad-form-heading');
-    if (heading) heading.textContent = `Chỉnh Sửa Slide #${index + 1}`;
+    if (heading) heading.textContent = `${window.cnxT?window.cnxT('js.s_ext.40ae6c24','Chỉnh Sửa Slide #'):'Chỉnh Sửa Slide #'}${index + 1}`;
     const icon = document.getElementById('ad-form-icon');
     if (icon) icon.className = 'fas fa-pen-to-square text-amber-400';
 
     const addBtn = document.getElementById('ad-slide-add-button');
     if (addBtn) {
         addBtn.className = 'rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-amber-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5';
-        addBtn.innerHTML = '<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>';
+        addBtn.innerHTML = (window.cnxT?window.cnxT('js.s_ext.8f7a869a','<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>'):'<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>');
     }
 
     const cancelBtn = document.getElementById('ad-slide-cancel-edit-btn');
@@ -395,20 +395,20 @@ function editAdvertisingSlide(index) {
 
     renderAdvertisingSlides();
     document.getElementById('ad-slide-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    adManagerAlert(`Đang chỉnh sửa slide #${index + 1}. Hãy sửa nội dung rồi bấm "Cập Nhật Slide".`, true);
+    adManagerAlert(`${window.cnxT?window.cnxT('js.s_ext.2aebdc71','Đang chỉnh sửa slide #'):'Đang chỉnh sửa slide #'}${index + 1}. Hãy sửa nội dung rồi bấm "Cập Nhật Slide".`, true);
 }
 
 function cancelEditAdvertisingSlide() {
     editingSlideIndex = -1;
     const heading = document.getElementById('ad-form-heading');
-    if (heading) heading.textContent = 'Thêm Slide Mới';
+    if (heading) heading.textContent = (window.cnxT?window.cnxT('ui.adm_html.span_9070047d','Thêm Slide Mới'):'Thêm Slide Mới');
     const icon = document.getElementById('ad-form-icon');
     if (icon) icon.className = 'fas fa-plus-circle text-fuchsia-400';
 
     const addBtn = document.getElementById('ad-slide-add-button');
     if (addBtn) {
         addBtn.className = 'rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 py-2 px-3 text-xs font-black text-white shadow-lg shadow-fuchsia-950/40 transition hover:brightness-110 flex items-center justify-center gap-1.5';
-        addBtn.innerHTML = '<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>';
+        addBtn.innerHTML = (window.cnxT?window.cnxT('js.s_ext.d35acaee','<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>'):'<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>');
     }
 
     const cancelBtn = document.getElementById('ad-slide-cancel-edit-btn');
@@ -427,7 +427,7 @@ function moveAdvertisingSlide(index, direction) {
     else if (editingSlideIndex === target) editingSlideIndex = index;
     renderAdvertisingSlides();
     setAdvertisingSlidesDirty(true);
-    adManagerAlert(`Đã di chuyển slide lên vị trí #${target + 1}. Bấm “Lưu & Xuất Bản Ngay” để áp dụng.`, true);
+    adManagerAlert(`${window.cnxT?window.cnxT('js.s_ext.67db6694','Đã di chuyển slide lên vị trí #'):'Đã di chuyển slide lên vị trí #'}${target + 1}${window.cnxT?window.cnxT('js.s_ext.0baff242','. Bấm “Lưu & Xuất Bản Ngay” để áp dụng.'):'. Bấm “Lưu & Xuất Bản Ngay” để áp dụng.'}`, true);
 }
 
 function removeAdvertisingSlide(index) {
@@ -436,7 +436,7 @@ function removeAdvertisingSlide(index) {
     adminAdSlides.splice(index, 1);
     renderAdvertisingSlides();
     setAdvertisingSlidesDirty(true);
-    adManagerAlert('Đã xóa slide khỏi danh sách. Hãy bấm “Lưu & Xuất Bản Ngay”.', true);
+    adManagerAlert((window.cnxT?window.cnxT('js.s_ext.ebb1a644','Đã xóa slide khỏi danh sách. Hãy bấm “Lưu & Xuất Bản Ngay”.'):'Đã xóa slide khỏi danh sách. Hãy bấm “Lưu & Xuất Bản Ngay”.'), true);
 }
 
 document.getElementById('ad-media-file')?.addEventListener('change', event => {
@@ -455,7 +455,7 @@ document.getElementById('ad-media-file')?.addEventListener('change', event => {
         // Tuyệt đối không lấy tên file (nhất là mã hash) để nhét vào tiêu đề!
         // Chỉ gợi ý tiêu đề có ý nghĩa nếu ô tiêu đề đang trống hoặc dính mã hash
         if (!currentVal || /^[a-f0-9_\-\.]{12,}$/i.test(currentVal)) {
-            titleInput.value = isVideo ? 'Video Trải Nghiệm Góc Phố' : 'Món Ngon Đặc Sản Góc Phố';
+            titleInput.value = isVideo ? 'Video Trải Nghiệm Góc Phố' : (window.cnxT?window.cnxT('js.s_ext.ea140217','Món Ngon Đặc Sản Góc Phố'):'Món Ngon Đặc Sản Góc Phố');
         }
     }
 
@@ -472,10 +472,10 @@ async function uploadAndAddAdSlide() {
     const directPath = urlInput?.value.trim() || '';
 
     if (editingSlideIndex < 0 && adminAdSlides.length >= 12) {
-        return adManagerAlert('Đã đạt giới hạn tối đa 12 slide.', false);
+        return adManagerAlert((window.cnxT?window.cnxT('js.s_ext.9b881bf9','Đã đạt giới hạn tối đa 12 slide.'):'Đã đạt giới hạn tối đa 12 slide.'), false);
     }
     if (!file && !directPath) {
-        return adManagerAlert('Vui lòng chọn ảnh/video hoặc dán URL media.', false);
+        return adManagerAlert((window.cnxT?window.cnxT('js.s_ext.7c3eb8f2','Vui lòng chọn ảnh/video hoặc dán URL media.'):'Vui lòng chọn ảnh/video hoặc dán URL media.'), false);
     }
 
     const isVideo = file 
@@ -485,7 +485,7 @@ async function uploadAndAddAdSlide() {
     const titleInput = document.getElementById('ad-slide-title');
     let title = titleInput?.value.trim() || '';
     if (!title || /^[a-f0-9_\-\.]{12,}$/i.test(title)) {
-        title = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+        title = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : (window.cnxT?window.cnxT('js.s_ext.ea140217','Món Ngon Đặc Sản Góc Phố'):'Món Ngon Đặc Sản Góc Phố');
     }
 
     const labelInput = document.getElementById('ad-slide-label');
@@ -495,7 +495,7 @@ async function uploadAndAddAdSlide() {
 
     const button = document.getElementById('ad-slide-add-button');
     button.disabled = true;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang xử lý media...';
+    button.innerHTML = (window.cnxT?window.cnxT('js.s_ext.ba22fed9','<i class="fas fa-spinner fa-spin mr-1"></i>Đang xử lý media...'):'<i class="fas fa-spinner fa-spin mr-1"></i>Đang xử lý media...');
 
     try {
         let mediaPath = directPath;
@@ -506,7 +506,7 @@ async function uploadAndAddAdSlide() {
             formData.append('media', file);
             const response = await fetch('api/advertising?action=upload_media', { method: 'POST', body: formData });
             const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải media lên.');
+            if (!response.ok || !data.success) throw new Error(data.message || (window.cnxT?window.cnxT('js.s_ext.b0c65cb9','Không thể tải media lên.'):'Không thể tải media lên.'));
             mediaPath = data.media.path;
             mediaType = data.media.type;
         }
@@ -528,7 +528,7 @@ async function uploadAndAddAdSlide() {
             renderAdvertisingSlides();
             setAdvertisingSlidesDirty(true);
             if (fileInput) fileInput.value = '';
-            adManagerAlert(`Đã cập nhật slide #${updatedIdx + 1}! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.`, true);
+            adManagerAlert(`${window.cnxT?window.cnxT('js.s_ext.d6ff381e','Đã cập nhật slide #'):'Đã cập nhật slide #'}${updatedIdx + 1}${window.cnxT?window.cnxT('js.s_ext.77a95a3f','! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.'):'! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.'}`, true);
             openCarouselFullPreview(updatedIdx);
             return;
         }
@@ -547,16 +547,16 @@ async function uploadAndAddAdSlide() {
         renderAdvertisingSlides();
         setAdvertisingSlidesDirty(true);
         if (fileInput) fileInput.value = '';
-        adManagerAlert('Đã thêm slide vào danh sách! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.', true);
+        adManagerAlert((window.cnxT?window.cnxT('js.s_ext.ba40568b','Đã thêm slide vào danh sách! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.'):'Đã thêm slide vào danh sách! Bấm “Lưu & Xuất Bản Ngay” để cập nhật cho khách.'), true);
         openCarouselFullPreview(adminAdSlides.length - 1);
     } catch (error) {
-        adManagerAlert(error.message || 'Không thể tải media lên.', false);
+        adManagerAlert(error.message || (window.cnxT?window.cnxT('js.s_ext.b0c65cb9','Không thể tải media lên.'):'Không thể tải media lên.'), false);
     } finally {
         button.disabled = false;
         if (editingSlideIndex >= 0) {
-            button.innerHTML = '<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>';
+            button.innerHTML = (window.cnxT?window.cnxT('js.s_ext.8f7a869a','<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>'):'<i class="fas fa-floppy-disk"></i><span>Cập Nhật Slide</span>');
         } else {
-            button.innerHTML = '<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>';
+            button.innerHTML = (window.cnxT?window.cnxT('js.s_ext.d35acaee','<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>'):'<i class="fas fa-plus"></i><span>Thêm Vào Deck</span>');
         }
     }
 }
@@ -571,13 +571,13 @@ async function saveAdvertisingSlides() {
             body: JSON.stringify({ slides: adminAdSlides })
         });
         const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.message || 'Không thể lưu trình chiếu.');
+        if (!response.ok || !data.success) throw new Error(data.message || (window.cnxT?window.cnxT('js.s_ext.b91c8925','Không thể lưu trình chiếu.'):'Không thể lưu trình chiếu.'));
         adminAdSlides = data.slides || adminAdSlides;
         renderAdvertisingSlides();
         setAdvertisingSlidesDirty(false);
-        adManagerAlert('Đã lưu & xuất bản trình chiếu thành công lên màn hình khách hàng!', true);
+        adManagerAlert((window.cnxT?window.cnxT('js.s_ext.d81d3526','Đã lưu & xuất bản trình chiếu thành công lên màn hình khách hàng!'):'Đã lưu & xuất bản trình chiếu thành công lên màn hình khách hàng!'), true);
     } catch (error) {
-        adManagerAlert(error.message || 'Lỗi lưu trình chiếu.', false);
+        adManagerAlert(error.message || (window.cnxT?window.cnxT('js.s_ext.74ecb2be','Lỗi lưu trình chiếu.'):'Lỗi lưu trình chiếu.'), false);
     } finally {
         if (button) button.disabled = false;
     }
@@ -628,7 +628,7 @@ function initPreviewCustomerQr() {
     if (!container) return;
     container.innerHTML = '';
     const base = (typeof getAdminBaseUrl === 'function') ? getAdminBaseUrl() : (function() {
-        const cached = localStorage.getItem('server_lan_base_url');
+        const cached = window.CN_SERVER_LAN_BASE_URL || '';
         if (cached) return cached.endsWith('/') ? cached : (cached + '/');
         return window.location.origin + '/';
     })();
@@ -651,14 +651,14 @@ function initPreviewCustomerQr() {
 
 function formatPreviewSlideLabel(rawLabel, isVid) {
     const s = String(rawLabel || '').trim();
-    if (s === 'KM1') return { text: 'ƯU ĐÃI ĐẶC BIỆT · KM1', icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
-    if (s === 'KM2') return { text: 'MÓN BÁN CHẠY NHẤT · KM2', icon: 'fa-fire', badge: 'border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 text-rose-200' };
-    if (s === 'KM3') return { text: 'MÓN MỚI TUẦN NÀY · KM3', icon: 'fa-star', badge: 'border-emerald-300/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-200' };
-    if (s === 'QC1') return { text: 'VIDEO TRẢI NGHIỆM · QC1', icon: 'fa-play', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
-    if (s === 'QC2') return { text: 'KHÁM PHÁ GÓC PHỐ · QC2', icon: 'fa-compass', badge: 'border-purple-300/40 bg-gradient-to-r from-purple-500/25 to-fuchsia-500/25 text-purple-200' };
-    if (/^KM/i.test(s)) return { text: `ƯU ĐÃI · ${s}`, icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
-    if (/^QC/i.test(s)) return { text: `QUẢNG CÁO · ${s}`, icon: 'fa-video', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
-    return { text: s ? s.toUpperCase() : (isVid ? 'VIDEO TRẢI NGHIỆM' : 'ƯU ĐÃI ĐẶC BIỆT'), icon: isVid ? 'fa-play' : 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+    if (s === 'KM1') return { text: (window.cnxT?window.cnxT('ui.cust_html.span_954e33e1','ƯU ĐÃI ĐẶC BIỆT · KM1'):'ƯU ĐÃI ĐẶC BIỆT · KM1'), icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+    if (s === 'KM2') return { text: (window.cnxT?window.cnxT('ui.cust_html.span_3fb7a9be','MÓN BÁN CHẠY NHẤT · KM2'):'MÓN BÁN CHẠY NHẤT · KM2'), icon: 'fa-fire', badge: 'border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 text-rose-200' };
+    if (s === 'KM3') return { text: (window.cnxT?window.cnxT('js.s_ext.fbc136cf','MÓN MỚI TUẦN NÀY · KM3'):'MÓN MỚI TUẦN NÀY · KM3'), icon: 'fa-star', badge: 'border-emerald-300/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-200' };
+    if (s === 'QC1') return { text: (window.cnxT?window.cnxT('ui.cust_html.span_19b0629a','VIDEO TRẢI NGHIỆM · QC1'):'VIDEO TRẢI NGHIỆM · QC1'), icon: 'fa-play', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
+    if (s === 'QC2') return { text: (window.cnxT?window.cnxT('js.s_ext.c9125872','KHÁM PHÁ GÓC PHỐ · QC2'):'KHÁM PHÁ GÓC PHỐ · QC2'), icon: 'fa-compass', badge: 'border-purple-300/40 bg-gradient-to-r from-purple-500/25 to-fuchsia-500/25 text-purple-200' };
+    if (/^KM/i.test(s)) return { text: `${window.cnxT?window.cnxT('js.s_ext.543d3424','ƯU ĐÃI ·'):'ƯU ĐÃI ·'} ${s}`, icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+    if (/^QC/i.test(s)) return { text: `${window.cnxT?window.cnxT('js.s_ext.66acd33b','QUẢNG CÁO ·'):'QUẢNG CÁO ·'} ${s}`, icon: 'fa-video', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
+    return { text: s ? s.toUpperCase() : (isVid ? 'VIDEO TRẢI NGHIỆM' : (window.cnxT?window.cnxT('js.s_ext.20d5aa06','ƯU ĐÃI ĐẶC BIỆT'):'ƯU ĐÃI ĐẶC BIỆT')), icon: isVid ? 'fa-play' : 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
 }
 
 function renderPreviewCurrentSlide() {
@@ -673,7 +673,7 @@ function renderPreviewCurrentSlide() {
     // Xóa sạch tên file hash nếu còn sót lại ở title
     let cleanTitle = String(slide.title || '').trim();
     if (!cleanTitle || /^[a-f0-9_\-\.]{12,}$/i.test(cleanTitle)) {
-        cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+        cleanTitle = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : (window.cnxT?window.cnxT('js.s_ext.ea140217','Món Ngon Đặc Sản Góc Phố'):'Món Ngon Đặc Sản Góc Phố');
     }
 
     if (isVideo) {
@@ -690,7 +690,7 @@ function renderPreviewCurrentSlide() {
                     <p class="mt-1 text-xs text-slate-200/95 leading-relaxed max-w-sm line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
                     <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[9px] font-semibold">
                         <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
-                            <i class="fas fa-play text-[8px]"></i> Đang phát clip quán
+                            <i class="fas fa-play text-[8px]"></i> ${window.cnxT?window.cnxT('js.s_ext.de6a05a4','Đang phát clip quán'):'Đang phát clip quán'}
                         </span>
                         <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-sky-300 border border-sky-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
                             <i class="fas fa-qrcode text-[8px]"></i> VietQR
@@ -738,7 +738,7 @@ function renderPreviewCurrentSlide() {
                     <p class="mt-1 max-w-sm text-xs text-slate-200/95 leading-relaxed line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
                     <div class="flex flex-wrap items-center gap-1.5 pt-2 text-[9px] font-semibold">
                         <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
-                            <i class="fas fa-check-circle text-[8px]"></i> Phục vụ nhanh
+                            <i class="fas fa-check-circle text-[8px]"></i> ${window.cnxT?window.cnxT('js.s_ext.3991a4d0','Phục vụ nhanh'):'Phục vụ nhanh'}
                         </span>
                         <span class="px-2 py-0.5 rounded-md bg-slate-950/80 text-sky-300 border border-sky-500/40 backdrop-blur-md flex items-center gap-1 shadow-md">
                             <i class="fas fa-qrcode text-[8px]"></i> VietQR
@@ -811,14 +811,14 @@ function toggleAdPreviewPlayback() {
         if (vid) vid.pause();
     } else {
         const vid = document.querySelector('#ad-preview-slide-content video');
-        if (vid) vid.play().catch(() => {});
+        if (vid) vid.play().catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_inline_ext.js', errIgnored) : console.debug('admin_inline_ext.js', errIgnored)); });
         schedulePreviewNext();
     }
 }
 
 function openCarouselFullPreview(startIndex = 0) {
     if (!adminAdSlides.length) {
-        alert('Chưa có slide nào trong danh sách. Hãy thêm ít nhất 1 slide để xem trước.');
+        alert((window.cnxT?window.cnxT('js.s_ext.3c066474','Chưa có slide nào trong danh sách. Hãy thêm ít nhất 1 slide để xem trước.'):'Chưa có slide nào trong danh sách. Hãy thêm ít nhất 1 slide để xem trước.'));
         return;
     }
     previewSlidesList = [...adminAdSlides];
@@ -827,7 +827,7 @@ function openCarouselFullPreview(startIndex = 0) {
     const btn = document.getElementById('ad-preview-toggle-btn');
     if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
     const tag = document.getElementById('ad-preview-mode-tag');
-    if (tag) tag.textContent = `Toàn bộ trình chiếu (${previewSlidesList.length} slide - Tự động phát)`;
+    if (tag) tag.textContent = `${window.cnxT?window.cnxT('js.s_ext.ddf3138a','Toàn bộ trình chiếu ('):'Toàn bộ trình chiếu ('}${previewSlidesList.length} ${window.cnxT?window.cnxT('js.s_ext.7f4cda8c','slide - Tự động phát)'):'slide - Tự động phát)'}`;
     const modal = document.getElementById('ad-preview-modal');
     if (modal) {
         modal.classList.remove('hidden');
@@ -853,7 +853,7 @@ function previewCurrentDraftSlide() {
 
     // Loại bỏ tên file / mã hash vô nghĩa nếu còn trong input
     if (!title || /^[a-f0-9_\-\.]{12,}$/i.test(title)) {
-        title = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : 'Món Ngon Đặc Sản Góc Phố';
+        title = isVideo ? 'Video Trải Nghiệm Không Gian Quán' : (window.cnxT?window.cnxT('js.s_ext.ea140217','Món Ngon Đặc Sản Góc Phố'):'Món Ngon Đặc Sản Góc Phố');
     }
 
     const draftSlide = {
@@ -876,7 +876,7 @@ function previewCurrentDraftSlide() {
     if (btn) btn.innerHTML = '<i class="fas fa-pause"></i>';
 
     const tag = document.getElementById('ad-preview-mode-tag');
-    if (tag) tag.textContent = `Xem toàn bộ slide (${previewSlidesList.length} slide - Bản mới ở đầu)`;
+    if (tag) tag.textContent = `${window.cnxT?window.cnxT('js.s_ext.2ea2aef3','Xem toàn bộ slide ('):'Xem toàn bộ slide ('}${previewSlidesList.length} ${window.cnxT?window.cnxT('js.s_ext.623d4563','slide - Bản mới ở đầu)'):'slide - Bản mới ở đầu)'}`;
     const modal = document.getElementById('ad-preview-modal');
     if (modal) {
         modal.classList.remove('hidden');
@@ -890,15 +890,15 @@ function previewCurrentDraftSlide() {
 async function aiGenerateAdvertisingSlide(btn) {
     const titleInput = document.getElementById('ad-slide-title');
     const descInput = document.getElementById('ad-slide-description');
-    const topic = prompt('Nhập chủ đề / món cần AI thiết kế Slide (hoặc để trống để dùng tiêu đề hiện tại):', titleInput ? titleInput.value.trim() : '');
+    const topic = await window.cnxPrompt((window.cnxT?window.cnxT('js.s_ext.9c4efe9d','Nhập chủ đề / món cần AI thiết kế Slide (hoặc để trống để dùng tiêu đề hiện tại):'):'Nhập chủ đề / món cần AI thiết kế Slide (hoặc để trống để dùng tiêu đề hiện tại):'), titleInput ? titleInput.value.trim() : '');
     if (topic === null) return;
     const origHtml = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = (window.cnxT?window.cnxT('js.s_ext.de3d6034','<i class="fas fa-spinner fa-spin"></i> Đang tạo...'):'<i class="fas fa-spinner fa-spin"></i> Đang tạo...'); }
     try {
         const res = await fetch('api/advertising.php?action=ai_generate_slide', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic: topic.trim() || (titleInput ? titleInput.value.trim() : 'Khuyến mãi đồ uống đặc biệt') })
+            body: JSON.stringify({ topic: topic.trim() || (titleInput ? titleInput.value.trim() : (window.cnxT?window.cnxT('js.s_ext.b6a70f3e','Khuyến mãi đồ uống đặc biệt'):'Khuyến mãi đồ uống đặc biệt')) })
         });
         const data = await res.json();
         if (data.success && data.media_path) {
@@ -909,12 +909,12 @@ async function aiGenerateAdvertisingSlide(btn) {
             if (typeof setAdSlidePreviewMedia === 'function') {
                 setAdSlidePreviewMedia(data.media_path, 'image');
             }
-            alert(data.message || 'AI đã tạo nội dung và ảnh slide thành công! Bấm "Thêm Deck" hoặc "Xem Trước".');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_ext.02a3727b','AI đã tạo nội dung và ảnh slide thành công! Bấm "Thêm Deck" hoặc "Xem Trước".'):'AI đã tạo nội dung và ảnh slide thành công! Bấm "Thêm Deck" hoặc "Xem Trước".'));
         } else {
-            alert(data.message || 'Không thể tạo slide bằng AI!');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_ext.5e418058','Không thể tạo slide bằng AI!'):'Không thể tạo slide bằng AI!'));
         }
     } catch (e) {
-        alert('Lỗi kết nối AI: ' + e.message);
+        alert((window.cnxT?window.cnxT('js.s_adm.b09dad32','Lỗi kết nối AI: '):'Lỗi kết nối AI: ') + e.message);
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
     }
@@ -924,28 +924,28 @@ function renderBanks(list) {
     const container = document.getElementById('bank-list-container');
     if (!container) return;
     if (!list || list.length === 0) {
-        container.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">Không tìm thấy ngân hàng nào khớp với từ khóa tìm kiếm.</div>';
+        container.innerHTML = (window.cnxT?window.cnxT('js.s_ext.a8ce464f','<div class="p-6 text-center text-slate-400 text-xs">Không tìm thấy ngân hàng nào khớp với từ khóa tìm kiếm.</div>'):'<div class="p-6 text-center text-slate-400 text-xs">Không tìm thấy ngân hàng nào khớp với từ khóa tìm kiếm.</div>');
         return;
     }
 
     container.innerHTML = list.map(b => `
-        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-white/5 hover:border-sky-500/30 transition-all cursor-pointer group" onclick="selectBank('${b.code}')">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-white/5 hover:border-sky-500/30 transition-all cursor-pointer group" onclick="selectBank('${escapeJsAttr(b.code)}')">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-9 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center font-bold text-sky-400 text-xs font-mono group-hover:border-sky-400">
-                    ${b.code}
+                    ${escapeHtml(b.code)}
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <span class="font-bold text-xs text-white group-hover:text-sky-300">${b.name}</span>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-300 font-mono">BIN: ${b.bin}</span>
+                        <span class="font-bold text-xs text-white group-hover:text-sky-300">${escapeHtml(b.name)}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-300 font-mono">BIN: ${escapeHtml(b.bin)}</span>
                         ${b.popular ? '<span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300 font-semibold">Phổ biến</span>' : ''}
                     </div>
-                    <div class="text-[11px] text-slate-400 mt-0.5">${b.full}</div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">${escapeHtml(b.full)}</div>
                 </div>
             </div>
             <button type="button" class="btn-glass text-[11px] py-1 px-3 bg-sky-600/30 hover:bg-sky-500 text-sky-200 group-hover:text-white border-sky-400/30 font-semibold flex items-center gap-1">
                 <i class="fas fa-check"></i>
-                <span>Chọn</span>
+                <span>${window.cnxT?window.cnxT('js.s_ext.e302bc58','Chọn'):'Chọn'}</span>
             </button>
         </div>
     `).join('');
@@ -995,7 +995,7 @@ function renderDetectedAdapters(adapters, currentServerIp) {
     const list = document.getElementById('detected-lan-adapters-list');
     if (!list) return;
     if (!adapters || adapters.length === 0) {
-        list.innerHTML = `<div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">Không phát hiện card mạng LAN đang kết nối. Vui lòng kiểm tra Wi-Fi / Cáp mạng.</div>`;
+        list.innerHTML = `<div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">${window.cnxT?window.cnxT('js.s_ext.a858ccf6','Không phát hiện card mạng LAN đang kết nối. Vui lòng kiểm tra Wi-Fi / Cáp mạng.'):'Không phát hiện card mạng LAN đang kết nối. Vui lòng kiểm tra Wi-Fi / Cáp mạng.'}</div>`;
         return;
     }
 
@@ -1007,15 +1007,15 @@ function renderDetectedAdapters(adapters, currentServerIp) {
                     <span class="w-2.5 h-2.5 rounded-full ${a.isVirtual ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'} shrink-0"></span>
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="font-mono font-black text-xs ${isCurrent ? 'text-emerald-300' : 'text-white'}">${a.ip}</span>
-                            <span class="text-[10px] px-1.5 py-0.5 rounded ${a.isVirtual ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'} font-semibold truncate">${a.adapter}</span>
-                            ${a.isVirtual ? '<span class="text-[9px] text-slate-500">(Card mạng ảo / Virtual)</span>' : '<span class="text-[9px] text-emerald-400 font-bold"><i class="fas fa-check-circle text-[9px] mr-0.5"></i>Khuyên Dùng Cho Quán</span>'}
+                            <span class="font-mono font-black text-xs ${isCurrent ? 'text-emerald-300' : 'text-white'}">${escapeHtml(a.ip)}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${a.isVirtual ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'} font-semibold truncate">${escapeHtml(a.adapter)}</span>
+                            ${a.isVirtual ? '<span class="text-[9px] text-slate-500">(Card mạng ảo / Virtual)</span>' : (window.cnxT?window.cnxT('js.s_ext.ed2cca78','<span class="text-[9px] text-emerald-400 font-bold"><i class="fas fa-check-circle text-[9px] mr-0.5"></i>Khuyên Dùng Cho Quán</span>'):'<span class="text-[9px] text-emerald-400 font-bold"><i class="fas fa-check-circle text-[9px] mr-0.5"></i>Khuyên Dùng Cho Quán</span>')}
                         </div>
-                        ${a.description ? `<div class="text-[10px] text-slate-400 truncate max-w-md">${a.description}</div>` : ''}
+                        ${a.description ? `<div class="text-[10px] text-slate-400 truncate max-w-md">${escapeHtml(a.description)}</div>` : ''}
                     </div>
                 </div>
-                <button type="button" onclick="selectServerIp('${a.ip}')" class="px-2.5 py-1 rounded-lg ${isCurrent ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/50 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10'} text-[11px] shrink-0 transition-all cursor-pointer">
-                    ${isCurrent ? '<i class="fas fa-check mr-1 text-emerald-400"></i>Đang Dùng' : 'Dùng IP Này'}
+                <button type="button" onclick="selectServerIp('${escapeJsAttr(a.ip)}')" class="px-2.5 py-1 rounded-lg ${isCurrent ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/50 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10'} text-[11px] shrink-0 transition-all cursor-pointer">
+                    ${isCurrent ? '<i class="fas fa-check mr-1 text-emerald-400"></i>Đang Dùng' : (window.cnxT?window.cnxT('js.s_ext.628c1060','Dùng IP Này'):'Dùng IP Này')}
                 </button>
             </div>
         `;
@@ -1042,14 +1042,14 @@ function updateLiveServerBaseUrl() {
     const baseUrl = `http://${ip}:${port}/`;
     if (urlEl) urlEl.textContent = baseUrl;
     if (linkEl) linkEl.href = baseUrl + 'customer.html';
-    localStorage.setItem('server_lan_base_url', baseUrl);
+    window.CN_SERVER_LAN_BASE_URL = baseUrl;
 }
 
 function copyLiveServerUrl() {
     const urlEl = document.getElementById('setting-live-server-url');
     if (urlEl && navigator.clipboard) {
         navigator.clipboard.writeText(urlEl.textContent.trim());
-        alert('Đã sao chép Base URL máy chủ:\n' + urlEl.textContent.trim());
+        alert((window.cnxT?window.cnxT('js.s_ext.551a7a7f','Đã sao chép Base URL máy chủ:\n'):'Đã sao chép Base URL máy chủ:\n') + urlEl.textContent.trim());
     }
 }
 
@@ -1091,20 +1091,20 @@ async function loadStoreSettings() {
         updateLiveServerBaseUrl();
 
         if (d.server_base_url) {
-            localStorage.setItem('server_lan_base_url', d.server_base_url);
+            window.CN_SERVER_LAN_BASE_URL = d.server_base_url;
         }
 
         const qBadge = document.getElementById('slave-ai-quota-badge');
         if (qBadge && d.ai_quota) {
             const q = d.ai_quota;
             if (q.unlimited) {
-                qBadge.textContent = '• Quota: Không giới hạn';
+                qBadge.textContent = (window.cnxT?window.cnxT('js.s_ext.e2a5e8d9','• Quota: Không giới hạn'):'• Quota: Không giới hạn');
                 qBadge.className = 'text-[11px] font-mono text-purple-300';
             } else {
                 const rem = Number(q.remaining_total ?? 0);
                 const mq = Number(q.monthly_quota ?? 0);
                 const bonus = Number(q.bonus_credits ?? 0);
-                qBadge.textContent = `• Còn ${rem} credit (${q.monthly_used || 0}/${mq} tháng${bonus > 0 ? ` + ${bonus} bonus` : ''})`;
+                qBadge.textContent = `${window.cnxT?window.cnxT('js.s_ext.55eb9891','• Còn'):'• Còn'} ${rem} credit (${q.monthly_used || 0}/${mq} ${window.cnxT?window.cnxT('js.m_sa.dc4a0e29','tháng'):'tháng'}${bonus > 0 ? ` + ${bonus} bonus` : ''})`;
                 qBadge.className = rem <= 0 ? 'text-[11px] font-mono text-rose-300 font-semibold' : 'text-[11px] font-mono text-emerald-300';
             }
         }
@@ -1126,7 +1126,7 @@ async function saveStoreSettings(e) {
     const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i><span>Đang lưu cấu hình...</span>';
+        submitBtn.innerHTML = (window.cnxT?window.cnxT('js.s_ext.66448405','<i class="fas fa-spinner fa-spin mr-1.5"></i><span>Đang lưu cấu hình...</span>'):'<i class="fas fa-spinner fa-spin mr-1.5"></i><span>Đang lưu cấu hình...</span>');
     }
 
     if (alertBox) {
@@ -1174,13 +1174,13 @@ async function saveStoreSettings(e) {
                 alertBox.innerHTML = `
                     <div class="flex items-center gap-2">
                         <i class="fas fa-circle-check text-emerald-400 text-sm"></i>
-                        <span>${data.message || 'Lưu cài đặt hệ thống & VietQR thành công!'}</span>
+                        <span>${data.message || (window.cnxT?window.cnxT('js.s_ext.1314f5f6','Lưu cài đặt hệ thống & VietQR thành công!'):'Lưu cài đặt hệ thống & VietQR thành công!')}</span>
                     </div>
-                    <span class="text-[10px] text-emerald-300 opacity-80">Đã cập nhật cơ sở dữ liệu & file config.php</span>
+                    <span class="text-[10px] text-emerald-300 opacity-80">${window.cnxT?window.cnxT('js.s_ext.e1608c33','Đã cập nhật cơ sở dữ liệu & file config.php'):'Đã cập nhật cơ sở dữ liệu & file config.php'}</span>
                 `;
             }
             if (submitBtn) {
-                submitBtn.innerHTML = '<i class="fas fa-check mr-1.5"></i><span>Đã Lưu!</span>';
+                submitBtn.innerHTML = (window.cnxT?window.cnxT('js.s_ext.73350e9a','<i class="fas fa-check mr-1.5"></i><span>Đã Lưu!</span>'):'<i class="fas fa-check mr-1.5"></i><span>Đã Lưu!</span>');
                 setTimeout(() => {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalBtnHtml;
@@ -1189,7 +1189,7 @@ async function saveStoreSettings(e) {
         } else {
             if (alertBox) {
                 alertBox.className = 'p-3 rounded-xl text-xs font-semibold flex items-center gap-2 bg-rose-950/80 border border-rose-500/40 text-rose-200';
-                alertBox.innerHTML = `<i class="fas fa-circle-xmark text-rose-400 text-sm"></i><span>${data.message || 'Lỗi lưu cấu hình'}</span>`;
+                alertBox.innerHTML = `<i class="fas fa-circle-xmark text-rose-400 text-sm"></i><span>${data.message || (window.cnxT?window.cnxT('js.s_ops.ed945903','Lỗi lưu cấu hình'):'Lỗi lưu cấu hình')}</span>`;
             }
             if (submitBtn) {
                 submitBtn.disabled = false;

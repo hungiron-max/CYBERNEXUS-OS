@@ -38,20 +38,24 @@
                     </div>
                 </div>
                 <div class="min-w-0">
-                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" data-i18n="ui.wifi_html.span_97e9a3a9">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                         Sẵn sàng kết nối
                     </span>
                     <h1 id="wifi-store-name" class="text-base font-black uppercase tracking-wide truncate wifi-title-glow mt-0.5">CYBERNEXUS COFFEE &amp; TEA</h1>
-                    <p class="wifi-subtitle-text text-[11px] text-sky-200/80 font-medium truncate">Cổng WiFi Tốc Độ Cao &amp; Ưu Đãi Thành Viên</p>
+                    <p class="wifi-subtitle-text text-[11px] text-sky-200/80 font-medium truncate" data-i18n="ui.wifi_html.p_d00f60ce">Cổng WiFi Tốc Độ Cao &amp; Ưu Đãi Thành Viên</p>
                 </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
                 <div class="text-right">
-                    <span class="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">IP Thiết Bị</span>
+                    <span class="block text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5" data-i18n="ui.wifi_html.span_6401d936">IP Thiết Bị</span>
                     <span id="wifi-client-ip" class="wifi-ip-badge inline-block text-[10px] font-mono px-2.5 py-1 rounded-xl bg-slate-900/90 border border-sky-400/25 text-sky-300">LAN</span>
                 </div>
-                <button type="button" id="wifi-theme-toggle" onclick="toggleWifiTheme()" class="wifi-theme-btn" title="Đổi giao diện Sáng / Tối" aria-label="Đổi giao diện Sáng / Tối">
+                <div class="inline-flex items-center p-0.5 rounded-xl bg-slate-900/80 border border-white/15 text-[11px] font-bold shrink-0" role="group" aria-label="Language Switcher">
+                    <button type="button" data-cnx-lang-btn="vi" onclick="window.CNX_I18N && window.CNX_I18N.setLang('vi')" class="px-2 py-1 rounded-lg transition-all cursor-pointer bg-sky-500 text-slate-950 shadow-sm">VI</button>
+                    <button type="button" data-cnx-lang-btn="en" onclick="window.CNX_I18N && window.CNX_I18N.setLang('en')" class="px-2 py-1 rounded-lg transition-all cursor-pointer text-slate-300 hover:text-white">EN</button>
+                </div>
+                <button type="button" id="wifi-theme-toggle" onclick="toggleWifiTheme()" class="wifi-theme-btn" title="Đổi giao diện Sáng / Tối" data-i18n-title="wifi.theme_toggle_title" aria-label="Đổi giao diện Sáng / Tối">
                     <i id="wifi-theme-icon" class="fas fa-sun text-sm"></i>
                 </button>
             </div>
@@ -88,13 +92,13 @@
 
             <div class="relative z-10 w-full space-y-1.5">
                 <div class="flex items-center justify-between gap-2">
-                    <span id="wifi-ad-badge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/40">
+                    <span id="wifi-ad-badge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/40" data-i18n="ui.wifi_html.span_5951d916">
                         <i class="fas fa-sparkles text-amber-300"></i> ƯU ĐÃI HÔM NAY
                     </span>
                     <div id="wifi-ad-dots" class="flex items-center gap-1.5"></div>
                 </div>
-                <h2 id="wifi-ad-title" class="text-lg font-black text-white leading-snug">Chào mừng quý khách đến với quán!</h2>
-                <p id="wifi-ad-sub" class="text-xs text-slate-200/90 leading-relaxed">Kết nối WiFi siêu mượt &amp; đặt món trực tiếp tại bàn chỉ với 1 chạm.</p>
+                <h2 id="wifi-ad-title" class="text-lg font-black text-white leading-snug" data-i18n="ui.wifi_html.h2_34cd21e1">Chào mừng quý khách đến với quán!</h2>
+                <p id="wifi-ad-sub" class="text-xs text-slate-200/90 leading-relaxed" data-i18n="ui.wifi_html.p_59fcafcc">Kết nối WiFi siêu mượt &amp; đặt món trực tiếp tại bàn chỉ với 1 chạm.</p>
             </div>
         </section>
 
@@ -112,8 +116,8 @@
                         </g>
                     </svg>
                     <div>
-                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Chế độ kết nối</div>
-                        <div id="wifi-speed-label" class="text-base font-black text-sky-300">Tốc độ tối đa <span id="wifi-free-min-label" class="text-[11px] font-semibold text-slate-400">• 10 phút</span></div>
+                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold" data-i18n="wifi.connection_mode">Chế độ kết nối</div>
+                        <div id="wifi-speed-label" class="text-base font-black text-sky-300" data-i18n="ui.wifi_html.div_f495c5aa">Tốc độ tối đa <span id="wifi-free-min-label" class="text-[11px] font-semibold text-slate-400" data-i18n="ui.wifi_html.span_ca64b5b4">• 10 phút</span></div>
                     </div>
                 </div>
                 <div id="wifi-tier-pill" class="px-2.5 py-1 rounded-xl text-[10px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/30">
@@ -124,10 +128,10 @@
             <!-- Tab Switcher -->
             <div class="wifi-tabs">
                 <button type="button" id="tab-wifi-free" onclick="switchWifiTab('free')" class="wifi-tab-btn wifi-tab-active-free">
-                    <i class="fas fa-bolt mr-1"></i> Dùng thử (<span id="tab-free-min">10p</span>)
+                    <i class="fas fa-bolt mr-1"></i> <span data-i18n="wifi.tab_free">Dùng thử</span> (<span id="tab-free-min">10p</span>)
                 </button>
                 <button type="button" id="tab-wifi-vip" onclick="switchWifiTab('vip')" class="wifi-tab-btn">
-                    <i class="fas fa-crown text-amber-400 mr-1"></i> WiFi VIP
+                    <i class="fas fa-crown text-amber-400 mr-1"></i> <span data-i18n="wifi.tab_vip">WiFi VIP</span>
                 </button>
             </div>
 
@@ -135,14 +139,14 @@
             <div id="panel-wifi-free" class="space-y-3">
                 <div class="wifi-input-wrap">
                     <i class="fas fa-user wifi-input-icon"></i>
-                    <input type="text" id="wifi-free-name" readonly placeholder="Tên của bạn (tùy chọn)" class="wifi-input wifi-no-autofocus" />
+                    <input type="text" id="wifi-free-name" readonly placeholder="Tên của bạn (tùy chọn)" data-i18n-placeholder="wifi.free_name_ph" class="wifi-input wifi-no-autofocus" />
                 </div>
                 <div class="wifi-input-wrap">
                     <i class="fas fa-phone wifi-input-icon"></i>
-                    <input type="tel" id="wifi-free-phone" readonly placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" class="wifi-input wifi-no-autofocus" />
+                    <input type="tel" id="wifi-free-phone" readonly placeholder="Số điện thoại nhận voucher ưu đãi (tùy chọn)" data-i18n-placeholder="wifi.free_phone_ph" class="wifi-input wifi-no-autofocus" />
                 </div>
                 <button type="button" onclick="unlockWifi('free')" class="wifi-btn-shimmer wifi-cta-free">
-                    <i class="fas fa-wifi"></i> KẾT NỐI WIFI MIỄN PHÍ NGAY
+                    <i class="fas fa-wifi"></i> <span data-i18n="wifi.cta_free">KẾT NỐI WIFI MIỄN PHÍ NGAY</span>
                 </button>
             </div>
 
@@ -151,16 +155,16 @@
                 <div class="wifi-vip-note text-[11px] text-amber-100 rounded-2xl p-3 flex items-start gap-2.5" style="background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(251, 191, 36, 0.35);">
                     <i class="fas fa-crown text-amber-400 text-sm mt-0.5"></i>
                     <div>
-                        <div class="font-black text-amber-300 mb-0.5">Đặc quyền khách hàng tại quán</div>
-                        <span class="text-amber-100/85">Nhập mã hóa đơn in trên bill để mở khóa phiên kết nối <b>VIP dài hạn</b> ổn định.</span>
+                        <div class="font-black text-amber-300 mb-0.5" data-i18n="wifi.vip_perk_title">Đặc quyền khách hàng tại quán</div>
+                        <span class="text-amber-100/85" data-i18n="wifi.vip_perk_desc">Nhập mã hóa đơn in trên bill để mở khóa phiên kết nối VIP dài hạn ổn định.</span>
                     </div>
                 </div>
                 <div class="wifi-input-wrap">
                     <i class="fas fa-receipt wifi-input-icon" style="color: #fbbf24;"></i>
-                    <input type="text" id="wifi-vip-order" readonly placeholder="Nhập Mã Hóa Đơn (VD: HD261117-0001)" class="wifi-input wifi-input-vip font-mono uppercase wifi-no-autofocus" />
+                    <input type="text" id="wifi-vip-order" readonly placeholder="Nhập Mã Hóa Đơn (VD: HD261117-0001)" data-i18n-placeholder="wifi.vip_order_ph" class="wifi-input wifi-input-vip font-mono uppercase wifi-no-autofocus" />
                 </div>
                 <button type="button" onclick="unlockWifi('vip')" class="wifi-btn-shimmer wifi-cta-vip">
-                    <i class="fas fa-crown"></i> MỞ KHÓA WIFI VIP NGAY
+                    <i class="fas fa-crown"></i> <span data-i18n="wifi.cta_vip">MỞ KHÓA WIFI VIP NGAY</span>
                 </button>
             </div>
 
@@ -174,7 +178,7 @@
                 <i class="fas fa-qrcode text-base"></i>
             </div>
             <div class="leading-relaxed">
-                <span class="font-bold text-emerald-300">Đặt món tại bàn:</span> Quý khách vui lòng mở <b>Camera</b> điện thoại quét <b>Mã QR trên bàn</b> để xem thực đơn &amp; gọi món trực tiếp.
+                <span class="font-bold text-emerald-300" data-i18n="wifi.qr_hint_title">Đặt món tại bàn:</span> <span data-i18n="wifi.qr_hint_desc">Quý khách vui lòng mở Camera điện thoại quét Mã QR trên bàn để xem thực đơn &amp; gọi món trực tiếp.</span>
             </div>
         </div>
 
@@ -184,7 +188,9 @@
         </footer>
     </main>
 
+    <script src="assets/js/i18n.js?v=1"></script>
+    <script src="assets/js/store_brand.js"></script>
     <script src="assets/js/security_utils.js?v=1"></script>
-    <script src="assets/js/wifi_portal.js?v=20261117_light"></script>
+    <script src="assets/js/wifi_portal.js?v=20261121"></script>
 </body>
 </html>

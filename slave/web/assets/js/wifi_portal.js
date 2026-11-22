@@ -3,6 +3,11 @@ let _slideIdx = 0;
 let _freeMinutes = 10;
 let _vipMinutes = 180;
 let _countdownTimer = null;
+let _currentWifiTab = 'free';
+
+function _wtx(k, vars, fb) {
+    return (typeof window.cnxT === 'function') ? window.cnxT(k, vars, fb) : (fb || k);
+}
 
 function applyWifiTheme(theme) {
     const isLight = theme === 'light';
@@ -13,19 +18,19 @@ function applyWifiTheme(theme) {
         icon.className = isLight ? 'fas fa-moon text-sm' : 'fas fa-sun text-sm';
     }
     if (btn) {
-        btn.title = isLight ? 'Chuyển sang giao diện Tối' : 'Chuyển sang giao diện Sáng';
+        btn.title = isLight ? 'Chuyển sang giao diện Tối' : (window.cnxT?window.cnxT('js.s_wifi.41aea402','Chuyển sang giao diện Sáng'):'Chuyển sang giao diện Sáng');
     }
 }
 
 function toggleWifiTheme() {
     const next = document.body.classList.contains('wifi-light') ? 'dark' : 'light';
-    try { localStorage.setItem('wifi_portal_theme', next); } catch (e) {}
+    try { localStorage.setItem('wifi_portal_theme', next); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('wifi_portal.js', e) : console.debug('wifi_portal.js', e)); }
     applyWifiTheme(next);
 }
 
 (function initWifiTheme() {
     let saved = null;
-    try { saved = localStorage.getItem('wifi_portal_theme'); } catch (e) {}
+    try { saved = localStorage.getItem('wifi_portal_theme'); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('wifi_portal.js', e) : console.debug('wifi_portal.js', e)); }
     if (saved === 'light' || saved === 'dark') {
         applyWifiTheme(saved);
         return;
@@ -36,13 +41,16 @@ function toggleWifiTheme() {
 })();
 
 function formatVipDuration(mins) {
-    if (mins >= 60 && mins % 60 === 0) return `${mins / 60} giờ`;
+    const hrUnit = _wtx('wifi.hours_unit', null, (window.cnxT?window.cnxT('js.s_wifi.afc53f95','giờ'):'giờ'));
+    const minUnit = _wtx('wifi.minutes_unit', null, (window.cnxT?window.cnxT('ui.adm_html.span_e198d401','phút'):'phút'));
+    if (mins >= 60 && mins % 60 === 0) return `${mins / 60} ${hrUnit}`;
     if (mins > 60) return `${Math.floor(mins / 60)}g ${mins % 60}p`;
-    return `${mins} phút`;
+    return `${mins} ${minUnit}`;
 }
 
 function switchWifiTab(mode) {
-    const isFree = mode === 'free';
+    _currentWifiTab = mode === 'vip' ? 'vip' : 'free';
+    const isFree = _currentWifiTab === 'free';
     const panelFree = document.getElementById('panel-wifi-free');
     const panelVip = document.getElementById('panel-wifi-vip');
     const tabFree = document.getElementById('tab-wifi-free');
@@ -80,9 +88,12 @@ function switchWifiTab(mode) {
     }
 
     if (speedLabel) {
+        const minUnit = _wtx('wifi.minutes_unit', null, (window.cnxT?window.cnxT('ui.adm_html.span_e198d401','phút'):'phút'));
+        const maxSpeed = _wtx('wifi.max_speed', null, (window.cnxT?window.cnxT('ui.wifi_html.div_f495c5aa','Tốc độ tối đa'):'Tốc độ tối đa'));
+        const vipSession = _wtx('wifi.vip_session', null, (window.cnxT?window.cnxT('js.s_wifi.ac8ee049','Phiên VIP'):'Phiên VIP'));
         speedLabel.innerHTML = isFree
-            ? `Tốc độ tối đa <span class="text-[11px] font-semibold text-slate-400">• ${_freeMinutes} phút</span>`
-            : `<span class="text-amber-300">Phiên VIP</span> <span class="text-[11px] font-semibold text-amber-200/80">• ${formatVipDuration(_vipMinutes)}</span>`;
+            ? `${escapeHtml(maxSpeed)} <span class="text-[11px] font-semibold text-slate-400">• ${_freeMinutes} ${escapeHtml(minUnit)}</span>`
+            : `<span class="text-amber-300">${escapeHtml(vipSession)}</span> <span class="text-[11px] font-semibold text-amber-200/80">• ${escapeHtml(formatVipDuration(_vipMinutes))}</span>`;
     }
 
     if (tierPill) {
@@ -166,14 +177,14 @@ async function loadPortalInfo() {
                 if (_slides.length > 1) setInterval(renderSlide, 4500);
             }
         }
-    } catch (e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('wifi_portal.js', e) : console.debug('wifi_portal.js', e)); }
 }
 
 async function unlockWifi(mode) {
     const out = document.getElementById('wifi-unlock-result');
     out.classList.remove('hidden');
     out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-sky-500/15 border border-sky-400/30 text-sky-200';
-    out.textContent = '⏳ Đang kích hoạt kết nối WiFi...';
+    out.textContent = _wtx('wifi.unlocking', null, (window.cnxT?window.cnxT('js.s_wifi.662de4c3','⏳ Đang kích hoạt kết nối WiFi...'):'⏳ Đang kích hoạt kết nối WiFi...'));
 
     const payload = mode === 'vip'
         ? { mode: 'vip', order_code: (document.getElementById('wifi-vip-order').value || '').trim() }
@@ -190,10 +201,11 @@ async function unlockWifi(mode) {
             body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (!res.ok || !data.success) throw new Error(data.message || 'Không thể kích hoạt WiFi');
+        if (!res.ok || !data.success) throw new Error(data.message || _wtx('wifi.unlock_fail', null, (window.cnxT?window.cnxT('js.s_wifi.31f179de','Không thể kích hoạt WiFi'):'Không thể kích hoạt WiFi')));
         out.className = 'p-3.5 rounded-2xl text-xs font-bold text-center bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 shadow-lg shadow-emerald-500/15';
         const mins = Number(data.minutes || (mode === 'vip' ? _vipMinutes : _freeMinutes));
-        out.innerHTML = `<div class="flex items-center justify-center gap-1.5 text-emerald-300 text-sm mb-1"><i class="fas fa-check-circle"></i> Kết nối thành công!</div><div>${escapeHtml(data.message)}</div><div id="wifi-session-countdown" class="mt-1.5 text-[11px] font-mono text-sky-300"></div>`;
+        const okTitle = _wtx('wifi.unlock_success', null, (window.cnxT?window.cnxT('js.s_wifi.e3c1469a','Kết nối thành công!'):'Kết nối thành công!'));
+        out.innerHTML = `<div class="flex items-center justify-center gap-1.5 text-emerald-300 text-sm mb-1"><i class="fas fa-check-circle"></i> ${escapeHtml(okTitle)}</div><div>${escapeHtml(data.message)}</div><div id="wifi-session-countdown" class="mt-1.5 text-[11px] font-mono text-sky-300"></div>`;
         if (_countdownTimer) clearInterval(_countdownTimer);
         let remSec = mins * 60;
         const updateCd = () => {
@@ -203,7 +215,7 @@ async function unlockWifi(mode) {
             const m = Math.floor((remSec % 3600) / 60);
             const s = remSec % 60;
             const fmt = (h > 0 ? `${String(h).padStart(2, '0')}:` : '') + `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            cdEl.textContent = `Thời gian phiên còn lại: ${fmt}`;
+            cdEl.textContent = _wtx('wifi.remaining_time', { time: fmt }, `${window.cnxT?window.cnxT('js.s_wifi.29c5ded3','Thời gian phiên còn lại:'):'Thời gian phiên còn lại:'} ${fmt}`);
             if (remSec > 0) remSec--;
         };
         updateCd();
@@ -233,5 +245,8 @@ function preventInitialMobileKeyboard() {
 
 document.addEventListener('DOMContentLoaded', preventInitialMobileKeyboard);
 window.addEventListener('pageshow', preventInitialMobileKeyboard);
+window.addEventListener('cnx:lang-changed', function () {
+    switchWifiTab(_currentWifiTab);
+});
 
 loadPortalInfo();

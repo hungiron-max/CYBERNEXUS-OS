@@ -19,16 +19,16 @@ function formatMoney(n) {
 
 async function init() {
     let user = null;
-    try { user = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+    try { user = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
     if (!user) {
-        alert('Vui lòng đăng nhập để sử dụng giao diện Order Phục Vụ!');
+        alert((window.cnxT?window.cnxT('js.s_ord.46ed5a5f','Vui lòng đăng nhập để sử dụng giao diện Order Phục Vụ!'):'Vui lòng đăng nhập để sử dụng giao diện Order Phục Vụ!'));
         window.location.replace('index.html?need_login=waiter');
         return;
     }
     window.currentUser = user;
     const staffEl = document.getElementById('order-staff-name');
     if (staffEl && user) {
-        staffEl.textContent = user.full_name || user.name || user.username || 'Phục vụ';
+        staffEl.textContent = user.full_name || user.name || user.username || (window.cnxT?window.cnxT('ui.ord_html.b_c7307f33','Phục vụ'):'Phục vụ');
     }
     await loadCategoriesData();
     await loadProductsData();
@@ -67,7 +67,7 @@ async function loadTablesData() {
                 const latestOnlineOrder = onlineReadyOrders[0];
                 document.getElementById('online-kitchen-ready-count').textContent = String(onlineReadyOrders.length);
                 document.getElementById('online-kitchen-ready-text').textContent =
-                    `${latestOnlineOrder.order_code} · ${latestOnlineOrder.customer_name || 'Khách đặt online'} đã sẵn sàng bàn giao`;
+                    `${latestOnlineOrder.order_code} · ${latestOnlineOrder.customer_name || (window.cnxT?window.cnxT('js.s_ord.e876c322','Khách đặt online'):'Khách đặt online')} ${window.cnxT?window.cnxT('js.s_ord.ee9324f0','đã sẵn sàng bàn giao'):'đã sẵn sàng bàn giao'}`;
                 onlineReadyBanner.classList.remove('hidden');
             } else {
                 onlineReadyBanner.classList.add('hidden');
@@ -90,7 +90,7 @@ async function loadTablesData() {
 
                 const isReject = (latest.type === 'kitchen_reject_cancel');
                 if (cancelTitle) {
-                    cancelTitle.innerText = latest.title || (isReject ? '⚠️ BẾP TỪ CHỐI HỦY MÓN' : '⚠️ BẾP HỦY MÓN TRÊN HÓA ĐƠN');
+                    cancelTitle.innerText = latest.title || (isReject ? '⚠️ BẾP TỪ CHỐI HỦY MÓN' : (window.cnxT?window.cnxT('ui.ord_html.div_e66f6e93','⚠️ BẾP HỦY MÓN TRÊN HÓA ĐƠN'):'⚠️ BẾP HỦY MÓN TRÊN HÓA ĐƠN'));
                 }
                 if (isReject) {
                     cancelBanner.className = 'shrink-0 mx-3 mt-2 p-3 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-xl shadow-amber-950/40 border border-amber-400 flex items-center justify-between z-40 animate-pulse';
@@ -153,25 +153,26 @@ async function loadTablesData() {
                         html += `
                             <div class="p-2 rounded-xl ${isRef ? 'bg-rose-950/60 border border-rose-500/40 text-rose-200' : 'bg-amber-950/60 border border-amber-500/40 text-amber-200'} flex items-center justify-between gap-2 text-xs">
                                 <div class="min-w-0">
-                                    <b class="block truncate">${isRef ? '💸 Cần HOÀN TIỀN' : '💰 Cần THU THÊM'} ${d.table_code || d.order_code}: ${formatMoney(diff)} đ</b>
-                                    <span class="text-[11px] opacity-85">Đơn ${d.order_code} • Đã trả ${formatMoney(d.paid_amount)}đ / Mới ${formatMoney(d.total_amount)}đ</span>
+                                    <b class="block truncate">${isRef ? '💸 Cần HOÀN TIỀN' : (window.cnxT?window.cnxT('js.s_ord.ca2e8628','💰 Cần THU THÊM'):'💰 Cần THU THÊM')} ${escapeHtml(d.table_code || d.order_code)}: ${formatMoney(diff)} đ</b>
+                                    <span class="text-[11px] opacity-85">Đơn ${escapeHtml(d.order_code)} ${window.cnxT?window.cnxT('js.s_ord.96f6874b','• Đã trả'):'• Đã trả'} ${formatMoney(d.paid_amount)}${window.cnxT?window.cnxT('js.s_ord.e8ade3c1','đ / Mới'):'đ / Mới'} ${formatMoney(d.total_amount)}đ</span>
                                 </div>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-black/30 shrink-0">${isRef ? 'Chờ hoàn' : 'Chờ thu'}</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-black/30 shrink-0">${isRef ? 'Chờ hoàn' : (window.cnxT?window.cnxT('js.s_ord.8f5f33f0','Chờ thu'):'Chờ thu')}</span>
                             </div>
                         `;
                     });
                     alerts.forEach(al => {
                         const isQr = (al.alert_type === 'qr_table_pending' || al.alert_type === 'qr_payment_pending');
                         const isUrgent = isQr || (al.alert_type === 'out_of_stock' || al.alert_type === 'refund_due' || al.alert_type === 'order_cancel_requested');
+                        const nTxt = typeof window.cnxNotifText === 'function' ? window.cnxNotifText(al) : { title: al.title, message: al.message };
                         html += `
                             <div class="p-2 rounded-xl ${isQr ? 'bg-amber-950/60 border border-amber-400/50 text-amber-100' : (isUrgent ? 'bg-rose-950/50 border border-rose-500/40 text-rose-100' : 'bg-slate-800/90 border border-white/10 text-slate-200')} flex items-center justify-between gap-2 text-xs">
                                 <div class="min-w-0">
-                                    <b class="block truncate">${isQr ? '📱 ' : ''}${al.title}</b>
-                                    <span class="text-[11px] opacity-85">${al.message}</span>
+                                    <b class="block truncate">${isQr ? '📱 ' : ''}${escapeHtml(nTxt.title || al.title)}</b>
+                                    <span class="text-[11px] opacity-85">${escapeHtml(nTxt.message || al.message)}</span>
                                 </div>
                                 <div class="flex items-center gap-1.5 shrink-0">
-                                    ${isQr && Number(al.table_id || 0) > 0 ? `<button type="button" onclick="selectOrderTable(${Number(al.table_id)})" class="px-2 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold">Mở bàn</button>` : ''}
-                                    <button type="button" onclick="ackWaiterAlert(${al.id})" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">${isQr ? 'Đã xem' : 'Đã báo khách'}</button>
+                                    ${isQr && Number(al.table_id || 0) > 0 ? `<button type="button" onclick="selectOrderTable(${Number(al.table_id)})" class="px-2 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold">${window.cnxT?window.cnxT('js.s_ord.59bf3eff','Mở bàn'):'Mở bàn'}</button>` : ''}
+                                    <button type="button" onclick="ackWaiterAlert(${Number(al.id)})" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">${isQr ? 'Đã xem' : (window.cnxT?window.cnxT('js.s_ord.37f682c8','Đã báo khách'):'Đã báo khách')}</button>
                                 </div>
                             </div>
                         `;
@@ -179,7 +180,7 @@ async function loadTablesData() {
                     listEl.innerHTML = html;
                 }
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 
         // Check direct kitchen_ready alerts (Bếp báo xong món / Báo lại chuông)
         if (notifData && notifData.ready_alerts && notifData.ready_alerts.length > 0) {
@@ -191,7 +192,7 @@ async function loadTablesData() {
                     hasNewBell = true;
                     window.knownReadyAlertIds.add(alertItem.id);
                     // Mark read in background
-                    fetch(`api/orders.php?action=ack_notification&notification_id=${alertItem.id}&role=waiter`, { method: 'POST' }).catch(() => {});
+                    fetch(`api/orders.php?action=ack_notification&notification_id=${alertItem.id}&role=waiter`, { method: 'POST' }).catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', errIgnored) : console.debug('order_waiter.js', errIgnored)); });
                 }
             });
 
@@ -219,7 +220,7 @@ async function ackKitchenCancellation() {
                     role: 'waiter'
                 })
             });
-        } catch(e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
     }
 }
 
@@ -280,7 +281,7 @@ function activateMobileAudio(isTest = false) {
                     console.warn('Audio play failed:', err);
                 });
             }
-        } catch(e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
     }
 
     // Unlock Web Audio API (iOS WebKit requirement)
@@ -300,7 +301,7 @@ function activateMobileAudio(isTest = false) {
             source.connect(waiterAudioCtx.destination);
             source.start(0);
         }
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 
     // Trigger physical vibration
     if (isTest) {
@@ -314,9 +315,9 @@ function activateMobileAudio(isTest = false) {
         if (toast && toastText) {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             if (isIOS) {
-                toastText.innerHTML = '<i class="fas fa-bell text-emerald-400"></i> Đang phát thử chuông! <b>(Nếu không nghe, hãy bật gạt âm thanh bên hông iPhone)</b>';
+                toastText.innerHTML = (window.cnxT?window.cnxT('js.s_ord.f0d23692','<i class="fas fa-bell text-emerald-400"></i> Đang phát thử chuông! <b>(Nếu không nghe, hãy bật gạt âm thanh bên hông iPhone)</b>'):'<i class="fas fa-bell text-emerald-400"></i> Đang phát thử chuông! <b>(Nếu không nghe, hãy bật gạt âm thanh bên hông iPhone)</b>');
             } else {
-                toastText.innerHTML = '<i class="fas fa-bell text-emerald-400"></i> Đang phát thử chuông & rung thông báo!';
+                toastText.innerHTML = (window.cnxT?window.cnxT('js.s_ord.fe81fb3e','<i class="fas fa-bell text-emerald-400"></i> Đang phát thử chuông & rung thông báo!'):'<i class="fas fa-bell text-emerald-400"></i> Đang phát thử chuông & rung thông báo!');
             }
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 4500);
@@ -343,7 +344,7 @@ function triggerPhoneVibration(pattern = [300, 150, 300, 150, 450]) {
         if ('vibrate' in navigator) {
             navigator.vibrate(pattern);
         }
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 }
 
 // 3. Play Notification Sound & Vibrate
@@ -360,9 +361,9 @@ function playDingDong() {
             audioEl.volume = 1.0;
             audioEl.currentTime = 0;
             const p = audioEl.play();
-            if (p && p.catch) p.catch(() => {});
+            if (p && p.catch) p.catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', errIgnored) : console.debug('order_waiter.js', errIgnored)); });
         }
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 
     // Method 2: Dual Engine - Also synthesize ding-dong via Web Audio API
     try {
@@ -390,7 +391,7 @@ function playDingDong() {
             osc2.start(now + 0.18);
             osc2.stop(now + 0.75);
         }
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 }
 
 // 4. Sound Test & Toggle Button Handler
@@ -406,11 +407,11 @@ function updateSoundToggleButton() {
     if (waiterSoundEnabled) {
         btn.className = 'w-8 h-8 rounded-lg btn-glass bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/30 flex items-center justify-center p-0 shrink-0';
         icon.className = 'fas fa-volume-high text-xs';
-        btn.title = 'Chuông: ĐANG BẬT (Bấm để thử chuông)';
+        btn.title = (window.cnxT?window.cnxT('js.s_ord.a85d99f5','Chuông: ĐANG BẬT (Bấm để thử chuông)'):'Chuông: ĐANG BẬT (Bấm để thử chuông)');
     } else {
         btn.className = 'w-8 h-8 rounded-lg btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 flex items-center justify-center p-0 shrink-0';
         icon.className = 'fas fa-volume-xmark text-xs';
-        btn.title = 'Chuông: ĐANG TẮT (Bấm để bật)';
+        btn.title = (window.cnxT?window.cnxT('js.s_ord.80123c94','Chuông: ĐANG TẮT (Bấm để bật)'):'Chuông: ĐANG TẮT (Bấm để bật)');
     }
 }
 
@@ -423,7 +424,7 @@ async function confirmDelivered(orderId, tableCode) {
         if (data.success) {
             await loadTablesData();
         } else {
-            alert(data.message || 'Lỗi thao tác');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
         }
     } catch(e) {
         console.error(e);
@@ -435,7 +436,7 @@ async function rushKitchenOrder(orderId, tableCode, btnEl) {
     const origHtml = btnEl ? btnEl.innerHTML : '';
     if (btnEl) {
         btnEl.disabled = true;
-        btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang hối...';
+        btnEl.innerHTML = (window.cnxT?window.cnxT('js.s_ord.94775454','<i class="fas fa-spinner fa-spin"></i> Đang hối...'):'<i class="fas fa-spinner fa-spin"></i> Đang hối...');
     }
     try {
         const res = await fetch('api/orders.php?action=rush_kitchen', {
@@ -445,11 +446,11 @@ async function rushKitchenOrder(orderId, tableCode, btnEl) {
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-            throw new Error(data.message || 'Không thể gửi lệnh hối xuống Bếp');
+            throw new Error(data.message || (window.cnxT?window.cnxT('js.s_ord.1c2309c0','Không thể gửi lệnh hối xuống Bếp'):'Không thể gửi lệnh hối xuống Bếp'));
         }
         await loadTablesData();
     } catch (e) {
-        alert(e.message || 'Lỗi gửi lệnh hối xuống Bếp');
+        alert(e.message || (window.cnxT?window.cnxT('js.s_ord.611f5e2c','Lỗi gửi lệnh hối xuống Bếp'):'Lỗi gửi lệnh hối xuống Bếp'));
         if (btnEl) {
             btnEl.disabled = false;
             btnEl.innerHTML = origHtml;
@@ -460,13 +461,13 @@ async function rushKitchenOrder(orderId, tableCode, btnEl) {
 async function confirmCustomerQrOrder(orderId) {
     const table = allTables.find(item => Number(item.active_order_id) === Number(orderId));
     if (!table || !table.customer_order_pending) {
-        alert('Đơn QR không còn chờ xác nhận. Danh sách bàn sẽ được cập nhật lại.');
+        alert((window.cnxT?window.cnxT('js.s_ord.02ac3cf4','Đơn QR không còn chờ xác nhận. Danh sách bàn sẽ được cập nhật lại.'):'Đơn QR không còn chờ xác nhận. Danh sách bàn sẽ được cập nhật lại.'));
         await loadTablesData();
         return;
     }
-    const tableCode = table.code || 'bàn';
+    const tableCode = table.code || (window.cnxT?window.cnxT('js.s_ord.36731051','bàn'):'bàn');
     const itemCount = Number(table.item_count) || 0;
-    if (!confirm(`Xác nhận đơn khách đặt QR tại ${tableCode} (${itemCount} món) và chuyển vào bếp?`)) return;
+    if (!(await window.cnxConfirm(`${window.cnxT?window.cnxT('js.s_ord.68388408','Xác nhận đơn khách đặt QR tại'):'Xác nhận đơn khách đặt QR tại'} ${tableCode} (${itemCount} ${window.cnxT?window.cnxT('js.s_ord.edde8397','món) và chuyển vào bếp?'):'món) và chuyển vào bếp?'}`))) return;
 
     try {
         const response = await fetch('api/orders.php?action=waiter_confirm_customer_order', {
@@ -476,14 +477,14 @@ async function confirmCustomerQrOrder(orderId) {
         });
         const data = await response.json();
         if (!response.ok || !data.success) {
-            throw new Error(data.message || 'Không thể chuyển đơn QR vào bếp.');
+            throw new Error(data.message || (window.cnxT?window.cnxT('js.s_ord.8080160f','Không thể chuyển đơn QR vào bếp.'):'Không thể chuyển đơn QR vào bếp.'));
         }
         await loadTablesData();
         if (Number(activeOrderId) === Number(orderId)) {
             await loadExistingTableOrder(orderId);
         }
     } catch (error) {
-        alert(error.message || 'Không thể chuyển đơn QR vào bếp.');
+        alert(error.message || (window.cnxT?window.cnxT('js.s_ord.8080160f','Không thể chuyển đơn QR vào bếp.'):'Không thể chuyển đơn QR vào bếp.'));
     }
 }
 
@@ -510,7 +511,7 @@ function renderTables() {
     if (readyOrders.length > 0) {
         const firstReady = readyOrders[0];
         alertBanner.classList.remove('hidden');
-        alertText.innerText = `Bàn ${firstReady.code} (${firstReady.name}) - Bếp đã xong món!`;
+        alertText.innerText = `${window.cnxT?window.cnxT('ui.admin_html.th_839747c8','Bàn'):'Bàn'} ${firstReady.code} (${firstReady.name}${window.cnxT?window.cnxT('js.s_ord.5aefe2af',') - Bếp đã xong món!'):') - Bếp đã xong món!'}`;
         btnAlertServe.onclick = () => confirmDelivered(firstReady.active_order_id, firstReady.code);
 
         navBellBtn.classList.remove('hidden');
@@ -587,21 +588,21 @@ function renderTables() {
 
         let badgeHtml = '';
         if (isCustomerQrPending) {
-            badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] animate-pulse whitespace-nowrap shrink-0"><i class="fas fa-qrcode mr-1"></i>KHÁCH ĐẶT MÓN</span>';
+            badgeHtml = (window.cnxT?window.cnxT('js.s_ord.f09c7da6','<span class="px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] animate-pulse whitespace-nowrap shrink-0"><i class="fas fa-qrcode mr-1"></i>KHÁCH ĐẶT MÓN</span>'):'<span class="px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] animate-pulse whitespace-nowrap shrink-0"><i class="fas fa-qrcode mr-1"></i>KHÁCH ĐẶT MÓN</span>');
         } else if (isReady) {
-            badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] animate-bounce whitespace-nowrap shrink-0">🔔 XONG MÓN</span>';
+            badgeHtml = (window.cnxT?window.cnxT('js.s_ord.58de3540','<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] animate-bounce whitespace-nowrap shrink-0">🔔 XONG MÓN</span>'):'<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] animate-bounce whitespace-nowrap shrink-0">🔔 XONG MÓN</span>');
         } else if (isOcc) {
             if (isPaid) {
                 if (isServed) {
-                    badgeHtml = '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>';
+                    badgeHtml = (window.cnxT?window.cnxT('js.s_ord.7add883c','<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>'):'<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>');
                 } else if (isInKitchen) {
-                    badgeHtml = `<div class="flex items-center gap-1.5">${yellowDotHtml}<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span></div>`;
+                    badgeHtml = `<div class="flex items-center gap-1.5">${yellowDotHtml}<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> ${window.cnxT?window.cnxT('js.s_ord.da1102a6','Đã TT'):'Đã TT'}</span></div>`;
                 } else {
-                    badgeHtml = '<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span>';
+                    badgeHtml = (window.cnxT?window.cnxT('js.s_ord.f6dba09c','<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span>'):'<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span>');
                 }
             } else {
                 if (isServed) {
-                    badgeHtml = '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>';
+                    badgeHtml = (window.cnxT?window.cnxT('js.s_ord.b480e38d','<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>'):'<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>');
                 } else if (isInKitchen) {
                     badgeHtml = yellowDotHtml;
                 } else {
@@ -615,34 +616,34 @@ function renderTables() {
         html += `
             <div class="liquid-glass-card p-3 flex flex-col justify-between cursor-pointer border ${cardBorderClass} rounded-xl min-h-[96px]" onclick="selectOrderTable(${t.id})">
                 <div class="flex items-center justify-between">
-                    <span class="font-black text-sm text-white">${t.code}</span>
+                    <span class="font-black text-sm text-white">${escapeHtml(t.code)}</span>
                     ${badgeHtml}
                 </div>
-                <div class="text-[11px] text-slate-300 font-medium truncate">${t.name}</div>
+                <div class="text-[11px] text-slate-300 font-medium truncate">${escapeHtml(t.name)}</div>
                 <div class="pt-1.5 border-t border-white/5 flex items-center justify-between text-xs font-bold font-mono">
                     ${isCustomerQrPending ? `
                         <span class="text-rose-200 font-black text-[10px] truncate">${formatMoney(t.total_amount)}đ · CHỜ XÁC NHẬN</span>
                         <button type="button" class="px-2 py-1 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" onclick="event.stopPropagation(); confirmCustomerQrOrder(${Number(t.active_order_id)})">
-                            <i class="fas fa-fire"></i> CHUYỂN BẾP
+                            <i class="fas fa-fire"></i> ${window.cnxT?window.cnxT('js.s_ord.bae7f3c8','CHUYỂN BẾP'):'CHUYỂN BẾP'}
                         </button>
                     ` : isReady ? `
                         <span class="text-amber-300 font-bold text-[11px] truncate">${formatMoney(t.total_amount)}đ</span>
-                        <button type="button" class="px-2 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] shadow active:scale-90 flex items-center gap-1 shrink-0" onclick="event.stopPropagation(); confirmDelivered(${t.active_order_id}, '${t.code}')">
-                            <i class="fas fa-check"></i> ĐÃ BƯNG RA
+                        <button type="button" class="px-2 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] shadow active:scale-90 flex items-center gap-1 shrink-0" onclick="event.stopPropagation(); confirmDelivered(${Number(t.active_order_id)}, '${escapeJsAttr(t.code)}')">
+                            <i class="fas fa-check"></i> ${window.cnxT?window.cnxT('ui.order_html.button_ceb3900f','ĐÃ BƯNG RA'):'ĐÃ BƯNG RA'}
                         </button>
                     ` : isOverdueKitchen ? `
                         <span class="${isPaid ? 'text-teal-300' : 'text-amber-300'} truncate font-bold text-xs">
                             ${formatMoney(t.total_amount)}đ <span class="text-[10px] text-rose-400 font-black">(${elapsedMins}p)</span>
                         </span>
-                        <button type="button" class="px-2 py-1 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow shadow-rose-500/40 active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" onclick="event.stopPropagation(); rushKitchenOrder(${Number(t.active_order_id)}, '${t.code}', this)">
-                            <i class="fas fa-fire"></i> ${rushCount > 0 ? `Hối (${rushCount})` : 'Hối'}
+                        <button type="button" class="px-2 py-1 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow shadow-rose-500/40 active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" onclick="event.stopPropagation(); rushKitchenOrder(${Number(t.active_order_id)}, '${escapeJsAttr(t.code)}', this)">
+                            <i class="fas fa-fire"></i> ${rushCount > 0 ? `${window.cnxT?window.cnxT('js.s_ord.77c8da63','Hối ('):'Hối ('}${rushCount})` : (window.cnxT?window.cnxT('js.s_ord.ad20afa8','Hối'):'Hối')}
                         </button>
                     ` : `
                         <span class="${isOcc ? (isPaid ? 'text-teal-300' : 'text-amber-300') : 'text-emerald-400'} truncate font-bold text-xs">
-                            ${isOcc ? formatMoney(t.total_amount) + 'đ' : 'Trống'}
+                            ${isOcc ? formatMoney(t.total_amount) + 'đ' : (window.cnxT?window.cnxT('js.s_adm.cd79aac0','Trống'):'Trống')}
                         </span>
                         <span class="text-[10px] text-slate-400 font-normal shrink-0 ml-1">
-                            ${isOcc ? (t.item_count + ' món') : 'Vào bàn'}
+                            ${isOcc ? (t.item_count + (window.cnxT?window.cnxT('js.s_ord.26b34a98',' món'):' món')) : (window.cnxT?window.cnxT('js.s_ord.bb734037','Vào bàn'):'Vào bàn')}
                         </span>
                     `}
                 </div>
@@ -659,14 +660,14 @@ async function selectOrderTable(tableId) {
     if (!found) return;
 
     currentTable = found;
-    document.getElementById('active-table-title').innerText = `BÀN: ${found.code} (${found.name})`;
+    document.getElementById('active-table-title').innerText = `${window.cnxT?window.cnxT('js.s_ord.29781093','BÀN:'):'BÀN:'} ${found.code} (${found.name})`;
 
     // If table has active order, load it
     if (found.status === 'occupied' && found.active_order_id) {
-        document.getElementById('active-table-status').innerText = 'Đang phục vụ (Bấm thực đơn để thêm món)';
+        document.getElementById('active-table-status').innerText = (window.cnxT?window.cnxT('js.s_ord.73abd860','Đang phục vụ (Bấm thực đơn để thêm món)'):'Đang phục vụ (Bấm thực đơn để thêm món)');
         await loadExistingTableOrder(found.active_order_id);
     } else {
-        document.getElementById('active-table-status').innerText = 'Bàn trống (Chọn món để mở bàn)';
+        document.getElementById('active-table-status').innerText = (window.cnxT?window.cnxT('js.s_ord.479ba664','Bàn trống (Chọn món để mở bàn)'):'Bàn trống (Chọn món để mở bàn)');
         activeOrderId = null;
         activeOrderKitchenStatus = null;
         activeOrderStatus = null;
@@ -733,7 +734,7 @@ async function loadCategoriesData() {
         if (data.success) {
             categories = data.data;
         }
-    } catch (e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 }
 
 async function loadProductsData() {
@@ -744,7 +745,7 @@ async function loadProductsData() {
             products = data.data;
             toppings = products.filter(p => p.is_topping == 1);
         }
-    } catch (e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 }
 
 function renderOrderCategories() {
@@ -753,15 +754,16 @@ function renderOrderCategories() {
 
     let html = `
         <button type="button" class="px-3 py-1 rounded-full whitespace-nowrap font-bold text-xs ${selectedCategory === 'all' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-300'}" onclick="setOrderCategory('all')">
-            Tất Cả
+            ${window.cnxT?window.cnxT('js.s_ord.f97f2c8d','Tất Cả'):'Tất Cả'}
         </button>
     `;
 
     categories.forEach(c => {
         const isAct = selectedCategory == c.id;
+        const catName = typeof window.cnxDbText === 'function' ? window.cnxDbText(c, 'name', c.name) : c.name;
         html += `
             <button type="button" class="px-3 py-1 rounded-full whitespace-nowrap font-bold text-xs ${isAct ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-300'}" onclick="setOrderCategory(${c.id})">
-                ${c.name}
+                ${escapeHtml(catName)}
             </button>
         `;
     });
@@ -793,20 +795,22 @@ function renderOrderProducts() {
     list.forEach(p => {
         const isLocked = (p.status === 'locked');
         const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
+        const prodName = typeof window.cnxDbText === 'function' ? window.cnxDbText(p, 'name', p.name) : p.name;
+        const prodUnit = typeof window.cnxDbText === 'function' ? window.cnxDbText(p, 'unit', p.unit || 'ly') : (p.unit || 'ly');
         html += `
-            <div class="liquid-glass-card p-2 sm:p-2.5 flex flex-col justify-between transition-transform ${isLocked ? 'opacity-50 grayscale border-rose-500/40 bg-rose-950/20 cursor-not-allowed' : 'cursor-pointer border border-white/10 active:scale-95 hover:border-sky-400/40'}" onclick="${isLocked ? `alert('Món [${p.name.replace(/'/g, "\\'")}] hiện đang TẠM KHÓA do hết hàng!')` : `addItemToCart(${p.id})`}">
+            <div class="liquid-glass-card p-2 sm:p-2.5 flex flex-col justify-between transition-transform ${isLocked ? 'opacity-50 grayscale border-rose-500/40 bg-rose-950/20 cursor-not-allowed' : 'cursor-pointer border border-white/10 active:scale-95 hover:border-sky-400/40'}" onclick="${isLocked ? `alert('Món [${prodName.replace(/'/g, "\\'")}] hiện đang TẠM KHÓA do hết hàng!')` : `addItemToCart(${p.id})`}">
                 <div>
                     <!-- Dish Thumbnail Image: 4:3 Aspect Ratio for Full View -->
                     <div class="relative w-full aspect-[4/3] mb-1.5 rounded-xl overflow-hidden bg-slate-950 border border-white/10 flex items-center justify-center">
-                        <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
+                        <img src="${imgUrl}" alt="${escapeHtml(prodName)}" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
                         <div class="absolute top-1.5 left-1.5 pointer-events-none">
                             <span class="text-[9px] font-mono font-bold text-sky-400 bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30">${p.code || 'SP'}</span>
                         </div>
                         <div class="absolute top-1.5 right-1.5 pointer-events-none">
-                            ${isLocked ? '<span class="text-[8px] font-bold text-rose-300 bg-rose-950/90 px-1 rounded border border-rose-500/40">🚫 HẾT</span>' : `<span class="text-[9px] text-slate-300 bg-slate-950/85 backdrop-blur-md px-1 rounded border border-white/10 capitalize">${p.unit || 'ly'}</span>`}
+                            ${isLocked ? '<span class="text-[8px] font-bold text-rose-300 bg-rose-950/90 px-1 rounded border border-rose-500/40">🚫 HẾT</span>' : `<span class="text-[9px] text-slate-300 bg-slate-950/85 backdrop-blur-md px-1 rounded border border-white/10 capitalize">${escapeHtml(prodUnit)}</span>`}
                         </div>
                     </div>
-                    <h4 class="font-bold text-xs ${isLocked ? 'text-slate-400 line-through' : 'text-white'} line-clamp-2 leading-snug min-h-[2rem]">${p.name}</h4>
+                    <h4 class="font-bold text-xs ${isLocked ? 'text-slate-400 line-through' : 'text-white'} line-clamp-2 leading-snug min-h-[2rem]">${escapeHtml(prodName)}</h4>
                 </div>
                 <div class="mt-1.5 pt-1 border-t border-white/5 flex items-center justify-between">
                     <span class="font-black text-xs text-amber-400 font-mono">${formatMoney(p.sale_price)} đ</span>
@@ -869,8 +873,8 @@ function updateCartUI() {
 
     // Badge count & totals
     document.getElementById('cart-badge-count').innerText = totalQty;
-    document.getElementById('cart-bottom-total').innerText = formatMoney(totalMoney) + ' đ';
-    document.getElementById('cart-sheet-total').innerText = formatMoney(totalMoney) + ' đ';
+    document.getElementById('cart-bottom-total').innerText = formatMoney(totalMoney) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ');
+    document.getElementById('cart-sheet-total').innerText = formatMoney(totalMoney) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ');
     const sheetQtyEl = document.getElementById('cart-sheet-total-qty');
     if (sheetQtyEl) sheetQtyEl.innerText = totalQty;
 
@@ -878,13 +882,13 @@ function updateCartUI() {
     const statusEl = document.getElementById('cart-items-status-text');
     if (statusEl) {
         if (newQty > 0) {
-            statusEl.innerText = `Đang chọn thêm +${newQty} món mới`;
+            statusEl.innerText = `${window.cnxT?window.cnxT('js.s_cust.963a532e','Đang chọn thêm +'):'Đang chọn thêm +'}${newQty} ${window.cnxT?window.cnxT('js.s_cust.2600ef09','món mới'):'món mới'}`;
             statusEl.className = 'text-[10px] text-amber-300 font-bold font-mono';
         } else if (confirmedQty > 0) {
-            statusEl.innerText = `Đã có ${confirmedQty} món (chưa thêm món)`;
+            statusEl.innerText = `${window.cnxT?window.cnxT('js.s_ord.6829e07e','Đã có'):'Đã có'} ${confirmedQty} ${window.cnxT?window.cnxT('js.s_ord.25b203ef','món (chưa thêm món)'):'món (chưa thêm món)'}`;
             statusEl.className = 'text-[10px] text-slate-400 font-mono';
         } else {
-            statusEl.innerText = 'Chưa chọn món nào';
+            statusEl.innerText = (window.cnxT?window.cnxT('js.s_cust.708d6946','Chưa chọn món nào'):'Chưa chọn món nào');
             statusEl.className = 'text-[10px] text-slate-500 font-mono';
         }
     }
@@ -903,11 +907,11 @@ function updateCartUI() {
         // Show submit button with count of new items
         if (btnFloat) {
             btnFloat.classList.remove('hidden');
-            if (txtFloat) txtFloat.innerText = `Gửi Bếp (+${newQty})`;
+            if (txtFloat) txtFloat.innerText = `${window.cnxT?window.cnxT('js.s_ord.1cd8b373','Gửi Bếp (+'):'Gửi Bếp (+'}${newQty})`;
         }
         if (btnSheet) {
             btnSheet.classList.remove('hidden');
-            if (txtSheet) txtSheet.innerText = 'Xác Nhận';
+            if (txtSheet) txtSheet.innerText = (window.cnxT?window.cnxT('ui.sa_html.span_580fef1a','Xác Nhận'):'Xác Nhận');
         }
     }
 
@@ -919,7 +923,7 @@ function renderCartSheetItems() {
     if (!container) return;
 
     if (existingConfirmedItems.length === 0 && newCartItems.length === 0) {
-        container.innerHTML = '<div class="text-xs text-slate-500 py-8 text-center">Bàn chưa có món nào. Chạm món trên thực đơn để gọi món!</div>';
+        container.innerHTML = (window.cnxT?window.cnxT('js.s_ord.6e375fc5','<div class="text-xs text-slate-500 py-8 text-center">Bàn chưa có món nào. Chạm món trên thực đơn để gọi món!</div>'):'<div class="text-xs text-slate-500 py-8 text-center">Bàn chưa có món nào. Chạm món trên thực đơn để gọi món!</div>');
         return;
     }
 
@@ -936,10 +940,10 @@ function renderCartSheetItems() {
                 <div class="flex items-center justify-between pb-1 text-xs border-b border-white/5 font-bold">
                     <span class="text-slate-300 flex items-center gap-1.5">
                         <i class="fas ${isCustomerQrPending ? 'fa-qrcode text-rose-300' : (isAlreadyServed ? 'fa-check-circle text-emerald-400' : 'fa-clock-rotate-left text-sky-400')}"></i>
-                        ${isCustomerQrPending ? 'Khách đặt qua QR' : 'Món Đã Xác Nhận & Gửi Bếp'} (${existingConfirmedItems.length} món • SL: ${confirmedTotalQty})
+                        ${isCustomerQrPending ? 'Khách đặt qua QR' : (window.cnxT?window.cnxT('js.s_ord.a2db9a35','Món Đã Xác Nhận & Gửi Bếp'):'Món Đã Xác Nhận & Gửi Bếp')} (${existingConfirmedItems.length} ${window.cnxT?window.cnxT('js.s_ord.a95f98dc','món • SL:'):'món • SL:'} ${confirmedTotalQty})
                     </span>
                     <span class="text-[10px] px-2 py-0.5 rounded ${isCustomerQrPending ? 'bg-rose-500/20 text-rose-200 border border-rose-400/40 animate-pulse' : (isAlreadyServed ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25')} font-bold">
-                        ${isCustomerQrPending ? 'Chờ phục vụ xác nhận' : (isAlreadyServed ? '✅ Đã bưng ra bàn' : '🔒 Đã khóa (Không sửa)')}
+                        ${isCustomerQrPending ? 'Chờ phục vụ xác nhận' : (isAlreadyServed ? '✅ Đã bưng ra bàn' : (window.cnxT?window.cnxT('js.s_ord.1811bdb6','🔒 Đã khóa (Không sửa)'):'🔒 Đã khóa (Không sửa)'))}
                     </span>
                 </div>
         `;
@@ -962,12 +966,12 @@ function renderCartSheetItems() {
                             <h5 class="font-bold text-xs ${isCancelled ? 'line-through text-slate-400' : 'text-slate-200'}">${it.name}</h5>
                         </div>
                         <div class="text-[11px] text-slate-400 font-mono">
-                            ${formatMoney(it.price + topSum)} đ / ${it.unit || 'phần'}
-                            ${isCancelled ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">${cancelSt === 'out_of_stock' ? '🚫 Bếp báo HẾT' : '✖ Đã hủy'}${cancelRsn ? ' (' + cancelRsn + ')' : ''}</span>` : (
+                            ${formatMoney(it.price + topSum)} ${window.cnxT?window.cnxT('js.s_ord.a951693c','đ /'):'đ /'} ${it.unit || (window.cnxT?window.cnxT('js.s_adm.3a9dfd9c','phần'):'phần')}
+                            ${isCancelled ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">${cancelSt === 'out_of_stock' ? '🚫 Bếp báo HẾT' : (window.cnxT?window.cnxT('js.s_ord.635a0f8a','✖ Đã hủy'):'✖ Đã hủy')}${cancelRsn ? ' (' + cancelRsn + ')' : ''}</span>` : (
                                 isCancelNote
                                     ? `<span class="ml-2 text-[10px] text-amber-300 font-bold bg-amber-950/70 border border-amber-500/40 px-1.5 py-0.5 rounded">⏳ Chờ Bếp duyệt hủy${cancelRsn ? ' (' + cancelRsn + ')' : ''}</span>`
                                     : (isRejected
-                                        ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">🔒 ${cancelRsn || 'Bếp đã làm - Không hủy'}</span>`
+                                        ? `<span class="ml-2 text-[10px] text-rose-300 font-bold bg-rose-950/70 border border-rose-500/40 px-1.5 py-0.5 rounded">🔒 ${cancelRsn || (window.cnxT?window.cnxT('js.s_ord.944a058f','Bếp đã làm - Không hủy'):'Bếp đã làm - Không hủy')}</span>`
                                         : (it.note ? `<span class="ml-2 text-[10px] text-amber-300 italic">(${it.note})</span>` : ''))
                             )}
                         </div>
@@ -977,11 +981,11 @@ function renderCartSheetItems() {
                         ${(!isAlreadyServed && !isCancelled && !isCancelNote) ? `
                             <button type="button" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 active:scale-90 flex items-center gap-1 cursor-pointer" onclick="event.stopPropagation(); addNoteToConfirmedItem(${it.order_item_id || it.id})" title="Bổ sung ghi chú gửi bếp">
                                 <i class="fas fa-comment-dots text-[10px]"></i>
-                                <span>${it.note ? 'Sửa GC' : 'Ghi chú'}</span>
+                                <span>${it.note ? 'Sửa GC' : (window.cnxT?window.cnxT('ui.admin_html.ph_ad504eea','Ghi chú'):'Ghi chú')}</span>
                             </button>
                             <button type="button" class="text-xs px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 active:scale-90 flex items-center gap-1 cursor-pointer" onclick="event.stopPropagation(); requestCancelConfirmedItem(${it.order_item_id || it.id})" title="Báo bếp xin hủy món">
                                 <i class="fas fa-ban text-[10px]"></i>
-                                <span>Báo Hủy</span>
+                                <span>${window.cnxT?window.cnxT('js.s_ord.8d09036c','Báo Hủy'):'Báo Hủy'}</span>
                             </button>
                         ` : ''}
                         <span class="px-2 py-1 rounded bg-slate-800 text-slate-300 font-mono font-bold text-xs">
@@ -1001,9 +1005,9 @@ function renderCartSheetItems() {
     if (activeOrderKitchenStatus === 'awaiting_waiter' && activeOrderId && currentTable) {
         html += `
             <div class="rounded-xl border border-rose-400/40 bg-rose-950/30 p-3 shadow-[0_0_20px_rgba(244,63,94,.12)]">
-                <p class="mb-2 text-[11px] font-semibold text-rose-100">Kiểm tra món khách đã chọn. Chỉ chuyển bếp sau khi xác nhận lại với khách.</p>
+                <p class="mb-2 text-[11px] font-semibold text-rose-100">${window.cnxT?window.cnxT('js.s_ord.2aeeebf2','Kiểm tra món khách đã chọn. Chỉ chuyển bếp sau khi xác nhận lại với khách.'):'Kiểm tra món khách đã chọn. Chỉ chuyển bếp sau khi xác nhận lại với khách.'}</p>
                 <button type="button" class="w-full rounded-xl bg-gradient-to-r from-rose-500 to-red-500 px-3 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-900/30 active:scale-[.98]" onclick="confirmCustomerQrOrder(${Number(activeOrderId)})">
-                    <i class="fas fa-check mr-1"></i> XÁC NHẬN
+                    <i class="fas fa-check mr-1"></i> ${window.cnxT?window.cnxT('js.s_ord.05614eed','XÁC NHẬN'):'XÁC NHẬN'}
                 </button>
             </div>
         `;
@@ -1019,7 +1023,7 @@ function renderCartSheetItems() {
                         Món Mới Gọi Thêm (${newCartItems.length} món)
                     </span>
                     <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold animate-pulse">
-                        ✨ Chờ gửi bếp
+                        ${window.cnxT?window.cnxT('js.s_ord.a7973245','✨ Chờ gửi bếp'):'✨ Chờ gửi bếp'}
                     </span>
                 </div>
         `;
@@ -1048,7 +1052,7 @@ function renderCartSheetItems() {
 
                         <div class="flex items-center gap-1.5">
                             <button type="button" class="text-xs px-2 py-1 rounded bg-slate-800 text-amber-300" onclick="addNoteToItem(${idx})">
-                                <i class="fas fa-pen text-[10px]"></i> Ghi chú
+                                <i class="fas fa-pen text-[10px]"></i> ${window.cnxT?window.cnxT('ui.admin_html.ph_ad504eea','Ghi chú'):'Ghi chú'}
                             </button>
                             <button type="button" class="text-xs px-2 py-1 rounded bg-rose-500/20 text-rose-300 active:scale-90" onclick="deleteCartItem(${idx})">
                                 <i class="fas fa-trash text-[10px]"></i>
@@ -1079,10 +1083,10 @@ function deleteCartItem(idx) {
     updateCartUI();
 }
 
-function addNoteToItem(idx) {
+async function addNoteToItem(idx) {
     const it = newCartItems[idx];
     if (!it) return;
-    const note = prompt(`Nhập ghi chú cho "${it.name}" (ví dụ: ít ngọt, nhiều đá, không hành):`, it.note || '');
+    const note = await window.cnxPrompt(`Nhập ghi chú cho "${it.name}" (ví dụ: ít ngọt, nhiều đá, không hành):`, it.note || '');
     if (note !== null) {
         it.note = note.trim();
         updateCartUI();
@@ -1094,7 +1098,7 @@ async function addNoteToConfirmedItem(orderItemId) {
     if (!item) return;
 
     const currentNote = item.note || '';
-    const newNote = prompt(`Bổ sung / cập nhật ghi chú cho "${item.name}" gửi bếp:\n(Ví dụ: không cay, ít ngọt, nhiều đá, làm nhanh... hoặc ghi 'Hủy' nếu khách muốn hủy món)`, currentNote);
+    const newNote = await window.cnxPrompt(`Bổ sung / cập nhật ghi chú cho "${item.name}" gửi bếp:\n(Ví dụ: không cay, ít ngọt, nhiều đá, làm nhanh... hoặc ghi 'Hủy' nếu khách muốn hủy món)`, currentNote);
     if (newNote === null) return;
 
     try {
@@ -1112,11 +1116,11 @@ async function addNoteToConfirmedItem(orderItemId) {
             renderCartSheetItems();
             alert(`✅ Đã gửi ghi chú mới cho "${item.name}" đến bếp!`);
         } else {
-            alert(data.message || 'Lỗi khi cập nhật ghi chú');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_ord.e057b57b','Lỗi khi cập nhật ghi chú'):'Lỗi khi cập nhật ghi chú'));
         }
     } catch(e) {
         console.error(e);
-        alert('Lỗi kết nối máy chủ');
+        alert((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'));
     }
 }
 
@@ -1128,7 +1132,7 @@ async function ackWaiterAlert(alertId) {
             body: JSON.stringify({ alert_id: alertId })
         });
         pollNotifications();
-    } catch (e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 }
 
 let _waiterCancelTargetItemId = null;
@@ -1139,8 +1143,8 @@ function requestCancelConfirmedItem(orderItemId) {
     const modal = document.getElementById('waiter-cancel-item-modal');
     const nameEl = document.getElementById('wcim-item-name');
     const inp = document.getElementById('wcim-reason');
-    if (nameEl) nameEl.textContent = item.name || 'Món này';
-    if (inp) inp.value = 'Khách đổi ý';
+    if (nameEl) nameEl.textContent = item.name || (window.cnxT?window.cnxT('js.s_ord.6b1beced','Món này'):'Món này');
+    if (inp) inp.value = (window.cnxT?window.cnxT('ui.order_html.button_b31ed4b8','Khách đổi ý'):'Khách đổi ý');
     if (modal) modal.classList.remove('hidden');
 }
 
@@ -1151,7 +1155,7 @@ function closeWaiterCancelModal() {
 
 async function submitWaiterCancelModal() {
     if (!_waiterCancelTargetItemId) return;
-    const reason = (document.getElementById('wcim-reason')?.value || '').trim() || 'Khách xin hủy';
+    const reason = (document.getElementById('wcim-reason')?.value || '').trim() || (window.cnxT?window.cnxT('js.s_kds.f4b768d2','Khách xin hủy'):'Khách xin hủy');
     try {
         const res = await fetch('api/orders.php?action=request_cancel_item', {
             method: 'POST',
@@ -1169,10 +1173,10 @@ async function submitWaiterCancelModal() {
             renderCartSheetItems();
             pollNotifications();
         } else {
-            alert(data.message || 'Lỗi khi gửi yêu cầu hủy');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_ord.1f85bccd','Lỗi khi gửi yêu cầu hủy'):'Lỗi khi gửi yêu cầu hủy'));
         }
     } catch (e) {
-        alert('Lỗi kết nối máy chủ');
+        alert((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'));
     }
 }
 
@@ -1190,7 +1194,7 @@ function closeCartBottomSheet() {
 async function sendOrderToKitchen() {
     if (!currentTable) return;
     if (newCartItems.length === 0) {
-        alert('Vui lòng chọn thêm ít nhất 1 món mới trên thực đơn để gửi bếp!');
+        alert((window.cnxT?window.cnxT('js.s_ord.25d82c4a','Vui lòng chọn thêm ít nhất 1 món mới trên thực đơn để gửi bếp!'):'Vui lòng chọn thêm ít nhất 1 món mới trên thực đơn để gửi bếp!'));
         return;
     }
 
@@ -1199,7 +1203,7 @@ async function sendOrderToKitchen() {
     const payload = {
         table_id: currentTable.id,
         table_code: currentTable.code,
-        customer_name: 'Khách tại bàn',
+        customer_name: (window.cnxT?window.cnxT('js.s_cust.3bfc4cc6','Khách tại bàn'):'Khách tại bàn'),
         guest_count: guestCount,
         append: isAppending,
         items: newCartItems,
@@ -1215,16 +1219,16 @@ async function sendOrderToKitchen() {
         const data = await res.json();
         if (data.success) {
             const msg = isAppending
-                ? `✅ Đã gửi thêm ${newCartItems.length} món mới cho bếp thành công!\nHóa đơn bàn ${currentTable.code} đã được cộng dồn.`
-                : `✅ Đã gửi order thành công cho ${currentTable.code}! Đơn hàng đã được tạo và chuyển đến bếp.`;
+                ? `${window.cnxT?window.cnxT('js.s_ord.db32cc63','✅ Đã gửi thêm'):'✅ Đã gửi thêm'} ${newCartItems.length} ${window.cnxT?window.cnxT('js.s_ord.75ed4db3','món mới cho bếp thành công!\\nHóa đơn bàn'):'món mới cho bếp thành công!\\nHóa đơn bàn'} ${currentTable.code} ${window.cnxT?window.cnxT('js.s_ord.ddc568b6','đã được cộng dồn.'):'đã được cộng dồn.'}`
+                : `${window.cnxT?window.cnxT('js.s_ord.3508bca5','✅ Đã gửi order thành công cho'):'✅ Đã gửi order thành công cho'} ${currentTable.code}${window.cnxT?window.cnxT('js.s_ord.3f06656f','! Đơn hàng đã được tạo và chuyển đến bếp.'):'! Đơn hàng đã được tạo và chuyển đến bếp.'}`;
             alert(msg);
             closeCartBottomSheet();
             backToTablesView();
         } else {
-            alert(data.message || 'Lỗi khi gửi order');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_ord.d86c0725','Lỗi khi gửi order'):'Lỗi khi gửi order'));
         }
     } catch (e) {
-        alert('Lỗi kết nối máy chủ');
+        alert((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'));
     }
 }
 
@@ -1236,7 +1240,7 @@ async function showWaiterVietQr() {
     const totalMoney = confirmedMoney + newMoney;
 
     if (totalMoney <= 0) {
-        alert('Bàn này chưa có món nào để tạo mã VietQR!');
+        alert((window.cnxT?window.cnxT('js.s_ord.7241a7d0','Bàn này chưa có món nào để tạo mã VietQR!'):'Bàn này chưa có món nào để tạo mã VietQR!'));
         return;
     }
 
@@ -1248,8 +1252,8 @@ async function showWaiterVietQr() {
         const data = await res.json();
         if (data.success) {
             document.getElementById('vqr-image').src = data.vietqr_url;
-            document.getElementById('vqr-amount').innerText = formatMoney(data.amount) + ' đ';
-            document.getElementById('vqr-table-code').innerText = `Bàn: ${currentTable.code} - ${currentTable.name}`;
+            document.getElementById('vqr-amount').innerText = formatMoney(data.amount) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ');
+            document.getElementById('vqr-table-code').innerText = `${window.cnxT?window.cnxT('ui.pos_html.div_1c36b836','Bàn:'):'Bàn:'} ${currentTable.code} - ${currentTable.name}`;
             document.getElementById('vqr-note').innerText = data.note;
             if (document.getElementById('vqr-acc-no')) document.getElementById('vqr-acc-no').innerText = data.account_no;
             if (document.getElementById('vqr-acc-name')) document.getElementById('vqr-acc-name').innerText = data.account_name;
@@ -1257,11 +1261,11 @@ async function showWaiterVietQr() {
 
             document.getElementById('waiter-vietqr-modal').classList.add('open');
         } else {
-            alert(data.message || 'Không thể tạo mã VietQR');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_ord.524a0080','Không thể tạo mã VietQR'):'Không thể tạo mã VietQR'));
         }
     } catch(e) {
         console.error(e);
-        alert('Lỗi kết nối khi tải mã VietQR');
+        alert((window.cnxT?window.cnxT('js.s_ord.ab4fca8b','Lỗi kết nối khi tải mã VietQR'):'Lỗi kết nối khi tải mã VietQR'));
     }
 }
 
@@ -1272,7 +1276,7 @@ function closeWaiterVietQr() {
 
 let orderCustomerQrInstance = null;
 function getCustomerMenuUrl() {
-    var cached = localStorage.getItem('server_lan_base_url');
+    var cached = window.CN_SERVER_LAN_BASE_URL || '';
     var hostname = window.location.hostname;
     var isLocalhost = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1');
     if (!isLocalhost && hostname) {
@@ -1311,7 +1315,7 @@ function renderOrderCustomerQr(url) {
             });
         } catch(e) {
             console.error("Lỗi vẽ QR code:", e);
-            canvasContainer.innerHTML = '<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>';
+            canvasContainer.innerHTML = (window.cnxT?window.cnxT('js.s_kds.ef9ce55d','<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>'):'<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>');
         }
     }
 }
@@ -1331,14 +1335,14 @@ async function showLanQrModal() {
             var port = json.data.server_port || window.location.port || '8501';
             if (ip) {
                 var base = 'http://' + ip + ':' + port + '/';
-                localStorage.setItem('server_lan_base_url', base);
+                window.CN_SERVER_LAN_BASE_URL = base;
                 var freshUrl = base + 'customer.html';
                 if (freshUrl !== initialUrl) {
                     renderOrderCustomerQr(freshUrl);
                 }
             }
         }
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
 }
 
 function closeLanQrModal() {
@@ -1349,7 +1353,7 @@ function copyCustomerUrl() {
     var url = getCustomerMenuUrl();
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(function() {
-            alert('Đã sao chép đường link gọi món:\n' + url);
+            alert((window.cnxT?window.cnxT('js.s_kds.361bd0c8','Đã sao chép đường link gọi món:\n'):'Đã sao chép đường link gọi món:\n') + url);
         });
     } else {
         var t = document.createElement('textarea');
@@ -1358,15 +1362,15 @@ function copyCustomerUrl() {
         t.select();
         document.execCommand('copy');
         document.body.removeChild(t);
-        alert('Đã sao chép đường link gọi món:\n' + url);
+        alert((window.cnxT?window.cnxT('js.s_kds.361bd0c8','Đã sao chép đường link gọi món:\n'):'Đã sao chép đường link gọi món:\n') + url);
     }
 }
 
 async function handleLogout() {
-    if (!confirm('Đăng xuất khỏi tài khoản phục vụ?')) return;
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_ord.d37f34d1','Đăng xuất khỏi tài khoản phục vụ?'):'Đăng xuất khỏi tài khoản phục vụ?')))) return;
     try {
         await fetch('api/auth.php?action=logout');
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('order_waiter.js', e) : console.debug('order_waiter.js', e)); }
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_token');
     document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -1375,30 +1379,60 @@ async function handleLogout() {
 
 function renderOrderAdminBadge() {
     const zone = document.getElementById('order-admin-badge-zone');
-    if (!zone) return;
+    const backZone = document.getElementById('order-nav-back-zone');
     const u = window.currentUser;
-    if (u && (u.role === 'admin' || u.is_super_admin === true)) {
-        zone.innerHTML = `
-            <a href="admin.html" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">
-                <i class="fas fa-crown text-amber-400 text-xs"></i>
-                <span class="hidden sm:inline font-bold text-amber-200">${u.fullname || u.username}</span>
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">ADMIN</span>
-            </a>
-        `;
-    } else {
-        zone.innerHTML = '';
+    const tr = (k, fb) => (typeof window.cnxT === 'function' ? window.cnxT(k, fb) : fb);
+    if (!u) {
+        if (zone) zone.innerHTML = '';
+        if (backZone) backZone.innerHTML = '';
+        return;
+    }
+    const isAdmin = (u.role === 'admin' || u.is_super_admin === true);
+    const isCashier = (u.role === 'cashier');
+    const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    if (backZone) {
+        if (isAdmin) {
+            const adminBack = `<a href="admin.html" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/35 border-amber-400/40 text-amber-200"><i class="fas fa-arrow-left text-[10px]"></i><span>${tr('common.back_admin', 'Quản Trị')}</span></a>`;
+            const posLink = `<a href="index.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-200"><i class="fas fa-cash-register text-xs"></i><span>POS</span></a>`;
+            backZone.innerHTML = `${adminBack}${posLink}<span class="cn-nav-divider"></span>`;
+        } else if (isCashier) {
+            const posBack = `<a href="index.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-200"><i class="fas fa-arrow-left text-[10px]"></i><span>${tr('common.back_pos', 'Quay lại POS')}</span></a>`;
+            backZone.innerHTML = `${posBack}<span class="cn-nav-divider"></span>`;
+        } else {
+            backZone.innerHTML = '';
+        }
+    }
+    if (zone) {
+        const roleLabel = isAdmin ? tr('nav.role_admin', 'ADMIN') : (isCashier ? tr('nav.role_cashier', 'THU NGÂN') : tr('nav.role_waiter', 'PHỤC VỤ'));
+        const badgeCls = isAdmin ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' : 'bg-sky-500/20 text-sky-300 border-sky-400/40';
+        const rawName = u.fullname || u.username || '';
+        const prettyName = (isAdmin && /Quản Trị Viên/i.test(rawName)) ? tr('nav.owner_name', 'Chủ quán') : rawName;
+        const disp = esc(prettyName);
+        zone.innerHTML = `<div class="cn-user-pill ${isAdmin ? 'bg-slate-800/90 border border-amber-500/40 text-amber-200' : 'bg-slate-800/80 border border-white/10 text-slate-200'}"><i class="fas ${isAdmin ? 'fa-crown text-amber-400' : 'fa-user-tag text-sky-400'} text-xs"></i><span class="cn-user-name">${disp}</span><span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${badgeCls} border">${roleLabel}</span></div>`;
     }
 }
+window.addEventListener('cybernexus:langchange', renderOrderAdminBadge);
+window.addEventListener('cnx:lang-changed', renderOrderAdminBadge);
+window.addEventListener('cnx:i18n-ready', renderOrderAdminBadge);
 
 document.addEventListener('DOMContentLoaded', () => {
     renderOrderAdminBadge();
     try {
         init();
-        // Định kỳ gửi heartbeat giữ trạng thái trực tuyến cho nhân viên phục vụ
-        function sendOrderHeartbeat() {
-            fetch('api/auth.php?action=heartbeat').catch(() => {});
+        // Định kỳ gửi heartbeat giữ trạng thái trực tuyến cho nhân viên phục vụ (with inFlight guard)
+        let _hbInFlight = false;
+        async function sendOrderHeartbeat() {
+            if (_hbInFlight) return;
+            _hbInFlight = true;
+            try {
+                await fetch('api/auth.php?action=heartbeat');
+            } catch (hbErr) {
+                if (window.CyberSecurity) CyberSecurity.logSilentError('orderHeartbeat', hbErr);
+            } finally {
+                _hbInFlight = false;
+            }
         }
-        setInterval(sendOrderHeartbeat, 45000);
+        setInterval(sendOrderHeartbeat, 30000);
         window.addEventListener('online', sendOrderHeartbeat);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') sendOrderHeartbeat();
@@ -1414,13 +1448,17 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Sound toggle update error:', err);
     }
 
-    // Tự động kiểm tra trạng thái bếp & cập nhật bàn mỗi 3.5 giây liên tục
-    // Chạy xuyên suốt cả khi đang xem danh sách bàn lẫn khi đang chọn món order
+    // Tự động kiểm tra trạng thái bếp & cập nhật bàn mỗi 3.5 giây liên tục (with inFlight guard)
+    let _tablesPollInFlight = false;
     setInterval(async () => {
+        if (document.hidden || _tablesPollInFlight) return;
+        _tablesPollInFlight = true;
         try {
             await loadTablesData();
         } catch (pollErr) {
             console.error('Polling error:', pollErr);
+        } finally {
+            _tablesPollInFlight = false;
         }
     }, 3500);
 });

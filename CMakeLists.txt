@@ -53,7 +53,7 @@ target_compile_definitions(cybernexus_master PRIVATE CYBERNEXUS_ROLE_MASTER=1)
 
 if(WIN32)
     target_sources(cybernexus_master PRIVATE launcher/icons/master_app.rc)
-    target_link_libraries(cybernexus_master PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp)
+    target_link_libraries(cybernexus_master PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp bcrypt)
     if(MINGW)
         target_link_options(cybernexus_master PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
@@ -71,6 +71,7 @@ set(SLAVE_SRCS
     slave/src/slave_license.cpp
     slave/src/slave_license_handlers.cpp
     slave/src/slave_handlers.cpp
+    slave/src/slave_dot6_handlers.cpp
     slave/src/main_slave.cpp
 )
 
@@ -79,7 +80,7 @@ target_compile_definitions(cybernexus_slave PRIVATE CYBERNEXUS_ROLE_SLAVE=1)
 
 if(WIN32)
     target_sources(cybernexus_slave PRIVATE launcher/icons/store_app.rc)
-    target_link_libraries(cybernexus_slave PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp)
+    target_link_libraries(cybernexus_slave PRIVATE ws2_32 crypt32 wsock32 iphlpapi winhttp bcrypt winspool)
     if(MINGW)
         target_link_options(cybernexus_slave PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
@@ -88,13 +89,13 @@ else()
 endif()
 
 # ========================================================
-# 3. Dynamic Sub-Modules
+# 3. Dynamic Sub-Modules (ARCH-01: Gỡ 2 DLL thừa mod_pos_core & mod_finance_admin)
 # ========================================================
-add_subdirectory(modules/mod_pos_core)
+# add_subdirectory(modules/mod_pos_core)
 add_subdirectory(modules/mod_network_qos)
 add_subdirectory(modules/mod_media_stream)
 add_subdirectory(modules/mod_card_payment)
-add_subdirectory(modules/mod_finance_admin)
+# add_subdirectory(modules/mod_finance_admin)
 
 # ========================================================
 # 4. TARGET CONTROL CENTER: CyberNexus_Control_Center.exe (Windows GUI)

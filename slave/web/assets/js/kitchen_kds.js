@@ -1,7 +1,7 @@
 let user = null;
-try { user = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+try { user = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('kitchen_kds.js', e) : console.debug('kitchen_kds.js', e)); }
 if (!user) {
-    alert('Vui lòng đăng nhập để sử dụng màn hình Bếp & Pha Chế!');
+    alert((window.cnxT?window.cnxT('js.s_kds.93327b4a','Vui lòng đăng nhập để sử dụng màn hình Bếp & Pha Chế!'):'Vui lòng đăng nhập để sử dụng màn hình Bếp & Pha Chế!'));
     window.location.replace('index.html?need_login=kitchen');
 }
 let currentFilter = 'active'; // 'active', 'served', 'all'
@@ -14,10 +14,10 @@ function updateSoundUI() {
     const btn = document.getElementById('btn-sound-toggle');
     if (soundEnabled) {
         icon.className = 'fas fa-volume-up text-amber-300';
-        btn.title = 'Chuông báo: BẬT (Bấm để tắt)';
+        btn.title = (window.cnxT?window.cnxT('js.s_kds.b5677377','Chuông báo: BẬT (Bấm để tắt)'):'Chuông báo: BẬT (Bấm để tắt)');
     } else {
         icon.className = 'fas fa-volume-mute text-slate-400';
-        btn.title = 'Chuông báo: TẮT (Bấm để bật)';
+        btn.title = (window.cnxT?window.cnxT('js.s_kds.6b9f35c7','Chuông báo: TẮT (Bấm để bật)'):'Chuông báo: TẮT (Bấm để bật)');
     }
 }
 
@@ -59,7 +59,7 @@ function playChime(freq1 = 523.25, freq2 = 659.25) {
         gain2.connect(ctx.destination);
         osc2.start(now + 0.15);
         osc2.stop(now + 0.6);
-    } catch (e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('kitchen_kds.js', e) : console.debug('kitchen_kds.js', e)); }
 }
 
 function switchFilter(filter) {
@@ -95,7 +95,7 @@ async function loadKitchenOrders() {
         if (document.getElementById('count-tab-served')) document.getElementById('count-tab-served').innerText = counts.served;
         if (document.getElementById('count-tab-history')) document.getElementById('count-tab-history').innerText = counts.history || 0;
         if (document.getElementById('count-tab-all')) document.getElementById('count-tab-all').innerText = counts.all;
-        if (document.getElementById('active-tickets-count')) document.getElementById('active-tickets-count').innerText = `${counts.active} đơn cần làm`;
+        if (document.getElementById('active-tickets-count')) document.getElementById('active-tickets-count').innerText = `${counts.active} ${window.cnxT?window.cnxT('js.s_kds.fa318788','đơn cần làm'):'đơn cần làm'}`;
 
         // Sound notification when a new order arrives or a waiter/cashier rushes an order
         if (!window.knownRushMap) window.knownRushMap = new Map();
@@ -126,14 +126,14 @@ async function loadKitchenOrders() {
 
         const container = document.getElementById('kitchen-tickets-grid');
         if (orders.length === 0) {
-            let emptyMsg = 'Hiện tại không có món nào đang chờ chế biến!';
-            let emptySub = 'Khi nhân viên hoặc thu ngân nhận order, phiếu sẽ xuất hiện tại đây.';
+            let emptyMsg = (window.cnxT?window.cnxT('js.s_kds.b3b70cb9','Hiện tại không có món nào đang chờ chế biến!'):'Hiện tại không có món nào đang chờ chế biến!');
+            let emptySub = (window.cnxT?window.cnxT('js.s_kds.e77b1429','Khi nhân viên hoặc thu ngân nhận order, phiếu sẽ xuất hiện tại đây.'):'Khi nhân viên hoặc thu ngân nhận order, phiếu sẽ xuất hiện tại đây.');
             if (currentFilter === 'served') {
-                emptyMsg = 'Chưa có món nào đang chờ phục vụ bưng ra bàn!';
-                emptySub = 'Sau khi bếp báo xong và phục vụ bưng ra, đơn sẽ xuất hiện tại đây.';
+                emptyMsg = (window.cnxT?window.cnxT('js.s_kds.64ad031a','Chưa có món nào đang chờ phục vụ bưng ra bàn!'):'Chưa có món nào đang chờ phục vụ bưng ra bàn!');
+                emptySub = (window.cnxT?window.cnxT('js.s_kds.5e26f5ea','Sau khi bếp báo xong và phục vụ bưng ra, đơn sẽ xuất hiện tại đây.'):'Sau khi bếp báo xong và phục vụ bưng ra, đơn sẽ xuất hiện tại đây.');
             } else if (currentFilter === 'history') {
-                emptyMsg = 'Chưa có lịch sử chế biến trong hôm nay!';
-                emptySub = 'Tất cả các món đã pha chế trong ca sẽ được lưu lại đầy đủ tại đây.';
+                emptyMsg = (window.cnxT?window.cnxT('js.s_kds.d51f948f','Chưa có lịch sử chế biến trong hôm nay!'):'Chưa có lịch sử chế biến trong hôm nay!');
+                emptySub = (window.cnxT?window.cnxT('js.s_kds.fa13a0fa','Tất cả các món đã pha chế trong ca sẽ được lưu lại đầy đủ tại đây.'):'Tất cả các món đã pha chế trong ca sẽ được lưu lại đầy đủ tại đây.');
             }
             container.innerHTML = `
                 <div class="col-span-full py-24 text-center text-slate-500">
@@ -165,7 +165,7 @@ async function loadKitchenOrders() {
                 const toppings = it.toppings || [];
                 let toppingText = '';
                 if (toppings.length > 0) {
-                    toppingText = `<div class="text-[11px] text-sky-400 font-semibold pl-2">+ ${toppings.map(x => x.name).join(', ')}</div>`;
+                    toppingText = `<div class="text-[11px] text-sky-400 font-semibold pl-2">+ ${toppings.map(x => escapeHtml(x.name)).join(', ')}</div>`;
                 }
 
                 const noteText = (it.note || '').trim();
@@ -173,44 +173,46 @@ async function loadKitchenOrders() {
                 const isCancelledItem = (cancelSt === 'approved' || cancelSt === 'out_of_stock');
                 const isRejected = (cancelSt === 'rejected') || noteText.includes('Đã làm') || noteText.includes('Đã chế biến') || noteText.includes('Giữ nguyên món');
                 const hasCancelNote = (cancelSt === 'pending_kitchen') || (cancelSt === 'none' && !isRejected && /hủy|huy|cancel/i.test(noteText));
-                const cancelRsn = (it.cancel_reason || noteText || 'Khách xin hủy').trim();
-                const safeName = (it.product_name || '').replace(/'/g, "\\'");
-                const safeRsn = cancelRsn.replace(/'/g, "\\'");
+                const cancelRsn = (it.cancel_reason || noteText || (window.cnxT?window.cnxT('js.s_kds.f4b768d2','Khách xin hủy'):'Khách xin hủy')).trim();
+                const safeName = escapeJsAttr(it.product_name || '');
+                const safeRsn = escapeJsAttr(cancelRsn);
+                const safeTbl = escapeJsAttr(o.table_code || '');
+                const safeOcode = escapeJsAttr(o.order_code || '');
 
                 itemsHtml += `
                     <div class="p-2.5 rounded-lg ${isCancelledItem ? 'bg-slate-950/60 border border-rose-500/20 opacity-60' : (hasCancelNote ? 'bg-amber-950/25 border border-amber-500/50' : (isRejected ? 'bg-amber-950/10 border border-amber-500/20' : 'bg-slate-900/90 border border-white/5'))} space-y-1.5 transition-all">
                         <div class="flex items-center justify-between gap-1.5">
-                            <span class="font-black text-sm ${isCancelledItem ? 'line-through text-slate-400' : 'text-white'} flex-1 truncate">${idx + 1}. ${it.product_name}</span>
+                            <span class="font-black text-sm ${isCancelledItem ? 'line-through text-slate-400' : 'text-white'} flex-1 truncate">${idx + 1}. ${escapeHtml(typeof window.cnxDbText === 'function' ? window.cnxDbText(it, 'name', it.product_name) : it.product_name)}</span>
                             <div class="flex items-center gap-1.5 shrink-0">
                                 <span class="w-6 h-6 rounded bg-amber-500/20 text-amber-300 font-mono font-black text-xs flex items-center justify-center">x${it.quantity}</span>
                                 ${(!isHistorical && !isCancelledItem) ? `
                                     ${hasCancelNote ? `
-                                        <button type="button" onclick="openKitchenActionModal('approve_cancel', ${o.id}, ${it.id}, '${safeName}', '${o.table_code}', '${o.order_code}', '${safeRsn}')" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-500/30 active:scale-90 transition-all animate-pulse" title="Đồng ý hủy món theo yêu cầu của phục vụ">
+                                        <button type="button" onclick="openKitchenActionModal('approve_cancel', ${o.id}, ${it.id}, '${safeName}', '${safeTbl}', '${safeOcode}', '${safeRsn}')" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-500/30 active:scale-90 transition-all animate-pulse" title="Đồng ý hủy món theo yêu cầu của phục vụ">
                                             <i class="fas fa-check"></i>
-                                            <span>Đồng ý</span>
+                                            <span>${window.cnxT?window.cnxT('js.s_kds.530f291a','Đồng ý'):'Đồng ý'}</span>
                                         </button>
-                                        <button type="button" onclick="openKitchenActionModal('reject_cancel', ${o.id}, ${it.id}, '${safeName}', '${o.table_code}', '${o.order_code}', '${safeRsn}')" class="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-white border border-amber-500/40 text-xs font-bold flex items-center gap-1 active:scale-90 transition-all" title="Từ chối hủy do bếp đã làm">
+                                        <button type="button" onclick="openKitchenActionModal('reject_cancel', ${o.id}, ${it.id}, '${safeName}', '${safeTbl}', '${safeOcode}', '${safeRsn}')" class="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-white border border-amber-500/40 text-xs font-bold flex items-center gap-1 active:scale-90 transition-all" title="Từ chối hủy do bếp đã làm">
                                             <i class="fas fa-times"></i>
-                                            <span>Từ chối</span>
+                                            <span>${window.cnxT?window.cnxT('js.s_kds.10af9351','Từ chối'):'Từ chối'}</span>
                                         </button>
                                     ` : ''}
-                                    <button type="button" onclick="openKitchenActionModal('out_of_stock', ${o.id}, ${it.id}, '${safeName}', '${o.table_code}', '${o.order_code}', '')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-black flex items-center gap-1 active:scale-90 transition-all" title="Báo hết món này">
+                                    <button type="button" onclick="openKitchenActionModal('out_of_stock', ${o.id}, ${it.id}, '${safeName}', '${safeTbl}', '${safeOcode}', '')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-black flex items-center gap-1 active:scale-90 transition-all" title="Báo hết món này">
                                         <i class="fas fa-ban text-[10px]"></i>
-                                        <span>Hết</span>
+                                        <span>${window.cnxT?window.cnxT('js.s_kds.20847175','Hết'):'Hết'}</span>
                                     </button>
                                 ` : ''}
                             </div>
                         </div>
                         ${toppingText}
                         ${isCancelledItem ? `
-                            <div class="text-[11px] text-rose-300 font-semibold pl-2"><i class="fas fa-ban mr-1"></i>${cancelSt === 'out_of_stock' ? 'Đã báo HẾT' : 'Đã đồng ý HỦY'}: ${cancelRsn}</div>
+                            <div class="text-[11px] text-rose-300 font-semibold pl-2"><i class="fas fa-ban mr-1"></i>${cancelSt === 'out_of_stock' ? 'Đã báo HẾT' : (window.cnxT?window.cnxT('js.s_kds.a72dedb6','Đã đồng ý HỦY'):'Đã đồng ý HỦY')}: ${escapeHtml(cancelRsn)}</div>
                         ` : (hasCancelNote ? `
                             <div class="text-xs text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-1 rounded font-bold flex items-center gap-1.5">
-                                <i class="fas fa-triangle-exclamation text-amber-400 animate-bounce text-xs"></i><span>Xin hủy: <b class="text-white">${cancelRsn}</b></span>
+                                <i class="fas fa-triangle-exclamation text-amber-400 animate-bounce text-xs"></i><span>${window.cnxT?window.cnxT('js.s_kds.cf744e1f','Xin hủy:'):'Xin hủy:'} <b class="text-white">${escapeHtml(cancelRsn)}</b></span>
                             </div>
                         ` : (it.note ? `
                             <div class="text-xs ${isRejected ? 'text-amber-300 bg-amber-950/30 border border-amber-500/30 px-2 py-1 rounded font-semibold pl-2' : 'text-rose-300 italic font-semibold pl-2'}">
-                                ${isRejected ? '<i class="fas fa-fire-burner text-amber-400 mr-1"></i>' + it.note : '<i class="fas fa-comment-dots mr-1"></i>' + it.note}
+                                ${isRejected ? '<i class="fas fa-fire-burner text-amber-400 mr-1"></i>' + escapeHtml(it.note) : '<i class="fas fa-comment-dots mr-1"></i>' + escapeHtml(it.note)}
                             </div>
                         ` : ''))}
                     </div>
@@ -228,12 +230,12 @@ async function loadKitchenOrders() {
                 tableColorClass = 'text-purple-300';
                 statusBadgeHtml = `
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-black border border-purple-500/40 flex items-center gap-1">
-                        <i class="fas fa-check-double"></i> Đã Xong & TT
+                        <i class="fas fa-check-double"></i> ${window.cnxT?window.cnxT('js.s_kds.672a51ab','Đã Xong & TT'):'Đã Xong & TT'}
                     </span>
                 `;
                 actionButtonHtml = `
                     <div class="flex items-center gap-1 text-[11px] text-purple-300 font-semibold">
-                        <i class="fas fa-receipt mr-1"></i> Đã hoàn tất thanh toán
+                        <i class="fas fa-receipt mr-1"></i> ${window.cnxT?window.cnxT('js.s_kds.79708fc8','Đã hoàn tất thanh toán'):'Đã hoàn tất thanh toán'}
                     </div>
                 `;
             } else if (isServed) {
@@ -241,16 +243,16 @@ async function loadKitchenOrders() {
                 tableColorClass = 'text-emerald-400';
                 const payBadge = isPaid 
                     ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30">💰 Đã TT</span>'
-                    : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Chờ TT</span>';
+                    : (window.cnxT?window.cnxT('js.s_kds.970e01a7','<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Chờ TT</span>'):'<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Chờ TT</span>');
                 statusBadgeHtml = `
                     ${payBadge}
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/40 flex items-center gap-1">
-                        <i class="fas fa-check-circle"></i> Đã Bưng Ra Bàn
+                        <i class="fas fa-check-circle"></i> ${window.cnxT?window.cnxT('js.s_kds.0bb9d86c','Đã Bưng Ra Bàn'):'Đã Bưng Ra Bàn'}
                     </span>
                 `;
                 actionButtonHtml = `
                     <div class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
-                        <i class="fas fa-check-circle"></i> Đã bưng ra bàn (Lịch sử)
+                        <i class="fas fa-check-circle"></i> ${window.cnxT?window.cnxT('js.s_kds.34a84efa','Đã bưng ra bàn (Lịch sử)'):'Đã bưng ra bàn (Lịch sử)'}
                     </div>
                 `;
             } else if (o.kitchen_status === 'cancel_requested') {
@@ -258,10 +260,10 @@ async function loadKitchenOrders() {
                 tableColorClass = 'text-rose-300';
                 statusBadgeHtml = `
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 font-black border border-rose-500/40 flex items-center gap-1 animate-pulse">
-                        <i class="fas fa-hourglass-half"></i> Chờ Thu ngân duyệt hủy
+                        <i class="fas fa-hourglass-half"></i> ${window.cnxT?window.cnxT('js.s_kds.f1675cff','Chờ Thu ngân duyệt hủy'):'Chờ Thu ngân duyệt hủy'}
                     </span>
                 `;
-                actionButtonHtml = `<div class="text-[11px] text-rose-300 font-semibold italic">Đã gửi lý do: ${o.cancel_request_reason || 'Yêu cầu hủy đơn'}</div>`;
+                actionButtonHtml = `<div class="text-[11px] text-rose-300 font-semibold italic">Đã gửi lý do: ${o.cancel_request_reason || (window.cnxT?window.cnxT('js.s_kds.95706ab3','Yêu cầu hủy đơn'):'Yêu cầu hủy đơn')}</div>`;
             } else if (isReady) {
                 const waiterElapsed = Number(o.waiter_elapsed_minutes || 0);
                 const waiterSla = Number(o.waiter_sla_minutes || 3);
@@ -273,24 +275,24 @@ async function loadKitchenOrders() {
                 tableColorClass = isWaiterOverdue ? 'text-amber-300' : 'text-sky-300';
                 const payBadge = isPaid 
                     ? '<span class="text-[10px] px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-black border border-teal-500/40 flex items-center gap-1"><i class="fas fa-money-bill-wave"></i> Đã TT</span>'
-                    : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 font-bold border border-slate-600">Chưa TT</span>';
+                    : (window.cnxT?window.cnxT('js.s_kds.c1b4fc76','<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 font-bold border border-slate-600">Chưa TT</span>'):'<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 font-bold border border-slate-600">Chưa TT</span>');
                 statusBadgeHtml = `
                     ${payBadge}
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full ${isWaiterOverdue ? 'bg-amber-500/30 text-amber-200 border-amber-400' : 'bg-sky-500/20 text-sky-300 border-sky-500/40'} font-black border animate-pulse flex items-center gap-1">
-                        <i class="fas fa-bell"></i> ${isWaiterOverdue ? `Quá ${waiterElapsed}p chờ bưng` : 'Chờ Phục Vụ Lấy'}${remindCount > 0 ? ` (Nhắc x${remindCount})` : ''}
+                        <i class="fas fa-bell"></i> ${isWaiterOverdue ? `${window.cnxT?window.cnxT('js.s_kds.8292a97f','Quá'):'Quá'} ${waiterElapsed}${window.cnxT?window.cnxT('js.s_kds.9d762f2a','p chờ bưng'):'p chờ bưng'}` : (window.cnxT?window.cnxT('js.s_kds.2bb346e3','Chờ Phục Vụ Lấy'):'Chờ Phục Vụ Lấy')}${remindCount > 0 ? ` ${window.cnxT?window.cnxT('js.s_kds.f3a5091a','(Nhắc x'):'(Nhắc x'}${remindCount})` : ''}
                     </span>
                 `;
                 actionButtonHtml = `
                     <div class="flex items-center gap-1.5">
-                        <button type="button" class="btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Yêu cầu hủy đơn (Gửi Thu ngân duyệt)" onclick="openKitchenActionModal('cancel_order', ${o.id}, 0, '', '${o.table_code}', '${o.order_code}', '')">
+                        <button type="button" class="btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Yêu cầu hủy đơn (Gửi Thu ngân duyệt)" onclick="openKitchenActionModal('cancel_order', ${Number(o.id)}, 0, '', '${escapeJsAttr(o.table_code)}', '${escapeJsAttr(o.order_code)}', '')">
                             <i class="fas fa-trash-alt"></i>
                         </button>
-                        <button type="button" class="btn-glass bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border-emerald-500/50 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Đã giao xong / Lưu trữ" onclick="archiveKitchenTicket(${o.id})">
-                            <i class="fas fa-check"></i> <span>Đã Giao</span>
+                        <button type="button" class="btn-glass bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border-emerald-500/50 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Đã giao xong / Lưu trữ" onclick="archiveKitchenTicket(${Number(o.id)})">
+                            <i class="fas fa-check"></i> <span>${window.cnxT?window.cnxT('js.s_kds.d5cb0ef3','Đã Giao'):'Đã Giao'}</span>
                         </button>
-                        <button type="button" class="btn-glass ${isWaiterOverdue ? 'bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border-amber-400 animate-pulse' : 'bg-sky-600/30 text-sky-300 border-sky-500/50'} text-xs py-2 px-3 font-bold flex items-center gap-1.5 shadow active:scale-95 transition-all" onclick="markKitchenReady(${o.id}, '${o.table_code}', this)">
+                        <button type="button" class="btn-glass ${isWaiterOverdue ? 'bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border-amber-400 animate-pulse' : 'bg-sky-600/30 text-sky-300 border-sky-500/50'} text-xs py-2 px-3 font-bold flex items-center gap-1.5 shadow active:scale-95 transition-all" onclick="markKitchenReady(${Number(o.id)}, '${escapeJsAttr(o.table_code)}', this)">
                             <i class="fas fa-redo"></i>
-                            <span>${isWaiterOverdue ? 'Báo Lại (Nhắc PV)' : 'Báo Lại'}</span>
+                            <span>${isWaiterOverdue ? 'Báo Lại (Nhắc PV)' : (window.cnxT?window.cnxT('js.s_kds.3ee5de7b','Báo Lại'):'Báo Lại')}</span>
                         </button>
                     </div>
                 `;
@@ -304,34 +306,34 @@ async function loadKitchenOrders() {
                         : 'border-amber-500/50 bg-slate-900/90 shadow-xl shadow-amber-500/10');
                 tableColorClass = isRushed ? 'text-rose-300' : (isPaid ? 'text-teal-300' : 'text-amber-400');
                 const rushBadge = isRushed
-                    ? `<span class="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-500 text-white font-black animate-pulse flex items-center gap-1 shadow shadow-rose-500/40" title="${o.last_rushed_by ? `${o.last_rushed_by} hối lúc ${(o.last_rushed_at || '').substring(11, 16)}` : ''}"><i class="fas fa-fire"></i> HỐI MÓN (x${rushCount})</span>`
+                    ? `<span class="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-500 text-white font-black animate-pulse flex items-center gap-1 shadow shadow-rose-500/40" title="${o.last_rushed_by ? `${escapeHtml(o.last_rushed_by)} ${window.cnxT?window.cnxT('js.s_kds.14fd92eb','hối lúc'):'hối lúc'} ${escapeHtml((o.last_rushed_at || '').substring(11, 16))}` : ''}"><i class="fas fa-fire"></i> HỐI MÓN (x${rushCount})</span>`
                     : '';
                 const payBadge = isPaid 
                     ? '<span class="text-[10px] px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-black border border-teal-500/40 flex items-center gap-1"><i class="fas fa-money-bill-wave"></i> Đã TT</span>'
-                    : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 font-bold border border-slate-600">Chưa TT</span>';
+                    : (window.cnxT?window.cnxT('js.s_kds.c1b4fc76','<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 font-bold border border-slate-600">Chưa TT</span>'):'<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 font-bold border border-slate-600">Chưa TT</span>');
                 const isCancelReq = (o.kitchen_status === 'cancel_requested');
                 statusBadgeHtml = isCancelReq ? `
                     ${payBadge}
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 font-black border border-rose-500/40 flex items-center gap-1 animate-pulse">
-                        <i class="fas fa-hourglass-half"></i> Chờ Thu ngân duyệt hủy
+                        <i class="fas fa-hourglass-half"></i> ${window.cnxT?window.cnxT('js.s_kds.f1675cff','Chờ Thu ngân duyệt hủy'):'Chờ Thu ngân duyệt hủy'}
                     </span>
                 ` : `
                     ${rushBadge}
                     ${payBadge}
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 flex items-center gap-1">
-                        <i class="fas fa-fire-burner animate-pulse"></i> Đang Chế Biến
+                        <i class="fas fa-fire-burner animate-pulse"></i> ${window.cnxT?window.cnxT('js.s_kds.739ade54','Đang Chế Biến'):'Đang Chế Biến'}
                     </span>
                 `;
                 actionButtonHtml = isCancelReq ? `
-                    <div class="text-[11px] text-rose-300 font-semibold italic">Đã gửi lý do: ${o.cancel_request_reason || 'Yêu cầu hủy đơn'}</div>
+                    <div class="text-[11px] text-rose-300 font-semibold italic">Đã gửi lý do: ${escapeHtml(o.cancel_request_reason || (window.cnxT?window.cnxT('js.s_kds.95706ab3','Yêu cầu hủy đơn'):'Yêu cầu hủy đơn'))}</div>
                 ` : `
                     <div class="flex items-center gap-1.5">
-                        <button type="button" class="btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Yêu cầu hủy đơn (Gửi Thu ngân duyệt)" onclick="openKitchenActionModal('cancel_order', ${o.id}, 0, '', '${o.table_code}', '${o.order_code}', '')">
+                        <button type="button" class="btn-glass bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 text-xs py-2 px-2.5 font-bold flex items-center gap-1 shadow active:scale-95 transition-all" title="Yêu cầu hủy đơn (Gửi Thu ngân duyệt)" onclick="openKitchenActionModal('cancel_order', ${Number(o.id)}, 0, '', '${escapeJsAttr(o.table_code)}', '${escapeJsAttr(o.order_code)}', '')">
                             <i class="fas fa-trash-alt"></i>
                         </button>
-                        <button type="button" class="btn-glass-success text-xs py-2 px-3.5 font-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 active:scale-95 transition-transform" onclick="markKitchenReady(${o.id}, '${o.table_code}')">
+                        <button type="button" class="btn-glass-success text-xs py-2 px-3.5 font-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 active:scale-95 transition-transform" onclick="markKitchenReady(${Number(o.id)}, '${escapeJsAttr(o.table_code)}')">
                             <i class="fas fa-bell"></i>
-                            <span>Xong Món (Báo Phục Vụ)</span>
+                            <span>${window.cnxT?window.cnxT('js.s_kds.c5fe7e69','Xong Món (Báo Phục Vụ)'):'Xong Món (Báo Phục Vụ)'}</span>
                         </button>
                     </div>
                 `;
@@ -339,7 +341,7 @@ async function loadKitchenOrders() {
 
             const tableNameDisplay = o.table_name ? `(${o.table_name})` : '';
 
-            let timingHtml = `<span>Tạo: <b class="text-slate-200 font-mono">${(o.created_at || '').substring(11, 16)}</b></span>`;
+            let timingHtml = `<span>${window.cnxT?window.cnxT('js.s_kds.a70647c7','Tạo:'):'Tạo:'} <b class="text-slate-200 font-mono">${(o.created_at || '').substring(11, 16)}</b></span>`;
             if (o.kitchen_ready_at) {
                 timingHtml += `<span> • Xong: <b class="text-sky-300 font-mono">${o.kitchen_ready_at.substring(11, 16)}</b></span>`;
             }
@@ -364,7 +366,7 @@ async function loadKitchenOrders() {
                         </div>
                         <div class="text-[11px] text-slate-400 mb-2 flex items-center justify-between">
                             <div>${timingHtml}</div>
-                            <span>Khách: <b class="text-slate-200">${o.guest_count} người</b></span>
+                            <span>${window.cnxT?window.cnxT('ui.pos_html.span_126cb08b','Khách:'):'Khách:'} <b class="text-slate-200">${o.guest_count} người</b></span>
                         </div>
                         <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                             ${itemsHtml}
@@ -377,7 +379,7 @@ async function loadKitchenOrders() {
                                 ? '<span class="text-purple-300 font-medium"><i class="fas fa-check-circle mr-1"></i> Khách đã dùng xong</span>' 
                                 : (isServed 
                                     ? '<span class="text-emerald-400 font-semibold"><i class="fas fa-user-check mr-1"></i> Khách đã nhận món</span>'
-                                    : `<span>Order: <b class="text-slate-200">${o.user_name || 'Phục vụ'}</b></span>`)}
+                                    : `<span>Order: <b class="text-slate-200">${o.user_name || (window.cnxT?window.cnxT('ui.ord_html.b_c7307f33','Phục vụ'):'Phục vụ')}</b></span>`)}
                         </div>
                         <div>
                             ${actionButtonHtml}
@@ -397,7 +399,7 @@ async function markKitchenReady(orderId, tableCode, btnEl = null) {
     const originalHtml = btnEl ? btnEl.innerHTML : '';
     if (btnEl) {
         btnEl.disabled = true;
-        btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Đang báo chuông...</span>';
+        btnEl.innerHTML = (window.cnxT?window.cnxT('js.s_kds.4a5ea11a','<i class="fas fa-spinner fa-spin"></i> <span>Đang báo chuông...</span>'):'<i class="fas fa-spinner fa-spin"></i> <span>Đang báo chuông...</span>');
     }
 
     try {
@@ -408,7 +410,7 @@ async function markKitchenReady(orderId, tableCode, btnEl = null) {
         if (data.success) {
             playChime(783.99, 1046.50);
             if (btnEl) {
-                btnEl.innerHTML = '<i class="fas fa-check text-emerald-400"></i> <span class="text-emerald-300">Đã Báo Lại Chuông!</span>';
+                btnEl.innerHTML = (window.cnxT?window.cnxT('js.s_kds.dc21c8c9','<i class="fas fa-check text-emerald-400"></i> <span class="text-emerald-300">Đã Báo Lại Chuông!</span>'):'<i class="fas fa-check text-emerald-400"></i> <span class="text-emerald-300">Đã Báo Lại Chuông!</span>');
                 btnEl.classList.remove('bg-sky-600/30');
                 btnEl.classList.add('bg-emerald-600/30', 'border-emerald-500/50');
                 setTimeout(() => {
@@ -424,7 +426,7 @@ async function markKitchenReady(orderId, tableCode, btnEl = null) {
                 btnEl.disabled = false;
                 btnEl.innerHTML = originalHtml;
             }
-            alert(data.message || 'Lỗi thao tác');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
         }
     } catch(e) {
         console.error(e);
@@ -456,36 +458,36 @@ function openKitchenActionModal(mode, orderId, itemId, productName, tableCode, o
     let chips = [];
     if (mode === 'approve_cancel') {
         titleEl.innerHTML = `<i class="fas fa-check-circle text-emerald-400 mr-1.5"></i> Đồng ý hủy món (${tableCode})`;
-        descEl.innerHTML = `Xác nhận <b>ĐỒNG Ý HỦY</b> món <b>"${productName}"</b>? Hóa đơn sẽ tự động trừ tiền (nếu đã thanh toán sẽ báo Thu ngân hoàn lại cho khách).`;
-        reasonEl.value = presetReason || 'Bếp đồng ý hủy theo yêu cầu phục vụ';
-        chips = ['Chưa chế biến - Đồng ý hủy', 'Khách đổi ý kịp thời', 'Nhân viên bấm nhầm'];
+        descEl.innerHTML = `Xác nhận <b>${window.cnxT?window.cnxT('js.s_kds.f2d80993','ĐỒNG Ý HỦY'):'ĐỒNG Ý HỦY'}</b> ${window.cnxT?window.cnxT('js.s_ops.5e8511dc','món'):'món'} <b>"${productName}"</b>? Hóa đơn sẽ tự động trừ tiền (nếu đã thanh toán sẽ báo Thu ngân hoàn lại cho khách).`;
+        reasonEl.value = presetReason || (window.cnxT?window.cnxT('js.s_kds.bcc2ca32','Bếp đồng ý hủy theo yêu cầu phục vụ'):'Bếp đồng ý hủy theo yêu cầu phục vụ');
+        chips = [(window.cnxT?window.cnxT('js.s_kds.272b52fd','Chưa chế biến - Đồng ý hủy'):'Chưa chế biến - Đồng ý hủy'), (window.cnxT?window.cnxT('js.s_kds.88906522','Khách đổi ý kịp thời'):'Khách đổi ý kịp thời'), (window.cnxT?window.cnxT('js.s_kds.3744a653','Nhân viên bấm nhầm'):'Nhân viên bấm nhầm')];
         submitBtn.className = 'px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black';
-        submitBtn.textContent = 'Xác nhận Đồng Ý Hủy';
+        submitBtn.textContent = (window.cnxT?window.cnxT('js.s_kds.319791fc','Xác nhận Đồng Ý Hủy'):'Xác nhận Đồng Ý Hủy');
     } else if (mode === 'reject_cancel') {
         titleEl.innerHTML = `<i class="fas fa-fire-burner text-amber-400 mr-1.5"></i> Từ chối hủy món (${tableCode})`;
-        descEl.innerHTML = `Bếp <b>KHÔNG ĐỒNG Ý HỦY</b> món <b>"${productName}"</b>? Món vẫn giữ trên hóa đơn và báo lại Phục vụ.`;
-        reasonEl.value = 'Bếp đã chế biến / đã làm xong';
-        chips = ['Bếp đã làm xong', 'Đang nấu không thể dừng', 'Đã ra món'];
+        descEl.innerHTML = `Bếp <b>${window.cnxT?window.cnxT('js.s_kds.8b575de7','KHÔNG ĐỒNG Ý HỦY'):'KHÔNG ĐỒNG Ý HỦY'}</b> ${window.cnxT?window.cnxT('js.s_ops.5e8511dc','món'):'món'} <b>"${productName}"</b>? Món vẫn giữ trên hóa đơn và báo lại Phục vụ.`;
+        reasonEl.value = (window.cnxT?window.cnxT('js.s_kds.daddb531','Bếp đã chế biến / đã làm xong'):'Bếp đã chế biến / đã làm xong');
+        chips = [(window.cnxT?window.cnxT('js.s_kds.4eaa347d','Bếp đã làm xong'):'Bếp đã làm xong'), (window.cnxT?window.cnxT('js.s_kds.6f42e777','Đang nấu không thể dừng'):'Đang nấu không thể dừng'), (window.cnxT?window.cnxT('js.s_kds.577a633b','Đã ra món'):'Đã ra món')];
         submitBtn.className = 'px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black';
-        submitBtn.textContent = 'Xác nhận Từ Chối Hủy';
+        submitBtn.textContent = (window.cnxT?window.cnxT('js.s_kds.f836e405','Xác nhận Từ Chối Hủy'):'Xác nhận Từ Chối Hủy');
     } else if (mode === 'out_of_stock') {
-        titleEl.innerHTML = `<i class="fas fa-ban text-rose-400 mr-1.5"></i> Báo HẾT món (${tableCode})`;
-        descEl.innerHTML = `Báo hết món <b>"${productName}"</b>. Hệ thống sẽ tự trừ tiền trên hóa đơn ${orderCode} và thông báo ngay cho Phục vụ & Thu ngân.`;
-        reasonEl.value = 'Hết nguyên liệu tại bếp';
-        chips = ['Hết nguyên liệu tại bếp', 'Bếp tạm ngưng món này hôm nay', 'Hết hàng đột xuất'];
+        titleEl.innerHTML = `<i class="fas fa-ban text-rose-400 mr-1.5"></i> Báo HẾT món (${escapeHtml(tableCode)})`;
+        descEl.innerHTML = `Báo hết món <b>"${escapeHtml(productName)}"</b>. Hệ thống sẽ tự trừ tiền trên hóa đơn ${escapeHtml(orderCode)} ${window.cnxT?window.cnxT('js.s_kds.756db9ee','và thông báo ngay cho Phục vụ & Thu ngân.'):'và thông báo ngay cho Phục vụ & Thu ngân.'}`;
+        reasonEl.value = (window.cnxT?window.cnxT('js.s_kds.58dd01bb','Hết nguyên liệu tại bếp'):'Hết nguyên liệu tại bếp');
+        chips = [(window.cnxT?window.cnxT('js.s_kds.58dd01bb','Hết nguyên liệu tại bếp'):'Hết nguyên liệu tại bếp'), (window.cnxT?window.cnxT('js.s_kds.d69424a0','Bếp tạm ngưng món này hôm nay'):'Bếp tạm ngưng món này hôm nay'), (window.cnxT?window.cnxT('js.s_kds.ecd1dc18','Hết hàng đột xuất'):'Hết hàng đột xuất')];
         if (lockWrap) lockWrap.classList.remove('hidden');
         submitBtn.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black';
-        submitBtn.textContent = 'Xác nhận Báo Hết';
+        submitBtn.textContent = (window.cnxT?window.cnxT('js.s_kds.2a0031a5','Xác nhận Báo Hết'):'Xác nhận Báo Hết');
     } else if (mode === 'cancel_order') {
-        titleEl.innerHTML = `<i class="fas fa-triangle-exclamation text-rose-400 mr-1.5"></i> Yêu cầu Hủy Đơn ${orderCode} (${tableCode})`;
-        descEl.innerHTML = `Bếp gửi yêu cầu hủy đơn <b>${orderCode}</b> lên <b>Thu ngân & Phục vụ</b> xác nhận chốt hủy (tránh xóa nhầm đơn đang tính tiền).`;
+        titleEl.innerHTML = `<i class="fas fa-triangle-exclamation text-rose-400 mr-1.5"></i> Yêu cầu Hủy Đơn ${escapeHtml(orderCode)} (${escapeHtml(tableCode)})`;
+        descEl.innerHTML = `Bếp gửi yêu cầu hủy đơn <b>${escapeHtml(orderCode)}</b> ${window.cnxT?window.cnxT('js.s_kds.f0e804a6','lên'):'lên'} <b>${window.cnxT?window.cnxT('js.s_kds.346693af','Thu ngân & Phục vụ'):'Thu ngân & Phục vụ'}</b> xác nhận chốt hủy (tránh xóa nhầm đơn đang tính tiền).`;
         reasonEl.value = '';
-        chips = ['Hết toàn bộ nguyên liệu', 'Khách báo hủy trước khi làm', 'Đơn đặt trùng / đơn test'];
+        chips = [(window.cnxT?window.cnxT('js.s_kds.94406ee0','Hết toàn bộ nguyên liệu'):'Hết toàn bộ nguyên liệu'), (window.cnxT?window.cnxT('js.s_kds.28cc0d1a','Khách báo hủy trước khi làm'):'Khách báo hủy trước khi làm'), (window.cnxT?window.cnxT('js.s_kds.854a9d86','Đơn đặt trùng / đơn test'):'Đơn đặt trùng / đơn test')];
         submitBtn.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black';
-        submitBtn.textContent = 'Gửi Yêu Cầu Hủy Đơn';
+        submitBtn.textContent = (window.cnxT?window.cnxT('js.s_kds.c2b01ee5','Gửi Yêu Cầu Hủy Đơn'):'Gửi Yêu Cầu Hủy Đơn');
     }
 
-    chipsEl.innerHTML = chips.map(c => `<button type="button" onclick="document.getElementById('kam-reason').value='${c.replace(/'/g, "\\'")}'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px] text-slate-300">${c}</button>`).join('');
+    chipsEl.innerHTML = chips.map(c => `<button type="button" onclick="document.getElementById('kam-reason').value='${escapeJsAttr(c)}'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px] text-slate-300">${escapeHtml(c)}</button>`).join('');
     modal.classList.add('open');
 }
 
@@ -499,7 +501,7 @@ async function submitKitchenActionModal() {
     const { mode, orderId, itemId } = _kitchenActionState;
     const reason = (document.getElementById('kam-reason')?.value || '').trim();
     if (!reason) {
-        alert('Vui lòng chọn hoặc nhập lý do rõ ràng!');
+        alert((window.cnxT?window.cnxT('js.s_kds.042d1aed','Vui lòng chọn hoặc nhập lý do rõ ràng!'):'Vui lòng chọn hoặc nhập lý do rõ ràng!'));
         document.getElementById('kam-reason')?.focus();
         return;
     }
@@ -536,10 +538,10 @@ async function submitKitchenActionModal() {
             loadKitchenOrders();
             if (mode === 'out_of_stock') loadAllDishesForModal();
         } else {
-            alert(data.message || 'Lỗi thao tác');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
         }
     } catch (e) {
-        alert('Lỗi kết nối máy chủ');
+        alert((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'));
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -587,7 +589,7 @@ function renderLockedDishesList() {
     }
 
     if (list.length === 0) {
-        container.innerHTML = '<div class="text-xs text-slate-500 py-8 text-center">Không tìm thấy món ăn nào</div>';
+        container.innerHTML = (window.cnxT?window.cnxT('js.s_kds.cc2c833b','<div class="text-xs text-slate-500 py-8 text-center">Không tìm thấy món ăn nào</div>'):'<div class="text-xs text-slate-500 py-8 text-center">Không tìm thấy món ăn nào</div>');
         return;
     }
 
@@ -598,17 +600,17 @@ function renderLockedDishesList() {
             <div class="p-3 rounded-xl ${isLocked ? 'bg-rose-950/30 border border-rose-500/40' : 'bg-slate-900/80 border border-white/5'} flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="w-10 h-10 rounded-lg overflow-hidden bg-slate-950 border border-white/10 shrink-0 relative">
-                        <img src="${p.image || 'assets/images/dishes/default_dish.jpg'}" alt="${p.name}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
+                        <img src="${escapeHtml(p.image || 'assets/images/dishes/default_dish.jpg')}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5">
-                            <span class="font-mono font-bold text-[10px] text-sky-400 bg-slate-950 px-1 rounded">${p.code || 'SP'}</span>
-                            <h4 class="font-bold text-xs text-white truncate">${p.name}</h4>
+                            <span class="font-mono font-bold text-[10px] text-sky-400 bg-slate-950 px-1 rounded">${escapeHtml(p.code || 'SP')}</span>
+                            <h4 class="font-bold text-xs text-white truncate">${escapeHtml(p.name)}</h4>
                         </div>
                         <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
                             <span class="font-mono text-amber-400 font-bold">${new Intl.NumberFormat('vi-VN').format(p.sale_price)} đ</span>
                             <span>•</span>
-                            <span>${p.category_name || 'Món'}</span>
+                            <span>${escapeHtml(p.category_name || (window.cnxT?window.cnxT('js.s_kds.de6359a6','Món'):'Món'))}</span>
                         </div>
                     </div>
                 </div>
@@ -616,19 +618,19 @@ function renderLockedDishesList() {
                 <div class="shrink-0 flex items-center gap-2">
                     ${isLocked ? `
                         <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-black border border-rose-500/40 animate-pulse">
-                            🚫 ĐANG HẾT HÀNG
+                            ${window.cnxT?window.cnxT('js.s_kds.39eb30de','🚫 ĐANG HẾT HÀNG'):'🚫 ĐANG HẾT HÀNG'}
                         </span>
                         <button type="button" onclick="toggleDishStatus(${p.id}, 'active')" class="btn-glass text-xs py-1.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40 font-bold flex items-center gap-1 active:scale-95 shadow">
                             <i class="fas fa-check"></i>
-                            <span>Mở Bán Lại</span>
+                            <span>${window.cnxT?window.cnxT('js.s_kds.f9cec75b','Mở Bán Lại'):'Mở Bán Lại'}</span>
                         </button>
                     ` : `
                         <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
-                            🟢 Đang Bán
+                            ${window.cnxT?window.cnxT('js.s_kds.86edefc2','🟢 Đang Bán'):'🟢 Đang Bán'}
                         </span>
                         <button type="button" onclick="toggleDishStatus(${p.id}, 'locked')" class="btn-glass text-xs py-1.5 px-3 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 font-bold flex items-center gap-1 active:scale-95">
                             <i class="fas fa-ban"></i>
-                            <span>Tạm Khóa (Hết)</span>
+                            <span>${window.cnxT?window.cnxT('js.s_kds.224ac649','Tạm Khóa (Hết)'):'Tạm Khóa (Hết)'}</span>
                         </button>
                     `}
                 </div>
@@ -658,7 +660,7 @@ async function toggleDishStatus(productId, targetStatus) {
             updateLockedCount();
             playChime(targetStatus === 'locked' ? 440 : 659, targetStatus === 'locked' ? 330 : 880);
         } else {
-            alert(data.message || 'Lỗi khi cập nhật trạng thái món');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_kds.8ae47801','Lỗi khi cập nhật trạng thái món'):'Lỗi khi cập nhật trạng thái món'));
         }
     } catch(e) {
         console.error(e);
@@ -674,7 +676,7 @@ async function archiveKitchenTicket(orderId) {
         if (data.success) {
             loadKitchenOrders();
         } else {
-            alert(data.message || 'Lỗi thao tác');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
         }
     } catch(e) {
         console.error(e);
@@ -682,7 +684,7 @@ async function archiveKitchenTicket(orderId) {
 }
 
 async function kitchenCancelOrder(orderId, orderCode, tableCode) {
-    if (!confirm(`Xác nhận HỦY / XÓA đơn rác "${orderCode}" (${tableCode}) khỏi màn hình bếp?`)) return;
+    if (!(await window.cnxConfirm(`Xác nhận HỦY / XÓA đơn rác "${orderCode}" (${tableCode}${window.cnxT?window.cnxT('js.s_kds.07ed6e4e',') khỏi màn hình bếp?'):') khỏi màn hình bếp?'}`))) return;
     try {
         const res = await fetch(`api/orders.php?action=cancel_order&order_id=${orderId}`, {
             method: 'POST'
@@ -692,16 +694,16 @@ async function kitchenCancelOrder(orderId, orderCode, tableCode) {
             playChime(523.25, 392.00);
             loadKitchenOrders();
         } else {
-            alert(data.message || 'Lỗi khi hủy đơn');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_kds.a5b5e2e8','Lỗi khi hủy đơn'):'Lỗi khi hủy đơn'));
         }
     } catch(e) {
         console.error(e);
-        alert('Lỗi kết nối máy chủ');
+        alert((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'));
     }
 }
 
 async function reopenKitchenTicket(orderId) {
-    if (!confirm('Chuyển đơn hàng này về trạng thái Đang Chế Biến?')) return;
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_kds.aac88084','Chuyển đơn hàng này về trạng thái Đang Chế Biến?'):'Chuyển đơn hàng này về trạng thái Đang Chế Biến?')))) return;
     try {
         const res = await fetch(`api/orders.php?action=kitchen_reopen&order_id=${orderId}`, {
             method: 'POST'
@@ -710,7 +712,7 @@ async function reopenKitchenTicket(orderId) {
         if (data.success) {
             loadKitchenOrders();
         } else {
-            alert(data.message || 'Lỗi thao tác');
+            alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
         }
     } catch(e) {
         console.error(e);
@@ -718,10 +720,10 @@ async function reopenKitchenTicket(orderId) {
 }
 
 async function handleLogout() {
-    if (!confirm('Bạn có chắc muốn đăng xuất khỏi tài khoản Bếp?')) return;
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_kds.0f434d42','Bạn có chắc muốn đăng xuất khỏi tài khoản Bếp?'):'Bạn có chắc muốn đăng xuất khỏi tài khoản Bếp?')))) return;
     try {
         await fetch('api/auth.php?action=logout');
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('kitchen_kds.js', e) : console.debug('kitchen_kds.js', e)); }
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_token');
     document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -730,7 +732,7 @@ async function handleLogout() {
 
 let kitchenCustomerQrInstance = null;
 function getCustomerMenuUrl() {
-    var cached = localStorage.getItem('server_lan_base_url');
+    var cached = window.CN_SERVER_LAN_BASE_URL || '';
     var hostname = window.location.hostname;
     var isLocalhost = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1');
     if (!isLocalhost && hostname) {
@@ -769,7 +771,7 @@ function renderKitchenCustomerQr(url) {
             });
         } catch(e) {
             console.error("Lỗi vẽ QR code:", e);
-            canvasContainer.innerHTML = '<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>';
+            canvasContainer.innerHTML = (window.cnxT?window.cnxT('js.s_kds.ef9ce55d','<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>'):'<span class="text-rose-400 text-xs p-4">Không thể tạo mã QR</span>');
         }
     }
 }
@@ -789,14 +791,14 @@ async function showLanQrModal() {
             var port = json.data.server_port || window.location.port || '8501';
             if (ip) {
                 var base = 'http://' + ip + ':' + port + '/';
-                localStorage.setItem('server_lan_base_url', base);
+                window.CN_SERVER_LAN_BASE_URL = base;
                 var freshUrl = base + 'customer.html';
                 if (freshUrl !== initialUrl) {
                     renderKitchenCustomerQr(freshUrl);
                 }
             }
         }
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('kitchen_kds.js', e) : console.debug('kitchen_kds.js', e)); }
 }
 
 function closeLanQrModal() {
@@ -807,7 +809,7 @@ function copyCustomerUrl() {
     var url = getCustomerMenuUrl();
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(function() {
-            alert('Đã sao chép đường link gọi món:\n' + url);
+            alert((window.cnxT?window.cnxT('js.s_kds.361bd0c8','Đã sao chép đường link gọi món:\n'):'Đã sao chép đường link gọi món:\n') + url);
         });
     } else {
         var t = document.createElement('textarea');
@@ -816,37 +818,71 @@ function copyCustomerUrl() {
         t.select();
         document.execCommand('copy');
         document.body.removeChild(t);
-        alert('Đã sao chép đường link gọi món:\n' + url);
+        alert((window.cnxT?window.cnxT('js.s_kds.361bd0c8','Đã sao chép đường link gọi món:\n'):'Đã sao chép đường link gọi món:\n') + url);
     }
 }
 
 function renderKitchenAdminBadge() {
     const zone = document.getElementById('kitchen-admin-badge-zone');
-    if (!zone) return;
+    const backZone = document.getElementById('kitchen-nav-back-zone');
     const u = window.currentUser;
-    if (u && (u.role === 'admin' || u.is_super_admin === true)) {
-        zone.innerHTML = `
-            <a href="admin.html" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-xs shrink-0 whitespace-nowrap shadow-sm transition-all cursor-pointer" title="Quay về Trang Quản Trị (Chủ quán)">
-                <i class="fas fa-crown text-amber-400 text-xs"></i>
-                <span class="hidden sm:inline font-bold text-amber-200">${u.fullname || u.username}</span>
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">ADMIN</span>
-            </a>
-        `;
-    } else {
-        zone.innerHTML = '';
+    const tr = (k, fb) => (typeof window.cnxT === 'function' ? window.cnxT(k, fb) : fb);
+    if (!u) {
+        if (zone) zone.innerHTML = '';
+        if (backZone) backZone.innerHTML = '';
+        return;
+    }
+    const isAdmin = (u.role === 'admin' || u.is_super_admin === true);
+    const isCashier = (u.role === 'cashier');
+    if (backZone) {
+        if (isAdmin) {
+            const adminBack = `<a href="admin.html" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/35 border-amber-400/40 text-amber-200"><i class="fas fa-arrow-left text-[10px]"></i><span>${tr('common.back_admin', 'Quản Trị')}</span></a>`;
+            const posLink = `<a href="index.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-200"><i class="fas fa-cash-register text-xs"></i><span>POS</span></a>`;
+            backZone.innerHTML = `${adminBack}${posLink}<span class="cn-nav-divider"></span>`;
+        } else if (isCashier) {
+            const posBack = `<a href="index.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-200"><i class="fas fa-arrow-left text-[10px]"></i><span>${tr('common.back_pos', 'Quay lại POS')}</span></a>`;
+            backZone.innerHTML = `${posBack}<span class="cn-nav-divider"></span>`;
+        } else {
+            backZone.innerHTML = '';
+        }
+    }
+    if (zone) {
+        const roleLabel = isAdmin ? tr('nav.role_admin', 'ADMIN') : (isCashier ? tr('nav.role_cashier', 'THU NGÂN') : tr('nav.role_kitchen', 'BẾP'));
+        const badgeCls = isAdmin ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' : 'bg-sky-500/20 text-sky-300 border-sky-400/40';
+        const rawName = u.fullname || u.username || '';
+        const prettyName = (isAdmin && /Quản Trị Viên/i.test(rawName)) ? tr('nav.owner_name', 'Chủ quán') : rawName;
+        const disp = escapeHtml(prettyName);
+        zone.innerHTML = `<div class="cn-user-pill ${isAdmin ? 'bg-slate-800/90 border border-amber-500/40 text-amber-200' : 'bg-slate-800/80 border border-white/10 text-slate-200'}"><i class="fas ${isAdmin ? 'fa-crown text-amber-400' : 'fa-user-tag text-sky-400'} text-xs"></i><span class="cn-user-name">${disp}</span><span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-black ${badgeCls} border">${roleLabel}</span></div>`;
     }
 }
+window.addEventListener('cybernexus:langchange', renderKitchenAdminBadge);
+window.addEventListener('cnx:lang-changed', renderKitchenAdminBadge);
+window.addEventListener('cnx:i18n-ready', renderKitchenAdminBadge);
 
-// Initialize & auto reload every 3.5 seconds
+// Initialize & auto reload every 3.5 seconds with inFlight guard
 document.addEventListener('DOMContentLoaded', () => {
     renderKitchenAdminBadge();
     updateSoundUI();
     loadKitchenOrders();
     loadAllDishesForModal();
-    setInterval(() => { if (!document.hidden) loadKitchenOrders(); }, 3500);
+    let _kdsPollInFlight = false;
+    setInterval(async () => {
+        if (document.hidden || _kdsPollInFlight) return;
+        _kdsPollInFlight = true;
+        try { await loadKitchenOrders(); } finally { _kdsPollInFlight = false; }
+    }, 3500);
     // Định kỳ gửi heartbeat giữ trạng thái trực tuyến cho tổ bếp
-    function sendKitchenHeartbeat() {
-        fetch('api/auth.php?action=heartbeat').catch(() => {});
+    let _kdsHbInFlight = false;
+    async function sendKitchenHeartbeat() {
+        if (_kdsHbInFlight) return;
+        _kdsHbInFlight = true;
+        try {
+            await fetch('api/auth.php?action=heartbeat');
+        } catch (err) {
+            if (window.CyberSecurity) CyberSecurity.logSilentError('kdsHeartbeat', err);
+        } finally {
+            _kdsHbInFlight = false;
+        }
     }
     setInterval(sendKitchenHeartbeat, 45000);
     window.addEventListener('online', sendKitchenHeartbeat);

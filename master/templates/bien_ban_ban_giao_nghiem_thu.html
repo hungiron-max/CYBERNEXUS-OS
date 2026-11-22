@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="ui.m_tpl.title_f232b0e8">Biên Bản Bàn Giao &amp; Nghiệm Thu - {{TENANT_CODE}}</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Times New Roman", Times, serif; color: #111827; font-size: 13.5px; line-height: 1.55; margin: 0; background: #cbd5e1; }
+    .no-print { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #f8fafc; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .no-print button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 12px; }
+    .btn-print { background: #0284c7; color: #fff; }
+    .btn-close { background: #334155; color: #e2e8f0; margin-left: 8px; }
+    .a4-page { width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.22); }
+    .center { text-align: center; }
+    h1 { font-size: 17px; text-transform: uppercase; margin: 10px 0 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+    th, td { border: 1px solid #94a3b8; padding: 7px 9px; text-align: left; }
+    th { background: #f1f5f9; }
+    .sign { display: flex; justify-content: space-between; margin-top: 28px; text-align: center; }
+    .sign > div { width: 45%; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .a4-page { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+  <script src="/assets/js/i18n.js?v=2"></script>
+</head>
+<body>
+  <div class="no-print">
+    <div data-i18n="ui.m_tpl.div_22392477"><b data-i18n="ui.m_tpl.title_f232b0e8">Biên Bản Bàn Giao &amp; Nghiệm Thu</b> — Mã quán: <b>{{TENANT_CODE}}</b> ({{STORE_NAME}})</div>
+    <div>
+      <button type="button" data-cnx-lang-btn="vi" onclick="if(window.cnxSetLang)cnxSetLang('vi')" style="background:#334155;color:#fff;margin-right:4px;">VI</button><button type="button" data-cnx-lang-btn="en" onclick="if(window.cnxSetLang)cnxSetLang('en')" style="background:#334155;color:#fff;margin-right:10px;">EN</button><button class="btn-print" onclick="window.print()" data-i18n="ui.m_tpl.button_97cb412d">In / Xuất File PDF</button>
+      <button class="btn-close" onclick="window.close()" data-i18n="ui.pos_html.button_cee55387">Đóng</button>
+    </div>
+  </div>
+
+  <div class="a4-page">
+    <div class="center">
+      <b data-i18n="ui.m_tpl.b_b609bdc9">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
+      <b><u data-i18n="ui.m_tpl.u_e25b4739">Độc lập - Tự do - Hạnh phúc</u></b>
+      <h1 data-i18n="ui.m_tpl.h1_48b81f46">BIÊN BẢN BÀN GIAO &amp; NGHIỆM THU HỆ THỐNG</h1>
+      <div data-i18n="ui.m_tpl.div_a1efa98b">Mã quán: <b>{{TENANT_CODE}}</b> · Ngày nghiệm thu: ....../....../202...</div>
+    </div>
+
+    <p style="margin-top:14px" data-i18n="ui.m_tpl.p_6d75b524">
+      <b data-i18n="ui.m_tpl.b_bf737191">Bên nhận bàn giao (Bên A):</b> {{LEGAL_ENTITY_NAME}} — Cửa hàng: <b>{{STORE_NAME}}</b><br>
+      <b data-i18n="ui.m_tpl.b_68b5f491">Đại diện nghiệm thu:</b> {{OWNER_NAME}} ({{REPRESENTATIVE_ROLE}}) — SĐT: {{PHONE}}<br>
+      <b data-i18n="ui.m_tpl.b_e99ccecd">Địa chỉ lắp đặt:</b> {{STORE_ADDRESS}}<br>
+      <b data-i18n="ui.m_tpl.b_2fb7892a">Gói bản quyền:</b> {{PLAN_NAME}} · <b>License Key:</b> <code>{{LICENSE_KEY}}</code>
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px">STT</th>
+          <th data-i18n="ui.m_tpl.th_278d482d">Hạng mục bàn giao &amp; kiểm thử</th>
+          <th style="width:90px" data-i18n="ui.m_tpl.th_17e19a7d">Đạt / Không</th>
+          <th style="width:160px" data-i18n="ui.admin_html.ph_ad504eea">Ghi chú</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td data-i18n="ui.m_tpl.td_728fd9d3">Cài đặt bộ cài CyberNexus POS &amp; kích hoạt License khóa máy (Machine ID)</td><td data-i18n="ui.m_tpl.td_168abd20">[ ] Đạt</td><td></td></tr>
+        <tr><td>2</td><td data-i18n="ui.m_tpl.td_d5b3096a">Kiểm tra các phân hệ cấp phép: {{ENABLED_MODULES}}</td><td data-i18n="ui.m_tpl.td_168abd20">[ ] Đạt</td><td></td></tr>
+        <tr><td>3</td><td data-i18n="ui.m_tpl.td_a71b87b1">Kiểm tra kết nối Master, đồng bộ OTA &amp; sao lưu dữ liệu nội bộ</td><td data-i18n="ui.m_tpl.td_168abd20">[ ] Đạt</td><td></td></tr>
+        <tr><td>4</td><td data-i18n="ui.m_tpl.td_cafe1954">Bàn giao tài khoản Quản trị &amp; hướng dẫn đổi mã PIN 6 số lần đầu</td><td data-i18n="ui.m_tpl.td_168abd20">[ ] Đạt</td><td></td></tr>
+        <tr><td>5</td><td data-i18n="ui.m_tpl.td_b59619cc">Kiểm thử quy trình bán hàng, in hóa đơn / KDS / VietQR (nếu có)</td><td data-i18n="ui.m_tpl.td_168abd20">[ ] Đạt</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <p data-i18n="ui.m_tpl.p_e30f4ab3"><b data-i18n="ui.m_tpl.b_f239e951">Kết luận:</b> Hệ thống đã hoạt động ổn định, đáp ứng đúng cấu hình hợp đồng. Hai bên thống nhất nghiệm thu và kích hoạt thời hạn bảo hành kỹ thuật kể từ ngày ký biên bản này.</p>
+
+    <div class="sign">
+      <div><b data-i18n="ui.m_tpl.b_cf0a5aa2">ĐẠI DIỆN BÊN NHẬN (BÊN A)</b><br><i data-i18n="ui.m_tpl.i_5c37cd6b">(Ký, ghi rõ họ tên)</i><br><br><br><br>{{OWNER_NAME}}</div>
+      <div data-i18n="ui.m_tpl.div_e7c00c31"><b data-i18n="ui.m_tpl.b_4dd23787">KỸ THUẬT BÀN GIAO (BÊN B)</b><br><i data-i18n="ui.m_tpl.i_5c37cd6b">(Ký, ghi rõ họ tên)</i><br><br><br><br>Kỹ thuật CyberNexus OS</div>
+    </div>
+  </div>
+</body>
+</html>

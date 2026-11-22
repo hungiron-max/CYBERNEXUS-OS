@@ -39,7 +39,7 @@
             window.addEventListener('cybernexus_jukebox_song_added', (e) => {
                 if (!this._mediaAllowed) return;
                 const item = e.detail;
-                this.showToast(`🎵 <b>${item.table_name || 'Khách tại bàn'}</b> vừa yêu cầu: "${item.track_title}"`, 'info');
+                this.showToast(`🎵 <b>${item.table_name || (window.cnxT?window.cnxT('js.s_cust.3bfc4cc6','Khách tại bàn'):'Khách tại bàn')}</b> vừa yêu cầu: "${item.track_title}"`, 'info');
             });
 
             console.log('[POSJukebox] POS Jukebox Controller & DSP Console đã sẵn sàng.');
@@ -81,14 +81,14 @@
                 } else if (titleEl) {
                     titleEl.textContent = state.currentTrack.track_title;
                 }
-                if (artistEl) artistEl.textContent = state.currentTrack.track_artist || (state.currentTrack.table_name || 'Đang phát');
+                if (artistEl) artistEl.textContent = state.currentTrack.track_artist || (state.currentTrack.table_name || (window.cnxT?window.cnxT('js.s_pjuke.3b578a85','Đang phát'):'Đang phát'));
             } else {
                 if (window.JukeboxEngine) {
-                    window.JukeboxEngine.updateTitleWithMarquee('pos-juke-title', 'Jukebox Âm Nhạc');
+                    window.JukeboxEngine.updateTitleWithMarquee('pos-juke-title', (window.cnxT?window.cnxT('ui.adm_html.div_ffa49ba2','Jukebox Âm Nhạc'):'Jukebox Âm Nhạc'));
                 } else if (titleEl) {
-                    titleEl.textContent = 'Jukebox Âm Nhạc';
+                    titleEl.textContent = (window.cnxT?window.cnxT('ui.adm_html.div_ffa49ba2','Jukebox Âm Nhạc'):'Jukebox Âm Nhạc');
                 }
-                if (artistEl) artistEl.textContent = 'Hệ thống sẵn sàng';
+                if (artistEl) artistEl.textContent = (window.cnxT?window.cnxT('ui.adm_html.div_5db208a0','Hệ thống sẵn sàng'):'Hệ thống sẵn sàng');
             }
 
             if (state.isPlaying) {
@@ -154,10 +154,10 @@
                             </div>
                             <div>
                                 <h3 class="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
-                                    <span>JUKEBOX & DSP STUDIO CONSOLE - THU NGÂN</span>
+                                    <span>${window.cnxT?window.cnxT('js.s_pjuke.65800291','JUKEBOX & DSP STUDIO CONSOLE - THU NGÂN'):'JUKEBOX & DSP STUDIO CONSOLE - THU NGÂN'}</span>
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40">48kHz Lossless DSP</span>
                                 </h3>
-                                <p class="text-[11px] text-slate-400">Điều khiển âm nhạc, tinh chỉnh 10-Band EQ & Quản lý phát nhạc trực tiếp tại quầy</p>
+                                <p class="text-[11px] text-slate-400">${window.cnxT?window.cnxT('js.s_pjuke.5cb4ef7f','Điều khiển âm nhạc, tinh chỉnh 10-Band EQ & Quản lý phát nhạc trực tiếp tại quầy'):'Điều khiển âm nhạc, tinh chỉnh 10-Band EQ & Quản lý phát nhạc trực tiếp tại quầy'}</p>
                             </div>
                         </div>
                         <button type="button" onclick="POSJukebox.closeModal()" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
@@ -188,10 +188,10 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-fuchsia-500/15 text-fuchsia-300 text-[10px] font-bold border border-fuchsia-500/30 mb-1">
                                             <i class="fas fa-tower-broadcast animate-pulse"></i>
-                                            <span id="pos-modal-source">Hệ Thống Quán</span>
+                                            <span id="pos-modal-source">${window.cnxT?window.cnxT('js.s_med.7862df57','Hệ Thống Quán'):'Hệ Thống Quán'}</span>
                                         </div>
-                                        <h4 id="pos-modal-track-title" class="text-sm sm:text-base font-black text-white truncate leading-tight">Chưa có bài hát đang phát</h4>
-                                        <p id="pos-modal-track-artist" class="text-xs text-slate-400 truncate mt-0.5">Hệ thống sẵn sàng</p>
+                                        <h4 id="pos-modal-track-title" class="text-sm sm:text-base font-black text-white truncate leading-tight">${window.cnxT?window.cnxT('js.s_pjuke.511aa2f5','Chưa có bài hát đang phát'):'Chưa có bài hát đang phát'}</h4>
+                                        <p id="pos-modal-track-artist" class="text-xs text-slate-400 truncate mt-0.5">${window.cnxT?window.cnxT('ui.adm_html.div_5db208a0','Hệ thống sẵn sàng'):'Hệ thống sẵn sàng'}</p>
                                     </div>
                                 </div>
 
@@ -212,12 +212,12 @@
                                         <!-- Play / Pause Button -->
                                         <button id="pos-modal-play-btn" type="button" onclick="POSJukebox.togglePlay()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-fuchsia-600/30 cursor-pointer transition active:scale-95">
                                             <i id="pos-modal-play-btn-icon" class="fas fa-play text-xs"></i>
-                                            <span id="pos-modal-play-btn-text">Phát</span>
+                                            <span id="pos-modal-play-btn-text">${window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát'}</span>
                                         </button>
                                         <!-- Skip Button -->
                                         <button type="button" onclick="POSJukebox.skipTrack()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-white/10 shadow-sm cursor-pointer transition active:scale-95" title="Chuyển sang bài tiếp theo">
                                             <i class="fas fa-forward-step text-xs text-sky-400"></i>
-                                            <span>Bài Sau</span>
+                                            <span>${window.cnxT?window.cnxT('js.s_pjuke.4c250d66','Bài Sau'):'Bài Sau'}</span>
                                         </button>
                                     </div>
 
@@ -252,7 +252,7 @@
                                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> EQ ON
                                         </span>
                                         <select id="pos-eq-preset-select" onchange="POSJukebox.onSelectPreset(this.value)" class="bg-slate-900 border border-sky-500/30 text-sky-300 text-[10px] rounded-lg px-2 py-1 font-bold focus:outline-none cursor-pointer">
-                                            <option value="">🎵 Flat (Gốc)...</option>
+                                            <option value="">${window.cnxT?window.cnxT('js.s_pjuke.8cd0eafd','🎵 Flat (Gốc)...'):'🎵 Flat (Gốc)...'}</option>
                                         </select>
                                         <button type="button" onclick="POSJukebox.applyFlatEq()" class="px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold text-slate-300 border border-white/10 transition flex items-center gap-1" title="Đặt lại Flat 0dB">
                                             <i class="fas fa-rotate-left text-sky-400 text-[9px]"></i> Flat
@@ -352,7 +352,7 @@
                                         <span id="pos-eq-preamp-val" class="text-[10px] font-mono text-slate-300">0.0 dB</span>
                                     </div>
                                     <button type="button" onclick="POSJukebox.saveEqSettings()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer">
-                                        <i class="fas fa-save text-[9px]"></i> Lưu EQ
+                                        <i class="fas fa-save text-[9px]"></i> ${window.cnxT?window.cnxT('js.s_pjuke.96e68a9c','Lưu EQ'):'Lưu EQ'}
                                     </button>
                                 </div>
                             </div>
@@ -367,12 +367,12 @@
                                 <div class="flex items-center gap-2 p-1 bg-slate-900/80 rounded-xl border border-white/10">
                                     <button type="button" onclick="POSJukebox.switchTab('queue')" id="pos-juke-tab-queue" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-fuchsia-500/25 text-fuchsia-300 border border-fuchsia-500/40 shadow-sm cursor-pointer">
                                         <i class="fas fa-list-ol"></i>
-                                        <span>Hàng Đợi Chờ Phát</span>
+                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.71b9e93f','Hàng Đợi Chờ Phát'):'Hàng Đợi Chờ Phát'}</span>
                                         <span id="pos-juke-queue-badge" class="px-1.5 py-0.2 rounded-full text-[9px] bg-fuchsia-500/30 text-white font-mono">0</span>
                                     </button>
                                     <button type="button" onclick="POSJukebox.switchTab('catalog')" id="pos-juke-tab-catalog" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white cursor-pointer">
                                         <i class="fas fa-compact-disc"></i>
-                                        <span>Kho Bài Hát Quán</span>
+                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.40df0a7d','Kho Bài Hát Quán'):'Kho Bài Hát Quán'}</span>
                                         <span id="pos-juke-catalog-badge" class="px-1.5 py-0.2 rounded-full text-[9px] bg-white/10 text-slate-300 font-mono">0</span>
                                     </button>
                                 </div>
@@ -381,12 +381,12 @@
                                 <div class="flex items-center gap-1.5">
                                     <label class="px-2.5 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-sm" title="Tải file nhạc lên máy chủ">
                                         <i class="fas fa-upload text-[11px]"></i>
-                                        <span class="hidden sm:inline">Tải Nhạc</span>
+                                        <span class="hidden sm:inline">${window.cnxT?window.cnxT('ui.admin_html.button_6a22cd9e','Tải Nhạc'):'Tải Nhạc'}</span>
                                         <input type="file" id="pos-juke-upload-input" accept=".mp3,.wav,.flac" class="hidden" onchange="POSJukebox.handleFileUpload(this)">
                                     </label>
                                     <button type="button" onclick="POSJukebox.rescanTracks()" class="px-2.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/35 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-sm" title="Quét lại thư mục file nhạc">
                                         <i class="fas fa-sync-alt text-[11px]"></i>
-                                        <span class="hidden sm:inline">Quét Lại</span>
+                                        <span class="hidden sm:inline">${window.cnxT?window.cnxT('js.s_pjuke.b880c0d0','Quét Lại'):'Quét Lại'}</span>
                                     </button>
                                 </div>
                             </div>
@@ -396,7 +396,7 @@
                                 <div id="pos-juke-queue-list" class="space-y-2 overflow-y-auto max-h-[380px] pr-1 flex-1">
                                     <div class="p-6 rounded-2xl bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
                                         <i class="fas fa-compact-disc text-slate-600 text-2xl mb-1.5 block"></i>
-                                        Hàng đợi trống. Chọn bài từ Kho Bài Hát hoặc đợi khách gọi từ bàn.
+                                        ${window.cnxT?window.cnxT('js.s_pjuke.b5294ed7','Hàng đợi trống. Chọn bài từ Kho Bài Hát hoặc đợi khách gọi từ bàn.'):'Hàng đợi trống. Chọn bài từ Kho Bài Hát hoặc đợi khách gọi từ bàn.'}
                                     </div>
                                 </div>
 
@@ -404,7 +404,7 @@
                                 <div class="pt-2.5 border-t border-white/10 shrink-0">
                                     <h5 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                                         <i class="fas fa-history text-slate-500 text-[10px]"></i>
-                                        <span>Lịch sử 5 bài vừa phát</span>
+                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.c3343b9a','Lịch sử 5 bài vừa phát'):'Lịch sử 5 bài vừa phát'}</span>
                                     </h5>
                                     <div id="pos-juke-history-list" class="space-y-1"></div>
                                 </div>
@@ -436,7 +436,7 @@
                             <span class="text-slate-300 font-mono text-[11px]">DSP Studio 24-bit PCM • SQLite Media Queue</span>
                         </div>
                         <button type="button" onclick="POSJukebox.closeModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer">
-                            Đóng cửa sổ
+                            ${window.cnxT?window.cnxT('js.s_pjuke.43ef8d0f','Đóng cửa sổ'):'Đóng cửa sổ'}
                         </button>
                     </div>
 
@@ -464,12 +464,12 @@
 
             if (track && track.track_title) {
                 if (titleEl) titleEl.textContent = track.track_title;
-                if (artistEl) artistEl.textContent = track.track_artist || 'Nghệ sĩ chưa rõ';
-                if (sourceEl) sourceEl.textContent = `${track.table_name || 'Hệ Thống Quán'}`;
+                if (artistEl) artistEl.textContent = track.track_artist || (window.cnxT?window.cnxT('js.s_med.6ba23392','Nghệ sĩ chưa rõ'):'Nghệ sĩ chưa rõ');
+                if (sourceEl) sourceEl.textContent = `${track.table_name || (window.cnxT?window.cnxT('js.s_med.7862df57','Hệ Thống Quán'):'Hệ Thống Quán')}`;
             } else {
-                if (titleEl) titleEl.textContent = 'Chưa có bài hát nào đang phát';
-                if (artistEl) artistEl.textContent = 'Chọn bài từ kho để bắt đầu';
-                if (sourceEl) sourceEl.textContent = 'Hệ thống sẵn sàng';
+                if (titleEl) titleEl.textContent = (window.cnxT?window.cnxT('js.s_med.d35f84ce','Chưa có bài hát nào đang phát'):'Chưa có bài hát nào đang phát');
+                if (artistEl) artistEl.textContent = (window.cnxT?window.cnxT('js.s_pjuke.ad634186','Chọn bài từ kho để bắt đầu'):'Chọn bài từ kho để bắt đầu');
+                if (sourceEl) sourceEl.textContent = (window.cnxT?window.cnxT('ui.adm_html.div_5db208a0','Hệ thống sẵn sàng'):'Hệ thống sẵn sàng');
             }
 
             // Play / Pause Button State Synchronization (Accurate Active Display)
@@ -478,7 +478,7 @@
                 if (modalDiscIcon) modalDiscIcon.className = 'fas fa-pause text-[10px] text-white';
                 if (modalDiscDot) modalDiscDot.className = 'absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950 shadow-sm animate-pulse';
                 if (playBtnIcon) playBtnIcon.className = 'fas fa-pause text-xs text-amber-200';
-                if (playBtnText) playBtnText.textContent = 'Tạm Dừng';
+                if (playBtnText) playBtnText.textContent = (window.cnxT?window.cnxT('js.s_adm.32be569f','Tạm Dừng'):'Tạm Dừng');
                 if (playBtn) {
                     playBtn.className = 'px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/25 cursor-pointer transition active:scale-95';
                 }
@@ -487,7 +487,7 @@
                 if (modalDiscIcon) modalDiscIcon.className = 'fas fa-music text-[10px] text-white';
                 if (modalDiscDot) modalDiscDot.className = 'absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-500 border-2 border-slate-950 shadow-sm';
                 if (playBtnIcon) playBtnIcon.className = 'fas fa-play text-xs text-white';
-                if (playBtnText) playBtnText.textContent = 'Phát';
+                if (playBtnText) playBtnText.textContent = (window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát');
                 if (playBtn) {
                     playBtn.className = 'px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-fuchsia-600/30 cursor-pointer transition active:scale-95';
                 }
@@ -542,7 +542,7 @@
                 listEl.innerHTML = `
                     <div class="p-6 rounded-2xl bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
                         <i class="fas fa-compact-disc text-slate-600 text-2xl mb-1.5 block"></i>
-                        Hàng đợi trống. Khách hàng quét mã QR tại bàn để yêu cầu bài hát.
+                        ${window.cnxT?window.cnxT('js.s_med.39f8978b','Hàng đợi trống. Khách hàng quét mã QR tại bàn để yêu cầu bài hát.'):'Hàng đợi trống. Khách hàng quét mã QR tại bàn để yêu cầu bài hát.'}
                     </div>
                 `;
                 return;
@@ -556,13 +556,13 @@
                         </span>
                         <div class="min-w-0 flex-1">
                             <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
-                                <span class="truncate">${item.track_title}</span>
+                                <span class="truncate">${escapeHtml(item.track_title)}</span>
                                 ${item.is_priority ? '<span class="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold shrink-0">VIP</span>' : ''}
                             </div>
                             <div class="text-[10px] text-slate-400 truncate flex items-center gap-2">
-                                <span>${item.track_artist}</span>
+                                <span>${escapeHtml(item.track_artist)}</span>
                                 <span>•</span>
-                                <span class="text-fuchsia-300 font-semibold">${item.table_name || 'Khách tại bàn'}</span>
+                                <span class="text-fuchsia-300 font-semibold">${escapeHtml(item.table_name || (window.cnxT?window.cnxT('js.s_cust.3bfc4cc6','Khách tại bàn'):'Khách tại bàn'))}</span>
                             </div>
                         </div>
                     </div>
@@ -570,7 +570,7 @@
                         <!-- Play Now Button (Bump to top & play immediately) -->
                         <button type="button" onclick="POSJukebox.onPlayQueuedItem(${item.id}, ${item.track_id})" class="px-2 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/40 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer" title="Phát ngay bài này">
                             <i class="fas fa-bolt text-sky-400 text-[9px]"></i>
-                            <span>Phát</span>
+                            <span>${window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát'}</span>
                         </button>
                         <!-- Vote Up Button -->
                         <button type="button" onclick="POSJukebox.onVote(${item.id})" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-pink-500/20 text-slate-300 hover:text-pink-300 border border-white/5 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer" title="Bầu chọn ưu tiên">
@@ -578,7 +578,7 @@
                             <span>${item.vote_count || 1}</span>
                         </button>
                         <!-- Delete from queue button with liquid glass modal -->
-                        <button type="button" onclick="POSJukebox.onRemoveQueue(${item.id}, '${item.track_title.replace(/'/g, "\\'")}')" class="w-7 h-7 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 flex items-center justify-center text-xs transition cursor-pointer" title="Xóa bài hát khỏi hàng đợi">
+                        <button type="button" onclick="POSJukebox.onRemoveQueue(${item.id}, '${escapeJsAttr(item.track_title || '')}')" class="w-7 h-7 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 flex items-center justify-center text-xs transition cursor-pointer" title="Xóa bài hát khỏi hàng đợi">
                             <i class="fas fa-trash-alt text-[11px]"></i>
                         </button>
                     </div>
@@ -590,14 +590,14 @@
             const listEl = document.getElementById('pos-juke-history-list');
             if (!listEl) return;
             if (!history || history.length === 0) {
-                listEl.innerHTML = '<p class="text-[11px] text-slate-500 italic">Chưa có lịch sử bài phát gần đây.</p>';
+                listEl.innerHTML = (window.cnxT?window.cnxT('js.s_pjuke.f07f0b70','<p class="text-[11px] text-slate-500 italic">Chưa có lịch sử bài phát gần đây.</p>'):'<p class="text-[11px] text-slate-500 italic">Chưa có lịch sử bài phát gần đây.</p>');
                 return;
             }
 
             listEl.innerHTML = history.slice(0, 5).map(item => `
                 <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/40 text-[11px] text-slate-400 flex items-center justify-between">
-                    <span class="truncate text-slate-300 font-medium">${item.track_title} - <span class="text-slate-500">${item.track_artist}</span></span>
-                    <span class="text-[10px] text-slate-500 shrink-0 ml-2">${item.table_name || 'Quán'}</span>
+                    <span class="truncate text-slate-300 font-medium">${escapeHtml(item.track_title)} - <span class="text-slate-500">${escapeHtml(item.track_artist)}</span></span>
+                    <span class="text-[10px] text-slate-500 shrink-0 ml-2">${escapeHtml(item.table_name || (window.cnxT?window.cnxT('ui.sa_html.th_3c764753','Quán'):'Quán'))}</span>
                 </div>
             `).join('');
         },
@@ -658,11 +658,11 @@
 
             bar.innerHTML = `
                 <button type="button" onclick="POSJukebox.applyScheduleGenre()" class="px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer bg-amber-500/20 text-amber-300 border border-amber-400/40 hover:bg-amber-500/35" title="Tự chọn thể loại nhạc theo khung giờ hiện tại">
-                    🕒 Theo Giờ
+                    ${window.cnxT?window.cnxT('js.s_pjuke.b9c44368','🕒 Theo Giờ'):'🕒 Theo Giờ'}
                 </button>
             ` + genres.map(g => `
-                <button type="button" onclick="POSJukebox.onSelectGenre('${g}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer ${this.activeGenre === g ? 'bg-fuchsia-500 text-white shadow-sm' : 'bg-slate-900 text-slate-400 hover:text-white border border-white/5'}">
-                    ${g === 'ALL' ? 'Tất cả' : g}
+                <button type="button" onclick="POSJukebox.onSelectGenre('${escapeJsAttr(g)}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer ${this.activeGenre === g ? 'bg-fuchsia-500 text-white shadow-sm' : 'bg-slate-900 text-slate-400 hover:text-white border border-white/5'}">
+                    ${g === 'ALL' ? 'Tất cả' : escapeHtml(g)}
                 </button>
             `).join('');
         },
@@ -675,10 +675,10 @@
                     const hasGenre = this.catalog.some(t => (t.genre || '') === data.active_genre);
                     this.onSelectGenre(hasGenre ? data.active_genre : 'ALL');
                     if (!silent) {
-                        this.showToast(`🕒 Khung giờ hiện tại: ${data.active_schedule?.name || ''} → ${data.active_genre}`);
+                        this.showToast(`${window.cnxT?window.cnxT('js.s_pjuke.22774b07','🕒 Khung giờ hiện tại:'):'🕒 Khung giờ hiện tại:'} ${data.active_schedule?.name || ''} → ${data.active_genre}`);
                     }
                 }
-            } catch (e) {}
+            } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos-jukebox.js', e) : console.debug('pos-jukebox.js', e)); }
         },
 
         onSelectGenre(genre) {
@@ -708,7 +708,7 @@
             if (!listEl) return;
 
             if (this.filteredCatalog.length === 0) {
-                listEl.innerHTML = '<div class="p-6 rounded-2xl bg-slate-900/40 text-center text-xs text-slate-500 italic">Không tìm thấy bài hát phù hợp.</div>';
+                listEl.innerHTML = (window.cnxT?window.cnxT('js.s_pjuke.d2409186','<div class="p-6 rounded-2xl bg-slate-900/40 text-center text-xs text-slate-500 italic">Không tìm thấy bài hát phù hợp.</div>'):'<div class="p-6 rounded-2xl bg-slate-900/40 text-center text-xs text-slate-500 italic">Không tìm thấy bài hát phù hợp.</div>');
                 return;
             }
 
@@ -726,7 +726,7 @@
                         <div class="flex-1 min-w-0">
                             <div class="text-xs font-bold text-white truncate">${track.title}</div>
                             <div class="text-[10px] text-slate-400 truncate flex items-center gap-1.5">
-                                <span>${track.artist || 'Nghệ sĩ'}</span>
+                                <span>${track.artist || (window.cnxT?window.cnxT('js.s_pjuke.50b74a0f','Nghệ sĩ'):'Nghệ sĩ')}</span>
                                 <span>•</span>
                                 <span class="font-mono text-slate-500">${durStr}</span>
                             </div>
@@ -735,7 +735,7 @@
                             <!-- Play Now (VIP Priority) -->
                             <button type="button" onclick="POSJukebox.onRequestTrack(${track.id}, 1)" class="px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500/20 to-fuchsia-500/20 hover:from-amber-500/30 hover:to-fuchsia-500/30 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer" title="Phát ngay bài này">
                                 <i class="fas fa-bolt text-amber-400 text-[9px]"></i>
-                                <span>Phát Ngay</span>
+                                <span>${window.cnxT?window.cnxT('js.s_pjuke.77b804cc','Phát Ngay'):'Phát Ngay'}</span>
                             </button>
                             <!-- Add to Queue -->
                             <button type="button" onclick="POSJukebox.onRequestTrack(${track.id}, 0)" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/10 flex items-center justify-center text-xs transition cursor-pointer" title="Thêm vào hàng đợi">
@@ -749,12 +749,12 @@
 
         async onRequestTrack(trackId, isPriority = 0) {
             if (!window.JukeboxEngine) return;
-            const res = await window.JukeboxEngine.requestTrack(trackId, 'Quầy Thu Ngân (POS)', isPriority);
+            const res = await window.JukeboxEngine.requestTrack(trackId, (window.cnxT?window.cnxT('js.s_juke.3ccffd4a','Quầy Thu Ngân (POS)'):'Quầy Thu Ngân (POS)'), isPriority);
             if (res.success) {
-                this.showToast(`🎵 Đã thêm bài hát vào hàng đợi ${isPriority ? '(Ưu tiên VIP)' : ''}!`, 'success');
+                this.showToast(`${window.cnxT?window.cnxT('js.s_pjuke.024a3320','🎵 Đã thêm bài hát vào hàng đợi'):'🎵 Đã thêm bài hát vào hàng đợi'} ${isPriority ? '(Ưu tiên VIP)' : ''}!`, 'success');
                 this.switchTab('queue');
             } else {
-                this.showToast(res.message || 'Lỗi thêm bài hát', 'error');
+                this.showToast(res.message || (window.cnxT?window.cnxT('js.s_pjuke.2d696b03','Lỗi thêm bài hát'):'Lỗi thêm bài hát'), 'error');
             }
         },
 
@@ -763,30 +763,30 @@
             // Vote and bump track, then skip to next
             await window.JukeboxEngine.voteTrack(queueId);
             await window.JukeboxEngine.skip();
-            this.showToast('🚀 Đang chuyển phát bài hát được chọn ngay lập tức!', 'success');
+            this.showToast((window.cnxT?window.cnxT('js.s_pjuke.75aa1679','🚀 Đang chuyển phát bài hát được chọn ngay lập tức!'):'🚀 Đang chuyển phát bài hát được chọn ngay lập tức!'), 'success');
         },
 
         async onVote(queueId) {
             if (!window.JukeboxEngine) return;
             const res = await window.JukeboxEngine.voteTrack(queueId);
             if (res.success) {
-                this.showToast('❤️ Đã bình chọn ưu tiên cho bài hát!', 'success');
+                this.showToast((window.cnxT?window.cnxT('js.s_pjuke.dfd4a117','❤️ Đã bình chọn ưu tiên cho bài hát!'):'❤️ Đã bình chọn ưu tiên cho bài hát!'), 'success');
             } else {
-                this.showToast(res.message || 'Lỗi bình chọn', 'warning');
+                this.showToast(res.message || (window.cnxT?window.cnxT('js.s_med.3f8a253a','Lỗi bình chọn'):'Lỗi bình chọn'), 'warning');
             }
         },
 
         onRemoveQueue(queueId, title) {
             this.showCustomConfirm(
-                'Xác nhận xóa bài hát',
+                (window.cnxT?window.cnxT('js.s_pjuke.98fcdfe4','Xác nhận xóa bài hát'):'Xác nhận xóa bài hát'),
                 `Bạn có chắc chắn muốn xóa bài hát <b>"${title}"</b> khỏi hàng đợi phát nhạc?`,
                 async () => {
                     if (window.JukeboxEngine) {
                         const res = await window.JukeboxEngine.removeQueueItem(queueId);
                         if (res.success) {
-                            this.showToast('🗑️ Đã xóa bài hát khỏi hàng đợi!', 'success');
+                            this.showToast((window.cnxT?window.cnxT('js.s_med.af0bd8e1','🗑️ Đã xóa bài hát khỏi hàng đợi!'):'🗑️ Đã xóa bài hát khỏi hàng đợi!'), 'success');
                         } else {
-                            this.showToast(res.message || 'Lỗi xóa bài hát', 'error');
+                            this.showToast(res.message || (window.cnxT?window.cnxT('js.s_med.e7836b0a','Lỗi xóa bài hát'):'Lỗi xóa bài hát'), 'error');
                         }
                     }
                 }
@@ -808,7 +808,7 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-sm text-rose-300">${title}</h4>
-                            <p class="text-xs text-slate-400 mt-0.5">Thao tác này sẽ xóa bài khỏi danh sách chờ</p>
+                            <p class="text-xs text-slate-400 mt-0.5">${window.cnxT?window.cnxT('js.s_pjuke.168b5246','Thao tác này sẽ xóa bài khỏi danh sách chờ'):'Thao tác này sẽ xóa bài khỏi danh sách chờ'}</p>
                         </div>
                     </div>
                     <div class="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-white/5">
@@ -816,10 +816,10 @@
                     </div>
                     <div class="flex items-center justify-end gap-2 pt-1">
                         <button type="button" id="pos-juke-confirm-cancel" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer">
-                            Hủy bỏ
+                            ${window.cnxT?window.cnxT('js.m_sa.8a4917d2','Hủy bỏ'):'Hủy bỏ'}
                         </button>
                         <button type="button" id="pos-juke-confirm-ok" class="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg shadow-rose-600/30 cursor-pointer">
-                            Xác nhận xóa
+                            ${window.cnxT?window.cnxT('js.s_pjuke.7dcae318','Xác nhận xóa'):'Xác nhận xóa'}
                         </button>
                     </div>
                 </div>
@@ -992,7 +992,7 @@
                     select.value = '';
                 }
             }
-            this.showToast('🎛️ Đã đặt cấu hình EQ về Flat 0dB', 'info');
+            this.showToast((window.cnxT?window.cnxT('js.s_pjuke.e3c7485a','🎛️ Đã đặt cấu hình EQ về Flat 0dB'):'🎛️ Đã đặt cấu hình EQ về Flat 0dB'), 'info');
         },
 
         saveEqSettings() { return this.saveAndApplyEq(); },
@@ -1010,12 +1010,12 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    this.showToast('✅ Đã lưu cấu hình EQ thành công!', 'success');
+                    this.showToast((window.cnxT?window.cnxT('js.s_pjuke.a0784729','✅ Đã lưu cấu hình EQ thành công!'):'✅ Đã lưu cấu hình EQ thành công!'), 'success');
                 } else {
-                    this.showToast(data.message || 'Lỗi lưu cấu hình EQ', 'error');
+                    this.showToast(data.message || (window.cnxT?window.cnxT('js.s_pjuke.b1097a36','Lỗi lưu cấu hình EQ'):'Lỗi lưu cấu hình EQ'), 'error');
                 }
             } catch (err) {
-                this.showToast('Lỗi kết nối máy chủ Media', 'error');
+                this.showToast((window.cnxT?window.cnxT('js.s_med.bc3a2780','Lỗi kết nối máy chủ Media'):'Lỗi kết nối máy chủ Media'), 'error');
             }
         },
 
@@ -1130,7 +1130,7 @@
             const formData = new FormData();
             formData.append('media_file', file);
             formData.append('title', file.name.replace(/\\.[^/.]+$/, ''));
-            formData.append('artist', 'Quán');
+            formData.append('artist', (window.cnxT?window.cnxT('ui.sa_html.th_3c764753','Quán'):'Quán'));
             formData.append('genre', 'Lossless');
 
             this.showToast(`📤 Đang tải lên bài hát: "${file.name}"...`, 'info');
@@ -1142,32 +1142,32 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    this.showToast('✅ Tải bài hát lên thành công!', 'success');
+                    this.showToast((window.cnxT?window.cnxT('js.s_pjuke.f2574c76','✅ Tải bài hát lên thành công!'):'✅ Tải bài hát lên thành công!'), 'success');
                     input.value = '';
                     await this.loadCatalog();
                     if (window.JukeboxEngine) await window.JukeboxEngine.refreshStatus(true);
                 } else {
-                    this.showToast(data.message || 'Lỗi tải bài hát', 'error');
+                    this.showToast(data.message || (window.cnxT?window.cnxT('js.s_pjuke.5fe1ad08','Lỗi tải bài hát'):'Lỗi tải bài hát'), 'error');
                 }
             } catch (err) {
-                this.showToast('Lỗi kết nối khi tải file', 'error');
+                this.showToast((window.cnxT?window.cnxT('js.s_pjuke.d0fabdba','Lỗi kết nối khi tải file'):'Lỗi kết nối khi tải file'), 'error');
             }
         },
 
         async rescanTracks() {
-            this.showToast('🔄 Đang quét thư mục âm nhạc máy chủ...', 'info');
+            this.showToast((window.cnxT?window.cnxT('js.s_pjuke.37355cdb','🔄 Đang quét thư mục âm nhạc máy chủ...'):'🔄 Đang quét thư mục âm nhạc máy chủ...'), 'info');
             try {
                 const res = await fetch('/api/media/tracks/rescan', { method: 'POST' });
                 const data = await res.json();
                 if (data.success) {
-                    this.showToast(`✅ Đã quét xong! Tìm thấy ${data.scanned || data.total || 0} bài hát.`, 'success');
+                    this.showToast(`${window.cnxT?window.cnxT('js.s_pjuke.a4207c07','✅ Đã quét xong! Tìm thấy'):'✅ Đã quét xong! Tìm thấy'} ${data.scanned || data.total || 0} ${window.cnxT?window.cnxT('js.s_pjuke.42850970','bài hát.'):'bài hát.'}`, 'success');
                     await this.loadCatalog();
                     if (window.JukeboxEngine) await window.JukeboxEngine.refreshStatus(true);
                 } else {
-                    this.showToast(data.message || 'Lỗi quét thư mục', 'error');
+                    this.showToast(data.message || (window.cnxT?window.cnxT('js.s_pjuke.895f0dcc','Lỗi quét thư mục'):'Lỗi quét thư mục'), 'error');
                 }
             } catch (err) {
-                this.showToast('Lỗi kết nối máy chủ', 'error');
+                this.showToast((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'), 'error');
             }
         },
 

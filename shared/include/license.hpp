@@ -29,6 +29,7 @@ public:
 
     // 1. Hardware ID (Bước 5.1)
     std::string getMachineId();
+    bool isMachineMismatch(std::string* outBound = nullptr, std::string* outCurrent = nullptr);
 
     // 2. 14 Modules Catalog & Matrix
     const std::vector<SaasModule>& getCatalog() const;
@@ -36,7 +37,8 @@ public:
     bool isModuleValid(const std::string& code) const;
     std::vector<std::string> getModuleRequirements(const std::string& code) const;
 
-    // 3. Dynamic Module Guard (Kiểm tra quyền truy cập tính năng)
+    // 3. Dynamic Module Guard (Kiểm tra quyền truy cập tính năng & trạng thái thuê bao ARCH-04)
+    bool isSystemActive(std::string* outCode = nullptr, std::string* outReason = nullptr);
     bool isModuleEnabled(const std::string& moduleCode);
     std::vector<std::string> getEnabledModules(int64_t tenantId = 0);
 
@@ -50,11 +52,11 @@ public:
     json getLicenseStatus(int64_t tenantId = 0);
     json activateLicense(const std::string& licenseKey);
     json verifyLicenseOnline(const std::string& licenseKey, const std::string& machineId);
+    void ensureTableExists();
 
 private:
     LicenseService();
     void initCatalog();
-    void ensureTableExists();
 
     std::vector<SaasModule> m_catalog;
     std::unordered_map<std::string, size_t> m_catalogIndex;

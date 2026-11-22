@@ -1,0 +1,65 @@
+================================================================================
+  CYBERNEXUS OS — PHIẾU BÀN GIAO TÀI KHOẢN VÀ MÃ PIN KHỞI TẠO ĐIỂM BÁN
+================================================================================
+Cửa Hàng:           Si Đô La
+Mã Cửa Hàng:        SDL002
+Gói Bản Quyền:      Gói Trải Nghiệm (14 Ngày) (TRIAL 07 NGÀY)
+Mã Giấy Phép (Key): LIC-4EC3-C35E-E804-1C52
+Hạn Sử Dụng:        2026-11-26
+Máy Chủ Master:     http://cybernexus.tplinkdns.com:8500
+Quy Chuẩn Bàn Giao: SOP-CBNX-09 Enterprise Edition
+
+--------------------------------------------------------------------------------
+1. DANH SÁCH TÀI KHOẢN & MÃ PIN 6 SỐ KHỞI TẠO MẶC ĐỊNH
+--------------------------------------------------------------------------------
+[1] TÀI KHOẢN QUẢN TRỊ VIÊN (CHỦ QUÁN / ADMIN)
+    - Tên đăng nhập (Username): admin
+    - Mật khẩu mặc định:        Admin@2026
+    - Mã PIN 6 số mặc định:     Xem file DEFAULT_OWNER_PIN.txt (dùng 1 lần, bắt buộc đổi)
+    - Phạm vi quyền hạn:        Toàn quyền quản trị quán, menu, doanh thu, cài đặt.
+    - Cổng truy cập:            http://localhost:8501/admin.html
+
+[2] TÀI KHOẢN BẾP & PHA CHẾ (CHEF / KITCHEN)
+    - Tên đăng nhập (Username): bep01
+    - Mật khẩu mặc định:        Bep@2026
+    - Mã PIN 6 số:              111111
+    - Phạm vi quyền hạn:        Màn hình KDS, cập nhật trạng thái làm món.
+    - Cổng truy cập:            http://localhost:8501/kitchen.html
+
+[3] TÀI KHOẢN THU NGÂN (CASHIER / POS)
+    - Tên đăng nhập (Username): thungan01
+    - Mật khẩu mặc định:        ThuNgan@2026
+    - Mã PIN 6 số:              222222
+    - Phạm vi quyền hạn:        Mở ca, bán hàng, in bill hóa đơn, thanh toán.
+    - Cổng truy cập:            http://localhost:8501/index.html
+
+[4] TÀI KHOẢN NHÂN VIÊN PHỤC VỤ (WAITER)
+    - Tên đăng nhập (Username): phucvu01
+    - Mật khẩu mặc định:        PhucVu@2026
+    - Mã PIN 6 số:              333333
+    - Phạm vi quyền hạn:        Mở bàn, chọn món cho khách, chuyển bàn, gửi bếp.
+    - Cổng truy cập:            http://localhost:8501/order.html
+
+--------------------------------------------------------------------------------
+2. CẢNH BÁO AN NINH & YÊU CẦU ĐỔI MẬT KHẨU LẦN ĐẦU (BẮT BUỘC)
+--------------------------------------------------------------------------------
+    - Chủ quán và Nhân viên BẮT BUỘC PHẢI ĐỔI MẬT KHẨU VÀ MÃ PIN NGAY LẦN ĐẦU!
+    - Không chia sẻ mật khẩu quản trị cho nhân viên thời vụ.
+
+--------------------------------------------------------------------------------
+3. DỮ LIỆU KHỞI TẠO SẴN TRONG HỆ THỐNG
+--------------------------------------------------------------------------------
+    1. Cà phê sữa đá Sài Gòn      - Mã: CF001 - Đơn giá: 29.000 VNĐ
+    2. Bò bít tết sốt tiêu đen    - Mã: BT001 - Đơn giá: 89.000 VNĐ
+    3. Trà đào cam sả thanh nhiệt - Mã: TR001 - Đơn giá: 35.000 VNĐ
+
+--------------------------------------------------------------------------------
+4. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG TRÊN MÁY QUÁN
+--------------------------------------------------------------------------------
+Bước 1: Chạy file cài đặt CyberNexus_POS_Setup_SDL002.exe (Run as Administrator).
+Bước 2: Mở 'CyberNexus_Control_Center.exe' (từ Desktop hoặc thư mục cài đặt).
+Bước 3: Đảm bảo trạng thái Slave báo Online (Port 8501) -> bấm nút 'Mở Web'.
+Bước 4: Đăng nhập bằng PIN 6 số trong DEFAULT_OWNER_PIN.txt (hoặc admin / Admin@2026).
+
+Hotline Hỗ Trợ Kỹ Thuật: 0932.885.131 - Email: contact.saleapp@gmail.com
+================================================================================

@@ -20,7 +20,7 @@ const VirtualNumpad = {
         modal.innerHTML = `
             <div class="liquid-glass liquid-modal-content p-5 w-80 max-w-full text-white shadow-2xl border border-sky-500/30">
                 <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
-                    <span id="numpad-title" class="font-bold text-sky-400 text-sm uppercase tracking-wider">Bàn Phím Số Cảm Ứng</span>
+                    <span id="numpad-title" class="font-bold text-sky-400 text-sm uppercase tracking-wider">${window.cnxT?window.cnxT('js.s_vkb.6533894d','Bàn Phím Số Cảm Ứng'):'Bàn Phím Số Cảm Ứng'}</span>
                     <button type="button" class="text-slate-400 hover:text-white text-lg p-1" onclick="VirtualNumpad.close()">&times;</button>
                 </div>
                 
@@ -49,7 +49,7 @@ const VirtualNumpad = {
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
-                    <button type="button" class="btn-glass bg-rose-500/20 text-rose-300 border-rose-500/40 text-sm py-2.5" onclick="VirtualNumpad.close()">Hủy</button>
+                    <button type="button" class="btn-glass bg-rose-500/20 text-rose-300 border-rose-500/40 text-sm py-2.5" onclick="VirtualNumpad.close()">${window.cnxT?window.cnxT('ui.admin_html.button_d7d5c86c','Hủy'):'Hủy'}</button>
                     <button type="button" class="btn-glass-success text-sm py-2.5 font-bold" onclick="VirtualNumpad.confirm()">Xong (Enter)</button>
                 </div>
             </div>
@@ -67,7 +67,7 @@ const VirtualNumpad = {
         });
     },
 
-    open(inputElement, title = 'Nhập số tiền / Số lượng') {
+    open(inputElement, title = (window.cnxT?window.cnxT('js.s_vkb.7d615dd3','Nhập số tiền / Số lượng'):'Nhập số tiền / Số lượng')) {
         this.targetInput = inputElement;
         const titleEl = document.getElementById('numpad-title');
         const displayEl = document.getElementById('numpad-display');

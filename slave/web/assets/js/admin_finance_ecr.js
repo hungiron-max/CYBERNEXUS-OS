@@ -32,24 +32,24 @@ Object.assign(Admin, {
         const activeCls = (m) => mode === m ? 'ring-2 ring-sky-400/70 bg-white/[0.06]' : 'hover:bg-white/[0.04]';
         auditKpiEl.innerHTML = `
             <div onclick="Admin.setAuditFilter('critical')" class="liquid-glass-card p-3 border-l-4 border-rose-500 cursor-pointer transition-all ${activeCls('critical')}" title="Bấm để lọc các sự kiện CRITICAL">
-                <span class="text-[10px] font-bold text-rose-300 uppercase flex items-center justify-between"><span>CẢNH BÁO RỦI RO CAO (CRITICAL)</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
-                <div class="text-xl font-black text-rose-400 font-mono mt-1">${auditKpi.critical_count} <span class="text-xs font-normal text-slate-400">sự kiện</span></div>
-                <span class="text-[10px] text-slate-400 mt-0.5 block">Hủy đơn / Giảm giá lớn / Lệch ca</span>
+                <span class="text-[10px] font-bold text-rose-300 uppercase flex items-center justify-between"><span>${window.cnxT?window.cnxT('js.s_fin.8932c6af','CẢNH BÁO RỦI RO CAO (CRITICAL)'):'CẢNH BÁO RỦI RO CAO (CRITICAL)'}</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
+                <div class="text-xl font-black text-rose-400 font-mono mt-1">${auditKpi.critical_count} <span class="text-xs font-normal text-slate-400">${window.cnxT?window.cnxT('js.s_fin.e1b14571','sự kiện'):'sự kiện'}</span></div>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">${window.cnxT?window.cnxT('js.s_fin.957d61bc','Hủy đơn / Giảm giá lớn / Lệch ca'):'Hủy đơn / Giảm giá lớn / Lệch ca'}</span>
             </div>
             <div onclick="Admin.setAuditFilter('void')" class="liquid-glass-card p-3 border-l-4 border-orange-400 cursor-pointer transition-all ${activeCls('void')}" title="Bấm để lọc chi tiết các đơn đã hủy (VOID)">
-                <span class="text-[10px] font-bold text-orange-300 uppercase flex items-center justify-between"><span>TỔNG HỦY ĐƠN (VOID)</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
+                <span class="text-[10px] font-bold text-orange-300 uppercase flex items-center justify-between"><span>${window.cnxT?window.cnxT('js.s_fin.e5c26f2b','TỔNG HỦY ĐƠN (VOID)'):'TỔNG HỦY ĐƠN (VOID)'}</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
                 <div class="text-xl font-black text-orange-400 font-mono mt-1">${this.formatMoney(auditKpi.void_amount)} đ</div>
                 <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.void_count} hóa đơn bị hủy</span>
             </div>
             <div onclick="Admin.setAuditFilter('discount')" class="liquid-glass-card p-3 border-l-4 border-amber-400 cursor-pointer transition-all ${activeCls('discount')}" title="Bấm để lọc chi tiết các lượt giảm giá thủ công">
-                <span class="text-[10px] font-bold text-amber-300 uppercase flex items-center justify-between"><span>TỔNG GIẢM GIÁ THỦ CÔNG</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
+                <span class="text-[10px] font-bold text-amber-300 uppercase flex items-center justify-between"><span>${window.cnxT?window.cnxT('js.s_fin.7d129367','TỔNG GIẢM GIÁ THỦ CÔNG'):'TỔNG GIẢM GIÁ THỦ CÔNG'}</span><i class="fas fa-filter text-[9px] opacity-70"></i></span>
                 <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(auditKpi.discount_amount)} đ</div>
                 <span class="text-[10px] text-slate-400 mt-0.5 block">${auditKpi.discount_count} lượt áp chiết khấu</span>
             </div>
             <div onclick="Admin.scrollToShiftReconciliation()" class="liquid-glass-card p-3 border-l-4 ${diffVal < 0 ? 'border-rose-500' : 'border-emerald-400'} cursor-pointer hover:bg-white/[0.04] transition-all" title="Bấm để xem chi tiết từng ca giao nhận két bên dưới">
-                <span class="text-[10px] font-bold text-slate-300 uppercase flex items-center justify-between"><span>LỆCH KÉT GIAO CA LŨY KẾ</span><i class="fas fa-arrow-down text-[9px] opacity-70"></i></span>
+                <span class="text-[10px] font-bold text-slate-300 uppercase flex items-center justify-between"><span>${window.cnxT?window.cnxT('js.s_fin.a4b5bde7','LỆCH KÉT GIAO CA LŨY KẾ'):'LỆCH KÉT GIAO CA LŨY KẾ'}</span><i class="fas fa-arrow-down text-[9px] opacity-70"></i></span>
                 <div class="text-xl font-black ${diffVal < 0 ? 'text-rose-400' : 'text-emerald-400'} font-mono mt-1">${diffVal > 0 ? '+' : ''}${this.formatMoney(diffVal)} đ</div>
-                <span class="text-[10px] text-slate-400 mt-0.5 block">${diffVal === 0 ? 'Khớp 100% két lý thuyết' : (diffVal < 0 ? 'Thiếu hụt tiền mặt' : 'Dư tiền mặt')} • Xem chi tiết ca</span>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">${diffVal === 0 ? 'Khớp 100% két lý thuyết' : (diffVal < 0 ? 'Thiếu hụt tiền mặt' : (window.cnxT?window.cnxT('js.s_fin.c4b9ac35','Dư tiền mặt'):'Dư tiền mặt'))} • Xem chi tiết ca</span>
             </div>
         `;
     },
@@ -79,12 +79,12 @@ Object.assign(Admin, {
         const cntEl = document.getElementById('fin-audit-count');
         if (cntEl) {
             cntEl.textContent = filtered.length === logs.length
-                ? `${logs.length} bản ghi`
-                : `${filtered.length}/${logs.length} bản ghi`;
+                ? `${logs.length} ${window.cnxT?window.cnxT('js.m_sa_ext.2179d660','bản ghi'):'bản ghi'}`
+                : `${filtered.length}/${logs.length} ${window.cnxT?window.cnxT('js.m_sa_ext.2179d660','bản ghi'):'bản ghi'}`;
         }
 
         if (filtered.length === 0) {
-            auditTbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-xs text-slate-500">${logs.length === 0 ? 'Chưa ghi nhận thao tác nhạy cảm nào trong Nhật ký Kiểm toán.' : 'Không có sự kiện kiểm toán phù hợp bộ lọc hiện tại.'}</td></tr>`;
+            auditTbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-xs text-slate-500">${logs.length === 0 ? 'Chưa ghi nhận thao tác nhạy cảm nào trong Nhật ký Kiểm toán.' : (window.cnxT?window.cnxT('js.s_fin.05ef7dfd','Không có sự kiện kiểm toán phù hợp bộ lọc hiện tại.'):'Không có sự kiện kiểm toán phù hợp bộ lọc hiện tại.')}</td></tr>`;
             return;
         }
         auditTbody.innerHTML = filtered.map(l => {
@@ -97,14 +97,14 @@ Object.assign(Admin, {
                 <tr class="hover:bg-white/[0.03] transition-colors">
                     <td><span class="font-mono text-[11px] text-slate-400 whitespace-nowrap">${l.created_at ? window.formatDateDDMMYY(l.created_at, true) : '-'}</span></td>
                     <td>${sevBadge}</td>
-                    <td><span class="text-xs font-bold text-white">${l.action_label || l.action_code}</span></td>
-                    <td><span class="font-mono text-xs text-sky-300">${l.table_code || '-'} ${l.order_code ? '(' + l.order_code + ')' : ''}</span></td>
+                    <td><span class="text-xs font-bold text-white">${escapeHtml(l.action_label || l.action_code)}</span></td>
+                    <td><span class="font-mono text-xs text-sky-300">${escapeHtml(l.table_code || '-')} ${l.order_code ? '(' + escapeHtml(l.order_code) + ')' : ''}</span></td>
                     <td class="col-right"><span class="font-mono font-bold text-xs ${Number(l.amount_impact) > 0 ? 'text-rose-400' : 'text-slate-400'}">${Number(l.amount_impact) > 0 ? this.formatMoney(l.amount_impact) + ' đ' : '-'}</span></td>
                     <td>
-                        <div class="text-xs text-amber-200 font-semibold">${l.reason || '-'}</div>
-                        ${l.details ? `<div class="text-[10px] text-slate-400">${l.details}</div>` : ''}
+                        <div class="text-xs text-amber-200 font-semibold">${escapeHtml(l.reason || '-')}</div>
+                        ${l.details ? `<div class="text-[10px] text-slate-400">${escapeHtml(l.details)}</div>` : ''}
                     </td>
-                    <td><span class="text-xs text-slate-300 font-medium">${l.user_name || '-'} <span class="text-[10px] text-slate-500">[${l.user_role || ''}]</span></span></td>
+                    <td><span class="text-xs text-slate-300 font-medium">${escapeHtml(l.user_name || '-')} <span class="text-[10px] text-slate-500">[${escapeHtml(l.user_role || '')}]</span></span></td>
                 </tr>
             `;
         }).join('');
@@ -139,7 +139,7 @@ Object.assign(Admin, {
             if (shiftsTbody) {
                 const shifts = (auditRes && auditRes.shifts) || [];
                 if (shifts.length === 0) {
-                    shiftsTbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-xs text-slate-500">Chưa có lịch sử ca làm việc nào. Thu ngân có thể bấm "Giao Ca / Quỹ" trên màn hình POS để mở ca.</td></tr>';
+                    shiftsTbody.innerHTML = (window.cnxT?window.cnxT('js.s_fin.95b46264','<tr><td colspan="10" class="py-6 text-center text-xs text-slate-500">Chưa có lịch sử ca làm việc nào. Thu ngân có thể bấm "Giao Ca / Quỹ" trên màn hình POS để mở ca.</td></tr>'):'<tr><td colspan="10" class="py-6 text-center text-xs text-slate-500">Chưa có lịch sử ca làm việc nào. Thu ngân có thể bấm "Giao Ca / Quỹ" trên màn hình POS để mở ca.</td></tr>');
                 } else {
                     shiftsTbody.innerHTML = shifts.map(s => {
                         const diff = Number(s.discrepancy) || 0;
@@ -147,24 +147,24 @@ Object.assign(Admin, {
                         const diffClass = diff < 0 ? 'text-rose-400 font-black' : (diff > 0 ? 'text-amber-300 font-bold' : 'text-emerald-400 font-bold');
                         return `
                             <tr class="hover:bg-white/[0.03] transition-colors">
-                                <td><span class="font-mono font-bold text-xs text-amber-300">${s.shift_code}</span></td>
-                                <td><span class="text-xs text-white font-semibold">${s.user_name || 'Thu ngân'}</span></td>
+                                <td><span class="font-mono font-bold text-xs text-amber-300">${escapeHtml(s.shift_code)}</span></td>
+                                <td><span class="text-xs text-white font-semibold">${escapeHtml(s.user_name || (window.cnxT?window.cnxT('ui.ord_html.b_6951ffd8','Thu ngân'):'Thu ngân'))}</span></td>
                                 <td>
                                     <div class="font-mono text-[10px] text-slate-300">Mở: ${s.opened_at ? window.formatDateDDMMYY(s.opened_at, true) : '-'}</div>
-                                    <div class="font-mono text-[10px] text-slate-400">Kết: ${s.closed_at ? window.formatDateDDMMYY(s.closed_at, true) : 'Đang trực ca'}</div>
+                                    <div class="font-mono text-[10px] text-slate-400">Kết: ${s.closed_at ? window.formatDateDDMMYY(s.closed_at, true) : (window.cnxT?window.cnxT('js.s_fin.62fedbfd','Đang trực ca'):'Đang trực ca')}</div>
                                 </td>
                                 <td class="col-right font-mono text-xs text-slate-300">${this.formatMoney(s.opening_cash)} đ</td>
                                 <td class="col-right font-mono text-xs text-emerald-400">+${this.formatMoney(s.cash_sales)} đ</td>
                                 <td class="col-right font-mono text-[11px]">
                                     <span class="text-emerald-300">+${this.formatMoney(s.cash_in)}</span> / <span class="text-rose-400">-${this.formatMoney(s.cash_out)}</span>
                                 </td>
-                                <td class="col-right font-mono text-xs font-bold text-sky-300">${isOpen ? 'Đang tính' : this.formatMoney(s.expected_cash) + ' đ'}</td>
-                                <td class="col-right font-mono text-xs font-bold text-white">${isOpen ? '-' : this.formatMoney(s.actual_cash) + ' đ'}</td>
-                                <td class="col-right font-mono text-xs ${diffClass}">${isOpen ? '-' : (diff > 0 ? '+' : '') + this.formatMoney(diff) + ' đ'}</td>
+                                <td class="col-right font-mono text-xs font-bold text-sky-300">${isOpen ? 'Đang tính' : this.formatMoney(s.expected_cash) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ')}</td>
+                                <td class="col-right font-mono text-xs font-bold text-white">${isOpen ? '-' : this.formatMoney(s.actual_cash) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ')}</td>
+                                <td class="col-right font-mono text-xs ${diffClass}">${isOpen ? '-' : (diff > 0 ? '+' : '') + this.formatMoney(diff) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ')}</td>
                                 <td>
                                     ${isOpen
                                         ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">ĐANG MỞ</span>'
-                                        : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/10">ĐÃ CHỐT</span>'}
+                                        : (window.cnxT?window.cnxT('js.s_fin.ba4b12c9','<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/10">ĐÃ CHỐT</span>'):'<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/10">ĐÃ CHỐT</span>')}
                                 </td>
                             </tr>
                         `;
@@ -179,14 +179,14 @@ Object.assign(Admin, {
                 const elDays = repRes.elapsed_days !== undefined ? repRes.elapsed_days : repRes.days_in_month;
                 const rtTag = repRes.is_realtime_cycle
                     ? `Real-time ${repRes.realtime_as_of ? repRes.realtime_as_of.substring(11, 16) : ''} • `
-                    : 'Đã chốt chu kỳ • ';
-                cycleBadge.textContent = `Chu kỳ: ${ps} – ${pe} (${rtTag}${elDays}/${repRes.days_in_month || 30} ngày)`;
+                    : (window.cnxT?window.cnxT('js.s_fin.5a840b24','Đã chốt chu kỳ • '):'Đã chốt chu kỳ • ');
+                cycleBadge.textContent = `${window.cnxT?window.cnxT('js.s_fin.a7075f5f','Chu kỳ:'):'Chu kỳ:'} ${ps} – ${pe} (${rtTag}${elDays}/${repRes.days_in_month || 30} ${window.cnxT?window.cnxT('js.s_fin.952ca930','ngày)'):'ngày)'}`;
             }
 
             if (repRes && repRes.success === false) {
                 const kpiContainer = document.getElementById('fin-kpi-cards');
                 if (kpiContainer) {
-                    kpiContainer.innerHTML = `<div class="col-span-full p-4 rounded-xl border border-rose-500/30 bg-rose-950/30 text-rose-300 text-xs font-semibold"><i class="fas fa-exclamation-triangle mr-2"></i>${repRes.message || repRes.error || 'Không thể tải dữ liệu Báo Cáo Tài Chính'}</div>`;
+                    kpiContainer.innerHTML = `<div class="col-span-full p-4 rounded-xl border border-rose-500/30 bg-rose-950/30 text-rose-300 text-xs font-semibold"><i class="fas fa-exclamation-triangle mr-2"></i>${repRes.message || repRes.error || (window.cnxT?window.cnxT('js.s_fin.a8271097','Không thể tải dữ liệu Báo Cáo Tài Chính'):'Không thể tải dữ liệu Báo Cáo Tài Chính')}</div>`;
                 }
                 return;
             }
@@ -211,32 +211,32 @@ Object.assign(Admin, {
                 const supPaid = Number(summary.supplier_paid_in_period || 0);
                 const cogsQualityBadge = covPct >= 90
                     ? `<span class="text-emerald-300">Giá vốn thực ${covPct}%</span>`
-                    : `<span class="text-amber-300" title="Một số món chưa có giá vốn/định lượng nên hệ thống ước tính phần thiếu">Giá vốn thực ${covPct}% (Ước tính ${this.formatMoney(estCogs)} đ)</span>`;
+                    : `<span class="text-amber-300" title="Một số món chưa có giá vốn/định lượng nên hệ thống ước tính phần thiếu">Giá vốn thực ${covPct}${window.cnxT?window.cnxT('js.s_fin.8e2a07fb','% (Ước tính'):'% (Ước tính'} ${this.formatMoney(estCogs)} đ)</span>`;
                 kpiContainer.innerHTML = `
                     <div class="liquid-glass-card p-3 border-l-4 border-emerald-400">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DOANH THU THỰC (${summary.order_count || 0} ĐƠN)</span>
                         <div class="text-xl font-black text-emerald-400 font-mono mt-1">${this.formatMoney(summary.revenue)} đ</div>
-                        <span class="text-[10px] text-sky-300 mt-0.5 block">Thực thu: ${this.formatMoney(cashIn)} đ • Đang mở: +${this.formatMoney(summary.pending_revenue || 0)} đ</span>
+                        <span class="text-[10px] text-sky-300 mt-0.5 block">Thực thu: ${this.formatMoney(cashIn)} ${window.cnxT?window.cnxT('js.s_fin.2928e9b3','đ • Đang mở: +'):'đ • Đang mở: +'}${this.formatMoney(summary.pending_revenue || 0)} đ</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 border-amber-400">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG CHI PHÍ P&amp;L (REALTIME)</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">${window.cnxT?window.cnxT('js.s_fin.902c202e','TỔNG CHI PHÍ P&amp;L (REALTIME)'):'TỔNG CHI PHÍ P&amp;L (REALTIME)'}</span>
                         <div class="text-xl font-black text-amber-400 font-mono mt-1">${this.formatMoney(totalAllCosts)} đ</div>
                         <span class="text-[10px] text-slate-400 mt-0.5 block">COGS ${this.formatMoney(summary.cogs || 0)} + VH ${this.formatMoney(summary.expenses || 0)} • ${cogsQualityBadge}</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 ${summary.net_profit >= 0 ? 'border-sky-400' : 'border-rose-400'}">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LỢI NHUẬN RÒNG P&amp;L (${netMarginPct}%)</span>
                         <div class="text-xl font-black ${summary.net_profit >= 0 ? 'text-sky-400' : 'text-rose-400'} font-mono mt-1">${this.formatMoney(summary.net_profit)} đ</div>
-                        <span class="text-[10px] ${netCash >= 0 ? 'text-emerald-300' : 'text-rose-300'} mt-0.5 block" title="Dòng tiền ròng = Thực thu - (Trả NCC + Chi phí đã trả + Chi tại quầy)">Dòng tiền ròng: ${this.formatMoney(netCash)} đ (Chi ${this.formatMoney(cashOut)} đ)</span>
+                        <span class="text-[10px] ${netCash >= 0 ? 'text-emerald-300' : 'text-rose-300'} mt-0.5 block" title="Dòng tiền ròng = Thực thu - (Trả NCC + Chi phí đã trả + Chi tại quầy)">Dòng tiền ròng: ${this.formatMoney(netCash)} ${window.cnxT?window.cnxT('js.s_fin.efbb0de5','đ (Chi'):'đ (Chi'} ${this.formatMoney(cashOut)} đ)</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 border-purple-400">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">LƯƠNG &amp; THƯỞNG (REALTIME)</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">${window.cnxT?window.cnxT('js.s_fin.64574b76','LƯƠNG &amp; THƯỞNG (REALTIME)'):'LƯƠNG &amp; THƯỞNG (REALTIME)'}</span>
                         <div class="text-xl font-black text-purple-400 font-mono mt-1">${this.formatMoney(totalLabor)} đ</div>
-                        <span class="text-[10px] text-slate-400 mt-0.5 block">${Number(summary.labor_hours || 0).toFixed(1)}h công • ${summary.working_staff_count || 0} NV đang trực</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">${Number(summary.labor_hours || 0).toFixed(1)}${window.cnxT?window.cnxT('js.s_fin.f04bf10d','h công •'):'h công •'} ${summary.working_staff_count || 0} NV đang trực</span>
                     </div>
                     <div class="liquid-glass-card p-3 border-l-4 border-teal-400 cursor-pointer hover:bg-white/[0.03]" onclick="Admin.openSupplierFinanceModal()" title="Bấm để xem &amp; thanh toán chi tiết công nợ Nhà cung cấp">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CÔNG NỢ &amp; KHO HÀNG <i class="fas fa-arrow-up-right-from-square ml-1 text-teal-400"></i></span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">${window.cnxT?window.cnxT('js.s_fin.5a755b5c','CÔNG NỢ &amp; KHO HÀNG'):'CÔNG NỢ &amp; KHO HÀNG'} <i class="fas fa-arrow-up-right-from-square ml-1 text-teal-400"></i></span>
                         <div class="text-sm font-black text-rose-300 font-mono mt-1">Nợ phải trả: ${this.formatMoney(totalPayable)} đ</div>
-                        <span class="text-[10px] text-amber-300 mt-0.5 block">Đã trả NCC: ${this.formatMoney(supPaid)} đ • Nhập kho: ${this.formatMoney(summary.material_import_cost || 0)} đ</span>
+                        <span class="text-[10px] text-amber-300 mt-0.5 block">Đã trả NCC: ${this.formatMoney(supPaid)} ${window.cnxT?window.cnxT('js.s_fin.bb3cbebe','đ • Nhập kho:'):'đ • Nhập kho:'} ${this.formatMoney(summary.material_import_cost || 0)} đ</span>
                     </div>
                 `;
             }
@@ -245,7 +245,7 @@ Object.assign(Admin, {
             if (expTbody) {
                 const list = (expRes && expRes.data) ? expRes.data : [];
                 if (list.length === 0) {
-                    expTbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', 'Chưa có khoản chi nào trong kỳ', 'Bấm nút "Thêm chi phí / Công nợ" ở trên để ghi nhận các khoản chi phát sinh trong tháng.');
+                    expTbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', (window.cnxT?window.cnxT('js.s_fin.dd2405d8','Chưa có khoản chi nào trong kỳ'):'Chưa có khoản chi nào trong kỳ'), (window.cnxT?window.cnxT('js.s_fin.2fa5dfd4','Bấm nút "Thêm chi phí / Công nợ" ở trên để ghi nhận các khoản chi phát sinh trong tháng.'):'Bấm nút "Thêm chi phí / Công nợ" ở trên để ghi nhận các khoản chi phát sinh trong tháng.'));
                 } else {
                     let html = '';
                     list.forEach(item => {
@@ -254,11 +254,11 @@ Object.assign(Admin, {
                             <tr class="hover:bg-sky-500/[0.04] transition-colors">
                                 <td><span class="font-mono text-xs text-slate-300 whitespace-nowrap">${item.expense_date ? window.formatDateDDMMYY(item.expense_date, false) : '-'}</span></td>
                                 <td>
-                                    <span class="saas-badge bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">${item.category || 'Khác'}</span>
+                                    <span class="saas-badge bg-teal-500/15 text-teal-300 border border-teal-500/30 whitespace-nowrap">${escapeHtml(item.category || (window.cnxT?window.cnxT('ui.admin_html.option_cd0ec881','Khác'):'Khác'))}</span>
                                     ${isUnpaid ? '<span class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">NỢ NCC</span>' : ''}
                                 </td>
-                                <td class="col-name"><span class="text-xs font-medium text-white whitespace-nowrap">${item.description || '-'}</span></td>
-                                <td><span class="text-xs text-slate-400 whitespace-nowrap">${item.supplier || '-'}</span></td>
+                                <td class="col-name"><span class="text-xs font-medium text-white whitespace-nowrap">${escapeHtml(item.description || '-')}</span></td>
+                                <td><span class="text-xs text-slate-400 whitespace-nowrap">${escapeHtml(item.supplier || '-')}</span></td>
                                 <td class="col-money"><span class="font-mono font-bold ${isUnpaid ? 'text-rose-400' : 'text-amber-300'} text-xs whitespace-nowrap">${this.formatMoney(item.amount)} đ</span></td>
                                 <td class="col-money"><span class="font-mono text-slate-400 text-xs whitespace-nowrap">${this.formatMoney(item.vat_amount || 0)} đ</span></td>
                                 <td class="col-right whitespace-nowrap">
@@ -280,7 +280,7 @@ Object.assign(Admin, {
                 groups.sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
                 const sumExpGrp = groups.reduce((s, g) => s + (Number(g.amount) || 0), 0);
                 if (groups.length === 0) {
-                    expGroups.innerHTML = '<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có chi phí phát sinh trong tháng này</div>';
+                    expGroups.innerHTML = (window.cnxT?window.cnxT('js.s_fin.f64e7f72','<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có chi phí phát sinh trong tháng này</div>'):'<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có chi phí phát sinh trong tháng này</div>');
                 } else {
                     let gHtml = '';
                     groups.forEach(g => {
@@ -290,7 +290,7 @@ Object.assign(Admin, {
                         gHtml += `
                             <div class="py-1.5 border-b border-white/5">
                                 <div class="flex items-center justify-between text-xs mb-1">
-                                    <span class="text-slate-200 font-medium">${g.category || 'Khác'}${autoBadge} <span class="text-slate-500 text-[10px]">(${g.count || 0})</span></span>
+                                    <span class="text-slate-200 font-medium">${escapeHtml(g.category || (window.cnxT?window.cnxT('ui.admin_html.option_cd0ec881','Khác'):'Khác'))}${autoBadge} <span class="text-slate-500 text-[10px]">(${Number(g.count || 0)})</span></span>
                                     <span class="font-mono font-bold text-amber-400">${this.formatMoney(amt)} đ <span class="text-[10px] text-slate-400">(${pct}%)</span></span>
                                 </div>
                                 <div class="w-full h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
@@ -320,9 +320,9 @@ Object.assign(Admin, {
                 this.finDailyChart = new Chart(dailyCanvas.getContext('2d'), {
                     type: 'bar',
                     data: {
-                        labels: labels.length ? labels : ['Chưa có dữ liệu'],
+                        labels: labels.length ? labels : [(window.cnxT?window.cnxT('js.s_fin.4332d86b','Chưa có dữ liệu'):'Chưa có dữ liệu')],
                         datasets: [{
-                            label: 'Doanh thu (đ)',
+                            label: (window.cnxT?window.cnxT('js.s_fin.538fc5e1','Doanh thu (đ)'):'Doanh thu (đ)'),
                             data: values.length ? values : [0],
                             backgroundColor: values.map(v => v > 0 ? 'rgba(20, 184, 166, 0.65)' : 'rgba(148, 163, 184, 0.15)'),
                             borderColor: '#2dd4bf',
@@ -340,7 +340,7 @@ Object.assign(Admin, {
                                     label: (ctx) => {
                                         const idx = ctx.dataIndex;
                                         const ord = ordersCnt[idx] || 0;
-                                        return `${this.formatMoney(ctx.parsed.y)} đ (${ord} đơn)`;
+                                        return `${this.formatMoney(ctx.parsed.y)} ${window.cnxT?window.cnxT('js.s_adm.b4be420b','đ ('):'đ ('}${ord} ${window.cnxT?window.cnxT('js.s_adm.a50869e7','đơn)'):'đơn)'}`;
                                     }
                                 }
                             }
@@ -382,20 +382,20 @@ Object.assign(Admin, {
                 pnlEl.innerHTML = `
                     <tbody class="divide-y divide-white/5">
                         <tr><td class="py-1.5 text-slate-300">Doanh thu gộp (${orderCount} đơn)</td><td class="py-1.5 text-right font-mono text-slate-200">${this.formatMoney(grossSales)} đ</td></tr>
-                        <tr><td class="py-1.5 text-slate-400">Giảm giá / Chiết khấu</td><td class="py-1.5 text-right font-mono text-rose-400">-${this.formatMoney(discounts)} đ</td></tr>
-                        <tr class="font-semibold"><td class="py-1.5 text-emerald-300">Doanh thu thuần</td><td class="py-1.5 text-right font-mono text-emerald-400">${this.formatMoney(revenue)} đ</td></tr>
-                        <tr><td class="py-1.5 text-slate-400">Giá vốn hàng bán (COGS)</td><td class="py-1.5 text-right font-mono text-amber-300">-${this.formatMoney(cogs)} đ</td></tr>
+                        <tr><td class="py-1.5 text-slate-400">${window.cnxT?window.cnxT('js.s_fin.339f2687','Giảm giá / Chiết khấu'):'Giảm giá / Chiết khấu'}</td><td class="py-1.5 text-right font-mono text-rose-400">-${this.formatMoney(discounts)} đ</td></tr>
+                        <tr class="font-semibold"><td class="py-1.5 text-emerald-300">${window.cnxT?window.cnxT('js.s_fin.7010a252','Doanh thu thuần'):'Doanh thu thuần'}</td><td class="py-1.5 text-right font-mono text-emerald-400">${this.formatMoney(revenue)} đ</td></tr>
+                        <tr><td class="py-1.5 text-slate-400">${window.cnxT?window.cnxT('js.s_fin.e0186fb5','Giá vốn hàng bán (COGS)'):'Giá vốn hàng bán (COGS)'}</td><td class="py-1.5 text-right font-mono text-amber-300">-${this.formatMoney(cogs)} đ</td></tr>
                         <tr class="font-semibold"><td class="py-1.5 text-sky-300">Lợi nhuận gộp (${grossMargin}%)</td><td class="py-1.5 text-right font-mono text-sky-400">${this.formatMoney(grossProfit)} đ</td></tr>
                         <tr><td class="py-1.5 text-slate-400">Lương chấm công (${Number(summary.labor_hours || 0).toFixed(1)}h)</td><td class="py-1.5 text-right font-mono text-purple-300">-${this.formatMoney(laborCost)} đ</td></tr>
-                        ${bonusCost > 0 ? `<tr><td class="py-1.5 text-slate-400">Thưởng &amp; Phụ cấp</td><td class="py-1.5 text-right font-mono text-purple-300">-${this.formatMoney(bonusCost)} đ</td></tr>` : ''}
-                        <tr><td class="py-1.5 text-slate-400">Chi phí vận hành (Mặt bằng, MKT...)</td><td class="py-1.5 text-right font-mono text-amber-400">-${this.formatMoney(opexOnly)} đ</td></tr>
-                        ${(cashOutCounter > 0 || lossAndShortage > 0) ? `<tr><td class="py-1.5 text-slate-400">Chi quầy &amp; Hao hụt / Lệch két</td><td class="py-1.5 text-right font-mono text-rose-300">-${this.formatMoney(cashOutCounter + lossAndShortage)} đ</td></tr>` : ''}
+                        ${bonusCost > 0 ? `<tr><td class="py-1.5 text-slate-400">${window.cnxT?window.cnxT('js.s_fin.beb6f7f9','Thưởng &amp; Phụ cấp'):'Thưởng &amp; Phụ cấp'}</td><td class="py-1.5 text-right font-mono text-purple-300">-${this.formatMoney(bonusCost)} đ</td></tr>` : ''}
+                        <tr><td class="py-1.5 text-slate-400">${window.cnxT?window.cnxT('js.s_fin.35ad2474','Chi phí vận hành (Mặt bằng, MKT...)'):'Chi phí vận hành (Mặt bằng, MKT...)'}</td><td class="py-1.5 text-right font-mono text-amber-400">-${this.formatMoney(opexOnly)} đ</td></tr>
+                        ${(cashOutCounter > 0 || lossAndShortage > 0) ? `<tr><td class="py-1.5 text-slate-400">${window.cnxT?window.cnxT('js.s_fin.538baff7','Chi quầy &amp; Hao hụt / Lệch két'):'Chi quầy &amp; Hao hụt / Lệch két'}</td><td class="py-1.5 text-right font-mono text-rose-300">-${this.formatMoney(cashOutCounter + lossAndShortage)} đ</td></tr>` : ''}
                         <tr class="border-t border-white/15 font-bold text-sm">
                             <td class="pt-2 text-white">Lợi nhuận ròng (${netMargin}%)</td>
                             <td class="pt-2 text-right font-mono ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${this.formatMoney(netProfit)} đ</td>
                         </tr>
                         <tr class="text-[11px] text-slate-400">
-                            <td class="pt-1.5">Dự phóng doanh thu tháng</td>
+                            <td class="pt-1.5">${window.cnxT?window.cnxT('js.s_fin.d3942168','Dự phóng doanh thu tháng'):'Dự phóng doanh thu tháng'}</td>
                             <td class="pt-1.5 text-right font-mono text-teal-300">${this.formatMoney(summary.projected_revenue || revenue)} đ</td>
                         </tr>
                     </tbody>
@@ -408,9 +408,13 @@ Object.assign(Admin, {
                 const revenue = Number(summary.revenue) || 0;
                 const cogs = Number(summary.cogs) || 0;
                 const expenses = Number(summary.expenses) || 0;
-                const vatOut = Number(summary.vat_collected) || 0;
+                const vatOutRaw = Number(summary.vat_collected) || 0;
+                const vatRateCfg = Number(this.taxSettings?.vat_rate) || 0;
+                const pitRateCfg = Number(this.taxSettings?.pit_rate) || 0;
+                const vatOut = vatOutRaw > 0 ? vatOutRaw : Math.round(revenue * vatRateCfg / 100);
                 const vatIn = Number(summary.vat_input) || 0;
                 const vatPayable = Math.max(0, vatOut - vatIn);
+                const pitPayable = Math.round(revenue * pitRateCfg / 100);
                 const grossRatio = revenue > 0 ? Math.max(0.05, (revenue - cogs) / revenue) : 0.65;
                 const breakeven = expenses > 0 ? Math.round(expenses / grossRatio) : 0;
                 const progress = breakeven > 0 ? Math.min(100, Math.round((revenue / breakeven) * 100)) : (revenue > 0 ? 100 : 0);
@@ -418,31 +422,35 @@ Object.assign(Admin, {
 
                 taxEl.innerHTML = `
                     <div class="flex items-center justify-between py-1 border-b border-white/5">
-                        <span class="text-slate-300">VAT đầu ra (hóa đơn)</span>
+                        <span class="text-slate-300">${window.cnxT?window.cnxT('js.s_fin.c2aee3bd','VAT đầu ra (hóa đơn)'):'VAT đầu ra (hóa đơn)'}</span>
                         <span class="font-mono text-sky-300">${this.formatMoney(vatOut)} đ</span>
                     </div>
                     <div class="flex items-center justify-between py-1 border-b border-white/5">
-                        <span class="text-slate-300">VAT đầu vào (phiếu chi)</span>
+                        <span class="text-slate-300">${window.cnxT?window.cnxT('js.s_fin.e33b3824','VAT đầu vào (phiếu chi)'):'VAT đầu vào (phiếu chi)'}</span>
                         <span class="font-mono text-emerald-300">${this.formatMoney(vatIn)} đ</span>
                     </div>
                     <div class="flex items-center justify-between py-1 border-b border-white/5">
-                        <span class="text-slate-300 font-semibold">VAT dự kiến phải nộp</span>
+                        <span class="text-slate-300 font-semibold">VAT dự kiến phải nộp (${vatRateCfg}% cấu hình)</span>
                         <span class="font-mono font-bold text-amber-300">${this.formatMoney(vatPayable)} đ</span>
                     </div>
                     <div class="flex items-center justify-between py-1 border-b border-white/5">
-                        <span class="text-slate-300">Công nợ phải thu / Bàn mở</span>
+                        <span class="text-slate-300">Thuế TNCN / Hộ KD (${pitRateCfg}%)</span>
+                        <span class="font-mono text-rose-300">${this.formatMoney(pitPayable)} đ</span>
+                    </div>
+                    <div class="flex items-center justify-between py-1 border-b border-white/5">
+                        <span class="text-slate-300">${window.cnxT?window.cnxT('js.s_fin.5cb9e2b9','Công nợ phải thu / Bàn mở'):'Công nợ phải thu / Bàn mở'}</span>
                         <span class="font-mono text-teal-300">${this.formatMoney(totalReceivable)} đ</span>
                     </div>
                     <div class="pt-2">
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-slate-300">Điểm hòa vốn tháng (gồm lương &amp; OPEX)</span>
+                            <span class="text-slate-300">${window.cnxT?window.cnxT('js.s_fin.cf47f0d4','Điểm hòa vốn tháng (gồm lương &amp; OPEX)'):'Điểm hòa vốn tháng (gồm lương &amp; OPEX)'}</span>
                             <span class="font-mono font-bold text-white">${this.formatMoney(breakeven)} đ</span>
                         </div>
                         <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                             <div class="h-full ${passed ? 'bg-emerald-400' : 'bg-sky-400'}" style="width:${progress}%"></div>
                         </div>
                         <div class="flex items-center justify-between mt-1 text-[11px]">
-                            <span class="${passed ? 'text-emerald-400 font-semibold' : 'text-amber-300'}">${passed ? 'Đã vượt điểm hòa vốn' : 'Chưa đạt điểm hòa vốn'}</span>
+                            <span class="${passed ? 'text-emerald-400 font-semibold' : 'text-amber-300'}">${passed ? 'Đã vượt điểm hòa vốn' : (window.cnxT?window.cnxT('js.s_fin.4fa5a552','Chưa đạt điểm hòa vốn'):'Chưa đạt điểm hòa vốn')}</span>
                             <span class="font-mono text-slate-400">${progress}%</span>
                         </div>
                     </div>
@@ -455,14 +463,14 @@ Object.assign(Admin, {
                 const cats = (repRes && Array.isArray(repRes.category_breakdown)) ? repRes.category_breakdown : [];
                 const pays = (repRes && Array.isArray(repRes.payment_breakdown)) ? repRes.payment_breakdown : [];
                 const totalRev = Number(summary.revenue) || cats.reduce((s, c) => s + (Number(c.revenue) || 0), 0);
-                const payLabels = { cash: 'Tiền mặt', banking: 'Chuyển khoản / VietQR', transfer: 'Chuyển khoản / QR', qr: 'VietQR', card: 'Thẻ POS', momo: 'Ví MoMo', debt: 'Ghi nợ' };
+                const payLabels = { cash: (window.cnxT?window.cnxT('ui.admin_html.option_7d2970d9','Tiền mặt'):'Tiền mặt'), banking: (window.cnxT?window.cnxT('js.s_fin.2068f044','Chuyển khoản / VietQR'):'Chuyển khoản / VietQR'), transfer: (window.cnxT?window.cnxT('js.s_fin.7ad8f661','Chuyển khoản / QR'):'Chuyển khoản / QR'), qr: 'VietQR', card: (window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'), momo: (window.cnxT?window.cnxT('js.s_fin.19b517cd','Ví MoMo'):'Ví MoMo'), debt: (window.cnxT?window.cnxT('js.s_fin.a455c187','Ghi nợ'):'Ghi nợ') };
 
                 let html = '';
                 if (cats.length === 0 && pays.length === 0) {
-                    html = '<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có doanh thu phát sinh trong tháng này</div>';
+                    html = (window.cnxT?window.cnxT('js.s_fin.da4ae4ef','<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có doanh thu phát sinh trong tháng này</div>'):'<div class="text-xs text-slate-400 py-4 text-center italic">Chưa có doanh thu phát sinh trong tháng này</div>');
                 } else {
                     if (cats.length > 0) {
-                        html += '<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Theo nhóm hàng</div>';
+                        html += (window.cnxT?window.cnxT('js.s_fin.f316b9ac','<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Theo nhóm hàng</div>'):'<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Theo nhóm hàng</div>');
                         cats.slice(0, 6).forEach(c => {
                             const rev = Number(c.revenue) || 0;
                             const pct = totalRev > 0 ? Math.round((rev / totalRev) * 100) : 0;
@@ -477,9 +485,9 @@ Object.assign(Admin, {
                         });
                     }
                     if (pays.length > 0) {
-                        html += '<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-2.5 mb-1">Theo thanh toán</div>';
+                        html += (window.cnxT?window.cnxT('js.s_fin.6be875af','<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-2.5 mb-1">Theo thanh toán</div>'):'<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-2.5 mb-1">Theo thanh toán</div>');
                         pays.forEach(p => {
-                            const mName = payLabels[(p.method || '').toLowerCase()] || p.method || 'Khác';
+                            const mName = payLabels[(p.method || '').toLowerCase()] || p.method || (window.cnxT?window.cnxT('ui.admin_html.option_cd0ec881','Khác'):'Khác');
                             html += `
                                 <div class="flex items-center justify-between py-1 border-b border-white/5">
                                     <span class="text-slate-300">${mName} (${p.orders} đơn)</span>
@@ -499,7 +507,7 @@ Object.assign(Admin, {
                 const [m2, m1, m0] = pnlCmpRes.months;
                 cmpHead.innerHTML = `
                     <tr>
-                        <th>Chỉ tiêu P&amp;L</th>
+                        <th>${window.cnxT?window.cnxT('js.s_fin.0cebdea4','Chỉ tiêu P&amp;L'):'Chỉ tiêu P&amp;L'}</th>
                         <th class="col-right">${m2.label}</th>
                         <th class="col-right">${m1.label}</th>
                         <th class="col-right text-teal-300">${m0.label} (Kỳ chọn)</th>
@@ -507,22 +515,22 @@ Object.assign(Admin, {
                     </tr>
                 `;
                 const rowsDef = [
-                    { label: 'Số đơn hoàn tất', key: 'order_count', isCount: true, goodUp: true },
-                    { label: 'Doanh thu thuần', key: 'revenue', bold: true, cls: 'text-emerald-300', goodUp: true },
-                    { label: '(-) Giá vốn hàng bán (COGS)', key: 'cogs', cls: 'text-amber-300', goodUp: false },
-                    { label: '(=) Lợi nhuận gộp', key: 'gross_profit', bold: true, cls: 'text-sky-300', goodUp: true },
-                    { label: 'Biên lợi nhuận gộp (%)', key: 'gross_margin_pct', isPct: true, goodUp: true },
-                    { label: '(-) Lương &amp; Thưởng nhân sự', key: 'total_labor', cls: 'text-purple-300', goodUp: false },
-                    { label: '(-) Chi phí vận hành (OPEX)', key: 'opex_expenses', cls: 'text-amber-400', goodUp: false },
-                    { label: '(-) Chi quầy &amp; Hao hụt / Lệch két', key: 'loss_shortage', cls: 'text-rose-300', goodUp: false },
-                    { label: '(=) Lợi nhuận ròng (Net Profit)', key: 'net_profit', bold: true, isNet: true, goodUp: true },
-                    { label: 'Biên lợi nhuận ròng (%)', key: 'net_margin_pct', isPct: true, goodUp: true }
+                    { label: (window.cnxT?window.cnxT('js.s_fin.b990b94b','Số đơn hoàn tất'):'Số đơn hoàn tất'), key: 'order_count', isCount: true, goodUp: true },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.7010a252','Doanh thu thuần'):'Doanh thu thuần'), key: 'revenue', bold: true, cls: 'text-emerald-300', goodUp: true },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.861a5b80','(-) Giá vốn hàng bán (COGS)'):'(-) Giá vốn hàng bán (COGS)'), key: 'cogs', cls: 'text-amber-300', goodUp: false },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.82b9162a','(=) Lợi nhuận gộp'):'(=) Lợi nhuận gộp'), key: 'gross_profit', bold: true, cls: 'text-sky-300', goodUp: true },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.539a841a','Biên lợi nhuận gộp (%)'):'Biên lợi nhuận gộp (%)'), key: 'gross_margin_pct', isPct: true, goodUp: true },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.cc39985b','(-) Lương &amp; Thưởng nhân sự'):'(-) Lương &amp; Thưởng nhân sự'), key: 'total_labor', cls: 'text-purple-300', goodUp: false },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.6916fdac','(-) Chi phí vận hành (OPEX)'):'(-) Chi phí vận hành (OPEX)'), key: 'opex_expenses', cls: 'text-amber-400', goodUp: false },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.00b1e921','(-) Chi quầy &amp; Hao hụt / Lệch két'):'(-) Chi quầy &amp; Hao hụt / Lệch két'), key: 'loss_shortage', cls: 'text-rose-300', goodUp: false },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.f66de063','(=) Lợi nhuận ròng (Net Profit)'):'(=) Lợi nhuận ròng (Net Profit)'), key: 'net_profit', bold: true, isNet: true, goodUp: true },
+                    { label: (window.cnxT?window.cnxT('js.s_fin.c83e471c','Biên lợi nhuận ròng (%)'):'Biên lợi nhuận ròng (%)'), key: 'net_margin_pct', isPct: true, goodUp: true }
                 ];
                 cmpBody.innerHTML = rowsDef.map(r => {
                     const fmt = (val) => {
-                        if (r.isCount) return `${Number(val || 0)} đơn`;
+                        if (r.isCount) return `${Number(val || 0)} ${window.cnxT?window.cnxT('js.m_sa.61abc818','đơn'):'đơn'}`;
                         if (r.isPct) return `${Number(val || 0).toFixed(1)}%`;
-                        return `${this.formatMoney(val || 0)} đ`;
+                        return `${this.formatMoney(val || 0)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
                     };
                     const v2 = Number(m2[r.key] || 0);
                     const v1 = Number(m1[r.key] || 0);
@@ -538,7 +546,7 @@ Object.assign(Admin, {
                             const good = r.goodUp ? pct >= 0 : pct <= 0;
                             momHtml = `<span class="${good ? 'text-emerald-400' : 'text-rose-400'} font-mono font-bold">${pct >= 0 ? '▲ +' : '▼ '}${pct.toFixed(1)}%</span>`;
                         } else {
-                            momHtml = `<span class="text-sky-300 font-mono text-[11px]">Mới phát sinh</span>`;
+                            momHtml = `<span class="text-sky-300 font-mono text-[11px]">${window.cnxT?window.cnxT('js.s_fin.6b86779e','Mới phát sinh'):'Mới phát sinh'}</span>`;
                         }
                     }
                     const c0 = r.isNet ? (v0 >= 0 ? 'text-emerald-400' : 'text-rose-400') : (r.cls || 'text-white');
@@ -586,7 +594,7 @@ Object.assign(Admin, {
             this._pendingSystemUpdate = hasAlert ? {
                 isOta: false,
                 version: unread.version || '',
-                title: unread.title || 'Thông báo từ Master',
+                title: unread.title || (window.cnxT?window.cnxT('js.s_fin.23db4bad','Thông báo từ Master'):'Thông báo từ Master'),
                 message: unread.message || ''
             } : null;
 
@@ -594,7 +602,7 @@ Object.assign(Admin, {
             if (badgeEl) {
                 badgeEl.title = hasAlert
                     ? `${this._pendingSystemUpdate.title}`
-                    : 'Chủ Quán (Admin) • Cập nhật OTA thực hiện tại CyberNexus Control Center';
+                    : (window.cnxT?window.cnxT('js.s_fin.e7e3cfbd','Chủ Quán (Admin) • Cập nhật OTA thực hiện tại CyberNexus Control Center'):'Chủ Quán (Admin) • Cập nhật OTA thực hiện tại CyberNexus Control Center');
             }
             if (!banner) return;
 
@@ -606,7 +614,7 @@ Object.assign(Admin, {
             } else {
                 banner.classList.add('hidden');
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_finance_ecr.js', e) : console.debug('admin_finance_ecr.js', e)); }
     },
 
     async handleAdminBadgeUpdateClick(btn) {
@@ -617,13 +625,13 @@ Object.assign(Admin, {
             alert(`${this._pendingSystemUpdate.title}\n${this._pendingSystemUpdate.message}`);
             return;
         }
-        alert('Việc kiểm tra và cập nhật phiên bản OTA được thực hiện tại ứng dụng CyberNexus Control Center.');
+        alert((window.cnxT?window.cnxT('js.s_fin.15affead','Việc kiểm tra và cập nhật phiên bản OTA được thực hiện tại ứng dụng CyberNexus Control Center.'):'Việc kiểm tra và cập nhật phiên bản OTA được thực hiện tại ứng dụng CyberNexus Control Center.'));
     },
 
     async applySystemUpdate(btn) {
-        if (!confirm('Tải bản vá mới từ Master và chép đè lên hệ thống Store hiện tại?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_fin.c6d233ab','Tải bản vá mới từ Master và chép đè lên hệ thống Store hiện tại?'):'Tải bản vá mới từ Master và chép đè lên hệ thống Store hiện tại?')))) return;
         const orig = btn ? btn.innerHTML : '';
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang cập nhật...'; }
+        if (btn) { btn.disabled = true; btn.innerHTML = (window.cnxT?window.cnxT('js.s_fin.1d3b9b13','<i class="fas fa-spinner fa-spin"></i> Đang cập nhật...'):'<i class="fas fa-spinner fa-spin"></i> Đang cập nhật...'); }
         try {
             const res = await fetch('/api/system/updates', {
                 method: 'POST',
@@ -631,7 +639,7 @@ Object.assign(Admin, {
                 body: JSON.stringify({ action: 'apply' })
             });
             const data = await res.json();
-            alert(data.message || (data.success ? 'Cập nhật thành công!' : 'Cập nhật thất bại!'));
+            alert(data.message || (data.success ? 'Cập nhật thành công!' : (window.cnxT?window.cnxT('js.s_fin.19b7b7e7','Cập nhật thất bại!'):'Cập nhật thất bại!')));
             if (data.success) {
                 await this.dismissSystemUpdate();
                 if (data.restarting) {
@@ -641,7 +649,7 @@ Object.assign(Admin, {
                 }
             }
         } catch (e) {
-            alert('Lỗi cập nhật: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_fin.f3899db3','Lỗi cập nhật: '):'Lỗi cập nhật: ') + e.message);
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         }
@@ -659,7 +667,7 @@ Object.assign(Admin, {
             const dotEl = document.getElementById('admin-update-dot');
             if (dotEl) dotEl.classList.add('hidden');
             this._pendingSystemUpdate = null;
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_finance_ecr.js', e) : console.debug('admin_finance_ecr.js', e)); }
     },
 
     _licensedModules: null,
@@ -683,8 +691,8 @@ Object.assign(Admin, {
                 lockOverlay.className = 'cn-module-lock-screen p-10 text-center rounded-2xl border border-rose-500/30 bg-rose-950/20 my-4';
                 lockOverlay.innerHTML = `
                     <i class="fas fa-lock text-4xl text-rose-400 mb-3"></i>
-                    <div class="text-base font-bold text-white">Module chưa được cấp phép hoặc đã bị Master tắt/khóa</div>
-                    <div class="text-xs text-slate-400 mt-1">Mã module: <span class="font-mono text-rose-300">${modCode}</span> • Vui lòng bật lại trên Máy chủ Master SaaS.</div>
+                    <div class="text-base font-bold text-white">${window.cnxT?window.cnxT('js.s_fin.6a28eefe','Module chưa được cấp phép hoặc đã bị Master tắt/khóa'):'Module chưa được cấp phép hoặc đã bị Master tắt/khóa'}</div>
+                    <div class="text-xs text-slate-400 mt-1">${window.cnxT?window.cnxT('js.s_fin.ab007c49','Mã module:'):'Mã module:'} <span class="font-mono text-rose-300">${modCode}</span> ${window.cnxT?window.cnxT('js.s_fin.d79360a9','• Vui lòng bật lại trên Máy chủ Master SaaS.'):'• Vui lòng bật lại trên Máy chủ Master SaaS.'}</div>
                 `;
                 subview.prepend(lockOverlay);
             }
@@ -700,7 +708,7 @@ Object.assign(Admin, {
     async enforceModuleLicenses(forceSync = false) {
         try {
             if (forceSync) {
-                await fetch('/api/license_client.php?action=sync_now').catch(() => {});
+                await fetch('/api/license_client.php?action=sync_now').catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_finance_ecr.js', errIgnored) : console.debug('admin_finance_ecr.js', errIgnored)); });
             }
             const res = await fetch('/api/license.php?action=status');
             const json = await res.json();
@@ -758,8 +766,8 @@ Object.assign(Admin, {
                             lockOverlay.className = 'cn-module-lock-screen p-10 text-center rounded-2xl border border-rose-500/30 bg-rose-950/20 my-4';
                             lockOverlay.innerHTML = `
                                 <i class="fas fa-lock text-4xl text-rose-400 mb-3"></i>
-                                <div class="text-base font-bold text-white">Module chưa được cấp phép hoặc đã bị Master tắt/khóa</div>
-                                <div class="text-xs text-slate-400 mt-1">Mã module: <span class="font-mono text-rose-300">${modCode}</span> • Vui lòng bật lại trên Máy chủ Master SaaS.</div>
+                                <div class="text-base font-bold text-white">${window.cnxT?window.cnxT('js.s_fin.6a28eefe','Module chưa được cấp phép hoặc đã bị Master tắt/khóa'):'Module chưa được cấp phép hoặc đã bị Master tắt/khóa'}</div>
+                                <div class="text-xs text-slate-400 mt-1">${window.cnxT?window.cnxT('js.s_fin.ab007c49','Mã module:'):'Mã module:'} <span class="font-mono text-rose-300">${modCode}</span> ${window.cnxT?window.cnxT('js.s_fin.d79360a9','• Vui lòng bật lại trên Máy chủ Master SaaS.'):'• Vui lòng bật lại trên Máy chủ Master SaaS.'}</div>
                             `;
                             section.prepend(lockOverlay);
                         }
@@ -787,11 +795,11 @@ Object.assign(Admin, {
             if (typeof Admin !== 'undefined' && Admin.currentTab && tabModuleMap[Admin.currentTab] && !this.isModuleAllowed(tabModuleMap[Admin.currentTab])) {
                 Admin.switchGroup(Admin.currentGroup || 'ops');
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_finance_ecr.js', e) : console.debug('admin_finance_ecr.js', e)); }
     },
 
     async deleteFinanceExpense(id) {
-        if (!confirm('Bạn có chắc muốn xóa khoản chi này không?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_fin.877562a1','Bạn có chắc muốn xóa khoản chi này không?'):'Bạn có chắc muốn xóa khoản chi này không?')))) return;
         try {
             const res = await fetch('api/finance.php?action=delete_expense', {
                 method: 'POST',
@@ -802,10 +810,10 @@ Object.assign(Admin, {
             if (data.success) {
                 this.loadFinance();
             } else {
-                alert(data.message || 'Lỗi xóa khoản chi');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.5cf907ce','Lỗi xóa khoản chi'):'Lỗi xóa khoản chi'));
             }
         } catch (e) {
-            alert('Lỗi: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.5b983751','Lỗi: '):'Lỗi: ') + e.message);
         }
     },
 
@@ -813,13 +821,13 @@ Object.assign(Admin, {
         const keyInput = document.getElementById('setting-gemini-api-key');
         const keyVal = keyInput ? keyInput.value.trim() : '';
         if (!keyVal) {
-            alert('Vui lòng dán mã Gemini API Key trước khi kiểm tra!');
+            alert((window.cnxT?window.cnxT('js.m_sa_ext.6d23c4a6','Vui lòng dán mã Gemini API Key trước khi kiểm tra!'):'Vui lòng dán mã Gemini API Key trước khi kiểm tra!'));
             return;
         }
         const origHtml = btn ? btn.innerHTML : '';
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang kiểm tra...';
+            btn.innerHTML = (window.cnxT?window.cnxT('js.m_sa_ext.4ea607b8','<i class="fas fa-spinner fa-spin mr-1"></i> Đang kiểm tra...'):'<i class="fas fa-spinner fa-spin mr-1"></i> Đang kiểm tra...');
         }
         try {
             const res = await fetch('/api/ai/test', {
@@ -841,12 +849,12 @@ Object.assign(Admin, {
                 if (uncfgBox) uncfgBox.classList.add('hidden');
                 if (inputBox) inputBox.classList.add('hidden');
                 if (btnToggle) btnToggle.classList.remove('hidden');
-                alert(data.message || 'Kiểm tra thành công! Key đã được lưu và ẩn bảo mật.');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.30be4ee0','Kiểm tra thành công! Key đã được lưu và ẩn bảo mật.'):'Kiểm tra thành công! Key đã được lưu và ẩn bảo mật.'));
             } else {
-                alert(data.message || 'API Key không hợp lệ!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.9a6d7db4','API Key không hợp lệ!'):'API Key không hợp lệ!'));
             }
         } catch (e) {
-            alert('Lỗi kiểm tra API Key: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_fin.87b511c9','Lỗi kiểm tra API Key: '):'Lỗi kiểm tra API Key: ') + e.message);
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -856,7 +864,7 @@ Object.assign(Admin, {
     },
 
     async deleteLocalGeminiKey() {
-        if (!confirm('Xóa Gemini API Key dự phòng tại quán để chuyển sang dùng CyberNexus Master AI Proxy?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_fin.f348a23e','Xóa Gemini API Key dự phòng tại quán để chuyển sang dùng CyberNexus Master AI Proxy?'):'Xóa Gemini API Key dự phòng tại quán để chuyển sang dùng CyberNexus Master AI Proxy?')))) return;
         try {
             const token = localStorage.getItem('pos_token') || '';
             const res = await fetch('api/settings.php', {
@@ -875,17 +883,17 @@ Object.assign(Admin, {
                 if (cfgBox) cfgBox.classList.add('hidden');
                 if (uncfgBox) uncfgBox.classList.remove('hidden');
                 if (inputBox) inputBox.classList.add('hidden');
-                alert('Đã xóa Key dự phòng tại quán! Hệ thống đã chuyển sang dùng CyberNexus Master AI Proxy.');
+                alert((window.cnxT?window.cnxT('js.s_fin.cd5e7c6d','Đã xóa Key dự phòng tại quán! Hệ thống đã chuyển sang dùng CyberNexus Master AI Proxy.'):'Đã xóa Key dự phòng tại quán! Hệ thống đã chuyển sang dùng CyberNexus Master AI Proxy.'));
             } else {
-                alert(data.message || 'Không thể xóa Key!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.bf893be2','Không thể xóa Key!'):'Không thể xóa Key!'));
             }
         } catch (e) {
-            alert('Lỗi kết nối: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.e5f87ad3','Lỗi kết nối: '):'Lỗi kết nối: ') + e.message);
         }
     },
 
     async markExpensePaid(id) {
-        if (!confirm('Xác nhận đã thanh toán khoản công nợ nhà cung cấp này?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_fin.305c20f6','Xác nhận đã thanh toán khoản công nợ nhà cung cấp này?'):'Xác nhận đã thanh toán khoản công nợ nhà cung cấp này?')))) return;
         try {
             const res = await fetch('api/finance.php?action=mark_expense_paid', {
                 method: 'POST',
@@ -894,9 +902,9 @@ Object.assign(Admin, {
             });
             const data = await res.json();
             if (data.success) this.loadFinance();
-            else alert(data.message || 'Không thể cập nhật');
+            else alert(data.message || (window.cnxT?window.cnxT('js.s_fin.1919b0a0','Không thể cập nhật'):'Không thể cập nhật'));
         } catch (e) {
-            alert('Lỗi: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.5b983751','Lỗi: '):'Lỗi: ') + e.message);
         }
     },
 
@@ -912,57 +920,57 @@ Object.assign(Admin, {
         modal.innerHTML = `
             <div class="liquid-glass rounded-2xl border border-teal-500/30 w-full max-w-md p-5 space-y-3 bg-slate-900/95">
                 <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
-                    <h4 class="font-bold text-sm text-teal-300"><i class="fas fa-file-invoice-dollar mr-1.5"></i>Ghi nhận Chi Phí / Công Nợ NCC</h4>
+                    <h4 class="font-bold text-sm text-teal-300"><i class="fas fa-file-invoice-dollar mr-1.5"></i>${window.cnxT?window.cnxT('js.s_fin.2892ea60','Ghi nhận Chi Phí / Công Nợ NCC'):'Ghi nhận Chi Phí / Công Nợ NCC'}</h4>
                     <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="grid grid-cols-2 gap-2.5 text-xs">
                     <div>
-                        <label class="text-slate-400 block mb-1">Ngày phát sinh</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.987c8eda','Ngày phát sinh'):'Ngày phát sinh'}</label>
                         <input id="fin-exp-date" type="date" value="${today}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white" />
                     </div>
                     <div>
-                        <label class="text-slate-400 block mb-1">Phân loại chi phí</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.80efe98a','Phân loại chi phí'):'Phân loại chi phí'}</label>
                         <select id="fin-exp-cat" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white">
-                            <option value="Mặt Bằng">Mặt Bằng</option>
-                            <option value="Điện Nước & Internet">Điện Nước & Internet</option>
+                            <option value="Mặt Bằng">${window.cnxT?window.cnxT('js.s_fin.a089d2c9','Mặt Bằng'):'Mặt Bằng'}</option>
+                            <option value="Điện Nước & Internet">${window.cnxT?window.cnxT('js.s_fin.6fe4cf5a','Điện Nước & Internet'):'Điện Nước & Internet'}</option>
                             <option value="Marketing">Marketing</option>
-                            <option value="Vận Hành & Vật Tư">Vận Hành & Vật Tư</option>
-                            <option value="Thưởng & Phụ Cấp">Thưởng & Phụ Cấp</option>
-                            <option value="Nguyên Vật Liệu">Nguyên Vật Liệu</option>
-                            <option value="Khác">Khác</option>
+                            <option value="Vận Hành & Vật Tư">${window.cnxT?window.cnxT('js.s_fin.20cc1c35','Vận Hành & Vật Tư'):'Vận Hành & Vật Tư'}</option>
+                            <option value="Thưởng & Phụ Cấp">${window.cnxT?window.cnxT('js.s_fin.ac763a40','Thưởng & Phụ Cấp'):'Thưởng & Phụ Cấp'}</option>
+                            <option value="Nguyên Vật Liệu">${window.cnxT?window.cnxT('ui.admin_html.th_1c7cbcda','Nguyên Vật Liệu'):'Nguyên Vật Liệu'}</option>
+                            <option value="Khác">${window.cnxT?window.cnxT('ui.admin_html.option_cd0ec881','Khác'):'Khác'}</option>
                         </select>
                     </div>
                 </div>
                 <div class="text-xs">
-                    <label class="text-slate-400 block mb-1">Nội dung chi / Hạng mục</label>
+                    <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.80d76c19','Nội dung chi / Hạng mục'):'Nội dung chi / Hạng mục'}</label>
                     <input id="fin-exp-desc" type="text" placeholder="VD: Tiền thuê mặt bằng T11, Thưởng KPI..." class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white" />
                 </div>
                 <div class="grid grid-cols-2 gap-2.5 text-xs">
                     <div>
-                        <label class="text-slate-400 block mb-1">Nhà cung cấp / Người nhận</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.bd3c049a','Nhà cung cấp / Người nhận'):'Nhà cung cấp / Người nhận'}</label>
                         <input id="fin-exp-sup" type="text" placeholder="VD: Điện lực EVN, NCC A..." class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white" />
                     </div>
                     <div>
-                        <label class="text-slate-400 block mb-1">Trạng thái thanh toán</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.8c865c7d','Trạng thái thanh toán'):'Trạng thái thanh toán'}</label>
                         <select id="fin-exp-status" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white">
-                            <option value="paid">Đã thanh toán ngay</option>
-                            <option value="unpaid">Ghi nhận Công nợ phải trả</option>
+                            <option value="paid">${window.cnxT?window.cnxT('js.s_fin.e7a2238e','Đã thanh toán ngay'):'Đã thanh toán ngay'}</option>
+                            <option value="unpaid">${window.cnxT?window.cnxT('js.s_fin.296ab0a7','Ghi nhận Công nợ phải trả'):'Ghi nhận Công nợ phải trả'}</option>
                         </select>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2.5 text-xs">
                     <div>
-                        <label class="text-slate-400 block mb-1">Số tiền (VNĐ)</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('ui.admin_html.option_89dfad29','Số tiền (VNĐ)'):'Số tiền (VNĐ)'}</label>
                         <input id="fin-exp-amt" type="number" min="0" placeholder="0" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-amber-300 font-mono font-bold" />
                     </div>
                     <div>
-                        <label class="text-slate-400 block mb-1">VAT đầu vào (VNĐ)</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.93977357','VAT đầu vào (VNĐ)'):'VAT đầu vào (VNĐ)'}</label>
                         <input id="fin-exp-vat" type="number" min="0" value="0" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-emerald-300 font-mono" />
                     </div>
                 </div>
                 <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
-                    <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">Hủy</button>
-                    <button type="button" onclick="Admin.submitFinExpense()" class="btn-glass text-xs py-1.5 px-4 bg-teal-500/30 text-teal-200 border-teal-400/40 font-bold">Lưu khoản chi</button>
+                    <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">${window.cnxT?window.cnxT('ui.admin_html.button_d7d5c86c','Hủy'):'Hủy'}</button>
+                    <button type="button" onclick="Admin.submitFinExpense()" class="btn-glass text-xs py-1.5 px-4 bg-teal-500/30 text-teal-200 border-teal-400/40 font-bold">${window.cnxT?window.cnxT('js.s_fin.02dd968e','Lưu khoản chi'):'Lưu khoản chi'}</button>
                 </div>
             </div>
         `;
@@ -971,7 +979,7 @@ Object.assign(Admin, {
     async submitFinExpense() {
         const payload = {
             expense_date: document.getElementById('fin-exp-date')?.value || '',
-            category: document.getElementById('fin-exp-cat')?.value || 'Khác',
+            category: document.getElementById('fin-exp-cat')?.value || (window.cnxT?window.cnxT('ui.admin_html.option_cd0ec881','Khác'):'Khác'),
             description: document.getElementById('fin-exp-desc')?.value?.trim() || '',
             supplier: document.getElementById('fin-exp-sup')?.value?.trim() || '',
             payment_status: document.getElementById('fin-exp-status')?.value || 'paid',
@@ -979,7 +987,7 @@ Object.assign(Admin, {
             vat_amount: Number(document.getElementById('fin-exp-vat')?.value || 0)
         };
         if (!payload.amount || payload.amount <= 0) {
-            alert('Vui lòng nhập số tiền lớn hơn 0!');
+            alert((window.cnxT?window.cnxT('js.s_fin.85c5909e','Vui lòng nhập số tiền lớn hơn 0!'):'Vui lòng nhập số tiền lớn hơn 0!'));
             return;
         }
         try {
@@ -993,10 +1001,10 @@ Object.assign(Admin, {
                 document.getElementById('fin-dynamic-modal')?.remove();
                 this.loadFinance();
             } else {
-                alert(data.message || 'Lỗi lưu khoản chi');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.0448bf3c','Lỗi lưu khoản chi'):'Lỗi lưu khoản chi'));
             }
         } catch (e) {
-            alert('Lỗi: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.5b983751','Lỗi: '):'Lỗi: ') + e.message);
         }
     },
 
@@ -1005,7 +1013,7 @@ Object.assign(Admin, {
         try {
             const res = await fetch('api/finance.php?action=get_tax_settings').then(r => r.json());
             if (res && res.success && res.data) cfg = { ...cfg, ...res.data };
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_finance_ecr.js', e) : console.debug('admin_finance_ecr.js', e)); }
 
         let modal = document.getElementById('fin-dynamic-modal');
         if (!modal) {
@@ -1017,26 +1025,26 @@ Object.assign(Admin, {
         modal.innerHTML = `
             <div class="liquid-glass rounded-2xl border border-amber-500/30 w-full max-w-sm p-5 space-y-3 bg-slate-900/95">
                 <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
-                    <h4 class="font-bold text-sm text-amber-300"><i class="fas fa-percent mr-1.5"></i>Cấu hình Thuế &amp; Định phí</h4>
+                    <h4 class="font-bold text-sm text-amber-300"><i class="fas fa-percent mr-1.5"></i>${window.cnxT?window.cnxT('js.s_fin.1f7af0d7','Cấu hình Thuế &amp; Định phí'):'Cấu hình Thuế &amp; Định phí'}</h4>
                     <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="space-y-2.5 text-xs">
                     <div>
-                        <label class="text-slate-400 block mb-1">Thuế suất VAT mặc định (%)</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.f95f88c1','Thuế suất VAT mặc định (%)'):'Thuế suất VAT mặc định (%)'}</label>
                         <input id="fin-tax-vat" type="number" step="0.1" value="${cfg.finance_vat_rate}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
                     </div>
                     <div>
-                        <label class="text-slate-400 block mb-1">Thuế TNCN / Hộ KD (%)</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.bbf1fe1e','Thuế TNCN / Hộ KD (%)'):'Thuế TNCN / Hộ KD (%)'}</label>
                         <input id="fin-tax-pit" type="number" step="0.1" value="${cfg.finance_pit_rate}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
                     </div>
                     <div>
-                        <label class="text-slate-400 block mb-1">Định phí dự phòng tháng (VNĐ)</label>
+                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.1eba80c7','Định phí dự phòng tháng (VNĐ)'):'Định phí dự phòng tháng (VNĐ)'}</label>
                         <input id="fin-tax-fixed" type="number" step="10000" value="${cfg.finance_fixed_cost}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
                     </div>
                 </div>
                 <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
-                    <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">Hủy</button>
-                    <button type="button" onclick="Admin.submitFinTax()" class="btn-glass text-xs py-1.5 px-4 bg-amber-500/30 text-amber-200 border-amber-400/40 font-bold">Lưu cấu hình</button>
+                    <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">${window.cnxT?window.cnxT('ui.admin_html.button_d7d5c86c','Hủy'):'Hủy'}</button>
+                    <button type="button" onclick="Admin.submitFinTax()" class="btn-glass text-xs py-1.5 px-4 bg-amber-500/30 text-amber-200 border-amber-400/40 font-bold">${window.cnxT?window.cnxT('js.s_fin.8e3fcce0','Lưu cấu hình'):'Lưu cấu hình'}</button>
                 </div>
             </div>
         `;
@@ -1059,17 +1067,17 @@ Object.assign(Admin, {
                 document.getElementById('fin-dynamic-modal')?.remove();
                 this.loadFinance();
             } else {
-                alert(data.message || 'Lỗi lưu cấu hình thuế');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.328cd47e','Lỗi lưu cấu hình thuế'):'Lỗi lưu cấu hình thuế'));
             }
         } catch (e) {
-            alert('Lỗi: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.5b983751','Lỗi: '):'Lỗi: ') + e.message);
         }
     },
 
     exportFinanceCsv() {
         const rep = this._lastFinanceReport;
         if (!rep || !rep.summary) {
-            alert('Chưa có dữ liệu báo cáo để xuất CSV!');
+            alert((window.cnxT?window.cnxT('js.s_fin.41ccadf7','Chưa có dữ liệu báo cáo để xuất CSV!'):'Chưa có dữ liệu báo cáo để xuất CSV!'));
             return;
         }
         const s = rep.summary;
@@ -1149,11 +1157,11 @@ Object.assign(Admin, {
                 if (data.module_state === 'BLOCKED') {
                     lockBanner.classList.remove('hidden');
                     lockBanner.className = 'p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-xs text-rose-200 flex items-center gap-2.5';
-                    lockText.innerHTML = `<b>LƯU Ý:</b> ${data.message || 'Module Cà thẻ tín dụng đang bị KHÓA CƯỠNG CHẾ bởi Quản trị viên CyberNexus Master.'}`;
+                    lockText.innerHTML = `<b>${window.cnxT?window.cnxT('js.s_fin.a82b5f9a','LƯU Ý:'):'LƯU Ý:'}</b> ${data.message || (window.cnxT?window.cnxT('js.s_fin.5d39758b','Module Cà thẻ tín dụng đang bị KHÓA CƯỠNG CHẾ bởi Quản trị viên CyberNexus Master.'):'Module Cà thẻ tín dụng đang bị KHÓA CƯỠNG CHẾ bởi Quản trị viên CyberNexus Master.')}`;
                 } else if (data.module_state === 'OFF') {
                     lockBanner.classList.remove('hidden');
                     lockBanner.className = 'p-3 rounded-xl bg-amber-950/70 border border-amber-500/50 text-xs text-amber-200 flex items-center gap-2.5';
-                    lockText.innerHTML = `<b>LƯU Ý:</b> ${data.message || 'Module Cà thẻ tín dụng đang ở trạng thái TẮT trên gói bản quyền.'}`;
+                    lockText.innerHTML = `<b>${window.cnxT?window.cnxT('js.s_fin.a82b5f9a','LƯU Ý:'):'LƯU Ý:'}</b> ${data.message || (window.cnxT?window.cnxT('js.s_fin.9d046a0e','Module Cà thẻ tín dụng đang ở trạng thái TẮT trên gói bản quyền.'):'Module Cà thẻ tín dụng đang ở trạng thái TẮT trên gói bản quyền.')}`;
                 } else {
                     lockBanner.classList.add('hidden');
                 }
@@ -1161,6 +1169,14 @@ Object.assign(Admin, {
 
             // Fill Config Inputs
             const cfg = data.config || {};
+            const isSim = Number(cfg.simulation_mode ?? 1) !== 0;
+            const simBadge = document.getElementById('ecr-sim-mode-badge');
+            if (simBadge) {
+                simBadge.classList.toggle('hidden', !isSim);
+                simBadge.textContent = typeof window.cnxT === 'function'
+                    ? '⚠️ ' + window.cnxT('common.sim_warning', 'CHẾ ĐỘ MÔ PHỎNG — CHƯA NỐI THIẾT BỊ THẬT')
+                    : (window.cnxT?window.cnxT('ui.adm_html.span_3fc18a5c','⚠️ CHẾ ĐỘ MÔ PHỎNG — CHƯA NỐI THIẾT BỊ THẬT'):'⚠️ CHẾ ĐỘ MÔ PHỎNG — CHƯA NỐI THIẾT BỊ THẬT');
+            }
             const elModel = document.getElementById('ecr-cfg-model-code');
             const elBank = document.getElementById('ecr-cfg-acquirer-bank');
             const elConn = document.getElementById('ecr-cfg-conn-type');
@@ -1170,22 +1186,24 @@ Object.assign(Admin, {
             const elMid = document.getElementById('ecr-cfg-mid');
             const elSecret = document.getElementById('ecr-cfg-secret');
             const elSurcharge = document.getElementById('ecr-cfg-surcharge');
+            const elSimMode = document.getElementById('ecr-cfg-sim-mode');
             const elSim = document.getElementById('ecr-cfg-sim-behavior');
             const elMasterFee = document.getElementById('ecr-cfg-master-fee-display');
 
             if (elModel && cfg.model_code) elModel.value = cfg.model_code;
             if (elBank && cfg.acquirer_bank) elBank.value = cfg.acquirer_bank;
-            if (elConn && cfg.connection_type) elConn.value = cfg.connection_type;
+            if (elConn && (cfg.connection_type || cfg.connection_mode)) elConn.value = cfg.connection_type || cfg.connection_mode;
             if (elIp && cfg.terminal_ip) elIp.value = cfg.terminal_ip;
             if (elPort && cfg.terminal_port) elPort.value = cfg.terminal_port;
-            if (elTid && cfg.tid) elTid.value = cfg.tid;
-            if (elMid && cfg.mid) elMid.value = cfg.mid;
+            if (elTid && (cfg.tid || cfg.terminal_id_tid)) elTid.value = cfg.tid || cfg.terminal_id_tid;
+            if (elMid && (cfg.mid || cfg.merchant_id_mid)) elMid.value = cfg.mid || cfg.merchant_id_mid;
             if (elSecret && cfg.secret_key) elSecret.value = cfg.secret_key;
             if (elSurcharge) elSurcharge.value = cfg.customer_surcharge_percent ?? 0;
-            if (elSim && cfg.simulation_behavior) elSim.value = cfg.simulation_behavior;
+            if (elSimMode) elSimMode.value = isSim ? '1' : '0';
+            if (elSim && (cfg.simulation_behavior || cfg.sim_behavior)) elSim.value = cfg.simulation_behavior || cfg.sim_behavior;
 
             if (elMasterFee) {
-                elMasterFee.innerHTML = `<span>${Number(data.master_fee_percent ?? 0)}%</span><span class="text-[9px] text-slate-500">Do Master quy định</span>`;
+                elMasterFee.innerHTML = `<span>${Number(data.master_fee_percent ?? 0)}%</span><span class="text-[9px] text-slate-500">${window.cnxT?window.cnxT('ui.adm_html.span_2708ebb7','Do Master quy định'):'Do Master quy định'}</span>`;
             }
 
             this.onSelectEcrModel(elModel ? elModel.value : 'PAX_A920_PRO');
@@ -1200,7 +1218,7 @@ Object.assign(Admin, {
         if (!specsEl) return;
         const found = (this.cardCompatibleModels || []).find(m => m.model_code === modelCode);
         if (found) {
-            specsEl.textContent = `Chuẩn bảo mật: ${found.security_standard} • Giao thức: ${found.protocol} • Hỗ trợ: ${found.supported_interfaces}`;
+            specsEl.textContent = `${window.cnxT?window.cnxT('js.s_fin.bcd44418','Chuẩn bảo mật:'):'Chuẩn bảo mật:'} ${found.security_standard} ${window.cnxT?window.cnxT('js.s_fin.4f9e03b5','• Giao thức:'):'• Giao thức:'} ${found.protocol} ${window.cnxT?window.cnxT('js.s_fin.0e212c4d','• Hỗ trợ:'):'• Hỗ trợ:'} ${found.supported_interfaces}`;
         }
     },
 
@@ -1208,14 +1226,15 @@ Object.assign(Admin, {
         const payload = {
             model_code: document.getElementById('ecr-cfg-model-code')?.value || 'PAX_A920_PRO',
             acquirer_bank: document.getElementById('ecr-cfg-acquirer-bank')?.value || 'Vietcombank',
-            connection_type: document.getElementById('ecr-cfg-conn-type')?.value || 'LAN_TCP',
+            connection_mode: document.getElementById('ecr-cfg-conn-type')?.value || 'LAN_TCP',
             terminal_ip: document.getElementById('ecr-cfg-ip')?.value.trim() || '10.0.126.250',
             terminal_port: parseInt(document.getElementById('ecr-cfg-port')?.value || '10009', 10),
-            tid: document.getElementById('ecr-cfg-tid')?.value.trim() || '88001234',
-            mid: document.getElementById('ecr-cfg-mid')?.value.trim() || '000001088001234',
-            secret_key: document.getElementById('ecr-cfg-secret')?.value.trim() || 'NEXUS-ECR-2026-KEY',
+            terminal_id_tid: document.getElementById('ecr-cfg-tid')?.value.trim() || '88001234',
+            merchant_id_mid: document.getElementById('ecr-cfg-mid')?.value.trim() || '000001088001234',
+            api_secret: document.getElementById('ecr-cfg-secret')?.value.trim() || 'NEXUS-ECR-2026-KEY',
             customer_surcharge_percent: parseFloat(document.getElementById('ecr-cfg-surcharge')?.value || '0') || 0,
-            simulation_behavior: document.getElementById('ecr-cfg-sim-behavior')?.value || 'AUTO_APPROVE'
+            simulation_mode: Number(document.getElementById('ecr-cfg-sim-mode')?.value ?? 1),
+            sim_behavior: document.getElementById('ecr-cfg-sim-behavior')?.value || 'AUTO_APPROVE'
         };
 
         try {
@@ -1226,13 +1245,13 @@ Object.assign(Admin, {
             });
             const data = await res.json();
             if (data.success) {
-                alert('Đã lưu cấu hình liên kết máy SmartPOS ECR thành công!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.d7de84cc','Đã lưu cấu hình liên kết máy SmartPOS ECR thành công!'):'Đã lưu cấu hình liên kết máy SmartPOS ECR thành công!'));
                 this.loadCardTerminalAdmin();
             } else {
-                alert(data.message || 'Lỗi lưu cấu hình máy POS');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.6783abbb','Lỗi lưu cấu hình máy POS'):'Lỗi lưu cấu hình máy POS'));
             }
         } catch (e) {
-            alert('Lỗi kết nối máy chủ: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_fin.a44416a1','Lỗi kết nối máy chủ: '):'Lỗi kết nối máy chủ: ') + e.message);
         }
     },
 
@@ -1241,29 +1260,41 @@ Object.assign(Admin, {
         if (resultEl) {
             resultEl.classList.remove('hidden');
             resultEl.className = 'p-2.5 rounded-xl bg-slate-950/90 border border-sky-500/30 text-xs font-mono text-sky-300';
-            resultEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i>Đang gửi gói tin ECHO TEST / HANDSHAKE sang SmartPOS...';
+            resultEl.innerHTML = (window.cnxT?window.cnxT('js.s_fin.96bf4056','<i class="fas fa-spinner fa-spin mr-1.5"></i>Đang gửi gói tin ECHO TEST / HANDSHAKE sang SmartPOS...'):'<i class="fas fa-spinner fa-spin mr-1.5"></i>Đang gửi gói tin ECHO TEST / HANDSHAKE sang SmartPOS...');
         }
+
+        const probePayload = {
+            model_code: document.getElementById('ecr-cfg-model-code')?.value || 'PAX_A920_PRO',
+            connection_mode: document.getElementById('ecr-cfg-conn-type')?.value || 'LAN_TCP',
+            terminal_ip: document.getElementById('ecr-cfg-ip')?.value.trim() || '10.0.126.250',
+            terminal_port: parseInt(document.getElementById('ecr-cfg-port')?.value || '10009', 10),
+            simulation_mode: Number(document.getElementById('ecr-cfg-sim-mode')?.value ?? 1)
+        };
 
         try {
             const res = await fetch('/api/card/test-connection', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
+                body: JSON.stringify(probePayload)
             });
             const data = await res.json();
             if (resultEl) {
                 if (data.success && data.status === 'CONNECTED') {
-                    resultEl.className = 'p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-xs font-mono text-emerald-300';
-                    resultEl.innerHTML = `<i class="fas fa-circle-check mr-1.5"></i><b>${data.message}</b> • Máy: ${data.terminal_name} • Firmware: ${data.firmware || 'v3.2'} • Độ trễ: ${data.latency_ms || 12}ms`;
+                    const isSim = data.simulation_mode !== false;
+                    const modeTag = isSim
+                        ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] mr-1.5">⚠️ MÔ PHỎNG</span>'
+                        : (window.cnxT?window.cnxT('js.s_fin.18c0259e','<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] mr-1.5">🟢 THIẾT BỊ THẬT</span>'):'<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] mr-1.5">🟢 THIẾT BỊ THẬT</span>');
+                    resultEl.className = `p-2.5 rounded-xl ${isSim ? 'bg-amber-950/70 border border-amber-500/50 text-amber-200' : 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300'} text-xs font-mono`;
+                    resultEl.innerHTML = `<i class="fas fa-circle-check mr-1.5"></i>${modeTag}<b>${escapeHtml(data.message)}</b> • Máy: ${escapeHtml(data.terminal_name || '')} • Firmware: ${escapeHtml(data.firmware || 'v3.2')} ${window.cnxT?window.cnxT('js.s_fin.c44b2c2c','• Độ trễ:'):'• Độ trễ:'} ${Number(data.latency_ms ?? 12)}ms`;
                 } else {
                     resultEl.className = 'p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-xs font-mono text-rose-300';
-                    resultEl.innerHTML = `<i class="fas fa-triangle-exclamation mr-1.5"></i>${data.message || 'Không thể bắt tay với SmartPOS'}`;
+                    resultEl.innerHTML = `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(data.message || (window.cnxT?window.cnxT('js.s_fin.5409dfc6','Không thể bắt tay với SmartPOS'):'Không thể bắt tay với SmartPOS'))}`;
                 }
             }
         } catch (e) {
             if (resultEl) {
                 resultEl.className = 'p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-xs font-mono text-rose-300';
-                resultEl.innerHTML = `<i class="fas fa-triangle-exclamation mr-1.5"></i>Lỗi kết nối: ${e.message}`;
+                resultEl.innerHTML = `<i class="fas fa-triangle-exclamation mr-1.5"></i>Lỗi kết nối: ${escapeHtml(e.message)}`;
             }
         }
     },
@@ -1288,12 +1319,12 @@ Object.assign(Admin, {
             });
 
             if (badge) {
-                badge.textContent = `Lô hiện tại: ${countApproved} GD • ${this.formatMoney(sumApproved)} đ`;
+                badge.textContent = `${window.cnxT?window.cnxT('js.s_fin.23e47a92','Lô hiện tại:'):'Lô hiện tại:'} ${countApproved} GD • ${this.formatMoney(sumApproved)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
             }
 
             if (!tbody) return;
             if (txs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-slate-500">Chưa có giao dịch cà thẻ nào.</td></tr>';
+                tbody.innerHTML = (window.cnxT?window.cnxT('js.s_fin.2c2f5e68','<tr><td colspan="8" class="text-center py-4 text-slate-500">Chưa có giao dịch cà thẻ nào.</td></tr>'):'<tr><td colspan="8" class="text-center py-4 text-slate-500">Chưa có giao dịch cà thẻ nào.</td></tr>');
                 return;
             }
 
@@ -1309,8 +1340,8 @@ Object.assign(Admin, {
                         : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${t.status}</span>`);
 
                 const settleBadge = isSettled
-                    ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">ĐÃ KẾT TOÁN</span>`
-                    : `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-800 text-slate-400">CHỜ KẾT TOÁN</span>`;
+                    ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">${window.cnxT?window.cnxT('js.s_fin.9f3c8c81','ĐÃ KẾT TOÁN'):'ĐÃ KẾT TOÁN'}</span>`
+                    : `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-800 text-slate-400">${window.cnxT?window.cnxT('js.s_fin.ae29a26f','CHỜ KẾT TOÁN'):'CHỜ KẾT TOÁN'}</span>`;
 
                 const canVoid = isApproved && !isSettled;
 
@@ -1346,8 +1377,8 @@ Object.assign(Admin, {
                         </td>
                         <td class="col-right">
                             ${canVoid ? `
-                                <button type="button" onclick="Admin.voidCardTransaction(${t.id}, '${t.trace_no}', ${t.total_charged})" class="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 text-[10px] font-bold transition">
-                                    <i class="fas fa-ban mr-0.5"></i> HỦY (VOID)
+                                <button type="button" onclick="Admin.voidCardTransaction(${Number(t.id)}, '${escapeJsAttr(t.trace_no)}', ${Number(t.total_charged) || 0})" class="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 text-[10px] font-bold transition">
+                                    <i class="fas fa-ban mr-0.5"></i> ${window.cnxT?window.cnxT('js.s_fin.96000947','HỦY (VOID)'):'HỦY (VOID)'}
                                 </button>
                             ` : `<span class="text-slate-600 text-[10px]">--</span>`}
                         </td>
@@ -1360,7 +1391,7 @@ Object.assign(Admin, {
     },
 
     async voidCardTransaction(transId, traceNo, amount) {
-        const reason = prompt(`Xác nhận HỦY (VOID) giao dịch thẻ Trace #${traceNo} (${this.formatMoney(amount)} đ)?\nNhập lý do hủy (Audit Trail):`, 'Khách yêu cầu hủy / Thu ngân thanh toán nhầm');
+        const reason = await window.cnxPrompt(`${window.cnxT?window.cnxT('js.s_fin.c0f0059e','Xác nhận HỦY (VOID) giao dịch thẻ Trace #'):'Xác nhận HỦY (VOID) giao dịch thẻ Trace #'}${traceNo} (${this.formatMoney(amount)} ${window.cnxT?window.cnxT('js.s_fin.634ba62b','đ)?\\nNhập lý do hủy (Audit Trail):'):'đ)?\\nNhập lý do hủy (Audit Trail):'}`, (window.cnxT?window.cnxT('js.s_fin.4d0bb0ca','Khách yêu cầu hủy / Thu ngân thanh toán nhầm'):'Khách yêu cầu hủy / Thu ngân thanh toán nhầm'));
         if (!reason) return;
 
         try {
@@ -1375,18 +1406,18 @@ Object.assign(Admin, {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Đã hủy giao dịch thẻ thành công!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.a5b0cbcb','Đã hủy giao dịch thẻ thành công!'):'Đã hủy giao dịch thẻ thành công!'));
                 this.loadCardTransactions();
             } else {
-                alert(data.message || 'Không thể hủy giao dịch');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.5b3a3c52','Không thể hủy giao dịch'):'Không thể hủy giao dịch'));
             }
         } catch (e) {
-            alert('Lỗi kết nối hủy giao dịch: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_fin.b6e7ddab','Lỗi kết nối hủy giao dịch: '):'Lỗi kết nối hủy giao dịch: ') + e.message);
         }
     },
 
     async settleCardBatch() {
-        if (!confirm('Xác nhận KẾT TOÁN LÔ (BATCH SETTLEMENT) cho toàn bộ giao dịch thẻ SmartPOS hiện tại?\n\nToàn bộ tiền sẽ được ngân hàng chốt phiên và đối soát vào tài khoản quán.')) {
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_fin.547b9884','Xác nhận KẾT TOÁN LÔ (BATCH SETTLEMENT) cho toàn bộ giao dịch thẻ SmartPOS hiện tại?\n\nToàn bộ tiền sẽ được ngân hàng chốt phiên và đối soát vào tài khoản quán.'):'Xác nhận KẾT TOÁN LÔ (BATCH SETTLEMENT) cho toàn bộ giao dịch thẻ SmartPOS hiện tại?\n\nToàn bộ tiền sẽ được ngân hàng chốt phiên và đối soát vào tài khoản quán.')))) {
             return;
         }
 
@@ -1401,13 +1432,13 @@ Object.assign(Admin, {
             const data = await res.json();
             if (data.success) {
                 const s = data.summary || {};
-                alert(`${data.message}\n\n• Số giao dịch: ${s.settled_count || 0}\n• Tổng tiền: ${this.formatMoney(s.total_amount)} đ\n• Số lô mới: ${data.batch_number}`);
+                alert(`${data.message}${window.cnxT?window.cnxT('js.s_fin.100d5b79','\\n\\n• Số giao dịch:'):'\\n\\n• Số giao dịch:'} ${s.settled_count || 0}${window.cnxT?window.cnxT('js.s_fin.6f53626b','\\n• Tổng tiền:'):'\\n• Tổng tiền:'} ${this.formatMoney(s.total_amount)} ${window.cnxT?window.cnxT('js.s_fin.31f3d0b4','đ\\n• Số lô mới:'):'đ\\n• Số lô mới:'} ${data.batch_number}`);
                 this.loadCardTransactions();
             } else {
-                alert(data.message || 'Lỗi kết toán lô');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.1c9669d7','Lỗi kết toán lô'):'Lỗi kết toán lô'));
             }
         } catch (e) {
-            alert('Lỗi kết nối kết toán lô: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_fin.aa235efa','Lỗi kết nối kết toán lô: '):'Lỗi kết nối kết toán lô: ') + e.message);
         }
     },
 
@@ -1417,47 +1448,47 @@ Object.assign(Admin, {
         try {
             const res = await fetch('api/promotions.php?action=list').then(r => r.json());
             if (!res || !res.success) {
-                listEl.innerHTML = `<div class="text-[11px] text-slate-500 italic">${(res && res.message) || 'Chưa tải được danh sách khuyến mãi.'}</div>`;
+                listEl.innerHTML = `<div class="text-[11px] text-slate-500 italic">${res ? escapeHtml(cnxApiMsg(res, (window.cnxT?window.cnxT('js.s_fin.d11b32c0','Chưa tải được danh sách khuyến mãi.'):'Chưa tải được danh sách khuyến mãi.'))) : (window.cnxT?window.cnxT('js.s_fin.d11b32c0','Chưa tải được danh sách khuyến mãi.'):'Chưa tải được danh sách khuyến mãi.')}</div>`;
                 return;
             }
             const rows = Array.isArray(res.data) ? res.data : [];
             this._promotionsCache = rows;
             if (rows.length === 0) {
-                listEl.innerHTML = '<div class="text-[11px] text-slate-500 italic p-3 rounded-xl bg-slate-950/50 border border-white/5 text-center">Chưa có chương trình khuyến mãi nào. Bấm "Tạo Khuyến Mãi" để bắt đầu.</div>';
+                listEl.innerHTML = (window.cnxT?window.cnxT('js.s_fin.170fa3be','<div class="text-[11px] text-slate-500 italic p-3 rounded-xl bg-slate-950/50 border border-white/5 text-center">Chưa có chương trình khuyến mãi nào. Bấm "Tạo Khuyến Mãi" để bắt đầu.</div>'):'<div class="text-[11px] text-slate-500 italic p-3 rounded-xl bg-slate-950/50 border border-white/5 text-center">Chưa có chương trình khuyến mãi nào. Bấm "Tạo Khuyến Mãi" để bắt đầu.</div>');
                 return;
             }
             listEl.innerHTML = rows.map(p => {
                 const isActive = Number(p.is_active) === 1;
                 const valTxt = p.discount_type === 'percent'
-                    ? `${p.discount_value}%${Number(p.max_discount_amount) > 0 ? ` (tối đa ${this.formatMoney(p.max_discount_amount)}đ)` : ''}`
-                    : `${this.formatMoney(p.discount_value)}đ`;
-                const limitTxt = Number(p.usage_limit) > 0 ? `${p.used_count || 0}/${p.usage_limit} lượt` : `${p.used_count || 0} lượt (∞)`;
-                const timeTxt = (p.start_time || p.end_time) ? ` • Giờ vàng ${p.start_time || '00:00'}–${p.end_time || '23:59'}` : '';
-                const dateTxt = (p.start_date || p.end_date) ? ` • ${p.start_date || '...'} → ${p.end_date || '...'}` : '';
+                    ? `${Number(p.discount_value) || 0}%${Number(p.max_discount_amount) > 0 ? ` ${window.cnxT?window.cnxT('js.s_fin.82a97937','(tối đa'):'(tối đa'} ${this.formatMoney(p.max_discount_amount)}${window.cnxT?window.cnxT('js.s_cust.72b7fe2d','đ)'):'đ)'}` : ''}`
+                    : `${this.formatMoney(p.discount_value)}${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
+                const limitTxt = Number(p.usage_limit) > 0 ? `${p.used_count || 0}/${p.usage_limit} ${window.cnxT?window.cnxT('js.s_fin.e34da69e','lượt'):'lượt'}` : `${p.used_count || 0} ${window.cnxT?window.cnxT('js.s_fin.d3efe5f8','lượt (∞)'):'lượt (∞)'}`;
+                const timeTxt = (p.start_time || p.end_time) ? ` ${window.cnxT?window.cnxT('js.s_fin.f9148416','• Giờ vàng'):'• Giờ vàng'} ${escapeHtml(p.start_time || '00:00')}–${escapeHtml(p.end_time || '23:59')}` : '';
+                const dateTxt = (p.start_date || p.end_date) ? ` • ${escapeHtml(p.start_date || '...')} → ${escapeHtml(p.end_date || '...')}` : '';
                 return `
                     <div class="p-3 rounded-xl ${isActive ? 'bg-slate-950/75 border border-emerald-500/30' : 'bg-slate-950/40 border border-white/5 opacity-60'} flex flex-wrap items-center justify-between gap-2">
                         <div class="min-w-0 space-y-0.5">
                             <div class="flex flex-wrap items-center gap-1.5">
-                                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 font-mono font-black text-[11px]">${p.code}</span>
-                                <b class="text-white text-xs">${p.name}</b>
-                                <span class="px-1.5 py-0.5 rounded text-[10px] ${p.promo_mode === 'auto' ? 'bg-sky-500/20 text-sky-300' : 'bg-purple-500/20 text-purple-300'}">${p.promo_mode === 'auto' ? 'Tự động áp' : 'Mã Voucher'}</span>
+                                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 font-mono font-black text-[11px]">${escapeHtml(p.code)}</span>
+                                <b class="text-white text-xs">${escapeHtml(p.name)}</b>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] ${p.promo_mode === 'auto' ? 'bg-sky-500/20 text-sky-300' : 'bg-purple-500/20 text-purple-300'}">${p.promo_mode === 'auto' ? 'Tự động áp' : (window.cnxT?window.cnxT('js.s_fin.b508a44d','Mã Voucher'):'Mã Voucher')}</span>
                             </div>
                             <div class="text-[11px] text-slate-400">
-                                Giảm <b class="text-emerald-300">${valTxt}</b>${Number(p.min_order_amount) > 0 ? ` • Đơn từ ${this.formatMoney(p.min_order_amount)}đ` : ''}${dateTxt}${timeTxt}
+                                ${window.cnxT?window.cnxT('js.s_fin.76d8f41f','Giảm'):'Giảm'} <b class="text-emerald-300">${valTxt}</b>${Number(p.min_order_amount) > 0 ? ` ${window.cnxT?window.cnxT('js.s_fin.2840c8d3','• Đơn từ'):'• Đơn từ'} ${this.formatMoney(p.min_order_amount)}${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}` : ''}${dateTxt}${timeTxt}
                             </div>
                             <div class="text-[10px] font-mono text-slate-400">
-                                Đã dùng: <b class="text-sky-300">${limitTxt}</b> • Tổng giảm: <b class="text-rose-300">${this.formatMoney(p.total_discount_given || 0)}đ</b> • Doanh thu: <b class="text-emerald-300">${this.formatMoney(p.net_revenue_generated || 0)}đ</b>
+                                ${window.cnxT?window.cnxT('js.s_fin.185bb788','Đã dùng:'):'Đã dùng:'} <b class="text-sky-300">${limitTxt}</b> ${window.cnxT?window.cnxT('js.s_fin.81783c2e','• Tổng giảm:'):'• Tổng giảm:'} <b class="text-rose-300">${this.formatMoney(p.total_discount_given || 0)}đ</b> • Doanh thu: <b class="text-emerald-300">${this.formatMoney(p.net_revenue_generated || 0)}đ</b>
                             </div>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
-                            <button type="button" onclick="Admin.togglePromotion(${p.id})" class="px-2.5 py-1 rounded-lg ${isActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-white/10'} border text-[10px] font-bold">${isActive ? 'Đang bật' : 'Đã tắt'}</button>
+                            <button type="button" onclick="Admin.togglePromotion(${p.id})" class="px-2.5 py-1 rounded-lg ${isActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-white/10'} border text-[10px] font-bold">${isActive ? 'Đang bật' : (window.cnxT?window.cnxT('js.s_fin.7b0c8a03','Đã tắt'):'Đã tắt')}</button>
                             <button type="button" onclick="Admin.openPromoFormModal(${p.id})" class="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-300 text-[10px]" title="Sửa"><i class="fas fa-pen"></i></button>
                             <button type="button" onclick="Admin.deletePromotion(${p.id})" class="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-[10px]" title="Xóa"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
                 `;
             }).join('');
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_finance_ecr.js', e) : console.debug('admin_finance_ecr.js', e)); }
     },
 
     openPromoFormModal(editId = 0) {
@@ -1505,7 +1536,7 @@ Object.assign(Admin, {
             document.getElementById('promo-form-box')?.classList.add('hidden');
             await this.loadPromotions();
         } else {
-            alert(res.message || 'Không thể lưu khuyến mãi');
+            alert(res.message || (window.cnxT?window.cnxT('js.s_fin.1eed6289','Không thể lưu khuyến mãi'):'Không thể lưu khuyến mãi'));
         }
     },
 
@@ -1519,7 +1550,7 @@ Object.assign(Admin, {
     },
 
     async deletePromotion(id) {
-        if (!confirm('Xóa chương trình khuyến mãi này?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_fin.4646cd50','Xóa chương trình khuyến mãi này?'):'Xóa chương trình khuyến mãi này?')))) return;
         await fetch('api/promotions.php?action=delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

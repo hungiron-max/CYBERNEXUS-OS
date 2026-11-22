@@ -267,6 +267,9 @@ private:
         if (m_masterServerUrl.empty()) {
             m_masterServerUrl = "http://127.0.0.1:8500";
         }
+        if (m_masterFallbackUrl.empty()) {
+            m_masterFallbackUrl = "http://10.0.126.159:8500";
+        }
         if (m_tenantCode.empty()) {
             m_tenantCode = "GP001";
         }

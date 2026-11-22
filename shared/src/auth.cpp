@@ -223,25 +223,32 @@ bool AuthService::hasRole(const SessionUser& user, const std::string& requiredRo
 json AuthService::login(const std::string& usernameOrCode, const std::string& password) {
     auto& db = Database::instance();
 
-    // 1. Check Super Admin credentials
+    if (usernameOrCode.empty() || password.empty()) {
+        return {{"success", false}, {"message", "Vui lòng nhập đầy đủ tài khoản và mật khẩu!"}};
+    }
+
+#ifndef CYBERNEXUS_ROLE_SLAVE
+    // 1. Check Super Admin credentials (chỉ áp dụng trên Master; bị tắt 100% trên Slave Edge Node)
     auto superAdminRow = db.queryRow(
-        "SELECT value FROM saas_settings WHERE key = 'super_admin_password_hash'"
+        "SELECT setting_value FROM saas_settings WHERE setting_key = 'super_admin_password_hash' LIMIT 1"
     );
     std::string superUser = "superadmin";
     auto superUserRow = db.queryRow(
-        "SELECT value FROM saas_settings WHERE key = 'super_admin_username'"
+        "SELECT setting_value FROM saas_settings WHERE setting_key = 'super_admin_username' LIMIT 1"
     );
     if (!superUserRow.is_null()) {
-        superUser = superUserRow.value("value", "superadmin");
+        superUser = superUserRow.value("setting_value", "superadmin");
     }
 
     if (usernameOrCode == superUser || usernameOrCode == "superadmin") {
-        std::string superHash = superAdminRow.is_null() ? "" : superAdminRow.value("value", "");
+        std::string superHash = superAdminRow.is_null() ? "" : superAdminRow.value("setting_value", "");
         bool superMatched = false;
-        if (password == "admin123" || password == "123456" || password == "admin" || password.empty()) {
-            superMatched = true;
-        } else if (!superHash.empty()) {
-            superMatched = (pos_bcrypt_checkpw(password.c_str(), superHash.c_str()) == 0);
+        if (!superHash.empty()) {
+            if (superHash.find("$2") == 0) {
+                superMatched = (pos_bcrypt_checkpw(password.c_str(), superHash.c_str()) == 0);
+            } else {
+                superMatched = (password == superHash || sha256(password) == superHash);
+            }
         } else {
             superMatched = (password == "admin123");
         }
@@ -271,6 +278,7 @@ json AuthService::login(const std::string& usernameOrCode, const std::string& pa
             };
         }
     }
+#endif
 
     // 2. Query normal users by username or user_code
     auto user = db.queryRow(
@@ -285,17 +293,13 @@ json AuthService::login(const std::string& usernameOrCode, const std::string& pa
     std::string storedPass = user.value("password", "");
     bool matched = false;
 
-    // Check 123456 or empty or admin fallback
-    if (password == "123456" || password.empty() || password == "admin") {
-        matched = true;
-    }
-    // Check Bcrypt password
-    if (!matched && storedPass.find("$2") == 0) {
-        matched = (pos_bcrypt_checkpw(password.c_str(), storedPass.c_str()) == 0);
-    }
-    // Fallback check for plain or sha256
-    if (!matched) {
-        matched = (storedPass == password || storedPass == sha256(password));
+    // Strict verification: never accept hardcoded default passwords ("123456", "admin", "")
+    if (!storedPass.empty()) {
+        if (storedPass.find("$2") == 0) {
+            matched = (pos_bcrypt_checkpw(password.c_str(), storedPass.c_str()) == 0);
+        } else {
+            matched = (storedPass == password || storedPass == sha256(password));
+        }
     }
 
     if (!matched) {

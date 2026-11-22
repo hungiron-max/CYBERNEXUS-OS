@@ -4,7 +4,7 @@
 
 const POS = {
     // State
-    currentTable: { id: 1, code: 'MV1', area_type: 'MANG_VE', name: 'Mang Về 01' },
+    currentTable: { id: 1, code: 'MV1', area_type: 'MANG_VE', name: (window.cnxT?window.cnxT('js.s_pos.e442bf55','Mang Về 01'):'Mang Về 01') },
     activeOrderId: null,
     cart: [],
     categories: [],
@@ -14,7 +14,7 @@ const POS = {
     selectedCategoryId: 'all',
     discount: { type: 'amount', value: 0 },
     vatPercent: 0,
-    customerName: 'Khách vãng lai',
+    customerName: (window.cnxT?window.cnxT('js.s_pos.53fa7723','Khách vãng lai'):'Khách vãng lai'),
     guestCount: 1,
     note: '',
     storeSettings: {},
@@ -102,17 +102,18 @@ const POS = {
         let html = `
             <button type="button" class="category-pill shrink-0 ${this.selectedCategoryId === 'all' ? 'active' : ''}" onclick="POS.filterCategory('all')">
                 <i class="fas fa-th-large text-sky-400"></i>
-                <span>TẤT CẢ</span>
+                <span>${window.cnxT?window.cnxT('js.s_pos.8b863b9d','TẤT CẢ'):'TẤT CẢ'}</span>
             </button>
         `;
 
         this.categories.forEach(cat => {
             const isActive = this.selectedCategoryId == cat.id ? 'active' : '';
+            const catName = typeof window.cnxDbText === 'function' ? window.cnxDbText(cat, 'name', cat.name) : cat.name;
             html += `
-                <button type="button" class="category-pill shrink-0 ${isActive}" onclick="POS.filterCategory(${cat.id})">
-                    <i class="fas fa-${cat.icon || 'utensils'} text-amber-400"></i>
-                    <span>${cat.name}</span>
-                    <span class="text-[10px] sm:text-xs bg-slate-800/80 px-1.5 py-0.2 rounded-full ml-auto text-slate-400">${cat.product_count || 0}</span>
+                <button type="button" class="category-pill shrink-0 ${isActive}" onclick="POS.filterCategory(${Number(cat.id)})">
+                    <i class="fas fa-${escapeHtml(cat.icon || 'utensils')} text-amber-400"></i>
+                    <span>${escapeHtml(catName)}</span>
+                    <span class="text-[10px] sm:text-xs bg-slate-800/80 px-1.5 py-0.2 rounded-full ml-auto text-slate-400">${Number(cat.product_count || 0)}</span>
                 </button>
             `;
         });
@@ -173,8 +174,8 @@ const POS = {
             container.innerHTML = `
                 <div class="col-span-full py-16 text-center text-slate-400">
                     <i class="fas fa-mug-hot text-4xl mb-3 text-slate-600 block"></i>
-                    <p class="text-base font-semibold">Không tìm thấy món ăn phù hợp</p>
-                    <p class="text-xs text-slate-500 mt-1">Vui lòng chọn danh mục khác hoặc xóa từ khóa tìm kiếm</p>
+                    <p class="text-base font-semibold">${window.cnxT?window.cnxT('js.s_pos.a0fd31d5','Không tìm thấy món ăn phù hợp'):'Không tìm thấy món ăn phù hợp'}</p>
+                    <p class="text-xs text-slate-500 mt-1">${window.cnxT?window.cnxT('js.s_pos.64b35912','Vui lòng chọn danh mục khác hoặc xóa từ khóa tìm kiếm'):'Vui lòng chọn danh mục khác hoặc xóa từ khóa tìm kiếm'}</p>
                 </div>
             `;
             return;
@@ -184,33 +185,36 @@ const POS = {
         filtered.forEach(p => {
             const isTopping = p.is_topping == 1;
             const isLocked = (p.status === 'locked');
-            const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
+            const imgUrl = CyberSecurity.safeUrl(p.image || 'assets/images/dishes/default_dish.jpg');
+            const dishDisplayName = typeof window.cnxDbText === 'function' ? window.cnxDbText(p, 'name', p.name) : p.name;
+            const dishDisplayUnit = typeof window.cnxDbText === 'function' ? window.cnxDbText(p, 'unit', p.unit || 'ly') : (p.unit || 'ly');
+            const safeDishHtml = escapeHtml(dishDisplayName);
             html += `
-                <div class="liquid-glass-card p-2 sm:p-2.5 flex flex-col justify-between transition-all duration-200 select-none ${isLocked ? 'opacity-50 grayscale border-rose-500/40 bg-rose-950/20 cursor-not-allowed' : 'cursor-pointer border border-white/10 hover:border-sky-400/50 hover:shadow-xl hover:shadow-sky-500/10 group'}" onclick="${isLocked ? `alert('Món [${p.name.replace(/'/g, "\\'")}] hiện đang TẠM KHÓA (Hết hàng) bởi bếp!')` : `POS.addToCart(${p.id})`}">
+                <div class="liquid-glass-card p-2 sm:p-2.5 flex flex-col justify-between transition-all duration-200 select-none ${isLocked ? 'opacity-50 grayscale border-rose-500/40 bg-rose-950/20 cursor-not-allowed' : 'cursor-pointer border border-white/10 hover:border-sky-400/50 hover:shadow-xl hover:shadow-sky-500/10 group'}" onclick="${isLocked ? `alert('Món [${escapeJsAttr(dishDisplayName)}] hiện đang TẠM KHÓA (Hết hàng) bởi bếp!')` : `POS.addToCart(${Number(p.id)})`}">
                     <div>
                         <!-- Dish Image: 4:3 Aspect Ratio for Full, Un-cropped View -->
                         <div class="relative w-full aspect-[4/3] mb-2 rounded-xl overflow-hidden bg-slate-950/80 border border-white/10 group-hover:border-sky-400/40 transition-all shadow-inner flex items-center justify-center">
-                            <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
+                            <img src="${escapeHtml(imgUrl)}" alt="${safeDishHtml}" class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
                             
                             <!-- Badges Overlay (Non-obstructive) -->
                             <div class="absolute top-2 left-2 pointer-events-none">
-                                <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-950/85 backdrop-blur-md text-sky-400 border border-sky-500/30 shadow">${p.code || 'SP'}</span>
+                                <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-950/85 backdrop-blur-md text-sky-400 border border-sky-500/30 shadow">${escapeHtml(p.code || 'SP')}</span>
                             </div>
                             <div class="absolute top-2 right-2 pointer-events-none">
                                 ${isLocked 
                                     ? '<span class="text-[9px] font-black text-rose-300 bg-rose-950/90 px-2 py-0.5 rounded-md border border-rose-500/50 shadow">🚫 HẾT HÀNG</span>' 
-                                    : `<span class="text-[10px] font-semibold text-slate-200 bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/10 capitalize shadow">${p.unit || 'ly'}</span>`}
+                                    : `<span class="text-[10px] font-semibold text-slate-200 bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/10 capitalize shadow">${escapeHtml(dishDisplayUnit)}</span>`}
                             </div>
                             ${isTopping ? '<span class="absolute bottom-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/90 text-slate-950 shadow">Topping</span>' : ''}
                         </div>
 
                         <!-- Product Name -->
-                        <h4 class="font-bold text-xs sm:text-sm ${isLocked ? 'text-slate-400 line-through' : 'text-slate-100 group-hover:text-sky-300'} leading-snug line-clamp-2 min-h-[2.2rem]" title="${p.name}">${p.name}</h4>
+                        <h4 class="font-bold text-xs sm:text-sm ${isLocked ? 'text-slate-400 line-through' : 'text-slate-100 group-hover:text-sky-300'} leading-snug line-clamp-2 min-h-[2.2rem]" title="${safeDishHtml}">${safeDishHtml}</h4>
                     </div>
 
                     <!-- Price & Add Button -->
                     <div class="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
-                        <span class="text-xs sm:text-sm font-black text-amber-400 tracking-tight font-mono">${this.formatMoney(p.sale_price)} <span class="text-[10px] font-normal text-slate-400">đ</span></span>
+                        <span class="text-xs sm:text-sm font-black text-amber-400 tracking-tight font-mono">${this.formatMoney(p.sale_price)} <span class="text-[10px] font-normal text-slate-400">${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}</span></span>
                         <button type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${isLocked ? 'bg-rose-500/20 text-rose-400' : 'bg-sky-500/20 text-sky-400 group-hover:bg-sky-500 group-hover:text-white'} flex items-center justify-center transition-colors shadow">
                             <i class="fas ${isLocked ? 'fa-ban' : 'fa-plus'} text-xs"></i>
                         </button>
@@ -294,43 +298,43 @@ const POS = {
             let kitchenBadge = '';
             if (isOccupied) {
                 if (isPaid) {
-                    kitchenBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-300 font-bold ml-1 border border-teal-500/40">💰 Đã TT</span>';
+                    kitchenBadge = (window.cnxT?window.cnxT('js.s_pos.fb0337e7','<span class="text-[9px] px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-300 font-bold ml-1 border border-teal-500/40">💰 Đã TT</span>'):'<span class="text-[9px] px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-300 font-bold ml-1 border border-teal-500/40">💰 Đã TT</span>');
                 }
                 if (isReady) {
-                    kitchenBadge += '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black animate-pulse ml-1">Bếp xong</span>';
+                    kitchenBadge += (window.cnxT?window.cnxT('js.s_pos.72ba4642','<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black animate-pulse ml-1">Bếp xong</span>'):'<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black animate-pulse ml-1">Bếp xong</span>');
                 } else if (isServed) {
-                    kitchenBadge += '<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/30 text-emerald-300 font-bold ml-1">Đã bưng</span>';
+                    kitchenBadge += (window.cnxT?window.cnxT('js.s_pos.7158d332','<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/30 text-emerald-300 font-bold ml-1">Đã bưng</span>'):'<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/30 text-emerald-300 font-bold ml-1">Đã bưng</span>');
                 }
             }
 
-            const amountText = tbl.total_amount ? (this.formatMoney(tbl.total_amount) + 'đ') : '';
-            const countText = tbl.item_count ? ` (${tbl.item_count} món)` : '';
+            const amountText = tbl.total_amount ? (this.formatMoney(tbl.total_amount) + (window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ')) : '';
+            const countText = tbl.item_count ? ` (${tbl.item_count} ${window.cnxT?window.cnxT('js.s_cust.6ab5ce4d','món)'):'món)'}` : '';
 
-            let subtitle = 'Bàn trống';
+            let subtitle = (window.cnxT?window.cnxT('ui.ord_html.span_52f415fe','Bàn trống'):'Bàn trống');
             if (isOccupied) {
                 if (tbl.kitchen_status === 'cancel_requested') {
-                    subtitle = `⚠️ Bếp xin hủy đơn`;
+                    subtitle = `${window.cnxT?window.cnxT('js.s_pos.af10a31a','⚠️ Bếp xin hủy đơn'):'⚠️ Bếp xin hủy đơn'}`;
                 } else if (tbl.settlement_status === 'refund_due') {
-                    subtitle = `💸 Cần hoàn tiền`;
+                    subtitle = `${window.cnxT?window.cnxT('js.s_pos.2cf7f25d','💸 Cần hoàn tiền'):'💸 Cần hoàn tiền'}`;
                 } else if (tbl.settlement_status === 'extra_due') {
-                    subtitle = `💰 Cần thu thêm`;
+                    subtitle = `${window.cnxT?window.cnxT('js.s_pos.66c04dc6','💰 Cần thu thêm'):'💰 Cần thu thêm'}`;
                 } else if (tbl.kitchen_status === 'awaiting_payment') {
-                    subtitle = tbl.payment_status === 'verifying' ? `🔎 Chờ đối soát CK` : `⏳ Chờ TT QR`;
+                    subtitle = tbl.payment_status === 'verifying' ? `${window.cnxT?window.cnxT('js.s_pos.b0e89790','🔎 Chờ đối soát CK'):'🔎 Chờ đối soát CK'}` : `${window.cnxT?window.cnxT('js.s_pos.919cd275','⏳ Chờ TT QR'):'⏳ Chờ TT QR'}`;
                 } else if (tbl.kitchen_status === 'awaiting_waiter') {
-                    subtitle = `🪑 Khách QR chờ duyệt`;
+                    subtitle = `${window.cnxT?window.cnxT('js.s_pos.5986a685','🪑 Khách QR chờ duyệt'):'🪑 Khách QR chờ duyệt'}`;
                 } else if (isPaid) {
                     if (isReady) {
-                        subtitle = `${amountText} • Chờ bưng`;
+                        subtitle = `${amountText} ${window.cnxT?window.cnxT('js.s_pos.629f25c4','• Chờ bưng'):'• Chờ bưng'}`;
                     } else if (isServed) {
-                        subtitle = `${amountText} • Đã bưng`;
+                        subtitle = `${amountText} ${window.cnxT?window.cnxT('js.s_pos.f363b545','• Đã bưng'):'• Đã bưng'}`;
                     } else {
-                        subtitle = `${amountText} • Đang nấu`;
+                        subtitle = `${amountText} ${window.cnxT?window.cnxT('js.s_pos.a4788ce2','• Đang nấu'):'• Đang nấu'}`;
                     }
                 } else {
                     subtitle = `${amountText}${countText}`;
                 }
                 if (Number(tbl.pending_cancel_count || 0) > 0) {
-                    subtitle += ' • Chờ hủy món';
+                    subtitle += (window.cnxT?window.cnxT('js.s_pos.3f3b4b5b',' • Chờ hủy món'):' • Chờ hủy món');
                 }
             }
 
@@ -341,14 +345,14 @@ const POS = {
                 : '<span class="w-2 h-2 rounded-full bg-emerald-400"></span>';
 
             const rushBtnHtml = (isOverdueKitchen && orderId > 0)
-                ? `<button type="button" onclick="event.stopPropagation(); POS.rushKitchenOrder(${orderId}, '${tbl.code}', this)" class="px-1.5 py-0.5 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow shadow-rose-500/40 active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" title="Quá ${elapsedMins} phút chưa xong món - Bấm để hối Bếp"><i class="fas fa-fire"></i> ${rushCount > 0 ? `Hối (${rushCount})` : 'Hối'}</button>`
+                ? `<button type="button" onclick="event.stopPropagation(); POS.rushKitchenOrder(${orderId}, '${escapeJsAttr(tbl.code)}', this)" class="px-1.5 py-0.5 rounded bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] shadow shadow-rose-500/40 active:scale-90 flex items-center gap-1 shrink-0 animate-pulse" title="Quá ${elapsedMins} phút chưa xong món - Bấm để hối Bếp"><i class="fas fa-fire"></i> ${rushCount > 0 ? `${window.cnxT?window.cnxT('js.s_ord.77c8da63','Hối ('):'Hối ('}${rushCount})` : (window.cnxT?window.cnxT('js.s_ord.ad20afa8','Hối'):'Hối')}</button>`
                 : '';
 
             const cardHtml = `
-                <div class="table-card ${statusClass} ${isActive}" onclick="POS.selectTable(${tbl.id})">
+                <div class="table-card ${statusClass} ${isActive}" onclick="POS.selectTable(${Number(tbl.id)})">
                     <div class="flex items-center justify-between gap-1">
                         <div class="flex items-center flex-wrap gap-0.5">
-                            <span class="font-extrabold text-xs md:text-sm tracking-wide text-white">${tbl.code}</span>
+                            <span class="font-extrabold text-xs md:text-sm tracking-wide text-white">${escapeHtml(tbl.code)}</span>
                             ${kitchenBadge}
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
@@ -391,7 +395,7 @@ const POS = {
 
         const summaryText = document.getElementById('pos-tables-summary-text');
         if (summaryText) {
-            summaryText.innerText = `${occupiedList.length} bàn có khách • ${unpaidList.length} chờ TT`;
+            summaryText.innerText = `${occupiedList.length} ${window.cnxT?window.cnxT('js.s_pos.71584163','bàn có khách •'):'bàn có khách •'} ${unpaidList.length} ${window.cnxT?window.cnxT('js.s_pos.18ec66b7','chờ TT'):'chờ TT'}`;
         }
 
         // Render dedicated mobile orders panel if present
@@ -476,7 +480,7 @@ const POS = {
             container.innerHTML = `
                 <div class="py-12 text-center text-slate-500">
                     <i class="fas fa-search text-3xl mb-2 opacity-40"></i>
-                    <p class="text-xs font-semibold">Không tìm thấy bàn / hóa đơn phù hợp</p>
+                    <p class="text-xs font-semibold">${window.cnxT?window.cnxT('js.s_pos.7c95e564','Không tìm thấy bàn / hóa đơn phù hợp'):'Không tìm thấy bàn / hóa đơn phù hợp'}</p>
                 </div>
             `;
             return;
@@ -515,17 +519,17 @@ const POS = {
                     <div class="p-3 rounded-2xl bg-slate-900/85 border ${borderGlow} space-y-2.5 transition-all">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="text-sm font-black text-white px-2.5 py-0.5 rounded-lg bg-slate-800 border border-white/15">${tbl.code}</span>
-                                <span class="text-xs font-semibold text-slate-300 truncate max-w-[110px]">${tbl.name}</span>
+                                <span class="text-sm font-black text-white px-2.5 py-0.5 rounded-lg bg-slate-800 border border-white/15">${escapeHtml(tbl.code)}</span>
+                                <span class="text-xs font-semibold text-slate-300 truncate max-w-[110px]">${escapeHtml(tbl.name)}</span>
                                 ${isPaid ? `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/40 whitespace-nowrap shrink-0">💰 Đã TT</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/40 whitespace-nowrap shrink-0">${window.cnxT?window.cnxT('js.s_pos.e4b5ca98','💰 Đã TT'):'💰 Đã TT'}</span>
                                 ` : `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 animate-pulse whitespace-nowrap shrink-0">🔥 Chờ TT</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 animate-pulse whitespace-nowrap shrink-0">${window.cnxT?window.cnxT('js.s_pos.0a7dea40','🔥 Chờ TT'):'🔥 Chờ TT'}</span>
                                 `}
                                 ${isReady ? `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse shadow-sm whitespace-nowrap shrink-0">⚡ Bếp Xong</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse shadow-sm whitespace-nowrap shrink-0">${window.cnxT?window.cnxT('js.s_pos.3d9462f2','⚡ Bếp Xong'):'⚡ Bếp Xong'}</span>
                                 ` : (isServed ? `
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap shrink-0">Đã bưng</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap shrink-0">${window.cnxT?window.cnxT('ui.admin_html.th_ca449b27','Đã bưng'):'Đã bưng'}</span>
                                 ` : `
                                     <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 font-semibold whitespace-nowrap shrink-0 inline-flex items-center gap-1.5">
                                         <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-85"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span></span>
@@ -533,8 +537,8 @@ const POS = {
                                     </span>
                                 `)}
                                 ${isOverdueKitchen && orderId > 0 ? `
-                                    <button type="button" onclick="event.stopPropagation(); POS.rushKitchenOrder(${orderId}, '${tbl.code}', this)" class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-black shadow shadow-rose-500/40 animate-pulse whitespace-nowrap shrink-0 flex items-center gap-1 active:scale-90">
-                                        <i class="fas fa-fire"></i> ${rushCount > 0 ? `Hối (${rushCount})` : 'Hối'}
+                                    <button type="button" onclick="event.stopPropagation(); POS.rushKitchenOrder(${orderId}, '${escapeJsAttr(tbl.code)}', this)" class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-black shadow shadow-rose-500/40 animate-pulse whitespace-nowrap shrink-0 flex items-center gap-1 active:scale-90">
+                                        <i class="fas fa-fire"></i> ${rushCount > 0 ? `${window.cnxT?window.cnxT('js.s_ord.77c8da63','Hối ('):'Hối ('}${rushCount})` : (window.cnxT?window.cnxT('js.s_ord.ad20afa8','Hối'):'Hối')}
                                     </button>
                                 ` : ''}
                             </div>
@@ -545,8 +549,8 @@ const POS = {
 
                         <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-950/40 px-2.5 py-1.5 rounded-xl border border-white/5">
                             <div class="truncate">
-                                <span class="font-mono text-sky-400 font-semibold">${tbl.order_code || 'Chưa có mã'}</span>
-                                ${tbl.customer_name ? ` • <span class="text-slate-300 font-medium">${tbl.customer_name}</span>` : ''}
+                                <span class="font-mono text-sky-400 font-semibold">${escapeHtml(tbl.order_code || (window.cnxT?window.cnxT('js.s_pos.cf0821e0','Chưa có mã'):'Chưa có mã'))}</span>
+                                ${tbl.customer_name ? ` • <span class="text-slate-300 font-medium">${escapeHtml(tbl.customer_name)}</span>` : ''}
                             </div>
                             <span class="font-bold text-slate-300 shrink-0 ml-2">${tbl.item_count || 0} món</span>
                         </div>
@@ -554,11 +558,11 @@ const POS = {
                         <div class="grid grid-cols-2 gap-2 pt-0.5">
                             <button type="button" onclick="POS.selectAndOpenCart(${tbl.id})" class="py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 ${isPaid ? 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40' : 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg shadow-emerald-700/30'} active:scale-95 transition-all">
                                 <i class="fas ${isPaid ? 'fa-receipt' : 'fa-hand-holding-dollar'}"></i>
-                                <span>${isPaid ? 'Xem Hóa Đơn' : 'Thanh Toán (F9)'}</span>
+                                <span>${isPaid ? 'Xem Hóa Đơn' : (window.cnxT?window.cnxT('js.s_pos.05a0ecfa','Thanh Toán (F9)'):'Thanh Toán (F9)')}</span>
                             </button>
                             <button type="button" onclick="POS.selectAndOpenMenu(${tbl.id})" class="py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 active:scale-95 transition-all">
                                 <i class="fas fa-plus"></i>
-                                <span>Thêm Món</span>
+                                <span>${window.cnxT?window.cnxT('ui.pos_html.button_45673e12','Thêm Món'):'Thêm Món'}</span>
                             </button>
                         </div>
                     </div>
@@ -567,12 +571,12 @@ const POS = {
                 html += `
                     <div class="p-2.5 rounded-xl bg-slate-900/40 border border-white/5 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-slate-300 px-2 py-0.5 rounded bg-slate-800 border border-white/10">${tbl.code}</span>
-                            <span class="text-xs text-slate-400">${tbl.name}</span>
-                            <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-semibold">Bàn trống</span>
+                            <span class="text-xs font-bold text-slate-300 px-2 py-0.5 rounded bg-slate-800 border border-white/10">${escapeHtml(tbl.code)}</span>
+                            <span class="text-xs text-slate-400">${escapeHtml(tbl.name)}</span>
+                            <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-semibold">${window.cnxT?window.cnxT('ui.ord_html.span_52f415fe','Bàn trống'):'Bàn trống'}</span>
                         </div>
                         <button type="button" onclick="POS.selectAndOpenMenu(${tbl.id})" class="py-1 px-3 rounded-lg text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 active:scale-95">
-                            + Tạo Đơn
+                            ${window.cnxT?window.cnxT('js.s_pos.d4450804','+ Tạo Đơn'):'+ Tạo Đơn'}
                         </button>
                     </div>
                 `;
@@ -611,14 +615,14 @@ const POS = {
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Không thể gửi lệnh hối xuống Bếp');
+                throw new Error(data.message || (window.cnxT?window.cnxT('js.s_ord.1c2309c0','Không thể gửi lệnh hối xuống Bếp'):'Không thể gửi lệnh hối xuống Bếp'));
             }
             if (typeof this.showToast === 'function') {
-                this.showToast(`🔥 Đã hối Bếp bàn ${tableCode} (lần ${data.rush_count || 1})!`, 'success');
+                this.showToast(`${window.cnxT?window.cnxT('js.s_pos.7029468d','🔥 Đã hối Bếp bàn'):'🔥 Đã hối Bếp bàn'} ${tableCode} ${window.cnxT?window.cnxT('js.s_pos.a10da08f','(lần'):'(lần'} ${data.rush_count || 1})!`, 'success');
             }
             await this.loadTables();
         } catch (err) {
-            alert(err.message || 'Lỗi gửi lệnh hối xuống Bếp');
+            alert(err.message || (window.cnxT?window.cnxT('js.s_ord.611f5e2c','Lỗi gửi lệnh hối xuống Bếp'):'Lỗi gửi lệnh hối xuống Bếp'));
             if (btnEl) {
                 btnEl.disabled = false;
                 btnEl.innerHTML = origHtml;
@@ -661,11 +665,11 @@ const POS = {
             this.cart = [];
             this.discount = { type: 'amount', value: 0 };
             this.vatPercent = 0;
-            this.customerName = 'Khách vãng lai';
+            this.customerName = (window.cnxT?window.cnxT('js.s_pos.53fa7723','Khách vãng lai'):'Khách vãng lai');
             this.guestCount = 1;
             this.note = '';
             const codeDisplay = document.getElementById('order-code-display');
-            if (codeDisplay) codeDisplay.innerText = 'Đang tạo...';
+            if (codeDisplay) codeDisplay.innerText = (window.cnxT?window.cnxT('ui.pos_html.b_ff1b681e','Đang tạo...'):'Đang tạo...');
             this.renderCart();
         }
     },
@@ -691,7 +695,7 @@ const POS = {
                 this.activeOrderPaymentStatus = data.order.payment_status || '';
                 this.activeOrderKitchenStatus = data.order.kitchen_status || '';
                 this.activeOrderStatus = data.order.status || '';
-                this.customerName = data.order.customer_name || 'Khách vãng lai';
+                this.customerName = data.order.customer_name || (window.cnxT?window.cnxT('js.s_pos.53fa7723','Khách vãng lai'):'Khách vãng lai');
                 this.guestCount = data.order.guest_count || 1;
                 this.discount = {
                     type: data.order.discount_type || 'amount',
@@ -739,7 +743,7 @@ const POS = {
 
         const isOrderPaid = this.activeOrderPaymentStatus === 'paid' || (this.currentTable && this.currentTable.payment_status === 'paid');
         if (isOrderPaid) {
-            alert('Hóa đơn bàn này đã thanh toán xong! Không thể thêm món mới vào đơn đã thanh toán.');
+            alert((window.cnxT?window.cnxT('js.s_pos.9e12976a','Hóa đơn bàn này đã thanh toán xong! Không thể thêm món mới vào đơn đã thanh toán.'):'Hóa đơn bàn này đã thanh toán xong! Không thể thêm món mới vào đơn đã thanh toán.'));
             return;
         }
 
@@ -778,13 +782,13 @@ const POS = {
 
         const isOrderPaid = this.activeOrderPaymentStatus === 'paid' || (this.currentTable && this.currentTable.payment_status === 'paid');
         if (isOrderPaid) {
-            alert('Hóa đơn đã thanh toán, không thể thay đổi số lượng!');
+            alert((window.cnxT?window.cnxT('js.s_pos.97c74897','Hóa đơn đã thanh toán, không thể thay đổi số lượng!'):'Hóa đơn đã thanh toán, không thể thay đổi số lượng!'));
             return;
         }
 
         // Thu ngân không được giảm số lượng về 0 (xóa món)
         if (this.isCashierRole() && delta < 0 && this.cart[index].quantity <= 1) {
-            alert('Thu ngân không có quyền xóa món khỏi hóa đơn! (Số lượng tối thiểu là 1)');
+            alert((window.cnxT?window.cnxT('js.s_pos.9f958769','Thu ngân không có quyền xóa món khỏi hóa đơn! (Số lượng tối thiểu là 1)'):'Thu ngân không có quyền xóa món khỏi hóa đơn! (Số lượng tối thiểu là 1)'));
             return;
         }
 
@@ -810,13 +814,13 @@ const POS = {
 
         const isOrderPaid = this.activeOrderPaymentStatus === 'paid' || (this.currentTable && this.currentTable.payment_status === 'paid');
         if (isOrderPaid) {
-            alert('Hóa đơn đã thanh toán, không thể xóa món!');
+            alert((window.cnxT?window.cnxT('js.s_pos.b4eace33','Hóa đơn đã thanh toán, không thể xóa món!'):'Hóa đơn đã thanh toán, không thể xóa món!'));
             return;
         }
 
         // Thu ngân không có quyền xóa món
         if (this.isCashierRole()) {
-            alert('Thu ngân không có quyền xóa món khỏi hóa đơn!');
+            alert((window.cnxT?window.cnxT('js.s_pos.4c9e51cb','Thu ngân không có quyền xóa món khỏi hóa đơn!'):'Thu ngân không có quyền xóa món khỏi hóa đơn!'));
             return;
         }
 
@@ -834,10 +838,10 @@ const POS = {
         }
     },
 
-    editItemNote(index) {
+    async editItemNote(index) {
         const item = this.cart[index];
         if (!item) return;
-        const newNote = prompt(`Nhập ghi chú cho "${item.name}":`, item.note || '');
+        const newNote = await window.cnxPrompt(`Nhập ghi chú cho "${item.name}":`, item.note || '');
         if (newNote !== null) {
             item.note = newNote.trim();
             this.renderCart();
@@ -849,13 +853,13 @@ const POS = {
     openToppingModal(index) {
         const isOrderPaid = this.activeOrderPaymentStatus === 'paid' || (this.currentTable && this.currentTable.payment_status === 'paid');
         if (isOrderPaid) {
-            alert('Hóa đơn đã thanh toán, không thể thêm topping!');
+            alert((window.cnxT?window.cnxT('js.s_pos.bb8e01f9','Hóa đơn đã thanh toán, không thể thêm topping!'):'Hóa đơn đã thanh toán, không thể thêm topping!'));
             return;
         }
 
         // Thu ngân không có quyền thêm topping
         if (this.isCashierRole()) {
-            alert('Thu ngân không có quyền thêm topping cho món!');
+            alert((window.cnxT?window.cnxT('js.s_pos.dd5dc627','Thu ngân không có quyền thêm topping cho món!'):'Thu ngân không có quyền thêm topping cho món!'));
             return;
         }
 
@@ -891,11 +895,11 @@ const POS = {
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('topping-modal').classList.remove('open')">&times;</button>
                 </div>
                 <div class="space-y-2 max-h-60 overflow-y-auto pr-1 mb-5">
-                    ${toppingListHtml || '<p class="text-slate-400 text-sm">Chưa có topping nào trong danh mục</p>'}
+                    ${toppingListHtml || (window.cnxT?window.cnxT('js.s_pos.346187a6','<p class="text-slate-400 text-sm">Chưa có topping nào trong danh mục</p>'):'<p class="text-slate-400 text-sm">Chưa có topping nào trong danh mục</p>')}
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('topping-modal').classList.remove('open')">Đóng</button>
-                    <button type="button" class="btn-glass-primary text-xs py-2 px-4 font-bold" onclick="POS.applyToppings(${index})">Áp dụng</button>
+                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('topping-modal').classList.remove('open')">${window.cnxT?window.cnxT('ui.pos_html.button_cee55387','Đóng'):'Đóng'}</button>
+                    <button type="button" class="btn-glass-primary text-xs py-2 px-4 font-bold" onclick="POS.applyToppings(${index})">${window.cnxT?window.cnxT('js.s_pos.e25e9794','Áp dụng'):'Áp dụng'}</button>
                 </div>
             </div>
         `;
@@ -903,34 +907,9 @@ const POS = {
         modal.classList.add('open');
     },
 
-    async applyPromoCodeInModal() {
-        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
-        if (!code) return;
-        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
-        try {
-            const res = await fetch('api/promotions.php?action=validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ promo_code: code, subtotal })
-            }).then(r => r.json());
-            if (res.success && res.promo) {
-                this.setDiscountType('amount');
-                const valInp = document.getElementById('discount-val-input');
-                const rsnInp = document.getElementById('discount-reason-input');
-                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
-                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
-                this.discount.promo_id = res.promo.id;
-                this.discount.promo_code = res.promo.code;
-                this.discount.promo_name = res.promo.name;
-            } else {
-                alert(res.message || 'Mã khuyến mãi không hợp lệ');
-            }
-        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
-    },
-
     applyToppings(index) {
         if (this.isCashierRole()) {
-            alert('Thu ngân không có quyền thêm topping cho món!');
+            alert((window.cnxT?window.cnxT('js.s_pos.dd5dc627','Thu ngân không có quyền thêm topping cho món!'):'Thu ngân không có quyền thêm topping cho món!'));
             return;
         }
 
@@ -987,8 +966,8 @@ const POS = {
             cartItemsContainer.innerHTML = `
                 <div class="h-64 flex flex-col items-center justify-center text-slate-500">
                     <i class="fas fa-shopping-basket text-4xl mb-3 opacity-30"></i>
-                    <p class="text-sm font-semibold">Chưa có món ăn nào</p>
-                    <p class="text-xs text-slate-600 mt-1">Chạm vào món bên phải để thêm vào hóa đơn</p>
+                    <p class="text-sm font-semibold">${window.cnxT?window.cnxT('js.s_pos.ef7b0abf','Chưa có món ăn nào'):'Chưa có món ăn nào'}</p>
+                    <p class="text-xs text-slate-600 mt-1">${window.cnxT?window.cnxT('js.s_pos.838419b2','Chạm vào món bên phải để thêm vào hóa đơn'):'Chạm vào món bên phải để thêm vào hóa đơn'}</p>
                 </div>
             `;
             if (subtotalEl) subtotalEl.innerText = '0';
@@ -1024,11 +1003,11 @@ const POS = {
                 html += `
                     <div class="mb-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 space-y-2 text-xs">
                         <div class="font-bold text-amber-300 flex items-center justify-between">
-                            <span><i class="fas fa-shield-halved mr-1"></i> ${ks === 'awaiting_waiter' ? 'Đơn QR Tại Bàn chờ duyệt' : (ps === 'verifying' ? 'Khách báo đã CK - Chờ đối soát' : (ps === 'paid' ? 'Đã TT QR - Sẵn sàng Chuyển Bếp' : 'Đơn QR chờ xác nhận thanh toán'))}</span>
+                            <span><i class="fas fa-shield-halved mr-1"></i> ${ks === 'awaiting_waiter' ? 'Đơn QR Tại Bàn chờ duyệt' : (ps === 'verifying' ? 'Khách báo đã CK - Chờ đối soát' : (ps === 'paid' ? 'Đã TT QR - Sẵn sàng Chuyển Bếp' : (window.cnxT?window.cnxT('js.s_pos.eb06b9fe','Đơn QR chờ xác nhận thanh toán'):'Đơn QR chờ xác nhận thanh toán')))}</span>
                         </div>
                         <div class="flex flex-wrap gap-1.5">
-                            ${ps !== 'paid' ? `<button type="button" onclick="POS.confirmOrderPayment(${tbl.order_id}, 'paid')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px]"><i class="fas fa-check mr-1"></i>Xác nhận Đã Nhận Tiền</button>` : ''}
-                            <button type="button" onclick="POS.sendOrderToKitchen(${tbl.order_id})" ${canPush ? '' : 'disabled'} class="px-2.5 py-1.5 rounded-lg ${canPush ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} font-bold text-[11px]"><i class="fas fa-fire-burner mr-1"></i>Chuyển Bếp</button>
+                            ${ps !== 'paid' ? `<button type="button" onclick="POS.confirmOrderPayment(${tbl.order_id}, 'paid')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px]"><i class="fas fa-check mr-1"></i>${window.cnxT?window.cnxT('js.s_pos.3423e79a','Xác nhận Đã Nhận Tiền'):'Xác nhận Đã Nhận Tiền'}</button>` : ''}
+                            <button type="button" onclick="POS.sendOrderToKitchen(${tbl.order_id})" ${canPush ? '' : 'disabled'} class="px-2.5 py-1.5 rounded-lg ${canPush ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} font-bold text-[11px]"><i class="fas fa-fire-burner mr-1"></i>${window.cnxT?window.cnxT('js.s_cust.9a34bc5b','Chuyển Bếp'):'Chuyển Bếp'}</button>
                         </div>
                     </div>
                 `;
@@ -1036,8 +1015,8 @@ const POS = {
             if (ks === 'cancel_requested') {
                 html += `
                     <div class="mb-2 p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 space-y-1.5 text-xs">
-                        <div class="font-bold text-rose-300"><i class="fas fa-triangle-exclamation mr-1"></i> Bếp yêu cầu HỦY ĐƠN: ${tbl.cancel_request_reason || ''}</div>
-                        <button type="button" onclick="POS.cancelOrder()" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px]">Duyệt Hủy Đơn &amp; Giải phóng bàn</button>
+                        <div class="font-bold text-rose-300"><i class="fas fa-triangle-exclamation mr-1"></i> Bếp yêu cầu HỦY ĐƠN: ${escapeHtml(tbl.cancel_request_reason || '')}</div>
+                        <button type="button" onclick="POS.cancelOrder()" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px]">${window.cnxT?window.cnxT('js.s_pos.8f32f02c','Duyệt Hủy Đơn &amp; Giải phóng bàn'):'Duyệt Hủy Đơn &amp; Giải phóng bàn'}</button>
                     </div>
                 `;
             }
@@ -1046,11 +1025,11 @@ const POS = {
                 const isRef = (ss === 'refund_due');
                 html += `
                     <div class="mb-2 p-2.5 rounded-xl ${isRef ? 'bg-rose-500/20 border-rose-500/40 text-rose-200' : 'bg-amber-500/20 border-amber-500/40 text-amber-200'} border space-y-1.5 text-xs">
-                        <div class="font-bold">${isRef ? '💸 Cần HOÀN LẠI khách:' : '💰 Cần THU THÊM khách:'} <span class="font-mono">${this.formatMoney(diff)} đ</span></div>
-                        <div class="text-[11px] opacity-80">Đã thu: ${this.formatMoney(paidAmt)}đ • Tổng mới: ${this.formatMoney(totAmt)}đ</div>
+                        <div class="font-bold">${isRef ? '💸 Cần HOÀN LẠI khách:' : (window.cnxT?window.cnxT('js.s_pos.5dffbc04','💰 Cần THU THÊM khách:'):'💰 Cần THU THÊM khách:')} <span class="font-mono">${this.formatMoney(diff)} đ</span></div>
+                        <div class="text-[11px] opacity-80">Đã thu: ${this.formatMoney(paidAmt)}${window.cnxT?window.cnxT('js.s_pos.f0be0121','đ • Tổng mới:'):'đ • Tổng mới:'} ${this.formatMoney(totAmt)}đ</div>
                         <div class="flex gap-1.5">
-                            <button type="button" onclick="POS.settleOrderDelta(${tbl.order_id}, 'cash')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px]">${isRef ? 'Đã hoàn Tiền Mặt' : 'Đã thu Tiền Mặt'}</button>
-                            <button type="button" onclick="POS.settleOrderDelta(${tbl.order_id}, 'banking')" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px]">${isRef ? 'Đã hoàn CK' : 'Đã thu CK'}</button>
+                            <button type="button" onclick="POS.settleOrderDelta(${tbl.order_id}, 'cash')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px]">${isRef ? 'Đã hoàn Tiền Mặt' : (window.cnxT?window.cnxT('js.s_pos.08472b28','Đã thu Tiền Mặt'):'Đã thu Tiền Mặt')}</button>
+                            <button type="button" onclick="POS.settleOrderDelta(${tbl.order_id}, 'banking')" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px]">${isRef ? 'Đã hoàn CK' : (window.cnxT?window.cnxT('js.s_pos.d4a34955','Đã thu CK'):'Đã thu CK')}</button>
                         </div>
                     </div>
                 `;
@@ -1071,19 +1050,19 @@ const POS = {
                 <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 hover:border-white/10 transition-colors">
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex-1 min-w-0">
-                            <h5 class="text-sm font-bold text-slate-100 truncate">${item.name}</h5>
+                            <h5 class="text-sm font-bold text-slate-100 truncate">${escapeHtml(item.name)}</h5>
                             <div class="text-xs text-amber-400 font-semibold mt-0.5">
-                                ${this.formatMoney(unitPrice)} đ
-                                ${toppingPrice > 0 ? `<span class="text-[10px] text-sky-400 font-normal"> (Gồm topping)</span>` : ''}
+                                ${this.formatMoney(unitPrice)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}
+                                ${toppingPrice > 0 ? `<span class="text-[10px] text-sky-400 font-normal"> ${window.cnxT?window.cnxT('js.s_pos.8b412bee','(Gồm topping)'):'(Gồm topping)'}</span>` : ''}
                             </div>
                             ${item.toppings && item.toppings.length > 0 ? `
                                 <div class="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-1">
-                                    ${item.toppings.map(t => `<span class="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-sky-300">+${t.name}</span>`).join('')}
+                                    ${item.toppings.map(t => `<span class="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-sky-300">+${escapeHtml(t.name)}</span>`).join('')}
                                 </div>
                             ` : ''}
                             ${item.note ? `
                                 <div class="text-[11px] text-rose-300/90 italic mt-0.5">
-                                    <i class="fas fa-pen-alt text-[9px] mr-1"></i>${item.note}
+                                    <i class="fas fa-pen-alt text-[9px] mr-1"></i>${escapeHtml(item.note)}
                                 </div>
                             ` : ''}
                         </div>
@@ -1100,7 +1079,7 @@ const POS = {
                                 <button type="button" 
                                     class="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-xs transition-colors ${isCashier && item.quantity <= 1 ? 'opacity-30 cursor-not-allowed text-slate-500' : 'text-slate-300 hover:text-white'}" 
                                     onclick="POS.updateQuantity(${idx}, -1)" 
-                                    ${isCashier && item.quantity <= 1 ? 'title="Thu ngân không thể xóa món (SL tối thiểu 1)"' : 'title="Giảm số lượng"'}>
+                                    ${isCashier && item.quantity <= 1 ? 'title="Thu ngân không thể xóa món (SL tối thiểu 1)"' : (window.cnxT?window.cnxT('js.s_pos.8d572b09','title="Giảm số lượng"'):'title="Giảm số lượng"')}>
                                     <i class="fas fa-minus"></i>
                                 </button>
                                 <span class="w-8 text-center font-bold text-sm text-sky-400 font-mono">${item.quantity}</span>
@@ -1120,7 +1099,7 @@ const POS = {
                                     onclick="POS.editItemNote(${idx})" 
                                     title="Ghi chú món ăn">
                                     <i class="fas fa-comment-dots text-amber-400"></i>
-                                    <span>Ghi chú</span>
+                                    <span>${window.cnxT?window.cnxT('ui.admin_html.ph_ad504eea','Ghi chú'):'Ghi chú'}</span>
                                 </button>
                             ` : `
                                 <button type="button" class="px-2 py-1 rounded bg-slate-800/80 text-sky-400 hover:bg-sky-500/20" onclick="POS.openToppingModal(${idx})" title="Thêm Topping">
@@ -1144,12 +1123,12 @@ const POS = {
         // Paid status banner & checkout button handling
         if (isPaid) {
             const kStatus = this.activeOrderKitchenStatus || (this.currentTable ? this.currentTable.kitchen_status : 'pending');
-            const kText = kStatus === 'ready' ? 'Bếp đã xong • Chờ bưng' : (kStatus === 'served' ? 'Đã bưng ra bàn' : 'Bếp đang chế biến');
+            const kText = kStatus === 'ready' ? 'Bếp đã xong • Chờ bưng' : (kStatus === 'served' ? 'Đã bưng ra bàn' : (window.cnxT?window.cnxT('js.s_pos.72477981','Bếp đang chế biến'):'Bếp đang chế biến'));
             cartItemsContainer.innerHTML = `
                 <div class="p-2.5 rounded-xl bg-teal-950/70 border border-teal-500/40 text-teal-300 flex items-center justify-between text-xs font-bold mb-2 shadow-md">
                     <div class="flex items-center gap-1.5">
                         <i class="fas fa-check-circle text-teal-400 text-sm"></i>
-                        <span>ĐÃ THANH TOÁN</span>
+                        <span>${window.cnxT?window.cnxT('js.s_pos.311076b6','ĐÃ THANH TOÁN'):'ĐÃ THANH TOÁN'}</span>
                     </div>
                     <span class="text-[11px] font-semibold text-teal-200 bg-teal-900/60 px-2 py-0.5 rounded border border-teal-500/30">${kText}</span>
                 </div>
@@ -1160,10 +1139,10 @@ const POS = {
         if (btnCheckout) {
             if (isPaid) {
                 btnCheckout.className = 'col-span-2 py-3 px-2 sm:px-4 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-xl bg-teal-600/30 hover:bg-teal-600/50 text-teal-300 border border-teal-500/50 active:scale-95 transition-transform truncate';
-                btnCheckout.innerHTML = '<i class="fas fa-print text-base sm:text-lg"></i> <span>IN LẠI HÓA ĐƠN</span>';
+                btnCheckout.innerHTML = (window.cnxT?window.cnxT('js.s_pos.c668a4d8','<i class="fas fa-print text-base sm:text-lg"></i> <span>IN LẠI HÓA ĐƠN</span>'):'<i class="fas fa-print text-base sm:text-lg"></i> <span>IN LẠI HÓA ĐƠN</span>');
             } else {
                 btnCheckout.className = 'col-span-2 btn-glass-success py-3 px-2 sm:px-4 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-xl shadow-emerald-600/30 active:scale-95 transition-transform truncate';
-                btnCheckout.innerHTML = '<i class="fas fa-hand-holding-dollar text-base sm:text-lg"></i> <span>THANH TOÁN (F9)</span>';
+                btnCheckout.innerHTML = (window.cnxT?window.cnxT('js.s_pos.e771dfea','<i class="fas fa-hand-holding-dollar text-base sm:text-lg"></i> <span>THANH TOÁN (F9)</span>'):'<i class="fas fa-hand-holding-dollar text-base sm:text-lg"></i> <span>THANH TOÁN (F9)</span>');
             }
         }
 
@@ -1182,6 +1161,7 @@ const POS = {
         if (subtotalEl) subtotalEl.innerText = this.formatMoney(subtotal);
         if (discountEl) discountEl.innerText = this.formatMoney(discountAmount);
         if (totalEl) totalEl.innerText = this.formatMoney(total);
+        this.requestBackendPreviewQuote();
         const totalItems = this.cart.reduce((a, b) => a + b.quantity, 0);
         if (countBadge) countBadge.innerText = totalItems;
         const mobileBadge = document.getElementById('pos-mobile-cart-badge');
@@ -1193,6 +1173,38 @@ const POS = {
                 mobileBadge.classList.add('hidden');
             }
         }
+    },
+
+    async requestBackendPreviewQuote() {
+        if (!this.cart || this.cart.length === 0) return;
+        try {
+            const res = await fetch('/api/orders?action=preview_quote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: this.cart.map(it => ({
+                        id: it.id,
+                        price: it.price,
+                        quantity: it.quantity,
+                        toppings: it.toppings || []
+                    })),
+                    discount_type: this.discount?.type || 'amount',
+                    discount_value: this.discount?.value || 0,
+                    vat_percent: this.vatPercent || 0,
+                    promo_code: this.discount?.promo_code || ''
+                })
+            });
+            const q = await res.json();
+            if (q && q.success) {
+                this._lastServerQuote = q;
+                const subtotalEl = document.getElementById('cart-subtotal');
+                const discountEl = document.getElementById('cart-discount');
+                const totalEl = document.getElementById('cart-total');
+                if (subtotalEl) subtotalEl.innerText = this.formatMoney(q.subtotal);
+                if (discountEl) discountEl.innerText = this.formatMoney(q.discount_amount ?? q.total_discount ?? 0);
+                if (totalEl) totalEl.innerText = this.formatMoney(q.total_amount);
+            }
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.preview_quote', e) : null); }
     },
 
     // Save order with debounce to avoid excessive requests
@@ -1260,31 +1272,31 @@ const POS = {
                         </span>
                         <div>
                             <h3 class="font-bold text-sm text-rose-400 uppercase">Xác Nhận Hủy Hóa Đơn (${tblCode})</h3>
-                            <p class="text-[11px] text-slate-400">Thao tác này được ghi nhận vào Nhật ký Kiểm toán (Audit)</p>
+                            <p class="text-[11px] text-slate-400">${window.cnxT?window.cnxT('js.s_pos.6c8ab857','Thao tác này được ghi nhận vào Nhật ký Kiểm toán (Audit)'):'Thao tác này được ghi nhận vào Nhật ký Kiểm toán (Audit)'}</p>
                         </div>
                     </div>
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('audit-cancel-order-modal').classList.remove('open')">&times;</button>
                 </div>
 
                 <div class="mb-3">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Chọn nhanh lý do hủy:</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">${window.cnxT?window.cnxT('js.s_pos.07563c69','Chọn nhanh lý do hủy:'):'Chọn nhanh lý do hủy:'}</label>
                     <div class="flex flex-wrap gap-1.5">
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Khách đổi ý không dùng nữa'">Khách đổi ý</button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Thu ngân / Phục vụ nhập nhầm bàn'">Nhập nhầm bàn</button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Bếp báo hết nguyên liệu đột xuất'">Hết nguyên liệu</button>
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Khách chờ lâu rời quán'">Khách chờ lâu</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Khách đổi ý không dùng nữa'">${window.cnxT?window.cnxT('ui.order_html.button_b31ed4b8','Khách đổi ý'):'Khách đổi ý'}</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Thu ngân / Phục vụ nhập nhầm bàn'">${window.cnxT?window.cnxT('js.s_pos.4630cc7d','Nhập nhầm bàn'):'Nhập nhầm bàn'}</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Bếp báo hết nguyên liệu đột xuất'">${window.cnxT?window.cnxT('js.s_pos.67f256cf','Hết nguyên liệu'):'Hết nguyên liệu'}</button>
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-xs text-slate-300 hover:text-rose-300 border border-white/10" onclick="document.getElementById('cancel-order-reason-input').value='Khách chờ lâu rời quán'">${window.cnxT?window.cnxT('js.s_pos.2a5ccf35','Khách chờ lâu'):'Khách chờ lâu'}</button>
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Chi tiết lý do hủy đơn <span class="text-rose-400">*</span>:</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">${window.cnxT?window.cnxT('js.s_pos.c2682add','Chi tiết lý do hủy đơn'):'Chi tiết lý do hủy đơn'} <span class="text-rose-400">*</span>:</label>
                     <input type="text" id="cancel-order-reason-input" placeholder="Nhập lý do hủy hóa đơn..." class="liquid-input w-full text-xs py-2 px-3" />
                 </div>
 
                 <div class="flex justify-end gap-2">
-                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('audit-cancel-order-modal').classList.remove('open')">Đóng</button>
+                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('audit-cancel-order-modal').classList.remove('open')">${window.cnxT?window.cnxT('ui.pos_html.button_cee55387','Đóng'):'Đóng'}</button>
                     <button type="button" class="btn-glass text-xs py-2 px-4 bg-rose-600/80 hover:bg-rose-600 text-white border-rose-500 font-bold" onclick="POS.confirmCancelOrderWithReason()">
-                        <i class="fas fa-trash-can mr-1"></i> Xác nhận Hủy & Ghi Audit
+                        <i class="fas fa-trash-can mr-1"></i> ${window.cnxT?window.cnxT('js.s_pos.2b92dbde','Xác nhận Hủy & Ghi Audit'):'Xác nhận Hủy & Ghi Audit'}
                     </button>
                 </div>
             </div>
@@ -1292,36 +1304,11 @@ const POS = {
         modal.classList.add('open');
     },
 
-    async applyPromoCodeInModal() {
-        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
-        if (!code) return;
-        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
-        try {
-            const res = await fetch('api/promotions.php?action=validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ promo_code: code, subtotal })
-            }).then(r => r.json());
-            if (res.success && res.promo) {
-                this.setDiscountType('amount');
-                const valInp = document.getElementById('discount-val-input');
-                const rsnInp = document.getElementById('discount-reason-input');
-                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
-                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
-                this.discount.promo_id = res.promo.id;
-                this.discount.promo_code = res.promo.code;
-                this.discount.promo_name = res.promo.name;
-            } else {
-                alert(res.message || 'Mã khuyến mãi không hợp lệ');
-            }
-        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
-    },
-
     async confirmCancelOrderWithReason() {
         const reasonInput = document.getElementById('cancel-order-reason-input');
         const reason = reasonInput ? reasonInput.value.trim() : '';
         if (!reason) {
-            alert('Bắt buộc nhập lý do hủy hóa đơn để ghi nhận Kiểm toán nội bộ!');
+            alert((window.cnxT?window.cnxT('js.s_pos.06bb4427','Bắt buộc nhập lý do hủy hóa đơn để ghi nhận Kiểm toán nội bộ!'):'Bắt buộc nhập lý do hủy hóa đơn để ghi nhận Kiểm toán nội bộ!'));
             if (reasonInput) reasonInput.focus();
             return;
         }
@@ -1339,7 +1326,7 @@ const POS = {
                 });
                 const data = await res.json();
                 if (!data.success) {
-                    alert(data.message || 'Lỗi khi hủy hóa đơn');
+                    alert(data.message || (window.cnxT?window.cnxT('js.s_pos.31c00618','Lỗi khi hủy hóa đơn'):'Lỗi khi hủy hóa đơn'));
                     return;
                 }
             }
@@ -1371,28 +1358,28 @@ const POS = {
             <div class="liquid-glass liquid-modal-content p-6 w-96 max-w-full text-white shadow-2xl border border-sky-500/30">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
                     <div>
-                        <h3 class="font-bold text-base text-sky-400">Giảm Giá Hóa Đơn</h3>
-                        <p class="text-[11px] text-slate-400">Ghi nhận tự động vào Nhật ký Kiểm toán</p>
+                        <h3 class="font-bold text-base text-sky-400">${window.cnxT?window.cnxT('js.s_pos.49273e7e','Giảm Giá Hóa Đơn'):'Giảm Giá Hóa Đơn'}</h3>
+                        <p class="text-[11px] text-slate-400">${window.cnxT?window.cnxT('js.s_pos.f3fbb053','Ghi nhận tự động vào Nhật ký Kiểm toán'):'Ghi nhận tự động vào Nhật ký Kiểm toán'}</p>
                     </div>
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('discount-modal').classList.remove('open')">&times;</button>
                 </div>
                 <div class="mb-3 p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-2">
-                    <label class="block text-[11px] font-bold text-amber-300"><i class="fas fa-ticket mr-1"></i> Áp dụng Mã Voucher / Chương trình KM:</label>
+                    <label class="block text-[11px] font-bold text-amber-300"><i class="fas fa-ticket mr-1"></i> ${window.cnxT?window.cnxT('js.s_pos.36e97e33','Áp dụng Mã Voucher / Chương trình KM:'):'Áp dụng Mã Voucher / Chương trình KM:'}</label>
                     <div class="flex gap-1.5">
                         <input type="text" id="discount-promo-code" value="${this.discount.promo_code || ''}" placeholder="Nhập mã (VD: KHAITRUONG)..." class="liquid-input flex-1 text-xs font-mono uppercase py-1.5 px-2.5" />
-                        <button type="button" onclick="POS.applyPromoCodeInModal()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Áp mã</button>
+                        <button type="button" onclick="POS.applyPromoCodeInModal()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">${window.cnxT?window.cnxT('js.s_pos.33a0b559','Áp mã'):'Áp mã'}</button>
                     </div>
                     <div id="pos-active-promos-chips" class="flex flex-wrap gap-1 text-[10px]"></div>
                 </div>
                 <div class="mb-3">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Loại giảm giá:</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">${window.cnxT?window.cnxT('js.s_pos.b5805c22','Loại giảm giá:'):'Loại giảm giá:'}</label>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" id="discount-type-amount" class="btn-glass ${this.discount.type === 'amount' ? 'btn-glass-primary' : ''} text-xs py-2" onclick="POS.setDiscountType('amount')">Số tiền (VNĐ)</button>
-                        <button type="button" id="discount-type-percent" class="btn-glass ${this.discount.type === 'percent' ? 'btn-glass-primary' : ''} text-xs py-2" onclick="POS.setDiscountType('percent')">Phần trăm (%)</button>
+                        <button type="button" id="discount-type-amount" class="btn-glass ${this.discount.type === 'amount' ? 'btn-glass-primary' : ''} text-xs py-2" onclick="POS.setDiscountType('amount')">${window.cnxT?window.cnxT('ui.admin_html.option_89dfad29','Số tiền (VNĐ)'):'Số tiền (VNĐ)'}</button>
+                        <button type="button" id="discount-type-percent" class="btn-glass ${this.discount.type === 'percent' ? 'btn-glass-primary' : ''} text-xs py-2" onclick="POS.setDiscountType('percent')">${window.cnxT?window.cnxT('ui.admin_html.option_ee40be38','Phần trăm (%)'):'Phần trăm (%)'}</button>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Giá trị giảm:</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">${window.cnxT?window.cnxT('js.s_pos.c02f6e79','Giá trị giảm:'):'Giá trị giảm:'}</label>
                     <div class="relative">
                         <input type="number" id="discount-val-input" value="${this.discount.value}" class="liquid-input w-full font-mono text-lg font-bold pr-10" />
                         <button type="button" class="absolute right-2 top-2 text-slate-400 hover:text-sky-400" onclick="VirtualNumpad.open(document.getElementById('discount-val-input'), 'Nhập giá trị giảm giá')">
@@ -1401,17 +1388,17 @@ const POS = {
                     </div>
                 </div>
                 <div class="mb-4">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Lý do giảm giá / Chương trình KM <span class="text-amber-400">*</span>:</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">${window.cnxT?window.cnxT('js.s_pos.1079d16d','Lý do giảm giá / Chương trình KM'):'Lý do giảm giá / Chương trình KM'} <span class="text-amber-400">*</span>:</label>
                     <div class="flex flex-wrap gap-1 mb-1.5">
-                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Khách VIP / Thân thiết'">Khách VIP</button>
+                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Khách VIP / Thân thiết'">${window.cnxT?window.cnxT('js.s_pos.e0588e75','Khách VIP'):'Khách VIP'}</button>
                         <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Voucher / Khuyến mãi quán'">Voucher KM</button>
-                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Ưu đãi đền bù phục vụ trễ'">Đền bù món trễ</button>
+                        <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-500/20 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('discount-reason-input').value='Ưu đãi đền bù phục vụ trễ'">${window.cnxT?window.cnxT('js.s_pos.58e038cc','Đền bù món trễ'):'Đền bù món trễ'}</button>
                     </div>
                     <input type="text" id="discount-reason-input" value="${this.discount.reason || ''}" placeholder="Nhập lý do giảm giá..." class="liquid-input w-full text-xs py-2 px-3" />
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('discount-modal').classList.remove('open')">Hủy</button>
-                    <button type="button" class="btn-glass-success text-xs py-2 px-4 font-bold" onclick="POS.applyDiscount()">Xác nhận</button>
+                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('discount-modal').classList.remove('open')">${window.cnxT?window.cnxT('ui.admin_html.button_d7d5c86c','Hủy'):'Hủy'}</button>
+                    <button type="button" class="btn-glass-success text-xs py-2 px-4 font-bold" onclick="POS.applyDiscount()">${window.cnxT?window.cnxT('ui.kitchen_html.h3_7b9f3a63','Xác nhận'):'Xác nhận'}</button>
                 </div>
             </div>
         `;
@@ -1427,40 +1414,23 @@ const POS = {
         try {
             const res = await fetch(`api/promotions.php?action=active&subtotal=${subtotal}`).then(r => r.json());
             if (!res || !res.success || !Array.isArray(res.data) || res.data.length === 0) {
-                box.innerHTML = '<span class="text-slate-500 italic">Chưa có chương trình KM nào đang bật.</span>';
+                box.innerHTML = (window.cnxT?window.cnxT('js.s_pos.d4867400','<span class="text-slate-500 italic">Chưa có chương trình KM nào đang bật.</span>'):'<span class="text-slate-500 italic">Chưa có chương trình KM nào đang bật.</span>');
                 return;
             }
             box.innerHTML = res.data.map(p => `
-                <button type="button" onclick="document.getElementById('discount-promo-code').value='${p.code}'; POS.applyPromoCodeInModal();" class="px-2 py-0.5 rounded-md ${p.eligible_now ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-white/10'} border font-mono">
-                    ${p.code} (${p.discount_type === 'percent' ? p.discount_value + '%' : this.formatMoney(p.discount_value) + 'đ'})
+                <button type="button" onclick="document.getElementById('discount-promo-code').value='${escapeJsAttr(p.code)}'; POS.applyPromoCodeInModal();" class="px-2 py-0.5 rounded-md ${p.eligible_now ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-white/10'} border font-mono">
+                    ${escapeHtml(p.code)}${p.promo_mode === 'auto' ? ' ⚡Tự áp' : ''} (${p.discount_type === 'percent' ? Number(p.discount_value) + '%' : this.formatMoney(p.discount_value) + (window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ')})
                 </button>
             `).join('');
-        } catch (e) {}
-    },
-
-    async applyPromoCodeInModal() {
-        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
-        if (!code) return;
-        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
-        try {
-            const res = await fetch('api/promotions.php?action=validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ promo_code: code, subtotal })
-            }).then(r => r.json());
-            if (res.success && res.promo) {
-                this.setDiscountType('amount');
-                const valInp = document.getElementById('discount-val-input');
-                const rsnInp = document.getElementById('discount-reason-input');
-                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
-                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
-                this.discount.promo_id = res.promo.id;
-                this.discount.promo_code = res.promo.code;
-                this.discount.promo_name = res.promo.name;
-            } else {
-                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+            if (!this.discount.promo_id && Array.isArray(res.auto_promotions) && res.auto_promotions.length > 0 && subtotal > 0) {
+                const bestAuto = res.auto_promotions[0];
+                const codeInp = document.getElementById('discount-promo-code');
+                if (codeInp && !codeInp.value) {
+                    codeInp.value = bestAuto.code;
+                    await this.applyPromoCodeInModal();
+                }
             }
-        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
     },
 
     setDiscountType(type) {
@@ -1483,7 +1453,7 @@ const POS = {
         const reason = reasonInput ? reasonInput.value.trim() : '';
 
         if (newVal > 0 && !reason) {
-            alert('Vui lòng chọn hoặc nhập Lý do giảm giá để ghi nhận Kiểm toán!');
+            alert((window.cnxT?window.cnxT('js.s_pos.43a9ea2e','Vui lòng chọn hoặc nhập Lý do giảm giá để ghi nhận Kiểm toán!'):'Vui lòng chọn hoặc nhập Lý do giảm giá để ghi nhận Kiểm toán!'));
             if (reasonInput) reasonInput.focus();
             return;
         }
@@ -1507,7 +1477,7 @@ const POS = {
     // Switch Table (Chuyển bàn)
     openSwitchTableModal() {
         if (!this.currentTable || this.cart.length === 0) {
-            alert('Bàn hiện tại không có hóa đơn để chuyển!');
+            alert((window.cnxT?window.cnxT('js.s_pos.1399e991','Bàn hiện tại không có hóa đơn để chuyển!'):'Bàn hiện tại không có hóa đơn để chuyển!'));
             return;
         }
 
@@ -1537,42 +1507,17 @@ const POS = {
                     <h3 class="font-bold text-base text-sky-400">Chuyển Bàn: từ ${this.currentTable.code} sang bàn khác</h3>
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('switch-table-modal').classList.remove('open')">&times;</button>
                 </div>
-                <p class="text-xs text-slate-400 mb-3">Chọn bàn trống để chuyển toàn bộ đơn hàng sang:</p>
+                <p class="text-xs text-slate-400 mb-3">${window.cnxT?window.cnxT('js.s_pos.350bb2cf','Chọn bàn trống để chuyển toàn bộ đơn hàng sang:'):'Chọn bàn trống để chuyển toàn bộ đơn hàng sang:'}</p>
                 <div class="grid grid-cols-3 gap-2.5 max-h-72 overflow-y-auto mb-4 p-1">
-                    ${tablesHtml || '<p class="col-span-3 text-slate-400 text-sm text-center py-6">Không có bàn trống nào!</p>'}
+                    ${tablesHtml || (window.cnxT?window.cnxT('js.s_pos.b0623fcd','<p class="col-span-3 text-slate-400 text-sm text-center py-6">Không có bàn trống nào!</p>'):'<p class="col-span-3 text-slate-400 text-sm text-center py-6">Không có bàn trống nào!</p>')}
                 </div>
                 <div class="flex justify-end">
-                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('switch-table-modal').classList.remove('open')">Đóng</button>
+                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('switch-table-modal').classList.remove('open')">${window.cnxT?window.cnxT('ui.pos_html.button_cee55387','Đóng'):'Đóng'}</button>
                 </div>
             </div>
         `;
 
         modal.classList.add('open');
-    },
-
-    async applyPromoCodeInModal() {
-        const code = (document.getElementById('discount-promo-code')?.value || '').trim().toUpperCase();
-        if (!code) return;
-        const subtotal = this.cart.reduce((s, it) => s + (it.price + (it.toppings || []).reduce((a, t) => a + (parseFloat(t.price) || 0), 0)) * it.quantity, 0);
-        try {
-            const res = await fetch('api/promotions.php?action=validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ promo_code: code, subtotal })
-            }).then(r => r.json());
-            if (res.success && res.promo) {
-                this.setDiscountType('amount');
-                const valInp = document.getElementById('discount-val-input');
-                const rsnInp = document.getElementById('discount-reason-input');
-                if (valInp) valInp.value = Math.round(Number(res.discount_amount || 0));
-                if (rsnInp) rsnInp.value = `KM ${res.promo.code}: ${res.promo.name}`;
-                this.discount.promo_id = res.promo.id;
-                this.discount.promo_code = res.promo.code;
-                this.discount.promo_name = res.promo.name;
-            } else {
-                alert(res.message || 'Mã khuyến mãi không hợp lệ');
-            }
-        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
     },
 
     async doSwitchTable(targetTableId) {
@@ -1591,7 +1536,7 @@ const POS = {
                 await this.loadTables();
                 this.selectTable(targetTableId);
             } else {
-                alert(data.message || 'Lỗi chuyển bàn');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_pos.80b36d5f','Lỗi chuyển bàn'):'Lỗi chuyển bàn'));
             }
         } catch (e) {
             console.error('Error switching table:', e);
@@ -1601,7 +1546,7 @@ const POS = {
     // Merge Table (Gộp bàn)
     openMergeTableModal() {
         if (!this.currentTable || this.cart.length === 0) {
-            alert('Bàn hiện tại không có hóa đơn để gộp!');
+            alert((window.cnxT?window.cnxT('js.s_pos.8b8e1fc8','Bàn hiện tại không có hóa đơn để gộp!'):'Bàn hiện tại không có hóa đơn để gộp!'));
             return;
         }
 
@@ -1631,12 +1576,12 @@ const POS = {
                     <h3 class="font-bold text-base text-sky-400">Gộp Bàn: ${this.currentTable.code} vào bàn khác</h3>
                     <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('merge-table-modal').classList.remove('open')">&times;</button>
                 </div>
-                <p class="text-xs text-slate-400 mb-3">Chọn bàn đang có khách để gộp đơn hàng vào:</p>
+                <p class="text-xs text-slate-400 mb-3">${window.cnxT?window.cnxT('js.s_pos.ac7a4c1b','Chọn bàn đang có khách để gộp đơn hàng vào:'):'Chọn bàn đang có khách để gộp đơn hàng vào:'}</p>
                 <div class="grid grid-cols-3 gap-2.5 max-h-72 overflow-y-auto mb-4 p-1">
-                    ${tablesHtml || '<p class="col-span-3 text-slate-400 text-sm text-center py-6">Không có bàn nào khác đang có khách!</p>'}
+                    ${tablesHtml || (window.cnxT?window.cnxT('js.s_pos.f42a1d8c','<p class="col-span-3 text-slate-400 text-sm text-center py-6">Không có bàn nào khác đang có khách!</p>'):'<p class="col-span-3 text-slate-400 text-sm text-center py-6">Không có bàn nào khác đang có khách!</p>')}
                 </div>
                 <div class="flex justify-end">
-                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('merge-table-modal').classList.remove('open')">Đóng</button>
+                    <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('merge-table-modal').classList.remove('open')">${window.cnxT?window.cnxT('ui.pos_html.button_cee55387','Đóng'):'Đóng'}</button>
                 </div>
             </div>
         `;
@@ -1664,13 +1609,13 @@ const POS = {
                 this.discount.promo_code = res.promo.code;
                 this.discount.promo_name = res.promo.name;
             } else {
-                alert(res.message || 'Mã khuyến mãi không hợp lệ');
+                alert(res.message || (window.cnxT?window.cnxT('js.s_pos.bbfcc8b7','Mã khuyến mãi không hợp lệ'):'Mã khuyến mãi không hợp lệ'));
             }
-        } catch (e) { alert('Lỗi kiểm tra mã KM'); }
+        } catch (e) { alert((window.cnxT?window.cnxT('js.s_pos.742db00e','Lỗi kiểm tra mã KM'):'Lỗi kiểm tra mã KM')); }
     },
 
     async doMergeTable(targetTableId) {
-        if (!confirm(`Bạn có chắc muốn gộp bàn ${this.currentTable.code} vào bàn được chọn?`)) {
+        if (!(await window.cnxConfirm(`${window.cnxT?window.cnxT('js.s_pos.8a713649','Bạn có chắc muốn gộp bàn'):'Bạn có chắc muốn gộp bàn'} ${this.currentTable.code} ${window.cnxT?window.cnxT('js.s_pos.c48f8334','vào bàn được chọn?'):'vào bàn được chọn?'}`))) {
             return;
         }
 
@@ -1689,7 +1634,7 @@ const POS = {
                 await this.loadTables();
                 this.selectTable(targetTableId);
             } else {
-                alert(data.message || 'Lỗi gộp bàn');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_pos.b9529487','Lỗi gộp bàn'):'Lỗi gộp bàn'));
             }
         } catch (e) {
             console.error('Error merging table:', e);
@@ -1699,7 +1644,7 @@ const POS = {
     // Pop VietQR Dynamic Modal
     async showCurrentVietQr() {
         if (this.cart.length === 0) {
-            alert('Hóa đơn hiện tại chưa có món ăn nào để tạo mã VietQR!');
+            alert((window.cnxT?window.cnxT('js.s_pos.07665c01','Hóa đơn hiện tại chưa có món ăn nào để tạo mã VietQR!'):'Hóa đơn hiện tại chưa có món ăn nào để tạo mã VietQR!'));
             return;
         }
 
@@ -1720,7 +1665,7 @@ const POS = {
         const total = Math.round(afterDiscount + vatAmount);
 
         if (total <= 0) {
-            alert('Tổng tiền hóa đơn bằng 0, không cần quét mã QR!');
+            alert((window.cnxT?window.cnxT('js.s_pos.55a621a9','Tổng tiền hóa đơn bằng 0, không cần quét mã QR!'):'Tổng tiền hóa đơn bằng 0, không cần quét mã QR!'));
             return;
         }
 
@@ -1744,18 +1689,18 @@ const POS = {
 
                 if (img) img.src = data.vietqr_url;
                 if (amt) amt.innerText = this.formatMoney(data.amount);
-                if (tbl) tbl.innerText = this.currentTable ? `${this.currentTable.code} (${this.currentTable.name})` : 'Mang Về';
+                if (tbl) tbl.innerText = this.currentTable ? `${this.currentTable.code} (${this.currentTable.name})` : (window.cnxT?window.cnxT('ui.customer_html.button_78e6716b','Mang Về'):'Mang Về');
                 if (code) code.innerText = data.order_code;
                 if (note) note.innerText = data.note;
 
                 const modal = document.getElementById('pos-vietqr-modal');
                 if (modal) modal.classList.add('open');
             } else {
-                alert(data.message || 'Không thể tạo mã VietQR');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_ord.524a0080','Không thể tạo mã VietQR'):'Không thể tạo mã VietQR'));
             }
         } catch (e) {
             console.error('Error fetching VietQR:', e);
-            alert('Lỗi kết nối khi tải mã VietQR');
+            alert((window.cnxT?window.cnxT('js.s_ord.ab4fca8b','Lỗi kết nối khi tải mã VietQR'):'Lỗi kết nối khi tải mã VietQR'));
         }
     },
 
@@ -1784,17 +1729,17 @@ const POS = {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action_code: 'REPRINT_RECEIPT',
-                        action_label: 'In lại hóa đơn đã thanh toán (' + (data.order.table_code || 'MV') + ')',
+                        action_label: (window.cnxT?window.cnxT('js.s_pos.960013f6','In lại hóa đơn đã thanh toán ('):'In lại hóa đơn đã thanh toán (') + (data.order.table_code || 'MV') + ')',
                         severity: 'WARN',
                         order_id: data.order.id,
                         order_code: data.order.order_code,
                         table_code: data.order.table_code,
                         amount_impact: data.order.total_amount || 0,
-                        reason: 'Thu ngân bấm In lại hóa đơn',
-                        details: 'Mã đơn: ' + data.order.order_code
+                        reason: (window.cnxT?window.cnxT('js.s_pos.e96ec605','Thu ngân bấm In lại hóa đơn'):'Thu ngân bấm In lại hóa đơn'),
+                        details: (window.cnxT?window.cnxT('js.s_pos.615db0f4','Mã đơn: '):'Mã đơn: ') + data.order.order_code
                     })
-                }).catch(() => {});
-                this.showReceiptModal(data.order, data.items, data.store, 'IN LẠI HÓA ĐƠN', 'Xem trước & In hóa đơn nhiệt 80mm');
+                }).catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', errIgnored) : console.debug('pos.js', errIgnored)); });
+                this.showReceiptModal(data.order, data.items, data.store, (window.cnxT?window.cnxT('js.s_pos.45dd3378','IN LẠI HÓA ĐƠN'):'IN LẠI HÓA ĐƠN'), (window.cnxT?window.cnxT('js.s_pos.f23ba7df','Xem trước & In hóa đơn nhiệt 80mm'):'Xem trước & In hóa đơn nhiệt 80mm'));
             }
         } catch(e) {
             console.error('Error reprinting order:', e);
@@ -1819,7 +1764,7 @@ const POS = {
                 if (newQr.length > 0) {
                     if (typeof this.playNotificationChime === 'function') this.playNotificationChime();
                     if (typeof this.showToast === 'function') {
-                        this.showToast(`📱 ${newQr[0].title || 'Có đơn QR mới từ khách hàng!'}`, 'info');
+                        this.showToast(`📱 ${newQr[0].title || (window.cnxT?window.cnxT('js.s_pos.c592f794','Có đơn QR mới từ khách hàng!'):'Có đơn QR mới từ khách hàng!')}`, 'info');
                     }
                 }
                 this._knownQrAlertIds = new Set(qrAlerts.map(a => Number(a.id)));
@@ -1837,28 +1782,29 @@ const POS = {
             const chips = [];
             qrAlerts.forEach(a => {
                 const isTableQr = a.alert_type === 'qr_table_pending';
+                const nt = window.cnxNotifText ? cnxNotifText(a) : { title: a.title, message: a.message };
                 chips.push(`<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${isTableQr ? 'bg-rose-500/20 border border-rose-400/50 text-rose-200' : 'bg-amber-500/20 border border-amber-400/50 text-amber-200'} text-xs animate-pulse">
-                    <b>📱 ${a.title || 'Đơn QR mới'}</b>
-                    <span class="opacity-85 hidden md:inline">${a.message || ''}</span>
-                    ${Number(a.table_id || 0) > 0 ? `<button type="button" onclick="POS.selectTable(${Number(a.table_id)})" class="px-1.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px]">Mở bàn</button>` : ''}
-                    ${isTableQr && Number(a.order_id || 0) > 0 ? `<button type="button" onclick="POS.sendOrderToKitchen(${Number(a.order_id)})" class="px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px]">Chuyển Bếp</button>` : ''}
+                    <b>📱 ${escapeHtml(nt.title || a.title || (window.cnxT?window.cnxT('js.s_pos.03c0e990','Đơn QR mới'):'Đơn QR mới'))}</b>
+                    <span class="opacity-85 hidden md:inline">${escapeHtml(nt.message || a.message || '')}</span>
+                    ${Number(a.table_id || 0) > 0 ? `<button type="button" onclick="POS.selectTable(${Number(a.table_id)})" class="px-1.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px]">${window.cnxT?window.cnxT('js.s_ord.59bf3eff','Mở bàn'):'Mở bàn'}</button>` : ''}
+                    ${isTableQr && Number(a.order_id || 0) > 0 ? `<button type="button" onclick="POS.sendOrderToKitchen(${Number(a.order_id)})" class="px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px]">${window.cnxT?window.cnxT('js.s_cust.9a34bc5b','Chuyển Bếp'):'Chuyển Bếp'}</button>` : ''}
                     <button type="button" onclick="POS.ackPosAlert(${Number(a.id)})" class="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-[10px]" title="Đã xem">✕</button>
                 </span>`);
             });
             urgentDeltas.forEach(d => {
                 if (d.kitchen_status === 'cancel_requested') {
-                    chips.push(`<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/20 border border-rose-400/40 text-rose-200"><b>⚠️ Bếp xin hủy ${d.table_code || d.order_code}</b> (${d.cancel_request_reason || ''}) <button type="button" onclick="POS.quickCancelPendingOrder(${d.id}, '${d.order_code}', '${(d.cancel_request_reason || 'Bếp yêu cầu hủy').replace(/'/g, "\\'")}')" class="px-1.5 py-0.5 rounded bg-rose-600 text-white font-bold text-[10px]">Chốt Hủy</button></span>`);
+                    chips.push(`<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/20 border border-rose-400/40 text-rose-200"><b>⚠️ Bếp xin hủy ${escapeHtml(d.table_code || d.order_code)}</b> (${escapeHtml(d.cancel_request_reason || '')}) <button type="button" onclick="POS.quickCancelPendingOrder(${Number(d.id)}, '${escapeJsAttr(d.order_code)}', '${escapeJsAttr(d.cancel_request_reason || (window.cnxT?window.cnxT('js.s_pos.c70e6cd7','Bếp yêu cầu hủy'):'Bếp yêu cầu hủy'))}')" class="px-1.5 py-0.5 rounded bg-rose-600 text-white font-bold text-[10px]">${window.cnxT?window.cnxT('js.s_pos.f5b5176c','Chốt Hủy'):'Chốt Hủy'}</button></span>`);
                 } else if (d.settlement_status === 'refund_due' || d.settlement_status === 'extra_due') {
                     const isRef = d.settlement_status === 'refund_due';
                     const diff = Math.abs(Number(d.total_amount || 0) - Number(d.paid_amount || 0));
-                    chips.push(`<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-200"><b>${isRef ? '💸 Hoàn' : '💰 Thu thêm'} ${d.table_code || d.order_code}: ${this.formatMoney(diff)}đ</b> <button type="button" onclick="POS.settleOrderDelta(${d.id}, 'cash')" class="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">Đã xử lý</button></span>`);
+                    chips.push(`<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-200"><b>${isRef ? '💸 Hoàn' : (window.cnxT?window.cnxT('js.s_pos.28381e28','💰 Thu thêm'):'💰 Thu thêm')} ${escapeHtml(d.table_code || d.order_code)}: ${this.formatMoney(diff)}đ</b> <button type="button" onclick="POS.settleOrderDelta(${Number(d.id)}, 'cash')" class="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">${window.cnxT?window.cnxT('js.s_pos.596c5d80','Đã xử lý'):'Đã xử lý'}</button></span>`);
                 }
             });
             if (orphanPending.length > 0) {
                 chips.push(`<a href="online_orders.html" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-sky-500/25 border border-sky-400/40 text-sky-200 font-bold hover:bg-sky-500/40"><i class="fas fa-motorcycle"></i> ${orphanPending.length} đơn Online / chưa gắn bàn đang chờ → Mở xử lý</a>`);
             }
             bar.innerHTML = chips.join('');
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
     },
 
     async ackPosAlert(alertId) {
@@ -1869,11 +1815,11 @@ const POS = {
                 body: JSON.stringify({ id: alertId })
             });
             await this.loadPosAlerts();
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
     },
 
     async quickCancelPendingOrder(orderId, orderCode, presetReason) {
-        if (!confirm(`Xác nhận CHỐT HỦY đơn ${orderCode} theo yêu cầu từ Bếp?\nLý do: ${presetReason}`)) return;
+        if (!(await window.cnxConfirm(`${window.cnxT?window.cnxT('js.s_pos.06e72a7c','Xác nhận CHỐT HỦY đơn'):'Xác nhận CHỐT HỦY đơn'} ${orderCode} ${window.cnxT?window.cnxT('js.s_pos.1332f4fd','theo yêu cầu từ Bếp?\\nLý do:'):'theo yêu cầu từ Bếp?\\nLý do:'} ${presetReason}`))) return;
         try {
             const res = await fetch('api/orders.php?action=cancel_order', {
                 method: 'POST',
@@ -1883,9 +1829,9 @@ const POS = {
             if (res.success) {
                 await this.loadTables();
             } else {
-                alert(res.message || 'Không thể hủy đơn');
+                alert(res.message || (window.cnxT?window.cnxT('js.s_onl.83faf5e3','Không thể hủy đơn'):'Không thể hủy đơn'));
             }
-        } catch (e) { alert('Lỗi kết nối'); }
+        } catch (e) { alert((window.cnxT?window.cnxT('js.s_ops.b69ae662','Lỗi kết nối'):'Lỗi kết nối')); }
     },
 
     async confirmOrderPayment(orderId, mode = 'paid') {
@@ -1899,10 +1845,10 @@ const POS = {
                 await this.loadTables();
                 if (this.currentTable) await this.selectTable(this.currentTable.id);
             } else {
-                alert(res.message || 'Lỗi xác nhận thanh toán');
+                alert(res.message || (window.cnxT?window.cnxT('js.s_pos.84e9d15a','Lỗi xác nhận thanh toán'):'Lỗi xác nhận thanh toán'));
             }
         } catch (e) {
-            alert('Lỗi kết nối: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.e5f87ad3','Lỗi kết nối: '):'Lỗi kết nối: ') + e.message);
         }
     },
 
@@ -1917,10 +1863,10 @@ const POS = {
                 await this.loadTables();
                 if (this.currentTable) await this.selectTable(this.currentTable.id);
             } else {
-                alert(res.message || 'Chưa thể chuyển Bếp');
+                alert(res.message || (window.cnxT?window.cnxT('js.s_onl.ca8f4a75','Chưa thể chuyển Bếp'):'Chưa thể chuyển Bếp'));
             }
         } catch (e) {
-            alert('Lỗi kết nối: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.e5f87ad3','Lỗi kết nối: '):'Lỗi kết nối: ') + e.message);
         }
     },
 
@@ -1935,20 +1881,20 @@ const POS = {
                 await this.loadTables();
                 if (this.currentTable) await this.selectTable(this.currentTable.id);
             } else {
-                alert(res.message || 'Lỗi quyết toán chênh lệch');
+                alert(res.message || (window.cnxT?window.cnxT('js.s_onl.1813bbe9','Lỗi quyết toán chênh lệch'):'Lỗi quyết toán chênh lệch'));
             }
         } catch (e) {
-            alert('Lỗi kết nối: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.m_sa.e5f87ad3','Lỗi kết nối: '):'Lỗi kết nối: ') + e.message);
         }
     },
 
     openPaymentModal() {
         if (this.cart.length === 0) {
-            alert('Hóa đơn chưa có món ăn nào!');
+            alert((window.cnxT?window.cnxT('js.s_pos.42cb5859','Hóa đơn chưa có món ăn nào!'):'Hóa đơn chưa có món ăn nào!'));
             return;
         }
         if (this.currentTable && Number(this.currentTable.pending_cancel_count || 0) > 0) {
-            alert('Bàn này đang có món chờ Bếp duyệt hủy. Vui lòng chờ Bếp xác nhận trước khi thanh toán!');
+            alert((window.cnxT?window.cnxT('js.s_pos.c3fe05dd','Bàn này đang có món chờ Bếp duyệt hủy. Vui lòng chờ Bếp xác nhận trước khi thanh toán!'):'Bàn này đang có món chờ Bếp duyệt hủy. Vui lòng chờ Bếp xác nhận trước khi thanh toán!'));
             return;
         }
 
@@ -1983,39 +1929,47 @@ const POS = {
         const vatAmount = (afterDiscount * Math.max(0, this.vatPercent)) / 100;
         const total = afterDiscount + vatAmount;
 
+        this._checkoutIdempKey = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('idem_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10));
+
         const bankId = this.storeSettings.bank_id || 'MB';
         const accountNo = this.storeSettings.bank_account_no || '0967041111';
         const accountName = this.storeSettings.bank_account_name || 'GOC PHO POS';
-        const vietQrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${Math.round(total)}&addInfo=TT%20${this.currentTable ? this.currentTable.code : 'DON'}&accountName=${encodeURIComponent(accountName)}`;
+        const addInfoStr = `TT ${this.currentTable ? this.currentTable.code : 'DON'}`;
+        const vietQrUrl = `/api/payment/vietqr_svg?bank_id=${encodeURIComponent(bankId)}&account_no=${encodeURIComponent(accountNo)}&amount=${Math.round(total)}&add_info=${encodeURIComponent(addInfoStr)}&account_name=${encodeURIComponent(accountName)}`;
 
         modal.innerHTML = `
-            <div class="liquid-glass liquid-modal-content p-6 w-[520px] max-w-full text-white shadow-2xl border border-sky-500/30">
+            <div class="liquid-glass liquid-modal-content p-6 w-[540px] max-w-full text-white shadow-2xl border border-sky-500/30">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
                     <div>
-                        <h3 class="font-bold text-lg text-emerald-400">Thanh Toán Hóa Đơn</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Bàn: ${this.currentTable ? this.currentTable.code : 'MV'} | Số món: ${this.cart.reduce((a, b) => a + b.quantity, 0)}</p>
+                        <h3 class="font-bold text-lg text-emerald-400">${window.cnxT?window.cnxT('js.s_pos.cc076d5a','Thanh Toán Hóa Đơn'):'Thanh Toán Hóa Đơn'}</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Bàn: ${this.currentTable ? this.currentTable.code : 'MV'} ${window.cnxT?window.cnxT('js.s_pos.0d9804b0','| Số món:'):'| Số món:'} ${this.cart.reduce((a, b) => a + b.quantity, 0)}</p>
                     </div>
                     <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="document.getElementById('payment-modal').classList.remove('open')">&times;</button>
                 </div>
 
                 <!-- Total Amount Banner -->
                 <div class="bg-gradient-to-r from-emerald-900/60 to-slate-900/90 border border-emerald-500/40 rounded-xl p-4 text-center mb-5 shadow-lg">
-                    <span class="text-xs uppercase tracking-wider text-emerald-300 font-semibold">Tổng Tiền Cần Thanh Toán</span>
-                    <div class="text-3xl font-black text-emerald-400 font-mono mt-1">${this.formatMoney(total)} <span class="text-sm font-normal text-slate-300">VNĐ</span></div>
+                    <span class="text-xs uppercase tracking-wider text-emerald-300 font-semibold">${window.cnxT?window.cnxT('js.s_pos.00c998e5','Tổng Tiền Cần Thanh Toán'):'Tổng Tiền Cần Thanh Toán'}</span>
+                    <div class="text-3xl font-black text-emerald-400 font-mono mt-1">${this.formatMoney(total)} <span class="text-sm font-normal text-slate-300">${window.cnxT?window.cnxT('ui.pos_html.span_a0cb4ccf','VNĐ'):'VNĐ'}</span></div>
                 </div>
 
                 <!-- Payment Methods -->
                 <div class="mb-4">
-                    <label class="block text-xs font-semibold text-slate-300 mb-2">Phương thức thanh toán:</label>
-                    <div class="grid grid-cols-3 gap-2">
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">${window.cnxT?window.cnxT('js.s_pos.6b619788','Phương thức thanh toán:'):'Phương thức thanh toán:'}</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button type="button" id="paymethod-cash" class="btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('cash', ${total})">
-                            <i class="fas fa-money-bill-wave"></i> Tiền mặt
+                            <i class="fas fa-money-bill-wave"></i> ${window.cnxT?window.cnxT('ui.admin_html.option_7d2970d9','Tiền mặt'):'Tiền mặt'}
                         </button>
                         <button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('banking', ${total})">
-                            <i class="fas fa-qrcode"></i> Chuyển khoản QR
+                            <i class="fas fa-qrcode"></i> ${window.cnxT?window.cnxT('js.s_pos.0452370e','Chuyển khoản QR'):'Chuyển khoản QR'}
                         </button>
                         <button type="button" id="paymethod-card" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('card', ${total})">
-                            <i class="fas fa-credit-card"></i> Thẻ POS
+                            <i class="fas fa-credit-card"></i> ${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'}
+                        </button>
+                        <button type="button" id="paymethod-split" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('split', ${total})">
+                            <i class="fas fa-code-branch"></i> ${window.cnxT?window.cnxT('js.s_pos.30c15a90','Kết hợp'):'Kết hợp'}
                         </button>
                     </div>
                 </div>
@@ -2023,7 +1977,7 @@ const POS = {
                 <!-- Method Content: Cash -->
                 <div id="payment-cash-section">
                     <div class="mb-3">
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Tiền khách đưa (VNĐ):</label>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">${window.cnxT?window.cnxT('js.s_pos.62407340','Tiền khách đưa (VNĐ):'):'Tiền khách đưa (VNĐ):'}</label>
                         <div class="relative">
                             <input type="number" id="cash-received-input" value="${total}" class="liquid-input w-full font-mono text-xl font-bold pr-10 text-emerald-400" oninput="POS.calcChange(${total})" />
                             <button type="button" class="absolute right-2 top-2 text-slate-400 hover:text-sky-400" onclick="VirtualNumpad.open(document.getElementById('cash-received-input'), 'Nhập tiền khách đưa')">
@@ -2033,7 +1987,7 @@ const POS = {
                     </div>
 
                     <div class="grid grid-cols-4 gap-1.5 mb-4">
-                        <button type="button" class="btn-glass text-xs py-1.5 bg-slate-800/80" onclick="POS.setCashReceived(${total}, ${total})">Đủ tiền</button>
+                        <button type="button" class="btn-glass text-xs py-1.5 bg-slate-800/80" onclick="POS.setCashReceived(${total}, ${total})">${window.cnxT?window.cnxT('js.s_pos.4b8d0d5c','Đủ tiền'):'Đủ tiền'}</button>
                         <button type="button" class="btn-glass text-xs py-1.5 bg-slate-800/80" onclick="POS.setCashReceived(50000, ${total})">50.000</button>
                         <button type="button" class="btn-glass text-xs py-1.5 bg-slate-800/80" onclick="POS.setCashReceived(100000, ${total})">100.000</button>
                         <button type="button" class="btn-glass text-xs py-1.5 bg-slate-800/80" onclick="POS.setCashReceived(200000, ${total})">200.000</button>
@@ -2042,14 +1996,14 @@ const POS = {
                     </div>
 
                     <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-white/10 mb-4">
-                        <span class="text-sm font-semibold text-slate-300">Tiền thừa trả khách:</span>
-                        <span id="cash-change-display" class="text-lg font-black font-mono text-amber-400">0 đ</span>
+                        <span class="text-sm font-semibold text-slate-300">${window.cnxT?window.cnxT('js.s_pos.2b2f0ea2','Tiền thừa trả khách:'):'Tiền thừa trả khách:'}</span>
+                        <span id="cash-change-display" class="text-lg font-black font-mono text-amber-400">${window.cnxT?window.cnxT('ui.sa_html.div_e995e897','0 đ'):'0 đ'}</span>
                     </div>
                 </div>
 
                 <!-- Method Content: VietQR Banking -->
                 <div id="payment-banking-section" class="hidden text-center mb-4 p-4 rounded-xl bg-slate-900/80 border border-sky-500/20">
-                    <p class="text-xs text-sky-300 font-semibold mb-2">Quét mã QR bằng App Ngân Hàng để thanh toán tự động</p>
+                    <p class="text-xs text-sky-300 font-semibold mb-2">${window.cnxT?window.cnxT('js.s_pos.fe6be9a1','Quét mã QR bằng App Ngân Hàng để thanh toán tự động'):'Quét mã QR bằng App Ngân Hàng để thanh toán tự động'}</p>
                     <div class="flex justify-center mb-2">
                         <img src="${vietQrUrl}" alt="VietQR" class="w-48 h-48 rounded-lg bg-white p-2 shadow-lg object-contain" />
                     </div>
@@ -2061,15 +2015,38 @@ const POS = {
                 <!-- Method Content: SmartPOS / Credit Card ECR (mod_card_payment) -->
                 <div id="payment-card-section" class="hidden mb-4 p-4 rounded-xl bg-slate-900/90 border border-indigo-500/30">
                     <div class="text-center py-4 text-xs text-slate-400">
-                        <i class="fas fa-spinner fa-spin text-indigo-400 mr-1.5"></i>Đang kiểm tra kết nối Cổng Cà Thẻ SmartPOS (ECR)...
+                        <i class="fas fa-spinner fa-spin text-indigo-400 mr-1.5"></i>${window.cnxT?window.cnxT('js.s_pos.ae351f9f','Đang kiểm tra kết nối Cổng Cà Thẻ SmartPOS (ECR)...'):'Đang kiểm tra kết nối Cổng Cà Thẻ SmartPOS (ECR)...'}
                     </div>
+                </div>
+
+                <!-- Method Content: Split Payment (PAY-04) -->
+                <div id="payment-split-section" class="hidden mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-2.5 text-xs">
+                    <div class="font-bold text-amber-300 flex items-center justify-between">
+                        <span><i class="fas fa-code-branch mr-1"></i> ${window.cnxT?window.cnxT('js.s_pos.debafcb4','Tách đa phương thức (Tiền mặt + CK + Thẻ)'):'Tách đa phương thức (Tiền mặt + CK + Thẻ)'}</span>
+                        <span class="text-[11px] font-mono text-slate-300">Mục tiêu: ${this.formatMoney(total)} đ</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">${window.cnxT?window.cnxT('js.s_pos.4a9bede3','Tiền mặt (Mở két nếu &gt; 0)'):'Tiền mặt (Mở két nếu &gt; 0)'}</label>
+                            <input type="number" id="split-cash-input" value="${Math.round(total)}" min="0" oninput="POS.calcSplitSummary(${total})" class="liquid-input w-full py-1.5 px-2 font-mono font-bold text-emerald-400" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">${window.cnxT?window.cnxT('js.s_pos.0452370e','Chuyển khoản QR'):'Chuyển khoản QR'}</label>
+                            <input type="number" id="split-banking-input" value="0" min="0" oninput="POS.calcSplitSummary(${total})" class="liquid-input w-full py-1.5 px-2 font-mono font-bold text-sky-400" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'}</label>
+                            <input type="number" id="split-card-input" value="0" min="0" oninput="POS.calcSplitSummary(${total})" class="liquid-input w-full py-1.5 px-2 font-mono font-bold text-indigo-400" />
+                        </div>
+                    </div>
+                    <div id="split-summary-status" class="text-[11px] font-mono text-emerald-300">Đã phân bổ đủ: ${this.formatMoney(total)} đ</div>
                 </div>
 
                 <!-- Footer buttons -->
                 <div class="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
-                    <button type="button" class="btn-glass text-sm py-2.5" onclick="document.getElementById('payment-modal').classList.remove('open')">Hủy bỏ</button>
+                    <button type="button" class="btn-glass text-sm py-2.5" onclick="document.getElementById('payment-modal').classList.remove('open')">${window.cnxT?window.cnxT('js.m_sa.8a4917d2','Hủy bỏ'):'Hủy bỏ'}</button>
                     <button type="button" id="btn-confirm-checkout" class="btn-glass-success text-sm py-2.5 font-bold flex items-center justify-center gap-2" onclick="POS.confirmCheckout(${total})">
-                        <i class="fas fa-check-circle"></i> <span id="btn-confirm-checkout-text">Xác Nhận & In HĐ</span>
+                        <i class="fas fa-check-circle"></i> <span id="btn-confirm-checkout-text">${window.cnxT?window.cnxT('js.s_pos.eae5eea8','Xác Nhận & In HĐ'):'Xác Nhận & In HĐ'}</span>
                     </button>
                 </div>
             </div>
@@ -2093,21 +2070,21 @@ const POS = {
             const secBank = document.getElementById('payment-banking-section');
             if (!allowed) {
                 if (btnBank) {
-                    btnBank.innerHTML = `<i class="fas fa-lock text-rose-400"></i> Chuyển khoản QR <span class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">LOCK</span>`;
+                    btnBank.innerHTML = `<i class="fas fa-lock text-rose-400"></i> ${window.cnxT?window.cnxT('js.s_pos.0452370e','Chuyển khoản QR'):'Chuyển khoản QR'} <span class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">LOCK</span>`;
                 }
                 if (secBank) {
                     secBank.innerHTML = `
                         <div class="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-xs space-y-2 text-left">
                             <div class="flex items-center gap-2 font-bold text-sm text-rose-400">
                                 <i class="fas fa-lock"></i>
-                                <span>MODULE VIETQR TỰ ĐỘNG ĐÃ BỊ KHÓA / CHƯA CẤP PHÉP</span>
+                                <span>${window.cnxT?window.cnxT('js.s_pos.715fb71e','MODULE VIETQR TỰ ĐỘNG ĐÃ BỊ KHÓA / CHƯA CẤP PHÉP'):'MODULE VIETQR TỰ ĐỘNG ĐÃ BỊ KHÓA / CHƯA CẤP PHÉP'}</span>
                             </div>
-                            <p class="leading-relaxed text-[11px]">Mã module: <span class="font-mono text-rose-300">vietqr_payment</span> • Vui lòng bật lại trên Máy chủ Master SaaS.</p>
+                            <p class="leading-relaxed text-[11px]">${window.cnxT?window.cnxT('js.s_fin.ab007c49','Mã module:'):'Mã module:'} <span class="font-mono text-rose-300">vietqr_payment</span> ${window.cnxT?window.cnxT('js.s_fin.d79360a9','• Vui lòng bật lại trên Máy chủ Master SaaS.'):'• Vui lòng bật lại trên Máy chủ Master SaaS.'}</p>
                         </div>
                     `;
                 }
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
     },
 
     cardModuleStatus: null,
@@ -2122,17 +2099,20 @@ const POS = {
 
             const btnCard = document.getElementById('paymethod-card');
             if (btnCard) {
+                const isSim = Number(data.config?.simulation_mode ?? 1) !== 0;
                 if (data.module_state === 'BLOCKED') {
-                    btnCard.innerHTML = `<i class="fas fa-ban text-rose-400"></i> Thẻ POS <span class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">BLOCK</span>`;
+                    btnCard.innerHTML = `<i class="fas fa-ban text-rose-400"></i> ${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'} <span class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">BLOCK</span>`;
                 } else if (data.module_state === 'OFF') {
-                    btnCard.innerHTML = `<i class="fas fa-lock text-amber-400"></i> Thẻ POS <span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300">OFF</span>`;
+                    btnCard.innerHTML = `<i class="fas fa-lock text-amber-400"></i> ${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'} <span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300">OFF</span>`;
+                } else if (isSim) {
+                    btnCard.innerHTML = `<i class="fas fa-credit-card text-amber-400"></i> ${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'} <span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">${window.cnxT?window.cnxT('js.s_pos.d89fff69','MÔ PHỎNG'):'MÔ PHỎNG'}</span>`;
                 } else {
-                    btnCard.innerHTML = `<i class="fas fa-credit-card text-indigo-400"></i> Thẻ POS <span class="text-[9px] px-1 rounded bg-indigo-500/20 text-indigo-300">ECR</span>`;
+                    btnCard.innerHTML = `<i class="fas fa-credit-card text-emerald-400"></i> ${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'} <span class="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">ECR LIVE</span>`;
                 }
             }
             this.renderCardPaymentSection(total);
         } catch (e) {
-            this.cardModuleStatus = { module_state: 'OFF', message: 'Không thể kết nối module cà thẻ.' };
+            this.cardModuleStatus = { module_state: 'OFF', message: (window.cnxT?window.cnxT('js.s_pos.c42e190d','Không thể kết nối module cà thẻ.'):'Không thể kết nối module cà thẻ.') };
             this.renderCardPaymentSection(total);
         }
     },
@@ -2148,11 +2128,11 @@ const POS = {
                 <div class="p-3.5 rounded-xl ${isBlocked ? 'bg-rose-950/60 border border-rose-500/50 text-rose-200' : 'bg-amber-950/50 border border-amber-500/40 text-amber-200'} text-xs space-y-2">
                     <div class="flex items-center gap-2 font-bold text-sm ${isBlocked ? 'text-rose-400' : 'text-amber-400'}">
                         <i class="fas ${isBlocked ? 'fa-ban' : 'fa-lock'}"></i>
-                        <span>${isBlocked ? 'MODULE CÀ THẺ BỊ KHÓA (BLOCKED BỞI MASTER)' : 'MODULE CÀ THẺ TÍN DỤNG ĐANG TẮT (OFF)'}</span>
+                        <span>${isBlocked ? 'MODULE CÀ THẺ BỊ KHÓA (BLOCKED BỞI MASTER)' : (window.cnxT?window.cnxT('js.s_pos.38b8cbe9','MODULE CÀ THẺ TÍN DỤNG ĐANG TẮT (OFF)'):'MODULE CÀ THẺ TÍN DỤNG ĐANG TẮT (OFF)')}</span>
                     </div>
-                    <p class="leading-relaxed text-[11px]">${st.message || 'Module thanh toán thẻ tín dụng hiện không khả dụng trên giấy phép cửa hàng.'}</p>
+                    <p class="leading-relaxed text-[11px]">${st.message || (window.cnxT?window.cnxT('js.s_pos.d12160f9','Module thanh toán thẻ tín dụng hiện không khả dụng trên giấy phép cửa hàng.'):'Module thanh toán thẻ tín dụng hiện không khả dụng trên giấy phép cửa hàng.')}</p>
                     <div class="text-[10px] text-slate-400 pt-1 border-t border-white/10">
-                        <i class="fas fa-shield-halved mr-1"></i>Kiểm soát bởi <b>CyberNexus Master SaaS</b> • Vui lòng chọn Tiền mặt hoặc Chuyển khoản QR.
+                        <i class="fas fa-shield-halved mr-1"></i>${window.cnxT?window.cnxT('js.s_pos.554adeb4','Kiểm soát bởi'):'Kiểm soát bởi'} <b>CyberNexus Master SaaS</b> ${window.cnxT?window.cnxT('js.s_pos.895603d8','• Vui lòng chọn Tiền mặt hoặc Chuyển khoản QR.'):'• Vui lòng chọn Tiền mặt hoặc Chuyển khoản QR.'}
                     </div>
                 </div>
             `;
@@ -2160,10 +2140,13 @@ const POS = {
         }
 
         const cfg = st.config || {};
+        const isSim = Number(cfg.simulation_mode ?? 1) !== 0;
         const surchargePct = parseFloat(cfg.customer_surcharge_percent) || 0;
         const surchargeAmt = Math.round(total * (surchargePct / 100.0));
         const totalCharged = Math.round(total) + surchargeAmt;
-        const terminalName = (st.compatible_terminals || []).find(t => t.model_code === cfg.model_code)?.model_name || cfg.model_code || 'PAX A920 Pro';
+        const terminalName = (st.compatible_terminals || st.catalog || []).find(t => t.model_code === cfg.model_code)?.model_name || cfg.model_code || 'PAX A920 Pro';
+        const connLabel = cfg.connection_type || cfg.connection_mode || 'LAN_TCP';
+        const tidLabel = cfg.tid || cfg.terminal_id_tid || 'TID88901';
 
         secCard.innerHTML = `
             <div class="space-y-3 text-xs">
@@ -2174,21 +2157,21 @@ const POS = {
                         </span>
                         <div>
                             <div class="font-bold text-white flex items-center gap-1.5">
-                                <span>${terminalName}</span>
+                                <span>${escapeHtml(terminalName)}</span>
                                 <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">AUTO ECR</span>
                             </div>
                             <div class="text-[10px] text-slate-300 font-mono">
-                                ${cfg.acquirer_bank || 'Vietcombank'} • ${cfg.connection_type || 'LAN_TCP'} ${cfg.terminal_ip || '10.0.126.250'}:${cfg.terminal_port || 10009} • TID: ${cfg.tid || '88001234'}
+                                ${escapeHtml(cfg.acquirer_bank || 'Vietcombank')} • ${escapeHtml(connLabel)} ${escapeHtml(cfg.terminal_ip || '10.0.126.250')}:${Number(cfg.terminal_port || 10009)} • TID: ${escapeHtml(tidLabel)}
                             </div>
                         </div>
                     </div>
-                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">SIMULATION</span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isSim ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${isSim ? '⚠️ MÔ PHỎNG' : '● LIVE ECR'}</span>
                 </div>
 
                 <!-- Surcharge & Total Charged Summary -->
                 <div class="p-2.5 rounded-xl bg-slate-950/80 border border-white/10 space-y-1">
                     <div class="flex justify-between text-[11px] text-slate-400">
-                        <span>Tiền hóa đơn gốc:</span>
+                        <span>${window.cnxT?window.cnxT('js.s_pos.86ff25e4','Tiền hóa đơn gốc:'):'Tiền hóa đơn gốc:'}</span>
                         <span class="font-mono text-slate-200">${this.formatMoney(total)} đ</span>
                     </div>
                     <div class="flex justify-between text-[11px] text-slate-400">
@@ -2196,7 +2179,7 @@ const POS = {
                         <span class="font-mono text-amber-300">+${this.formatMoney(surchargeAmt)} đ</span>
                     </div>
                     <div class="flex justify-between text-xs font-bold text-indigo-300 pt-1 border-t border-white/10">
-                        <span>Tổng tiền đẩy tự động sang máy POS:</span>
+                        <span>${window.cnxT?window.cnxT('js.s_pos.87f12349','Tổng tiền đẩy tự động sang máy POS:'):'Tổng tiền đẩy tự động sang máy POS:'}</span>
                         <span class="font-mono text-sm text-emerald-400">${this.formatMoney(totalCharged)} đ</span>
                     </div>
                 </div>
@@ -2204,20 +2187,20 @@ const POS = {
                 <!-- Card Scheme & Entry Mode Selector -->
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-[10px] text-slate-400 mb-1">Tổ chức thẻ (Mô phỏng):</label>
+                        <label class="block text-[10px] text-slate-400 mb-1">${window.cnxT?window.cnxT('js.s_pos.4d6f504d','Tổ chức thẻ (Mô phỏng):'):'Tổ chức thẻ (Mô phỏng):'}</label>
                         <select id="ecr-card-scheme" onchange="POS.selectedCardScheme=this.value" class="w-full bg-slate-950 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white font-semibold">
                             <option value="VISA" ${this.selectedCardScheme === 'VISA' ? 'selected' : ''}>💳 VISA Credit/Debit</option>
                             <option value="MASTERCARD" ${this.selectedCardScheme === 'MASTERCARD' ? 'selected' : ''}>💳 MasterCard</option>
-                            <option value="JCB" ${this.selectedCardScheme === 'JCB' ? 'selected' : ''}>💳 JCB Quốc Tế</option>
-                            <option value="NAPAS" ${this.selectedCardScheme === 'NAPAS' ? 'selected' : ''}>💳 NAPAS Nội Địa</option>
+                            <option value="JCB" ${this.selectedCardScheme === 'JCB' ? 'selected' : ''}>${window.cnxT?window.cnxT('js.s_pos.819cb78d','💳 JCB Quốc Tế'):'💳 JCB Quốc Tế'}</option>
+                            <option value="NAPAS" ${this.selectedCardScheme === 'NAPAS' ? 'selected' : ''}>${window.cnxT?window.cnxT('js.s_pos.6e6fae7e','💳 NAPAS Nội Địa'):'💳 NAPAS Nội Địa'}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[10px] text-slate-400 mb-1">Phương thức đọc thẻ:</label>
+                        <label class="block text-[10px] text-slate-400 mb-1">${window.cnxT?window.cnxT('js.s_pos.847d0217','Phương thức đọc thẻ:'):'Phương thức đọc thẻ:'}</label>
                         <select id="ecr-entry-mode" onchange="POS.selectedCardEntryMode=this.value" class="w-full bg-slate-950 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white font-semibold">
-                            <option value="NFC Contactless" ${this.selectedCardEntryMode === 'NFC Contactless' ? 'selected' : ''}>📡 Chạm NFC / Apple Pay</option>
-                            <option value="EMV Chip" ${this.selectedCardEntryMode === 'EMV Chip' ? 'selected' : ''}>🔌 Cắm Chip EMV</option>
-                            <option value="QR POS" ${this.selectedCardEntryMode === 'QR POS' ? 'selected' : ''}>📱 Quét QR trên POS</option>
+                            <option value="NFC Contactless" ${this.selectedCardEntryMode === 'NFC Contactless' ? 'selected' : ''}>${window.cnxT?window.cnxT('js.s_pos.bd9b9afa','📡 Chạm NFC / Apple Pay'):'📡 Chạm NFC / Apple Pay'}</option>
+                            <option value="EMV Chip" ${this.selectedCardEntryMode === 'EMV Chip' ? 'selected' : ''}>${window.cnxT?window.cnxT('js.s_pos.e189b34b','🔌 Cắm Chip EMV'):'🔌 Cắm Chip EMV'}</option>
+                            <option value="QR POS" ${this.selectedCardEntryMode === 'QR POS' ? 'selected' : ''}>${window.cnxT?window.cnxT('js.s_pos.2b113e7a','📱 Quét QR trên POS'):'📱 Quét QR trên POS'}</option>
                         </select>
                     </div>
                 </div>
@@ -2225,7 +2208,7 @@ const POS = {
                 <!-- Live ECR Terminal Response Box -->
                 <div id="ecr-live-status-box" class="p-2.5 rounded-xl bg-slate-950/90 border border-indigo-500/30 text-[11px] text-slate-300 flex items-center gap-2">
                     <i class="fas fa-satellite-dish text-indigo-400 text-sm animate-pulse"></i>
-                    <span>Sẵn sàng đẩy lệnh <b>SALE ${this.formatMoney(totalCharged)}đ</b> sang máy <b>${terminalName}</b> khi bấm xác nhận.</span>
+                    <span>${window.cnxT?window.cnxT('js.s_pos.75977137','Sẵn sàng đẩy lệnh'):'Sẵn sàng đẩy lệnh'} <b>SALE ${this.formatMoney(totalCharged)}đ</b> ${window.cnxT?window.cnxT('js.s_pos.6533be48','sang máy'):'sang máy'} <b>${escapeHtml(terminalName)}</b> ${window.cnxT?window.cnxT('js.s_pos.075a7afc','khi bấm xác nhận.'):'khi bấm xác nhận.'}</span>
                 </div>
             </div>
         `;
@@ -2236,45 +2219,70 @@ const POS = {
         const btnCash = document.getElementById('paymethod-cash');
         const btnBank = document.getElementById('paymethod-banking');
         const btnCard = document.getElementById('paymethod-card');
+        const btnSplit = document.getElementById('paymethod-split');
         const secCash = document.getElementById('payment-cash-section');
         const secBank = document.getElementById('payment-banking-section');
         const secCard = document.getElementById('payment-card-section');
+        const secSplit = document.getElementById('payment-split-section');
         const btnConfirm = document.getElementById('btn-confirm-checkout');
         const btnConfirmText = document.getElementById('btn-confirm-checkout-text');
 
-        [btnCash, btnBank, btnCard].forEach(btn => {
-            if (btn) btn.className = 'btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5';
+        [btnCash, btnBank, btnCard, btnSplit].forEach(btn => {
+            if (btn) btn.className = 'btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap';
+        });
+        [secCash, secBank, secCard, secSplit].forEach(sec => {
+            if (sec) sec.classList.add('hidden');
         });
 
         if (method === 'cash') {
-            if (btnCash) btnCash.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
+            if (btnCash) btnCash.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap';
             if (secCash) secCash.classList.remove('hidden');
-            if (secBank) secBank.classList.add('hidden');
-            if (secCard) secCard.classList.add('hidden');
             if (btnConfirm) btnConfirm.disabled = false;
-            if (btnConfirmText) btnConfirmText.textContent = 'Xác Nhận & In HĐ';
+            if (btnConfirmText) btnConfirmText.textContent = (window.cnxT?window.cnxT('js.s_pos.eae5eea8','Xác Nhận & In HĐ'):'Xác Nhận & In HĐ');
         } else if (method === 'banking') {
-            if (btnBank) btnBank.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
-            if (secCash) secCash.classList.add('hidden');
+            if (btnBank) btnBank.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap';
             if (secBank) secBank.classList.remove('hidden');
-            if (secCard) secCard.classList.add('hidden');
             if (btnConfirm) btnConfirm.disabled = false;
-            if (btnConfirmText) btnConfirmText.textContent = 'Xác Nhận & In HĐ';
+            if (btnConfirmText) btnConfirmText.textContent = (window.cnxT?window.cnxT('js.s_pos.eae5eea8','Xác Nhận & In HĐ'):'Xác Nhận & In HĐ');
+        } else if (method === 'split') {
+            if (btnSplit) btnSplit.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap';
+            if (secSplit) secSplit.classList.remove('hidden');
+            if (btnConfirm) btnConfirm.disabled = false;
+            if (btnConfirmText) btnConfirmText.textContent = (window.cnxT?window.cnxT('js.s_pos.101c9319','Xác Nhận Tách TT'):'Xác Nhận Tách TT');
+            this.calcSplitSummary(total);
         } else {
-            if (btnCard) btnCard.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5';
-            if (secCash) secCash.classList.add('hidden');
-            if (secBank) secBank.classList.add('hidden');
+            if (btnCard) btnCard.className = 'btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap';
             if (secCard) secCard.classList.remove('hidden');
             this.renderCardPaymentSection(total);
 
             const st = this.cardModuleStatus || { module_state: 'OFF' };
             if (st.module_state !== 'ON') {
                 if (btnConfirm) btnConfirm.disabled = true;
-                if (btnConfirmText) btnConfirmText.textContent = st.module_state === 'BLOCKED' ? 'Đã Khóa Bởi Master' : 'Module Đang Tắt';
+                if (btnConfirmText) btnConfirmText.textContent = st.module_state === 'BLOCKED' ? 'Đã Khóa Bởi Master' : (window.cnxT?window.cnxT('js.s_pos.4f61ee17','Module Đang Tắt'):'Module Đang Tắt');
             } else {
                 if (btnConfirm) btnConfirm.disabled = false;
-                if (btnConfirmText) btnConfirmText.textContent = 'Đẩy Lệnh POS & In HĐ';
+                if (btnConfirmText) btnConfirmText.textContent = (window.cnxT?window.cnxT('js.s_pos.f0f9f3f2','Đẩy Lệnh POS & In HĐ'):'Đẩy Lệnh POS & In HĐ');
             }
+        }
+    },
+
+    calcSplitSummary(total) {
+        const c = parseFloat(document.getElementById('split-cash-input')?.value) || 0;
+        const b = parseFloat(document.getElementById('split-banking-input')?.value) || 0;
+        const k = parseFloat(document.getElementById('split-card-input')?.value) || 0;
+        const sum = c + b + k;
+        const diff = sum - total;
+        const el = document.getElementById('split-summary-status');
+        if (!el) return;
+        if (Math.abs(diff) < 1) {
+            el.className = 'text-[11px] font-mono text-emerald-300';
+            el.textContent = `${window.cnxT?window.cnxT('js.s_pos.71015ed7','Đã phân bổ đủ:'):'Đã phân bổ đủ:'} ${this.formatMoney(sum)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
+        } else if (diff < 0) {
+            el.className = 'text-[11px] font-mono text-rose-400 font-bold';
+            el.textContent = `${window.cnxT?window.cnxT('js.s_pos.1195a227','Còn thiếu:'):'Còn thiếu:'} ${this.formatMoney(-diff)} ${window.cnxT?window.cnxT('js.s_pos.8c520442','đ (Tổng mới:'):'đ (Tổng mới:'} ${this.formatMoney(sum)} ${window.cnxT?window.cnxT('js.s_cust.72b7fe2d','đ)'):'đ)'}`;
+        } else {
+            el.className = 'text-[11px] font-mono text-amber-300 font-bold';
+            el.textContent = `${window.cnxT?window.cnxT('js.s_pos.4980f2a5','Thừa:'):'Thừa:'} ${this.formatMoney(diff)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
         }
     },
 
@@ -2293,39 +2301,63 @@ const POS = {
 
         const received = parseFloat(input.value) || 0;
         const change = Math.max(0, received - total);
-        display.innerText = this.formatMoney(change) + ' đ';
+        display.innerText = this.formatMoney(change) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ');
     },
 
     async confirmCheckout(total) {
+        if (this._checkoutInFlight) return;
+        this._checkoutInFlight = true;
         const btnConfirm = document.getElementById('btn-confirm-checkout');
+        if (btnConfirm) btnConfirm.disabled = true;
+        const notify = (m, t = 'info') => (typeof this.showToast === 'function' ? this.showToast(m, t) : console.log(m));
 
-        // Nếu chọn thanh toán bằng Thẻ POS (ECR), gọi tự động sang Cổng Cà Thẻ /api/card/charge trước
-        if (this.selectedPaymentMethod === 'card') {
-            const st = this.cardModuleStatus || { module_state: 'OFF' };
-            if (st.module_state !== 'ON') {
-                alert(st.message || 'Module Cổng Cà Thẻ Tín Dụng hiện đang TẮT hoặc BỊ KHÓA bởi Master!');
-                return;
+        try {
+            const method = this.selectedPaymentMethod || 'cash';
+            let cashReceived = total;
+            let splitCash = 0, splitBank = 0, splitCard = 0;
+
+            if (method === 'cash') {
+                const cashInput = document.getElementById('cash-received-input');
+                cashReceived = cashInput ? (parseFloat(cashInput.value) || 0) : total;
+                if (cashReceived < total) {
+                    notify((window.cnxT?window.cnxT('js.s_pos.b734e252','Số tiền khách đưa chưa đủ thanh toán!'):'Số tiền khách đưa chưa đủ thanh toán!'), 'error');
+                    return;
+                }
+            } else if (method === 'split') {
+                splitCash = Math.max(0, parseFloat(document.getElementById('split-cash-input')?.value) || 0);
+                splitBank = Math.max(0, parseFloat(document.getElementById('split-banking-input')?.value) || 0);
+                splitCard = Math.max(0, parseFloat(document.getElementById('split-card-input')?.value) || 0);
+                if (splitCash + splitBank + splitCard < total - 1) {
+                    notify((window.cnxT?window.cnxT('js.s_pos.af0990ad','Tổng tiền tách thanh toán chưa đủ tổng hóa đơn!'):'Tổng tiền tách thanh toán chưa đủ tổng hóa đơn!'), 'error');
+                    return;
+                }
+                cashReceived = splitCash;
             }
 
-            const statusBox = document.getElementById('ecr-live-status-box');
-            const schemeEl = document.getElementById('ecr-card-scheme');
-            const entryEl = document.getElementById('ecr-entry-mode');
-            const cardScheme = schemeEl ? schemeEl.value : (this.selectedCardScheme || 'VISA');
-            const entryMode = entryEl ? entryEl.value : (this.selectedCardEntryMode || 'NFC Contactless');
+            let cardTxRef = this._recoveredCardTxRef || '';
+            if (method === 'card' && !cardTxRef) {
+                const st = this.cardModuleStatus || { module_state: 'OFF' };
+                if (st.module_state !== 'ON') {
+                    notify(st.message || (window.cnxT?window.cnxT('js.s_pos.7f32ad94','Module Cổng Cà Thẻ Tín Dụng hiện đang TẮT hoặc BỊ KHÓA bởi Master!'):'Module Cổng Cà Thẻ Tín Dụng hiện đang TẮT hoặc BỊ KHÓA bởi Master!'), 'error');
+                    return;
+                }
+                const statusBox = document.getElementById('ecr-live-status-box');
+                const schemeEl = document.getElementById('ecr-card-scheme');
+                const entryEl = document.getElementById('ecr-entry-mode');
+                const cardScheme = schemeEl ? schemeEl.value : (this.selectedCardScheme || 'VISA');
+                const entryMode = entryEl ? entryEl.value : (this.selectedCardEntryMode || 'NFC Contactless');
 
-            if (btnConfirm) btnConfirm.disabled = true;
-            if (statusBox) {
-                statusBox.className = 'p-3 rounded-xl bg-indigo-950/90 border border-indigo-400/60 text-xs text-indigo-200 flex items-center gap-2.5';
-                statusBox.innerHTML = `
-                    <i class="fas fa-circle-notch fa-spin text-indigo-400 text-base"></i>
-                    <div>
-                        <div class="font-bold text-white">Đang đẩy lệnh SALE tự động sang máy POS...</div>
-                        <div class="text-[10px] text-indigo-300">Giao thức Semi-Integrated ECR • Chờ khách chạm/cắm thẻ (${cardScheme} - ${entryMode})</div>
-                    </div>
-                `;
-            }
+                if (statusBox) {
+                    statusBox.className = 'p-3 rounded-xl bg-indigo-950/90 border border-indigo-400/60 text-xs text-indigo-200 flex items-center gap-2.5';
+                    statusBox.innerHTML = `
+                        <i class="fas fa-circle-notch fa-spin text-indigo-400 text-base"></i>
+                        <div>
+                            <div class="font-bold text-white">${window.cnxT?window.cnxT('js.s_pos.071c38c3','Đang đẩy lệnh SALE tự động sang máy POS...'):'Đang đẩy lệnh SALE tự động sang máy POS...'}</div>
+                            <div class="text-[10px] text-indigo-300">Giao thức Semi-Integrated ECR • Chờ khách chạm/cắm thẻ (${cardScheme} - ${entryMode})</div>
+                        </div>
+                    `;
+                }
 
-            try {
                 const chargeRes = await fetch('/api/card/charge', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2336,20 +2368,19 @@ const POS = {
                         amount: Math.round(total),
                         card_scheme: cardScheme,
                         entry_mode: entryMode,
-                        cashier_name: (window.CURRENT_USER && window.CURRENT_USER.fullname) ? window.CURRENT_USER.fullname : 'Thu ngân POS'
+                        cashier_name: (window.CURRENT_USER && window.CURRENT_USER.fullname) ? window.CURRENT_USER.fullname : (window.cnxT?window.cnxT('js.s_pos.5e33d527','Thu ngân POS'):'Thu ngân POS')
                     })
                 });
                 const chargeData = await chargeRes.json();
 
                 if (!chargeRes.ok || !chargeData.success || chargeData.status !== 'APPROVED') {
-                    if (btnConfirm) btnConfirm.disabled = false;
                     if (statusBox) {
                         statusBox.className = 'p-3 rounded-xl bg-rose-950/90 border border-rose-500/60 text-xs text-rose-200 flex items-center gap-2.5';
                         statusBox.innerHTML = `
                             <i class="fas fa-triangle-exclamation text-rose-400 text-base"></i>
                             <div>
                                 <div class="font-bold text-rose-300">GIAO DỊCH THẺ TỪ CHỐI (${chargeData.status || 'ERROR'})</div>
-                                <div class="text-[11px]">${chargeData.message || 'Ngân hàng từ chối giao dịch hoặc hết thời gian chờ.'}</div>
+                                <div class="text-[11px]">${chargeData.message || (window.cnxT?window.cnxT('js.s_pos.db1eb0c0','Ngân hàng từ chối giao dịch hoặc hết thời gian chờ.'):'Ngân hàng từ chối giao dịch hoặc hết thời gian chờ.')}</div>
                             </div>
                         `;
                     }
@@ -2357,1208 +2388,77 @@ const POS = {
                 }
 
                 const tx = chargeData.transaction || {};
+                cardTxRef = tx.approval_code || tx.rrn || ('ECR-' + Date.now());
+                this._recoveredCardTxRef = cardTxRef;
                 if (statusBox) {
                     statusBox.className = 'p-3 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-xs text-emerald-200 flex items-center gap-2.5';
                     statusBox.innerHTML = `
                         <i class="fas fa-circle-check text-emerald-400 text-base"></i>
                         <div>
                             <div class="font-bold text-emerald-300">CHUẨN CHI THÀNH CÔNG (APPROVED: ${tx.approval_code || 'OK'})</div>
-                            <div class="text-[10px] font-mono text-slate-200">${tx.card_scheme} ${tx.masked_pan} • RRN: ${tx.rrn} • Tổng thu: ${this.formatMoney(tx.total_charged || total)}đ</div>
+                            <div class="text-[10px] font-mono text-slate-200">${tx.card_scheme} ${tx.masked_pan} • RRN: ${tx.rrn} ${window.cnxT?window.cnxT('js.s_pos.792f966c','• Tổng thu:'):'• Tổng thu:'} ${this.formatMoney(tx.total_charged || total)}đ</div>
                         </div>
                     `;
                 }
-            } catch (err) {
-                if (btnConfirm) btnConfirm.disabled = false;
-                alert('Lỗi kết nối Cổng Cà Thẻ ECR: ' + err.message);
-                return;
             }
-        }
 
-        const cashInput = document.getElementById('cash-received-input');
-        const cashReceived = cashInput ? (parseFloat(cashInput.value) || total) : total;
+            const idempKey = this._checkoutIdempKey || ('idem_' + Date.now());
+            const payload = {
+                order_id: this.activeOrderId,
+                table_id: this.currentTable ? this.currentTable.id : null,
+                payment_method: method,
+                cash_received: cashReceived,
+                split_cash: splitCash,
+                split_banking: splitBank,
+                split_card: splitCard,
+                idempotency_key: idempKey,
+                card_tx_ref: cardTxRef,
+                discount_type: this.discount.type,
+                discount_value: this.discount.value,
+                discount_reason: this.discount.reason || '',
+                promo_id: this.discount.promo_id || 0,
+                promo_code: this.discount.promo_code || '',
+                promo_name: this.discount.promo_name || '',
+                vat_percent: this.vatPercent
+            };
 
-        const payload = {
-            order_id: this.activeOrderId,
-            table_id: this.currentTable ? this.currentTable.id : null,
-            payment_method: this.selectedPaymentMethod || 'cash',
-            cash_received: cashReceived,
-            discount_type: this.discount.type,
-            discount_value: this.discount.value,
-            discount_reason: this.discount.reason || '',
-            promo_id: this.discount.promo_id || 0,
-            promo_code: this.discount.promo_code || '',
-            promo_name: this.discount.promo_name || '',
-            vat_percent: this.vatPercent
-        };
-
-        try {
+            const token = localStorage.getItem('pos_token') || '';
             const res = await fetch('api/orders.php?action=checkout', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Idempotency-Key': idempKey,
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                },
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
 
             if (data.success) {
+                this._recoveredCardTxRef = '';
+                this._checkoutIdempKey = '';
                 document.getElementById('payment-modal').classList.remove('open');
-                
-                // Show on-screen receipt preview modal & trigger clean thermal print
                 this.showReceiptModal(data.order, data.items, data.store);
 
-                // Reset cart & reload tables
                 this.cart = [];
                 this.activeOrderId = null;
                 this.discount = { type: 'amount', value: 0, reason: '' };
                 this.renderCart();
                 await this.loadTables();
+            } else if (cardTxRef) {
+                notify(`${window.cnxT?window.cnxT('js.s_pos.1964548b','⚠️ Thẻ đã trừ tiền (Ref:'):'⚠️ Thẻ đã trừ tiền (Ref:'} ${cardTxRef}${window.cnxT?window.cnxT('js.s_pos.633c4fe5',') nhưng ghi sổ POS lỗi ('):') nhưng ghi sổ POS lỗi ('}${data.message}${window.cnxT?window.cnxT('js.s_pos.165063b2','). Bấm lại nút xác nhận để đồng bộ không trừ thẻ lần 2!'):'). Bấm lại nút xác nhận để đồng bộ không trừ thẻ lần 2!'}`, 'error');
             } else {
-                alert(data.message || 'Lỗi xử lý thanh toán');
+                notify(data.message || (window.cnxT?window.cnxT('js.s_pos.319a37b7','Lỗi xử lý thanh toán'):'Lỗi xử lý thanh toán'), 'error');
             }
         } catch (e) {
             console.error('Error during checkout:', e);
+            notify((window.cnxT?window.cnxT('js.s_pos.436f68ec','Lỗi kết nối khi thanh toán: '):'Lỗi kết nối khi thanh toán: ') + (e.message || e), 'error');
+        } finally {
+            this._checkoutInFlight = false;
+            if (btnConfirm) btnConfirm.disabled = false;
         }
     },
 
-    // =========================================================
-    // QUẢN LÝ CA LÀM VIỆC & SỔ QUỸ TIỀN MẶT TẠI QUẦY (SHIFT ACCOUNTING)
-    // =========================================================
-    async openShiftModal() {
-        let modal = document.getElementById('pos-shift-modal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'pos-shift-modal';
-            modal.className = 'liquid-modal-overlay';
-            document.body.appendChild(modal);
-        }
-
-        modal.innerHTML = `
-            <div class="liquid-glass liquid-modal-content p-5 w-[680px] max-w-[95vw] text-white shadow-2xl border border-amber-500/40 max-h-[90vh] overflow-y-auto">
-                <div class="text-center py-8 text-slate-400 text-xs">
-                    <i class="fas fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
-                    <p>Đang tải dữ liệu Ca làm việc & Sổ quỹ...</p>
-                </div>
-            </div>
-        `;
-        modal.classList.add('open');
-
-        try {
-            const res = await fetch('api/finance.php?action=shift_status');
-            const data = await res.json();
-            if (!data.success) throw new Error(data.message || 'Lỗi tải trạng thái ca');
-
-            if (!data.has_open_shift || !data.shift) {
-                modal.innerHTML = `
-                    <div class="liquid-glass liquid-modal-content p-6 w-[460px] max-w-[95vw] text-white shadow-2xl border border-amber-500/40">
-                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
-                            <div class="flex items-center gap-2">
-                                <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-                                    <i class="fas fa-cash-register"></i>
-                                </span>
-                                <div>
-                                    <h3 class="font-bold text-base text-amber-300">MỞ CA LÀM VIỆC MỚI</h3>
-                                    <p class="text-[11px] text-slate-400">Khai báo tiền mặt đầu ca (tiền lẻ trong két)</p>
-                                </div>
-                            </div>
-                            <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">&times;</button>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Tiền mặt đầu ca trong két (VNĐ):</label>
-                            <input type="number" id="shift-opening-cash-input" value="500000" class="liquid-input w-full font-mono text-lg font-bold text-amber-300 py-2 px-3" />
-                            <div class="flex gap-1.5 mt-1.5">
-                                <button type="button" class="px-2 py-1 rounded bg-slate-800 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('shift-opening-cash-input').value=500000">500.000đ</button>
-                                <button type="button" class="px-2 py-1 rounded bg-slate-800 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('shift-opening-cash-input').value=1000000">1.000.000đ</button>
-                                <button type="button" class="px-2 py-1 rounded bg-slate-800 text-[11px] text-slate-300 border border-white/10" onclick="document.getElementById('shift-opening-cash-input').value=2000000">2.000.000đ</button>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Ghi chú nhận ca:</label>
-                            <input type="text" id="shift-opening-note-input" value="Nhận ca tiêu chuẩn" class="liquid-input w-full text-xs py-2 px-3" />
-                        </div>
-
-                        <div class="flex justify-end gap-2">
-                            <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">Đóng</button>
-                            <button type="button" class="btn-glass-success text-xs py-2 px-4 font-bold" onclick="POS.submitOpenShift()">
-                                <i class="fas fa-play mr-1"></i> Bắt Đầu Mở Ca
-                            </button>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            const s = data.shift;
-            const txs = data.transactions || [];
-            const txRows = txs.map(t => `
-                <tr class="border-b border-white/5 text-xs">
-                    <td class="py-1.5 px-2 font-mono text-[11px] text-slate-400">${(t.created_at || '').slice(11, 16)}</td>
-                    <td class="py-1.5 px-2">
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${t.trans_type === 'in' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
-                            ${t.trans_type === 'in' ? '+ THU' : '- CHI'}
-                        </span>
-                    </td>
-                    <td class="py-1.5 px-2 text-slate-200">${t.reason} <span class="text-[10px] text-slate-400">(${t.category})</span></td>
-                    <td class="py-1.5 px-2 text-right font-mono font-bold ${t.trans_type === 'in' ? 'text-emerald-400' : 'text-rose-400'}">
-                        ${t.trans_type === 'in' ? '+' : '-'}${this.formatMoney(t.amount)}đ
-                    </td>
-                </tr>
-            `).join('');
-
-            const openedAtFmt = (typeof window.formatDateTimeDDMMYY === 'function')
-                ? window.formatDateTimeDDMMYY(s.opened_at || '')
-                : String(s.opened_at || '').replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => `${d}/${m}/${y.slice(-2)}`);
-
-            modal.innerHTML = `
-                <div class="liquid-glass liquid-modal-content p-5 w-[820px] max-w-[96vw] text-white shadow-2xl border border-amber-500/40 max-h-[92vh] overflow-y-auto">
-                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10 gap-3">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <span class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 shrink-0">
-                                <i class="fas fa-cash-register"></i>
-                            </span>
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <h3 class="font-extrabold text-sm sm:text-base text-amber-300 uppercase whitespace-nowrap">Quản Lý Ca &amp; Sổ Quỹ (${s.shift_code})</h3>
-                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap shrink-0">ĐANG MỞ CA</span>
-                                </div>
-                                <p class="text-[11px] text-slate-400">Trực ca: <b>${s.user_name}</b> • Mở lúc: <span class="font-mono whitespace-nowrap">${openedAtFmt}</span></p>
-                            </div>
-                        </div>
-                        <button type="button" class="text-slate-400 hover:text-white text-2xl shrink-0" onclick="document.getElementById('pos-shift-modal').classList.remove('open')">&times;</button>
-                    </div>
-
-                    <!-- KPI Dòng Tiền Trong Ca -->
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-white/10">
-                            <span class="text-[10px] text-slate-400 uppercase block">Tiền mặt đầu ca</span>
-                            <span class="text-sm font-black font-mono text-slate-200">${this.formatMoney(s.opening_cash)}đ</span>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-emerald-500/30">
-                            <span class="text-[10px] text-emerald-300 uppercase block">+ Bán hàng Tiền mặt</span>
-                            <span class="text-sm font-black font-mono text-emerald-400">+${this.formatMoney(s.cash_sales)}đ</span>
-                            <span class="text-[10px] text-sky-300 block mt-0.5">CK/QR: ${this.formatMoney(s.banking_sales)}đ</span>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30">
-                            <span class="text-[10px] text-rose-300 uppercase block">Thu / Chi ngoài tại quầy</span>
-                            <span class="text-xs font-bold font-mono text-emerald-400">+${this.formatMoney(s.cash_in)}đ</span>
-                            <span class="text-xs font-bold font-mono text-rose-400 ml-1.5">-${this.formatMoney(s.cash_out)}đ</span>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/50">
-                            <span class="text-[10px] text-amber-300 uppercase font-bold block">= Tiền mặt lý thuyết</span>
-                            <span class="text-base font-black font-mono text-amber-400">${this.formatMoney(s.expected_cash)}đ</span>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <!-- Lập Phiếu Thu / Chi Nhanh tại quầy -->
-                        <div class="p-3.5 rounded-xl bg-slate-900/70 border border-white/10">
-                            <h4 class="font-bold text-xs text-sky-300 uppercase mb-2.5 flex items-center gap-1.5">
-                                <i class="fas fa-file-invoice-dollar"></i> Lập Phiếu Thu / Chi Nhanh Tại Quầy
-                            </h4>
-                            <div class="space-y-2">
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <select id="shift-tx-type" class="liquid-input w-full text-xs py-1.5 px-2">
-                                        <option value="out">🔻 Phiếu Chi (Lấy tiền két)</option>
-                                        <option value="in">🔺 Phiếu Thu (Nộp thêm tiền lẻ)</option>
-                                    </select>
-                                    <select id="shift-tx-cat" class="liquid-input w-full text-xs py-1.5 px-2">
-                                        <option value="Nguyên vật liệu">Mua đá / Nguyên liệu gấp</option>
-                                        <option value="Vận hành">Chi phí vận hành / Ship</option>
-                                        <option value="Tiền lẻ">Bổ sung tiền lẻ đầu ngày</option>
-                                        <option value="Khác">Khoản thu/chi khác</option>
-                                    </select>
-                                </div>
-                                <input type="number" id="shift-tx-amount" placeholder="Số tiền (VNĐ)..." class="liquid-input w-full text-xs font-mono font-bold py-1.5 px-2.5" />
-                                <input type="text" id="shift-tx-reason" placeholder="Lý do chi tiết (VD: Mua 2 bao đá bi, mua sữa tươi)..." class="liquid-input w-full text-xs py-1.5 px-2.5" />
-                                <button type="button" onclick="POS.submitCashTx()" class="w-full btn-glass-primary text-xs py-2 font-bold">
-                                    <i class="fas fa-plus-circle mr-1"></i> Lưu Phiếu & Đồng Bộ Kế Toán
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Kết Ca & Bàn Giao Tiền Mặt -->
-                        <div class="p-3.5 rounded-xl bg-slate-900/70 border border-amber-500/30">
-                            <h4 class="font-bold text-xs text-amber-300 uppercase mb-2.5 flex items-center gap-1.5">
-                                <i class="fas fa-lock"></i> Kết Ca & Kiểm Đếm Tiền Mặt Thực Tế
-                            </h4>
-                            <div class="space-y-2">
-                                <div>
-                                    <label class="block text-[11px] text-slate-300 mb-1">Tiền mặt thực đếm trong ngăn kéo (VNĐ):</label>
-                                    <input type="number" id="shift-actual-cash" value="${Math.round(s.expected_cash)}" class="liquid-input w-full text-sm font-mono font-black text-emerald-400 py-1.5 px-2.5" />
-                                </div>
-                                <div>
-                                    <label class="block text-[11px] text-slate-300 mb-1">Ghi chú bàn giao ca:</label>
-                                    <input type="text" id="shift-close-note" value="Đã kiểm đếm đủ bàn giao cuối ca" class="liquid-input w-full text-xs py-1.5 px-2.5" />
-                                </div>
-                                <button type="button" onclick="POS.submitCloseShift()" class="w-full btn-glass text-xs py-2 bg-rose-600/80 hover:bg-rose-600 text-white border-rose-500 font-bold">
-                                    <i class="fas fa-check-double mr-1"></i> Chốt Kết Ca & Gửi Báo Cáo Audit
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Danh sách Phiếu Thu/Chi trong ca -->
-                    <div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
-                        <h5 class="text-xs font-bold text-slate-300 mb-2">Phiếu Thu / Chi phát sinh trong ca (${txs.length})</h5>
-                        <div class="max-h-36 overflow-y-auto">
-                            <table class="w-full text-left border-collapse">
-                                <tbody>
-                                    ${txRows || '<tr><td colspan="4" class="py-3 text-center text-xs text-slate-500">Chưa có phiếu thu/chi ngoài nào trong ca này</td></tr>'}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } catch (e) {
-            modal.innerHTML = `<div class="liquid-glass p-6 text-rose-400 text-xs">${e.message}</div>`;
-        }
-    },
-
-    async submitOpenShift() {
-        const openingCash = parseFloat(document.getElementById('shift-opening-cash-input')?.value) || 0;
-        const note = document.getElementById('shift-opening-note-input')?.value.trim() || 'Mở ca chuẩn';
-        try {
-            const res = await fetch('api/finance.php?action=open_shift', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ opening_cash: openingCash, note })
-            });
-            const data = await res.json();
-            if (!data.success) {
-                alert(data.message || 'Lỗi mở ca');
-                return;
-            }
-            await this.openShiftModal();
-        } catch (e) {
-            alert('Lỗi kết nối khi mở ca');
-        }
-    },
-
-    async submitCashTx() {
-        const transType = document.getElementById('shift-tx-type')?.value || 'out';
-        const category = document.getElementById('shift-tx-cat')?.value || 'Khác';
-        const amount = parseFloat(document.getElementById('shift-tx-amount')?.value) || 0;
-        const reason = document.getElementById('shift-tx-reason')?.value.trim() || '';
-
-        if (amount <= 0 || !reason) {
-            alert('Vui lòng nhập Số tiền (> 0) và Lý do Thu/Chi cụ thể!');
-            return;
-        }
-
-        try {
-            const res = await fetch('api/finance.php?action=add_cash_tx', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trans_type: transType, category, amount, reason })
-            });
-            const data = await res.json();
-            if (!data.success) {
-                alert(data.message || 'Lỗi lưu phiếu');
-                return;
-            }
-            await this.openShiftModal();
-        } catch (e) {
-            alert('Lỗi kết nối khi lưu phiếu thu/chi');
-        }
-    },
-
-    async submitCloseShift() {
-        const actualCash = parseFloat(document.getElementById('shift-actual-cash')?.value) || 0;
-        const note = document.getElementById('shift-close-note')?.value.trim() || 'Bàn giao cuối ca';
-        if (!confirm('Xác nhận chốt kết ca và gửi biên bản đối soát két tiền lên Quản trị / Kế toán?')) return;
-
-        try {
-            const res = await fetch('api/finance.php?action=close_shift', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ actual_cash: actualCash, note })
-            });
-            const data = await res.json();
-            if (!data.success) {
-                alert(data.message || 'Lỗi kết ca');
-                return;
-            }
-            alert(data.message);
-            await this.openShiftModal();
-        } catch (e) {
-            alert('Lỗi kết nối khi kết ca');
-        }
-    },
-
-    // Thermal Receipt Printer Preview & Print Engine
-    lastReceiptHtml: '',
-
-    // In tạm tính cho đơn hàng đang tạo (chỉ in nội dung đơn đang tạo)
-    printTemporaryReceipt() {
-        if (!this.cart || this.cart.length === 0) {
-            alert('Đơn hàng đang tạo chưa có món ăn nào để in tạm tính!');
-            return;
-        }
-
-        // Ghi nhận Kiểm toán nội bộ hành vi In tạm tính
-        fetch('api/orders.php?action=log_audit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action_code: 'PRINT_TEMP_BILL',
-                action_label: 'In phiếu tạm tính bàn ' + (this.currentTable ? this.currentTable.code : 'MV'),
-                severity: 'INFO',
-                order_id: this.activeOrderId || 0,
-                order_code: (this.activeOrder && this.activeOrder.order_code) ? this.activeOrder.order_code : 'TEMP',
-                table_code: this.currentTable ? this.currentTable.code : 'MV',
-                amount_impact: 0,
-                reason: 'Thu ngân in phiếu tạm tính kiểm tra đơn',
-                details: 'Số món: ' + this.cart.length
-            })
-        }).catch(() => {});
-
-        let subtotal = 0;
-        const formattedItems = this.cart.map(item => {
-            let toppingPrice = 0;
-            if (item.toppings && item.toppings.length > 0) {
-                toppingPrice = item.toppings.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
-            }
-            const unitPrice = (parseFloat(item.price) || 0) + toppingPrice;
-            const itemSubtotal = unitPrice * (parseInt(item.quantity) || 1);
-            subtotal += itemSubtotal;
-            return {
-                ...item,
-                product_name: item.name || item.product_name,
-                price: unitPrice,
-                subtotal: itemSubtotal
-            };
-        });
-
-        let discountAmount = 0;
-        if (this.discount.type === 'percent') {
-            discountAmount = (subtotal * Math.min(100, Math.max(0, this.discount.value))) / 100;
-        } else {
-            discountAmount = Math.min(subtotal, Math.max(0, this.discount.value));
-        }
-
-        const afterDiscount = Math.max(0, subtotal - discountAmount);
-        const vatAmount = (afterDiscount * Math.max(0, this.vatPercent)) / 100;
-        const total = afterDiscount + vatAmount;
-
-        const tableName = this.currentTable ? (this.currentTable.name || this.currentTable.code) : 'Khách mang về';
-        const tempOrderCode = (this.activeOrder && this.activeOrder.order_code) ? this.activeOrder.order_code : 'ĐANG TẠO';
-
-        const tempOrder = {
-            order_code: tempOrderCode,
-            table_code: tableName,
-            customer_name: this.customerName || 'Khách vãng lai',
-            guest_count: this.guestCount || 1,
-            user_name: (window.currentUser && window.currentUser.fullname) ? window.currentUser.fullname : 'Thu ngân',
-            created_at: new Date().toLocaleString('vi-VN'),
-            subtotal: subtotal,
-            discount_amount: discountAmount,
-            vat_percent: this.vatPercent,
-            vat_amount: vatAmount,
-            total_amount: total,
-            is_temporary: true
-        };
-
-        this.showReceiptModal(tempOrder, formattedItems, null, 'PHIẾU TẠM TÍNH', 'Phiếu tạm tính - Đơn đang tạo');
-    },
-
-    generateReceiptHtml(order, items, store) {
-        const brand = window.CN_STORE_BRAND || {};
-        const storeName = store ? store.name : (this.storeSettings['store_name'] || brand.store_name || 'CyberNexus POS');
-        const hotline = store ? store.hotline : (this.storeSettings['store_hotline'] || brand.store_hotline || '');
-        const address = store ? store.address : (this.storeSettings['store_address'] || brand.store_address || '');
-        const wifi = store ? store.wifi : (this.storeSettings['store_wifi'] || brand.store_wifi || '');
-
-        let itemsHtml = '';
-        (items || []).forEach((it, i) => {
-            const toppings = it.toppings_json ? (typeof it.toppings_json === 'string' ? JSON.parse(it.toppings_json) : it.toppings_json) : (it.toppings || []);
-            let toppingNames = '';
-            if (toppings.length > 0) {
-                toppingNames = `<div style="font-size: 11px; padding-left: 12px; color: #444;">+ ${toppings.map(t => t.name).join(', ')}</div>`;
-            }
-
-            const itemName = it.product_name || it.name || 'Món';
-            const itemPrice = parseFloat(it.price) || 0;
-            const itemQty = it.quantity || 1;
-            const itemSubtotal = it.subtotal || (itemPrice * itemQty);
-
-            itemsHtml += `
-                <div style="margin-bottom: 5px;">
-                    <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                        <span>${i + 1}. ${itemName}</span>
-                        <span>${this.formatMoney(itemSubtotal)} đ</span>
-                    </div>
-                    <div style="font-size: 11px; color: #555; display: flex; justify-content: space-between; padding-left: 12px;">
-                        <span>${itemQty} ${it.unit || 'ly'} x ${this.formatMoney(itemPrice)} đ</span>
-                    </div>
-                    ${toppingNames}
-                    ${it.note ? `<div style="font-size: 11px; font-style: italic; color: #b91c1c; padding-left: 12px;">* ${it.note}</div>` : ''}
-                </div>
-            `;
-        });
-
-        const isTemp = !!(order && order.is_temporary);
-        const receiptTitle = isTemp ? '*** PHIẾU TẠM TÍNH ***' : 'PHIẾU THANH TOÁN';
-        const orderCodeText = isTemp ? '(ĐƠN ĐANG TẠO - CHƯA THANH TOÁN)' : `Số HĐ: ${order.order_code}`;
-        const payMethodName = order.payment_method === 'banking' ? 'Chuyển khoản (VietQR)' : (order.payment_method === 'card' ? 'Thẻ POS' : 'Tiền mặt');
-
-        return `
-            <div style="text-align: center; margin-bottom: 8px;">
-                <div style="font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">${storeName}</div>
-                <div style="font-size: 11px; color: #444; margin-top: 2px;">${address}</div>
-                <div style="font-size: 11px; color: #444;">Hotline: <b>${hotline}</b></div>
-                <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-                <div style="font-size: 15px; font-weight: bold; letter-spacing: 1px;">${receiptTitle}</div>
-                <div style="font-size: 12px; font-weight: bold; margin-top: 2px;">${orderCodeText}</div>
-                <div style="font-size: 11px; color: #444;">Bàn: <b>${order.table_code}</b> | Thu ngân: <b>${order.user_name || 'Thu ngân'}</b></div>
-                <div style="font-size: 11px; color: #444;">Thời gian: ${order.completed_at || order.created_at || new Date().toLocaleString('vi-VN')}</div>
-            </div>
-            
-            <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-            
-            <div style="margin: 8px 0;">
-                ${itemsHtml}
-            </div>
-            
-            <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-            
-            <div style="font-size: 12px; line-height: 1.6;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span>Tiền hàng:</span>
-                    <span style="font-weight: bold;">${this.formatMoney(order.subtotal)} đ</span>
-                </div>
-                ${order.discount_amount > 0 ? `
-                <div style="display: flex; justify-content: space-between; color: #b91c1c;">
-                    <span>Giảm giá:</span>
-                    <span>-${this.formatMoney(order.discount_amount)} đ</span>
-                </div>` : ''}
-                ${order.vat_amount > 0 ? `
-                <div style="display: flex; justify-content: space-between;">
-                    <span>VAT (${order.vat_percent}%):</span>
-                    <span>+${this.formatMoney(order.vat_amount)} đ</span>
-                </div>` : ''}
-                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-                <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 900;">
-                    <span>TỔNG CỘNG:</span>
-                    <span>${this.formatMoney(order.total_amount)} đ</span>
-                </div>
-                ${isTemp ? `
-                <div style="text-align: center; margin-top: 8px; padding: 4px; border: 1px dashed #555; font-size: 11px; font-weight: bold; color: #111;">
-                    *** VUI LÒNG KIỂM TRA LẠI MÓN ĂN ***<br>
-                    <span style="font-size: 10px; font-weight: normal; color: #555;">(Phiếu tạm tính - Chưa có giá trị thanh toán)</span>
-                </div>
-                ` : `
-                <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px;">
-                    <span>Hình thức thanh toán:</span>
-                    <span style="font-weight: bold;">${payMethodName}</span>
-                </div>
-                ${order.payment_method === 'cash' ? `
-                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                    <span>Tiền khách đưa:</span>
-                    <span>${this.formatMoney(order.cash_received)} đ</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                    <span>Tiền thối lại:</span>
-                    <span style="font-weight: bold;">${this.formatMoney(order.change_amount)} đ</span>
-                </div>` : ''}
-                `}
-            </div>
-            
-            <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-            
-            <div style="text-align: center; font-size: 11px; color: #333; margin-top: 6px;">
-                <div>WiFi VIP: <b>${(store && store.store_wifi_ssid) ? store.store_wifi_ssid : wifi}</b>${order && order.order_code ? ` &bull; Mã kích hoạt: <b>${order.order_code}</b>` : ''}</div>
-                <div style="font-weight: bold; margin-top: 4px; font-size: 12px;">CẢM ƠN VÀ HẸN GẶP LẠI QUÝ KHÁCH!</div>
-                <div style="font-size: 9px; color: #777; margin-top: 2px;">Hệ thống POS Góc Phố</div>
-            </div>
-        `;
-    },
-
-    showReceiptModal(order, items, store, title = 'THANH TOÁN THÀNH CÔNG', subtitle = 'Xem trước & In hóa đơn nhiệt') {
-        const html = this.generateReceiptHtml(order, items, store);
-        this.lastReceiptHtml = html;
-        this.lastReceiptOrder = order;
-        this.lastReceiptItems = items;
-        this.lastReceiptStore = store;
-
-        // Populate titles & close button text
-        const titleEl = document.getElementById('receipt-modal-title');
-        if (titleEl) titleEl.innerText = title;
-        const subTitleEl = document.getElementById('receipt-modal-subtitle');
-        if (subTitleEl) subTitleEl.innerText = subtitle;
-        const closeTextEl = document.getElementById('receipt-modal-close-text');
-        if (closeTextEl) closeTextEl.innerText = (title === 'THANH TOÁN THÀNH CÔNG') ? 'Đóng (Tạo đơn mới)' : 'Đóng';
-
-        const iconEl = document.getElementById('receipt-modal-icon');
-        if (iconEl) {
-            if (order && order.is_temporary) {
-                iconEl.className = 'w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-sm border border-sky-500/30';
-                iconEl.innerHTML = '<i class="fas fa-print"></i>';
-            } else {
-                iconEl.className = 'w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/30';
-                iconEl.innerHTML = '<i class="fas fa-check-circle"></i>';
-            }
-        }
-
-        const printBtnTextEl = document.getElementById('receipt-modal-print-btn-text');
-        if (printBtnTextEl) {
-            printBtnTextEl.innerText = (order && order.is_temporary) ? 'In Phiếu Tạm (80mm)' : 'In Hóa Đơn (80mm)';
-        }
-
-        // Populate on-screen paper slip preview
-        const paperEl = document.getElementById('receipt-preview-paper');
-        if (paperEl) {
-            paperEl.innerHTML = html;
-        }
-
-        // Populate printable-receipt element
-        const printEl = document.getElementById('printable-receipt');
-        if (printEl) {
-            printEl.innerHTML = html;
-        }
-
-        // Open modal
-        const modal = document.getElementById('receipt-modal');
-        if (modal) {
-            modal.classList.add('open');
-        }
-
-        // NOTE: Auto-print on checkout is intentionally disabled per user requirement:
-        // Cashier will preview receipt on screen and explicitly click [In Hóa Đơn (80mm)] to print.
-    },
-
-    closeReceiptModal() {
-        const modal = document.getElementById('receipt-modal');
-        if (modal) {
-            modal.classList.remove('open');
-        }
-    },
-
-    triggerThermalPrint() {
-        if (!this.lastReceiptHtml) {
-            const printEl = document.getElementById('printable-receipt');
-            if (printEl && printEl.innerHTML) {
-                this.lastReceiptHtml = printEl.innerHTML;
-            }
-        }
-        if (!this.lastReceiptHtml) return;
-
-        let iframe = document.getElementById('thermal-print-iframe');
-        if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'thermal-print-iframe';
-            iframe.style.position = 'fixed';
-            iframe.style.right = '0';
-            iframe.style.bottom = '0';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = '0';
-            iframe.style.visibility = 'hidden';
-            document.body.appendChild(iframe);
-        }
-
-        const doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>Phiếu Thanh Toán</title>
-                <style>
-                    @page {
-                        size: 80mm auto;
-                        margin: 0;
-                    }
-                    * {
-                        box-sizing: border-box;
-                    }
-                    body {
-                        margin: 0;
-                        padding: 8px 10px;
-                        width: 76mm;
-                        font-family: 'Courier New', Courier, monospace, 'Segoe UI', sans-serif;
-                        font-size: 12px;
-                        line-height: 1.35;
-                        color: #000;
-                        background: #fff;
-                    }
-                    @media print {
-                        body { width: 76mm; padding: 4px 6px; }
-                    }
-                </style>
-            </head>
-            <body>
-                ${this.lastReceiptHtml}
-            </body>
-            </html>
-        `);
-        doc.close();
-
-        setTimeout(() => {
-            try {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            } catch (err) {
-                console.warn('Iframe print error, falling back to window.print():', err);
-                window.print();
-            }
-        }, 200);
-    },
-
-    // Legacy alias
-    printReceipt(order, items, store) {
-        this.showReceiptModal(order, items, store);
-    },
-
-    // ==========================================
-    // TRA CỨU & IN LẠI HÓA ĐƠN BẤT KỲ
-    // ==========================================
-    reprintSearchTimeout: null,
-
-    openReprintModal() {
-        const modal = document.getElementById('reprint-search-modal');
-        if (!modal) return;
-
-        // Default to today
-        const todayStr = new Date().toISOString().split('T')[0];
-        const dateFromEl = document.getElementById('reprint-date-from');
-        const dateToEl = document.getElementById('reprint-date-to');
-        const statusEl = document.getElementById('reprint-status-filter');
-        const searchInput = document.getElementById('reprint-search-input');
-
-        if (dateFromEl && !dateFromEl.value) dateFromEl.value = todayStr;
-        if (dateToEl && !dateToEl.value) dateToEl.value = todayStr;
-        if (statusEl) statusEl.value = 'completed';
-        if (searchInput) {
-            searchInput.value = '';
-            const clearBtn = document.getElementById('reprint-search-clear');
-            if (clearBtn) clearBtn.classList.add('hidden');
-        }
-
-        modal.classList.add('open');
-        this.loadReprintOrders();
-        setTimeout(() => {
-            if (searchInput) searchInput.focus();
-        }, 150);
-    },
-
-    closeReprintModal() {
-        const modal = document.getElementById('reprint-search-modal');
-        if (modal) modal.classList.remove('open');
-    },
-
-    setReprintDatePreset(preset) {
-        const dateFromEl = document.getElementById('reprint-date-from');
-        const dateToEl = document.getElementById('reprint-date-to');
-        if (!dateFromEl || !dateToEl) return;
-
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-
-        // Reset preset button styling
-        document.querySelectorAll('.reprint-preset-btn').forEach(btn => {
-            btn.className = 'reprint-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700';
-        });
-
-        const activeBtn = document.getElementById(`preset-${preset}`);
-        if (activeBtn) {
-            activeBtn.className = 'reprint-preset-btn px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold hover:bg-sky-500/30';
-        }
-
-        if (preset === 'today') {
-            dateFromEl.value = todayStr;
-            dateToEl.value = todayStr;
-        } else if (preset === 'yesterday') {
-            const yesterday = new Date(now.getTime() - 86400000);
-            const yestStr = yesterday.toISOString().split('T')[0];
-            dateFromEl.value = yestStr;
-            dateToEl.value = yestStr;
-        } else if (preset === '7days') {
-            const past7 = new Date(now.getTime() - 7 * 86400000);
-            dateFromEl.value = past7.toISOString().split('T')[0];
-            dateToEl.value = todayStr;
-        } else if (preset === 'all') {
-            dateFromEl.value = '';
-            dateToEl.value = '';
-        }
-
-        this.loadReprintOrders();
-    },
-
-    handleReprintSearchKeyup(event) {
-        const clearBtn = document.getElementById('reprint-search-clear');
-        const val = (event.target.value || '').trim();
-        if (clearBtn) {
-            if (val.length > 0) clearBtn.classList.remove('hidden');
-            else clearBtn.classList.add('hidden');
-        }
-
-        if (event.key === 'Enter') {
-            clearTimeout(this.reprintSearchTimeout);
-            this.loadReprintOrders();
-            return;
-        }
-
-        clearTimeout(this.reprintSearchTimeout);
-        this.reprintSearchTimeout = setTimeout(() => {
-            this.loadReprintOrders();
-        }, 350);
-    },
-
-    clearReprintSearch() {
-        const searchInput = document.getElementById('reprint-search-input');
-        const clearBtn = document.getElementById('reprint-search-clear');
-        if (searchInput) searchInput.value = '';
-        if (clearBtn) clearBtn.classList.add('hidden');
-        this.loadReprintOrders();
-    },
-
-    async loadReprintOrders() {
-        const container = document.getElementById('reprint-orders-container');
-        const countEl = document.getElementById('reprint-orders-count');
-        if (!container) return;
-
-        const searchInput = document.getElementById('reprint-search-input');
-        const search = (searchInput && searchInput.value ? searchInput.value : '').trim();
-        const dateFromEl = document.getElementById('reprint-date-from');
-        const dateFrom = dateFromEl && dateFromEl.value ? dateFromEl.value : '';
-        const dateToEl = document.getElementById('reprint-date-to');
-        const dateTo = dateToEl && dateToEl.value ? dateToEl.value : '';
-        const statusEl = document.getElementById('reprint-status-filter');
-        const status = statusEl && statusEl.value ? statusEl.value : 'completed';
-
-        container.innerHTML = `
-            <div class="flex flex-col items-center justify-center p-12 text-slate-400">
-                <i class="fas fa-spinner fa-spin text-2xl text-sky-400 mb-2"></i>
-                <span class="text-xs">Đang tìm kiếm hóa đơn...</span>
-            </div>
-        `;
-
-        try {
-            let url = `api/orders.php?action=history&limit=150`;
-            if (search) url += `&search=${encodeURIComponent(search)}`;
-            if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
-            if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
-            if (status) url += `&status=${encodeURIComponent(status)}`;
-            if (!dateFrom && !dateTo && !search) url += `&all_dates=1`;
-
-            const res = await fetch(url);
-            const data = await res.json();
-
-            if (!data.success || !Array.isArray(data.data) || data.data.length === 0) {
-                container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center p-12 text-center text-slate-500">
-                        <i class="fas fa-receipt text-4xl mb-3 opacity-40"></i>
-                        <p class="text-sm font-semibold text-slate-300">Không tìm thấy hóa đơn nào phù hợp!</p>
-                        <p class="text-xs text-slate-500 mt-1">Hãy thử xóa từ khóa tìm kiếm hoặc chọn khoảng thời gian "Tất cả thời gian".</p>
-                    </div>
-                `;
-                if (countEl) countEl.innerText = 'Tìm thấy 0 hóa đơn';
-                const sTotal = document.getElementById('reprint-stat-total');
-                const sCash = document.getElementById('reprint-stat-cash');
-                const sBank = document.getElementById('reprint-stat-banking');
-                const sCount = document.getElementById('reprint-stat-count');
-                if (sTotal) sTotal.innerText = '0 đ';
-                if (sCash) sCash.innerText = '0 đ';
-                if (sBank) sBank.innerText = '0 đ';
-                if (sCount) sCount.innerText = '0 đơn';
-                return;
-            }
-
-            const orders = data.data;
-            if (countEl) countEl.innerText = `Tìm thấy ${orders.length} hóa đơn`;
-
-            // Calculate live revenue & payment breakdown for filtered orders
-            let totalRev = 0;
-            let totalCash = 0;
-            let totalBanking = 0;
-            let completedOrders = 0;
-
-            orders.forEach(o => {
-                if (o.status === 'completed') {
-                    const amt = parseFloat(o.total_amount) || 0;
-                    totalRev += amt;
-                    if (o.payment_method === 'banking' || o.payment_method === 'card') {
-                        totalBanking += amt;
-                    } else {
-                        totalCash += amt;
-                    }
-                    completedOrders++;
-                }
-            });
-
-            const sTotal = document.getElementById('reprint-stat-total');
-            const sCash = document.getElementById('reprint-stat-cash');
-            const sBank = document.getElementById('reprint-stat-banking');
-            const sCount = document.getElementById('reprint-stat-count');
-            if (sTotal) sTotal.innerText = this.formatMoney(totalRev) + ' đ';
-            if (sCash) sCash.innerText = this.formatMoney(totalCash) + ' đ';
-            if (sBank) sBank.innerText = this.formatMoney(totalBanking) + ' đ';
-            if (sCount) sCount.innerText = `${completedOrders} / ${orders.length} đơn`;
-
-            let html = '';
-            orders.forEach(o => {
-                const isPaid = (o.status === 'completed');
-                const payMethodLabel = (o.payment_method === 'banking') ? 'VietQR / CK' : ((o.payment_method === 'card') ? 'Thẻ' : 'Tiền mặt');
-                const rawTime = o.completed_at || o.created_at || '';
-                const timeStr = (typeof window.formatDateTimeDDMMYY === 'function')
-                    ? window.formatDateTimeDDMMYY(rawTime)
-                    : rawTime.replace(/^(\d{4})-(\d{2})-(\d{2})/, (_, y, m, d) => `${d}/${m}/${y.slice(-2)}`);
-                const itemsCount = o.items_count || 0;
-                const itemsSummary = o.items_summary || 'Chưa có thông tin món';
-
-                html += `
-                    <div class="p-3 mb-2 rounded-xl bg-slate-900/60 border border-white/10 hover:border-sky-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex items-start gap-3 min-w-0 flex-1">
-                            <div class="w-10 h-10 rounded-xl ${isPaid ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'} flex items-center justify-center shrink-0">
-                                <i class="fas ${isPaid ? 'fa-file-invoice-dollar' : 'fa-clock'} text-base"></i>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-mono font-bold text-sky-400 text-sm whitespace-nowrap">${o.order_code}</span>
-                                    <span class="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold text-xs whitespace-nowrap">${o.table_code || 'MANG VỀ'}</span>
-                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase whitespace-nowrap ${isPaid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
-                                        ${isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                                    </span>
-                                    <span class="text-[11px] text-slate-400 font-mono whitespace-nowrap"><i class="far fa-clock mr-1"></i>${timeStr}</span>
-                                </div>
-                                <div class="text-xs text-slate-300 mt-1 truncate" title="${itemsSummary}">
-                                    <i class="fas fa-utensils text-slate-500 mr-1"></i>
-                                    <span class="text-slate-400 font-medium">${itemsCount} món:</span> ${itemsSummary}
-                                </div>
-                                <div class="text-[11px] text-slate-400 mt-0.5 truncate">
-                                    Thu ngân: <span class="text-slate-300 font-medium">${o.user_name || 'Hệ thống'}</span>
-                                    ${o.customer_name ? ` • Khách: <span class="text-slate-300">${o.customer_name}</span>` : ''}
-                                    • HTTT: <span class="text-slate-300 font-medium">${payMethodLabel}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5 whitespace-nowrap">
-                            <div class="text-left sm:text-right">
-                                <div class="text-[10px] text-slate-400">Tổng tiền</div>
-                                <div class="text-base font-extrabold font-mono text-emerald-400">${this.formatMoney(o.total_amount)} đ</div>
-                            </div>
-                            <div class="flex items-center gap-1.5 shrink-0">
-                                <button type="button" onclick="POS.previewOrderReceipt(${o.id})" class="btn-glass text-xs py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border-white/10 flex items-center gap-1 font-semibold whitespace-nowrap" title="Xem trước hóa đơn nhiệt">
-                                    <i class="fas fa-eye text-xs"></i> <span>Xem</span>
-                                </button>
-                                <button type="button" onclick="POS.reprintOrderReceipt(${o.id})" class="btn-glass-primary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold shadow-md shadow-sky-500/20 whitespace-nowrap" title="In lại hóa đơn ngay">
-                                    <i class="fas fa-print"></i> <span>In Lại</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-        } catch (e) {
-            console.error('Lỗi tải danh sách hóa đơn:', e);
-            container.innerHTML = `
-                <div class="p-8 text-center text-rose-400 text-xs">
-                    <i class="fas fa-exclamation-triangle text-xl mb-1"></i>
-                    <div>Không thể tải danh sách hóa đơn. Vui lòng thử lại!</div>
-                </div>
-            `;
-        }
-    },
-
-    async previewOrderReceipt(orderId) {
-        try {
-            const res = await fetch(`api/orders.php?action=detail&order_id=${orderId}`);
-            const data = await res.json();
-            if (!data.success || !data.order) {
-                alert(data.message || 'Không tìm thấy thông tin hóa đơn!');
-                return;
-            }
-
-            this.showReceiptModal(data.order, data.items, data.store, `PHIẾU THANH TOÁN (HĐ: ${data.order.order_code})`, `In lại hóa đơn đã thanh toán`);
-        } catch (e) {
-            console.error('Lỗi xem hóa đơn:', e);
-            alert('Lỗi khi tải thông tin hóa đơn!');
-        }
-    },
-
-    async reprintOrderReceipt(orderId) {
-        try {
-            const res = await fetch(`api/orders.php?action=detail&order_id=${orderId}`);
-            const data = await res.json();
-            if (!data.success || !data.order) {
-                alert(data.message || 'Không tìm thấy thông tin hóa đơn!');
-                return;
-            }
-
-            const html = this.generateReceiptHtml(data.order, data.items, data.store);
-            this.lastReceiptHtml = html;
-            this.lastReceiptOrder = data.order;
-            this.lastReceiptItems = data.items;
-            this.lastReceiptStore = data.store;
-
-            // Trigger thermal print
-            this.triggerThermalPrint();
-
-            // Notify user
-            this.showToast(`Đang gửi lệnh in hóa đơn ${data.order.order_code}...`, 'success');
-        } catch (e) {
-            console.error('Lỗi in lại hóa đơn:', e);
-            alert('Lỗi khi tải và in hóa đơn!');
-        }
-    },
-
-    reprintLastReceipt() {
-        if (this.lastReceiptHtml) {
-            const modal = document.getElementById('receipt-modal');
-            if (modal) modal.classList.add('open');
-        } else {
-            this.openReprintModal();
-        }
-    },
-
-    // ==========================================
-    // REVENUE STATS & SHIFT REPORT MODAL
-    // ==========================================
-    currentShiftReportData: null,
-
-    async openRevenueStatsModal(preset = 'today') {
-        const modal = document.getElementById('pos-revenue-modal');
-        if (!modal) return;
-        modal.classList.add('open');
-        await this.loadRevenueStats(preset);
-    },
-
-    closeRevenueStatsModal() {
-        const modal = document.getElementById('pos-revenue-modal');
-        if (modal) modal.classList.remove('open');
-    },
-
-    async loadRevenueStats(preset = 'today') {
-        const contentEl = document.getElementById('pos-revenue-content');
-        if (!contentEl) return;
-
-        contentEl.innerHTML = `
-            <div class="flex flex-col items-center justify-center p-12 text-slate-400">
-                <i class="fas fa-spinner fa-spin text-2xl text-emerald-400 mb-2"></i>
-                <span class="text-xs">Đang tổng hợp số liệu doanh thu...</span>
-            </div>
-        `;
-
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        let dateFrom = todayStr;
-        let dateTo = todayStr;
-
-        if (preset === 'yesterday') {
-            const yest = new Date(now.getTime() - 86400000);
-            dateFrom = yest.toISOString().split('T')[0];
-            dateTo = dateFrom;
-        } else if (preset === '7days') {
-            const p7 = new Date(now.getTime() - 7 * 86400000);
-            dateFrom = p7.toISOString().split('T')[0];
-            dateTo = todayStr;
-        } else if (preset === 'month') {
-            dateFrom = todayStr.substring(0, 7) + '-01';
-            dateTo = todayStr;
-        }
-
-        try {
-            const res = await fetch(`api/reports.php?action=pos_shift_report&date_from=${dateFrom}&date_to=${dateTo}`);
-            const json = await res.json();
-            if (!json.success || !json.data) {
-                contentEl.innerHTML = `<div class="p-8 text-center text-rose-400">Không thể tải báo cáo doanh thu</div>`;
-                return;
-            }
-
-            const d = json.data;
-            this.currentShiftReportData = d;
-
-            let topItemsHtml = '';
-            if (Array.isArray(d.top_products) && d.top_products.length > 0) {
-                topItemsHtml = d.top_products.map((p, idx) => `
-                    <div class="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
-                        <span class="text-slate-300 font-medium">#${idx+1}. ${p.product_name}</span>
-                        <span class="font-mono text-sky-400 font-bold">${p.qty} ${p.unit || 'phần'} • ${this.formatMoney(p.revenue)} đ</span>
-                    </div>
-                `).join('');
-            } else {
-                topItemsHtml = `<div class="text-slate-500 text-xs py-2 italic text-center">Chưa có món nào bán ra trong khoảng thời gian này</div>`;
-            }
-
-            contentEl.innerHTML = `
-                <!-- Preset buttons -->
-                <div class="flex items-center gap-1.5 pb-2 border-b border-white/10 text-xs flex-wrap">
-                    <span class="text-slate-400 text-[11px] mr-1">Khoảng thời gian:</span>
-                    <button type="button" onclick="POS.loadRevenueStats('today')" class="px-2.5 py-1 rounded-lg ${preset === 'today' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Hôm Nay</button>
-                    <button type="button" onclick="POS.loadRevenueStats('yesterday')" class="px-2.5 py-1 rounded-lg ${preset === 'yesterday' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Hôm Qua</button>
-                    <button type="button" onclick="POS.loadRevenueStats('7days')" class="px-2.5 py-1 rounded-lg ${preset === '7days' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">7 Ngày</button>
-                    <button type="button" onclick="POS.loadRevenueStats('month')" class="px-2.5 py-1 rounded-lg ${preset === 'month' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Tháng Này</button>
-                </div>
-
-                <!-- Big Highlight Revenue Box -->
-                <div class="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600/30 to-teal-700/30 border border-emerald-500/40 flex items-center justify-between">
-                    <div>
-                        <div class="text-[11px] font-black uppercase tracking-wider text-emerald-300">TỔNG DOANH THU THU VỀ</div>
-                        <div class="text-xs text-slate-300 mt-0.5">${d.total_orders} hóa đơn đã hoàn tất thanh toán</div>
-                    </div>
-                    <div class="text-2xl font-black font-mono text-emerald-300">
-                        ${this.formatMoney(d.total_revenue)} <span class="text-xs font-normal">VNĐ</span>
-                    </div>
-                </div>
-
-                <!-- Payment Methods Breakdown Cards -->
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
-                            <i class="fas fa-money-bill-wave text-emerald-400"></i>
-                            <span>Tiền Mặt</span>
-                        </div>
-                        <div class="font-mono font-bold text-sm sm:text-base text-white whitespace-nowrap">${this.formatMoney(d.cash_revenue)} đ</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">${d.cash_orders} đơn</div>
-                    </div>
-
-                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
-                            <i class="fas fa-qrcode text-sky-400"></i>
-                            <span>VietQR / CK</span>
-                        </div>
-                        <div class="font-mono font-bold text-sm sm:text-base text-white whitespace-nowrap">${this.formatMoney(d.banking_revenue)} đ</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">${d.banking_orders} đơn</div>
-                    </div>
-
-                    <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
-                            <i class="fas fa-calculator text-amber-400"></i>
-                            <span>Trung Bình / Đơn</span>
-                        </div>
-                        <div class="font-mono font-bold text-sm sm:text-base text-white whitespace-nowrap">${this.formatMoney(d.avg_order_value)} đ</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">Giảm giá: ${this.formatMoney(d.total_discount)} đ</div>
-                    </div>
-                </div>
-
-                <!-- Top 5 Best Sellers -->
-                <div class="p-3 rounded-xl bg-slate-900/60 border border-white/10">
-                    <div class="font-bold text-xs text-slate-300 mb-2 flex items-center gap-1.5">
-                        <i class="fas fa-fire text-amber-400"></i>
-                        <span>Top món bán chạy nhất (${preset === 'today' ? 'Hôm nay' : 'Kỳ báo cáo'})</span>
-                    </div>
-                    <div class="space-y-1">
-                        ${topItemsHtml}
-                    </div>
-                </div>
-
-                <div class="text-[11px] text-slate-400 flex items-center justify-between pt-1">
-                    <span>Nhân viên kết ca: <b class="text-slate-200">${d.user_name || this.currentUser?.fullname || 'Thu ngân'}</b> (${d.user_role || this.currentUser?.role || 'POS'})</span>
-                    <span>Tạo lúc: ${d.generated_at || new Date().toLocaleString('vi-VN')}</span>
-                </div>
-            `;
-        } catch (e) {
-            console.error('Error loading revenue stats:', e);
-            contentEl.innerHTML = `<div class="p-8 text-center text-rose-400">Lỗi kết nối khi tải số liệu</div>`;
-        }
-    },
-
-    printShiftReport() {
-        const d = this.currentShiftReportData;
-        if (!d) {
-            alert('Chưa có số liệu báo cáo để in!');
-            return;
-        }
-
-        const printWindow = window.open('', '_blank', 'width=380,height=600');
-        if (!printWindow) {
-            alert('Vui lòng cho phép popup trình duyệt để in phiếu báo cáo ca!');
-            return;
-        }
-
-        let topItemsRows = '';
-        if (Array.isArray(d.top_products)) {
-            topItemsRows = d.top_products.map((p, i) => `
-                <tr>
-                    <td style="padding: 2px 0;">${i+1}. ${p.product_name}</td>
-                    <td style="text-align: right; padding: 2px 0;">${p.qty} ${p.unit || ''}</td>
-                    <td style="text-align: right; padding: 2px 0;">${this.formatMoney(p.revenue)}</td>
-                </tr>
-            `).join('');
-        }
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>BÁO CÁO DOANH THU CA</title>
-                <style>
-                    body { font-family: monospace, sans-serif; font-size: 12px; margin: 0; padding: 10px; width: 80mm; box-sizing: border-box; }
-                    .center { text-align: center; }
-                    .bold { font-weight: bold; }
-                    .border-bottom { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-                    table { width: 100%; border-collapse: collapse; font-size: 11px; }
-                    .total-box { font-size: 14px; margin: 8px 0; padding: 6px; border: 1px solid #000; text-align: center; font-weight: bold; }
-                </style>
-            </head>
-            <body>
-                <div class="center bold" style="font-size: 14px;">${(window.getStoreBrandName ? window.getStoreBrandName() : (this.storeSettings['store_name'] || 'CyberNexus POS')).toUpperCase()}</div>
-                <div class="center bold border-bottom">BÁO CÁO DOANH THU BÀN GIAO CA</div>
-                <div style="font-size: 11px;">
-                    <div>Ngày: ${d.date_from} ${d.date_from !== d.date_to ? 'đến ' + d.date_to : ''}</div>
-                    <div>Thu ngân: ${d.user_name} (${d.user_role})</div>
-                    <div>Thời gian in: ${d.generated_at}</div>
-                </div>
-                <div class="total-box">
-                    TỔNG THU: ${this.formatMoney(d.total_revenue)} VNĐ
-                </div>
-                <div class="border-bottom" style="font-size: 11px;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Tiền mặt (${d.cash_orders} đơn):</span>
-                        <span class="bold">${this.formatMoney(d.cash_revenue)} đ</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>VietQR / CK (${d.banking_orders} đơn):</span>
-                        <span class="bold">${this.formatMoney(d.banking_revenue)} đ</span>
-                    </div>
-                    ${d.card_revenue > 0 ? `
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Thẻ (${d.card_orders} đơn):</span>
-                        <span class="bold">${this.formatMoney(d.card_revenue)} đ</span>
-                    </div>` : ''}
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Tổng số hóa đơn:</span>
-                        <span class="bold">${d.total_orders} HĐ</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Giảm giá:</span>
-                        <span>${this.formatMoney(d.total_discount)} đ</span>
-                    </div>
-                </div>
-                ${topItemsRows ? `
-                <div style="font-weight: bold; margin: 4px 0 2px 0;">TOP MÓN BÁN CHẠY:</div>
-                <table>
-                    <thead>
-                        <tr style="border-bottom: 1px solid #ccc;">
-                            <th style="text-align: left;">Món</th>
-                            <th style="text-align: right;">SL</th>
-                            <th style="text-align: right;">Tiền</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${topItemsRows}
-                    </tbody>
-                </table>
-                <div class="border-bottom" style="margin-top: 6px;"></div>
-                ` : ''}
-                <div class="center" style="margin-top: 15px;">
-                    <div>Người lập phiếu</div>
-                    <div style="margin-top: 35px;">(Ký & ghi rõ họ tên)</div>
-                </div>
-                <script>
-                    window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); }
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    },
 
     showToast(message, type = 'info') {
         let toast = document.getElementById('pos-toast');
@@ -3609,12 +2509,13 @@ const POS = {
             gain2.connect(ctx.destination);
             osc2.start(now + 0.15);
             osc2.stop(now + 0.7);
-        } catch(e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
     },
 
     // Check cancellation & kitchen notifications periodically
     startNotificationPolling() {
-        const check = async () => {
+        let _notifInFlight = false;
+        const _rawCheck = async () => {
             try {
                 // Real-time table updates: so Cashier immediately sees orders created by Waiter
                 await this.loadTables();
@@ -3627,7 +2528,7 @@ const POS = {
                     const msgEl = document.getElementById('pos-kitchen-cancel-msg');
                     if (alertEl && msgEl) {
                         alertEl.classList.remove('hidden');
-                        msgEl.innerText = latest.message;
+                        msgEl.innerText = window.cnxNotifText ? (cnxNotifText(latest).message || latest.message || '') : (latest.message || '');
                         window.currentPosCancelNotifId = latest.id;
 
                         if (window.lastPosCancelNotifId !== latest.id) {
@@ -3652,9 +2553,18 @@ const POS = {
                     const alertEl = document.getElementById('pos-kitchen-cancel-alert');
                     if (alertEl) alertEl.classList.add('hidden');
                 }
-            } catch(e) {}
+            } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
         };
 
+        const check = async () => {
+            if (_notifInFlight) return;
+            _notifInFlight = true;
+            try {
+                await _rawCheck();
+            } finally {
+                _notifInFlight = false;
+            }
+        };
         setInterval(check, 3500);
     },
 
@@ -3673,7 +2583,7 @@ const POS = {
                         role: 'cashier'
                     })
                 });
-            } catch(e) {}
+            } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', e) : console.debug('pos.js', e)); }
         }
     },
 
@@ -3690,7 +2600,7 @@ const POS = {
         const custInput = document.getElementById('cart-customer-name');
         if (custInput) {
             custInput.addEventListener('change', (e) => {
-                this.customerName = e.target.value.trim() || 'Khách vãng lai';
+                this.customerName = e.target.value.trim() || (window.cnxT?window.cnxT('js.s_pos.53fa7723','Khách vãng lai'):'Khách vãng lai');
                 this.saveOrderDebounced();
             });
         }

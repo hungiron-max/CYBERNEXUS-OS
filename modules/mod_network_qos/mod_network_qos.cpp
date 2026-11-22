@@ -640,6 +640,10 @@ public:
     }
 
     bool onLoad(const CoreContext& ctx) override {
+        (void)ctx;
+        if (const char* envQos = std::getenv("CYBERNEXUS_QOS_CONFIG"); envQos && *envQos) {
+            m_configPath = envQos;
+        }
         loadConfig();
         m_running.store(true);
         m_watcherThread = std::thread(&NetworkQosPlugin::watcherLoop, this);
@@ -828,6 +832,144 @@ public:
                 res.status = 400;
                 res.set_content(json({{"status", "error"}, {"message", e.what()}}).dump(2), "application/json; charset=utf-8");
             }
+        });
+
+        svr.Post("/api/network/test-connection", [this](const httplib::Request& req, httplib::Response& res) {
+            std::string rType, host, user, pass, site;
+            int port = 22;
+            {
+                std::lock_guard<std::mutex> lk(m_mtx);
+                rType = m_cfg.value("router_type", "simulation");
+                host = m_cfg.value("host", "172.16.0.1");
+                port = m_cfg.value("port", 22);
+                user = m_cfg.value("username", "admin");
+                pass = m_cfg.value("password", "");
+                site = m_cfg.value("unifi_site", "default");
+            }
+            if (!req.body.empty()) {
+                try {
+                    json body = json::parse(req.body);
+                    if (body.is_object()) {
+                        if (body.contains("router_type") && body["router_type"].is_string()) rType = body["router_type"].get<std::string>();
+                        if (body.contains("host") && body["host"].is_string() && !body["host"].get<std::string>().empty()) host = body["host"].get<std::string>();
+                        if (body.contains("port") && body["port"].is_number_integer()) port = body["port"].get<int>();
+                        if (body.contains("username") && body["username"].is_string() && !body["username"].get<std::string>().empty()) user = body["username"].get<std::string>();
+                        if (body.contains("password") && body["password"].is_string()) {
+                            std::string p = body["password"].get<std::string>();
+                            if (!p.empty() && p != "********") pass = p;
+                        }
+                        if (body.contains("unifi_site") && body["unifi_site"].is_string() && !body["unifi_site"].get<std::string>().empty()) site = body["unifi_site"].get<std::string>();
+                    }
+                } catch (...) {}
+            }
+
+            if (rType == "simulation" || rType.empty()) {
+                res.set_content(json({
+                    {"status", "warning"},
+                    {"simulation_mode", true},
+                    {"mode", "simulation"},
+                    {"latency_ms", 0},
+                    {"message", "Đang ở chế độ MÔ PHỎNG — chưa nối Router vật lý. Chọn MikroTik REST / UniFi / EdgeRouter để kiểm tra thiết bị thật."}
+                }).dump(2), "application/json; charset=utf-8");
+                return;
+            }
+
+            auto t0 = std::chrono::steady_clock::now();
+            if (rType == "mikrotik") {
+                if (!isSafeHostOrIp(host) || port <= 0 || port > 65535) {
+                    res.status = 400;
+                    res.set_content(json({{"status", "error"}, {"simulation_mode", false}, {"mode", "mikrotik"}, {"message", "Host/Port MikroTik không hợp lệ!"}}).dump(2), "application/json; charset=utf-8");
+                    return;
+                }
+                httplib::Client cli(host, port);
+                cli.set_connection_timeout(3, 0);
+                cli.set_read_timeout(4, 0);
+                cli.set_basic_auth(user, pass);
+                auto mRes = cli.Get("/rest/ip/dhcp-server/lease");
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                if (mRes && mRes->status == 200) {
+                    size_t leaseCnt = 0;
+                    try {
+                        json parsed = json::parse(mRes->body);
+                        if (parsed.is_array()) leaseCnt = parsed.size();
+                    } catch (...) {}
+                    res.set_content(json({
+                        {"status", "success"},
+                        {"simulation_mode", false},
+                        {"mode", "mikrotik"},
+                        {"latency_ms", ms},
+                        {"lease_count", leaseCnt},
+                        {"message", "Kết nối MikroTik REST API (" + host + ":" + std::to_string(port) + ") thành công — " + std::to_string(leaseCnt) + " DHCP lease (" + std::to_string(ms) + "ms)."}
+                    }).dump(2), "application/json; charset=utf-8");
+                    return;
+                }
+                std::string err = mRes ? ("MikroTik trả mã HTTP " + std::to_string(mRes->status)) : ("Không kết nối được MikroTik REST API (" + host + ":" + std::to_string(port) + ")");
+                res.status = 502;
+                res.set_content(json({{"status", "error"}, {"simulation_mode", false}, {"mode", "mikrotik"}, {"latency_ms", ms}, {"message", err}}).dump(2), "application/json; charset=utf-8");
+                return;
+            }
+
+            if (rType == "unifi") {
+                if (!isSafeHostOrIp(host) || !isSafeHostOrIp(site) || port <= 0 || port > 65535) {
+                    res.status = 400;
+                    res.set_content(json({{"status", "error"}, {"simulation_mode", false}, {"mode", "unifi"}, {"message", "Host/Site/Port UniFi không hợp lệ!"}}).dump(2), "application/json; charset=utf-8");
+                    return;
+                }
+                std::string cookieFile = "config/unifi_test_cookie.txt";
+                std::string hdrFile = "config/unifi_test_headers.txt";
+                fs::create_directories("config");
+                std::string baseUrl = "https://" + host + ":" + std::to_string(port);
+                std::string escLogin = escapeCmdArg(json({{"username", user}, {"password", pass}}).dump());
+                int rc = 0;
+                std::string lRes = execCapture("curl -sk -D \"" + hdrFile + "\" -c \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrl + "/api/auth/login\"", &rc);
+                bool ok = (lRes.find("\"unique_id\"") != std::string::npos || lRes.find("\"username\"") != std::string::npos);
+                if (!ok) {
+                    std::string legRes = execCapture("curl -sk -D \"" + hdrFile + "\" -c \"" + cookieFile + "\" -H \"Content-Type: application/json\" -d \"" + escLogin + "\" \"" + baseUrl + "/api/login\"", &rc);
+                    ok = (legRes.find("\"ok\"") != std::string::npos || legRes.find("\"rc\":\"ok\"") != std::string::npos);
+                }
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                if (ok) {
+                    res.set_content(json({
+                        {"status", "success"},
+                        {"simulation_mode", false},
+                        {"mode", "unifi"},
+                        {"latency_ms", ms},
+                        {"message", "Đăng nhập UniFi Controller (" + host + ":" + std::to_string(port) + ") thành công (" + std::to_string(ms) + "ms)."}
+                    }).dump(2), "application/json; charset=utf-8");
+                    return;
+                }
+                res.status = 502;
+                res.set_content(json({{"status", "error"}, {"simulation_mode", false}, {"mode", "unifi"}, {"latency_ms", ms}, {"message", "Không đăng nhập được UniFi Controller (" + host + ":" + std::to_string(port) + ")."}}).dump(2), "application/json; charset=utf-8");
+                return;
+            }
+
+            if (rType == "edgerouter") {
+                if (!isSafeHostOrIp(host) || !isSafeHostOrIp(user) || port <= 0 || port > 65535) {
+                    res.status = 400;
+                    res.set_content(json({{"status", "error"}, {"simulation_mode", false}, {"mode", "edgerouter"}, {"message", "Host/User/Port EdgeRouter không hợp lệ!"}}).dump(2), "application/json; charset=utf-8");
+                    return;
+                }
+                int rc = 0;
+                std::string cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p " + std::to_string(port) + " " + user + "@" + host + " \"echo CBNX_OK\"";
+                std::string out = execCapture(cmd, &rc);
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                if (rc == 0 && out.find("CBNX_OK") != std::string::npos) {
+                    res.set_content(json({
+                        {"status", "success"},
+                        {"simulation_mode", false},
+                        {"mode", "edgerouter"},
+                        {"latency_ms", ms},
+                        {"message", "Kết nối EdgeRouter SSH (" + host + ":" + std::to_string(port) + ") thành công (" + std::to_string(ms) + "ms)."}
+                    }).dump(2), "application/json; charset=utf-8");
+                    return;
+                }
+                res.status = 502;
+                res.set_content(json({{"status", "error"}, {"simulation_mode", false}, {"mode", "edgerouter"}, {"latency_ms", ms}, {"message", "EdgeRouter SSH không phản hồi tại " + host + ":" + std::to_string(port)}}).dump(2), "application/json; charset=utf-8");
+                return;
+            }
+
+            res.status = 400;
+            res.set_content(json({{"status", "error"}, {"message", "Loại Router không được hỗ trợ: " + rType}}).dump(2), "application/json; charset=utf-8");
         });
     }
 

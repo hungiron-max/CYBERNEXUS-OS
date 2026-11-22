@@ -14,10 +14,10 @@ function getAdminBaseUrl() {
         const path = window.location.pathname;
         const dir = path.substring(0, path.lastIndexOf('/'));
         const live = origin + (dir ? dir + '/' : '/');
-        localStorage.setItem('server_lan_base_url', live);
+        window.CN_SERVER_LAN_BASE_URL = live;
         return live;
     }
-    const cached = localStorage.getItem('server_lan_base_url');
+    const cached = window.CN_SERVER_LAN_BASE_URL || '';
     if (cached) {
         return cached.endsWith('/') ? cached : (cached + '/');
     }
@@ -124,7 +124,7 @@ const DishCropper = {
             this.autoCenterFit();
         };
         img.onerror = () => {
-            alert('Không thể tải hình ảnh để cắt xén. Vui lòng kiểm tra lại file hoặc đường dẫn ảnh!');
+            alert((window.cnxT?window.cnxT('js.s_adm.84723e8c','Không thể tải hình ảnh để cắt xén. Vui lòng kiểm tra lại file hoặc đường dẫn ảnh!'):'Không thể tải hình ảnh để cắt xén. Vui lòng kiểm tra lại file hoặc đường dẫn ảnh!'));
         };
         img.src = src;
     },
@@ -370,7 +370,12 @@ const Admin = {
         this.initDishImageDrop();
         this.loadSystemUpdates();
         this.enforceModuleLicenses(true);
-        setInterval(() => { if (!document.hidden) this.enforceModuleLicenses(false); }, 60000);
+        let _licPollInFlight = false;
+        setInterval(async () => {
+            if (document.hidden || _licPollInFlight) return;
+            _licPollInFlight = true;
+            try { await this.enforceModuleLicenses(false); } finally { _licPollInFlight = false; }
+        }, 60000);
 
         // Warm up and cache server LAN base URL from backend settings
         try {
@@ -382,12 +387,12 @@ const Admin = {
                         const port = json.data.server_port || window.location.port || '8501';
                         if (ip) {
                             const lanBase = `http://${ip}:${port}/`;
-                            localStorage.setItem('server_lan_base_url', lanBase);
+                            window.CN_SERVER_LAN_BASE_URL = lanBase;
                         }
                     }
                 })
-                .catch(() => {});
-        } catch (e) {}
+                .catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('admin.js', errIgnored) : console.debug('admin.js', errIgnored)); });
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin.js', e) : console.debug('admin.js', e)); }
 
         // Check if query string requests cloud sync modal
         const urlParams = new URLSearchParams(window.location.search);
@@ -396,7 +401,18 @@ const Admin = {
         }
 
         // Định kỳ gửi heartbeat giữ trạng thái trực tuyến cho Admin
-        const sendAdminHeartbeat = () => { fetch('api/auth.php?action=heartbeat').catch(() => {}); };
+        let _hbInFlight = false;
+        const sendAdminHeartbeat = async () => {
+            if (_hbInFlight) return;
+            _hbInFlight = true;
+            try {
+                await fetch('api/auth.php?action=heartbeat');
+            } catch (errIgnored) {
+                (window.CyberSecurity ? CyberSecurity.logSilentError('admin.js', errIgnored) : console.debug('admin.js', errIgnored));
+            } finally {
+                _hbInFlight = false;
+            }
+        };
         setInterval(sendAdminHeartbeat, 45000);
         window.addEventListener('online', sendAdminHeartbeat);
         document.addEventListener('visibilitychange', () => {
@@ -424,14 +440,14 @@ const Admin = {
             } else if (titleEl) {
                 titleEl.textContent = state.currentTrack.track_title;
             }
-            if (artistEl) artistEl.textContent = state.currentTrack.track_artist || 'Hệ thống';
+            if (artistEl) artistEl.textContent = state.currentTrack.track_artist || (window.cnxT?window.cnxT('js.s_adm.fad65698','Hệ thống'):'Hệ thống');
         } else {
             if (window.JukeboxEngine) {
-                window.JukeboxEngine.updateTitleWithMarquee('admin-juke-title', 'Jukebox Âm Nhạc');
+                window.JukeboxEngine.updateTitleWithMarquee('admin-juke-title', (window.cnxT?window.cnxT('ui.adm_html.div_ffa49ba2','Jukebox Âm Nhạc'):'Jukebox Âm Nhạc'));
             } else if (titleEl) {
-                titleEl.textContent = 'Jukebox Âm Nhạc';
+                titleEl.textContent = (window.cnxT?window.cnxT('ui.adm_html.div_ffa49ba2','Jukebox Âm Nhạc'):'Jukebox Âm Nhạc');
             }
-            if (artistEl) artistEl.textContent = 'Hệ thống sẵn sàng';
+            if (artistEl) artistEl.textContent = (window.cnxT?window.cnxT('ui.adm_html.div_5db208a0','Hệ thống sẵn sàng'):'Hệ thống sẵn sàng');
         }
 
         // 2. Update Media Player Controls & Vinyl in Media Tab
@@ -444,14 +460,14 @@ const Admin = {
             if (disc) disc.classList.add('animate-spin');
             if (playIcon) playIcon.className = 'fas fa-pause text-[10px] text-fuchsia-300';
             if (ctrlIcon) ctrlIcon.className = 'fas fa-pause text-xs text-amber-300';
-            if (ctrlText) ctrlText.textContent = 'Tạm Dừng';
+            if (ctrlText) ctrlText.textContent = (window.cnxT?window.cnxT('js.s_adm.32be569f','Tạm Dừng'):'Tạm Dừng');
             if (vinylIcon) vinylIcon.className = 'fas fa-pause text-[9px] text-white';
             if (vinylDisc) vinylDisc.classList.add('animate-spin');
         } else {
             if (disc) disc.classList.remove('animate-spin');
             if (playIcon) playIcon.className = 'fas fa-play text-[10px] text-white';
             if (ctrlIcon) ctrlIcon.className = 'fas fa-play text-xs text-sky-300';
-            if (ctrlText) ctrlText.textContent = 'Phát';
+            if (ctrlText) ctrlText.textContent = (window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát');
             if (vinylIcon) vinylIcon.className = 'fas fa-play text-[9px] text-white';
             if (vinylDisc) vinylDisc.classList.remove('animate-spin');
         }
@@ -581,7 +597,7 @@ const Admin = {
         if (titleEl) {
             titleEl.innerHTML = subtab === 'kpi'
                 ? '<i class="fas fa-bullseye text-fuchsia-400 mr-1.5"></i>KPI & Thưởng Nhân Viên'
-                : '<i class="fas fa-money-check-dollar text-emerald-400 mr-1.5"></i>Chấm Công & Tiền Lương';
+                : (window.cnxT?window.cnxT('js.s_adm.51073aa4','<i class="fas fa-money-check-dollar text-emerald-400 mr-1.5"></i>Chấm Công & Tiền Lương'):'<i class="fas fa-money-check-dollar text-emerald-400 mr-1.5"></i>Chấm Công & Tiền Lương');
         }
         if (typeof this.switchOpsSubtab === 'function') {
             this.switchOpsSubtab(subtab);
@@ -597,24 +613,24 @@ const Admin = {
             if (visBtn && visBtn.dataset.tab) {
                 tab = visBtn.dataset.tab;
             } else {
-                if (typeof this.toast === 'function') this.toast('Module này chưa được cấp phép trên Master.', 'warning');
+                if (typeof this.toast === 'function') this.toast((window.cnxT?window.cnxT('js.s_adm.860c8427','Module này chưa được cấp phép trên Master.'):'Module này chưa được cấp phép trên Master.'), 'warning');
                 return;
             }
         }
         this.currentTab = tab;
 
         const tabMeta = {
-            tables: { title: 'Bàn & Khu Vực (QR)', group: 'ops', icon: 'fa-border-all text-emerald-400' },
-            dashboard: { title: 'Tổng Quan Doanh Số', group: 'ops', icon: 'fa-chart-line text-sky-400' },
-            orders: { title: 'Lịch Sử Hóa Đơn', group: 'ops', icon: 'fa-receipt text-amber-400' },
-            products: { title: 'Mặt Hàng (F4)', group: 'menu', icon: 'fa-utensils text-amber-400' },
-            categories: { title: 'Nhóm Hàng', group: 'menu', icon: 'fa-layer-group text-sky-400' },
-            operations: { title: 'Kho & Chi Phí Vật Liệu', group: 'menu', icon: 'fa-boxes-stacked text-emerald-400' },
-            users: { title: 'Nhân Viên & Phân Quyền', group: 'hr', icon: 'fa-users-gear text-indigo-400' },
-            analytics: { title: 'Hiệu Suất Bếp & Phục Vụ', group: 'hr', icon: 'fa-chart-pie text-amber-400' },
-            finance: { title: 'Báo Cáo Tài Chính', group: 'sys', icon: 'fa-file-invoice-dollar text-teal-400' },
-            media: { title: 'Âm Nhạc & Jukebox', group: 'sys', icon: 'fa-compact-disc text-fuchsia-400' },
-            settings: { title: 'Cài Đặt Quán & VietQR', group: 'sys', icon: 'fa-cog text-sky-400' }
+            tables: { title: (window.cnxT?window.cnxT('ui.admin_html.button_22d645f2','Bàn & Khu Vực (QR)'):'Bàn & Khu Vực (QR)'), group: 'ops', icon: 'fa-border-all text-emerald-400' },
+            dashboard: { title: (window.cnxT?window.cnxT('ui.admin_html.button_1d1d071c','Tổng Quan Doanh Số'):'Tổng Quan Doanh Số'), group: 'ops', icon: 'fa-chart-line text-sky-400' },
+            orders: { title: (window.cnxT?window.cnxT('ui.admin_html.button_a0445595','Lịch Sử Hóa Đơn'):'Lịch Sử Hóa Đơn'), group: 'ops', icon: 'fa-receipt text-amber-400' },
+            products: { title: (window.cnxT?window.cnxT('ui.admin_html.button_ef181296','Mặt Hàng (F4)'):'Mặt Hàng (F4)'), group: 'menu', icon: 'fa-utensils text-amber-400' },
+            categories: { title: (window.cnxT?window.cnxT('ui.admin_html.button_8ac5a885','Nhóm Hàng'):'Nhóm Hàng'), group: 'menu', icon: 'fa-layer-group text-sky-400' },
+            operations: { title: (window.cnxT?window.cnxT('ui.admin_html.button_f4c93777','Kho & Chi Phí Vật Liệu'):'Kho & Chi Phí Vật Liệu'), group: 'menu', icon: 'fa-boxes-stacked text-emerald-400' },
+            users: { title: (window.cnxT?window.cnxT('ui.admin_html.button_bc446524','Nhân Viên & Phân Quyền'):'Nhân Viên & Phân Quyền'), group: 'hr', icon: 'fa-users-gear text-indigo-400' },
+            analytics: { title: (window.cnxT?window.cnxT('ui.admin_html.button_ee04a70c','Hiệu Suất Bếp & Phục Vụ'):'Hiệu Suất Bếp & Phục Vụ'), group: 'hr', icon: 'fa-chart-pie text-amber-400' },
+            finance: { title: (window.cnxT?window.cnxT('js.s_adm.4e8e8333','Báo Cáo Tài Chính'):'Báo Cáo Tài Chính'), group: 'sys', icon: 'fa-file-invoice-dollar text-teal-400' },
+            media: { title: (window.cnxT?window.cnxT('ui.admin_html.button_44a3df46','Âm Nhạc & Jukebox'):'Âm Nhạc & Jukebox'), group: 'sys', icon: 'fa-compact-disc text-fuchsia-400' },
+            settings: { title: (window.cnxT?window.cnxT('ui.admin_html.button_dc2cd84b','Cài Đặt Quán & VietQR'):'Cài Đặt Quán & VietQR'), group: 'sys', icon: 'fa-cog text-sky-400' }
         };
 
         const info = tabMeta[tab] || { title: tab, group: 'ops', icon: 'fa-circle-dot text-sky-400' };
@@ -683,11 +699,18 @@ const Admin = {
 
         // Keep continuous background synchronization active across all tabs
         if (!this.mediaPollingTimer) {
-            this.mediaPollingTimer = setInterval(() => {
-                if (window.JukeboxEngine) {
-                    window.JukeboxEngine.refreshStatus();
-                } else {
-                    this.loadMediaJukeboxStatus();
+            this._mediaPollInFlight = false;
+            this.mediaPollingTimer = setInterval(async () => {
+                if (this._mediaPollInFlight) return;
+                this._mediaPollInFlight = true;
+                try {
+                    if (window.JukeboxEngine) {
+                        await window.JukeboxEngine.refreshStatus();
+                    } else {
+                        await this.loadMediaJukeboxStatus();
+                    }
+                } finally {
+                    this._mediaPollInFlight = false;
                 }
             }, 3500);
         }
@@ -705,11 +728,11 @@ const Admin = {
                     const el = document.getElementById(id);
                     if (el) el.innerText = val;
                 };
-                setTxt('stat-today-revenue', this.formatMoney(s.today_revenue) + ' đ');
+                setTxt('stat-today-revenue', this.formatMoney(s.today_revenue) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ'));
                 setTxt('stat-today-orders', s.today_orders);
-                setTxt('stat-avg-order', this.formatMoney(s.today_avg_order) + ' đ');
+                setTxt('stat-avg-order', this.formatMoney(s.today_avg_order) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ'));
                 setTxt('stat-tables-active', `${s.occupied_tables} / ${s.total_tables}`);
-                setTxt('stat-month-revenue', this.formatMoney(s.month_revenue) + ' đ');
+                setTxt('stat-month-revenue', this.formatMoney(s.month_revenue) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ'));
                 setTxt('stat-total-products', s.total_products);
             }
 
@@ -742,16 +765,16 @@ const Admin = {
         }
 
         const titles = {
-            'today': 'Doanh Thu Hôm Nay',
-            '7d': 'Doanh Thu 7 Ngày Gần Nhất',
-            '14d': 'Doanh Thu 14 Ngày Gần Nhất',
-            '30d': 'Doanh Thu 30 Ngày Gần Nhất',
-            'month': 'Doanh Thu Tháng Này',
-            'last_month': 'Doanh Thu Tháng Trước'
+            'today': (window.cnxT?window.cnxT('ui.adm_html.span_94c480c7','Doanh Thu Hôm Nay'):'Doanh Thu Hôm Nay'),
+            '7d': (window.cnxT?window.cnxT('js.s_adm.df0ad4da','Doanh Thu 7 Ngày Gần Nhất'):'Doanh Thu 7 Ngày Gần Nhất'),
+            '14d': (window.cnxT?window.cnxT('js.s_adm.45c6200b','Doanh Thu 14 Ngày Gần Nhất'):'Doanh Thu 14 Ngày Gần Nhất'),
+            '30d': (window.cnxT?window.cnxT('js.s_adm.d4e27535','Doanh Thu 30 Ngày Gần Nhất'):'Doanh Thu 30 Ngày Gần Nhất'),
+            'month': (window.cnxT?window.cnxT('ui.adm_html.span_f160f2cd','Doanh Thu Tháng Này'):'Doanh Thu Tháng Này'),
+            'last_month': (window.cnxT?window.cnxT('js.s_adm.3f413a27','Doanh Thu Tháng Trước'):'Doanh Thu Tháng Trước')
         };
         const titleEl = document.getElementById('chart-title-text');
         if (titleEl) {
-            titleEl.textContent = 'Biểu Đồ ' + (titles[period] || 'Doanh Thu');
+            titleEl.textContent = (window.cnxT?window.cnxT('js.s_adm.3cd2e381','Biểu Đồ '):'Biểu Đồ ') + (titles[period] || 'Doanh Thu');
         }
 
         this.loadRevenueChart({ period });
@@ -766,12 +789,12 @@ const Admin = {
         const toVal = toInput.value;
 
         if (!fromVal || !toVal) {
-            alert('Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!');
+            alert((window.cnxT?window.cnxT('js.s_adm.74c160ea','Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!'):'Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!'));
             return;
         }
 
         if (fromVal > toVal) {
-            alert('Ngày bắt đầu không được lớn hơn ngày kết thúc!');
+            alert((window.cnxT?window.cnxT('js.s_adm.e6b3da57','Ngày bắt đầu không được lớn hơn ngày kết thúc!'):'Ngày bắt đầu không được lớn hơn ngày kết thúc!'));
             return;
         }
 
@@ -789,7 +812,7 @@ const Admin = {
         if (titleEl) {
             const fStr = fromVal.split('-').reverse().join('/');
             const tStr = toVal.split('-').reverse().join('/');
-            titleEl.textContent = `Biểu Đồ Doanh Thu (${fStr} - ${tStr})`;
+            titleEl.textContent = `${window.cnxT?window.cnxT('js.s_adm.19c8ac05','Biểu Đồ Doanh Thu ('):'Biểu Đồ Doanh Thu ('}${fStr} - ${tStr})`;
         }
 
         this.loadRevenueChart({ date_from: fromVal, date_to: toVal });
@@ -814,14 +837,14 @@ const Admin = {
             if (summaryBadge) {
                 const totalRev = this.formatMoney(summary.total_revenue || 0);
                 const totalOrd = summary.total_orders || 0;
-                summaryBadge.textContent = `Tổng: ${totalRev} đ (${totalOrd} đơn)`;
+                summaryBadge.textContent = `${window.cnxT?window.cnxT('js.s_adm.70622f1b','Tổng:'):'Tổng:'} ${totalRev} ${window.cnxT?window.cnxT('js.s_adm.b4be420b','đ ('):'đ ('}${totalOrd} ${window.cnxT?window.cnxT('js.s_adm.a50869e7','đơn)'):'đơn)'}`;
             }
 
             const rangeIndicator = document.getElementById('chart-range-indicator');
             if (rangeIndicator && summary.date_from && summary.date_to) {
                 const fStr = summary.date_from.split('-').reverse().join('/');
                 const tStr = summary.date_to.split('-').reverse().join('/');
-                rangeIndicator.textContent = `Hiển thị ${summary.days_count || json.data.length} ngày (${fStr} - ${tStr})`;
+                rangeIndicator.textContent = `${window.cnxT?window.cnxT('js.s_adm.0f138fd0','Hiển thị'):'Hiển thị'} ${summary.days_count || json.data.length} ${window.cnxT?window.cnxT('js.s_adm.1c6205bd','ngày ('):'ngày ('}${fStr} - ${tStr})`;
             }
 
             // Sync date pickers if not custom filtered
@@ -849,7 +872,7 @@ const Admin = {
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Doanh thu (VNĐ)',
+                        label: (window.cnxT?window.cnxT('js.s_adm.0559d103','Doanh thu (VNĐ)'):'Doanh thu (VNĐ)'),
                         data: revenues,
                         borderColor: '#0ea5e9',
                         backgroundColor: 'rgba(14, 165, 233, 0.15)',
@@ -884,8 +907,8 @@ const Admin = {
                                     const val = context.raw || 0;
                                     const ordCount = orders[context.dataIndex] || 0;
                                     return [
-                                        ' 💰 Doanh thu: ' + this.formatMoney(val) + ' đ',
-                                        ' 🧾 Đơn hàng: ' + ordCount + ' đơn'
+                                        ' 💰 Doanh thu: ' + this.formatMoney(val) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ'),
+                                        (window.cnxT?window.cnxT('js.s_adm.1ccf2721',' 🧾 Đơn hàng: '):' 🧾 Đơn hàng: ') + ordCount + (window.cnxT?window.cnxT('js.s_adm.d50f3082',' đơn'):' đơn')
                                     ];
                                 }
                             }
@@ -927,7 +950,7 @@ const Admin = {
 
             const items = Array.isArray(json.data) ? json.data : [];
             if (items.length === 0) {
-                container.innerHTML = '<div class="text-xs text-slate-500 py-4 text-center">Chưa có dữ liệu bán hàng hôm nay</div>';
+                container.innerHTML = (window.cnxT?window.cnxT('js.s_adm.835e0e5a','<div class="text-xs text-slate-500 py-4 text-center">Chưa có dữ liệu bán hàng hôm nay</div>'):'<div class="text-xs text-slate-500 py-4 text-center">Chưa có dữ liệu bán hàng hôm nay</div>');
                 return;
             }
 
@@ -940,14 +963,14 @@ const Admin = {
                         : (idx === 2
                             ? 'bg-orange-500/20 text-orange-300 border border-orange-400/30'
                             : 'bg-sky-500/20 text-sky-400'));
-                const unitLabel = it.unit || 'phần';
+                const unitLabel = it.unit || (window.cnxT?window.cnxT('js.s_adm.3a9dfd9c','phần'):'phần');
                 html += `
                     <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-900/60 border border-white/5 hover:border-white/15 transition">
                         <div class="flex items-center gap-2.5 min-w-0">
                             <span class="w-7 h-7 shrink-0 rounded-lg ${rankClass} font-bold text-xs flex items-center justify-center font-mono">#${idx + 1}</span>
                             <div class="min-w-0">
                                 <h6 class="text-xs font-bold text-slate-100 truncate">${it.product_name}</h6>
-                                <span class="text-[11px] text-slate-400">Đã bán: <b class="text-amber-400 font-mono">${it.total_qty}</b> ${unitLabel}</span>
+                                <span class="text-[11px] text-slate-400">${window.cnxT?window.cnxT('js.s_adm.752fb2f0','Đã bán:'):'Đã bán:'} <b class="text-amber-400 font-mono">${it.total_qty}</b> ${unitLabel}</span>
                             </div>
                         </div>
                         <span class="text-xs font-black text-emerald-400 font-mono whitespace-nowrap shrink-0">${this.formatMoney(it.total_revenue)} đ</span>
@@ -981,7 +1004,7 @@ const Admin = {
         if (!tbody) return;
 
         if (!this.categories || this.categories.length === 0) {
-            tbody.innerHTML = this.renderEmptyState(5, 'fa-layer-group', 'Chưa có nhóm hàng nào', 'Bấm nút "Thêm Nhóm Hàng" để tạo danh mục phân loại đồ uống, đồ ăn.');
+            tbody.innerHTML = this.renderEmptyState(5, 'fa-layer-group', (window.cnxT?window.cnxT('js.s_adm.577d3c88','Chưa có nhóm hàng nào'):'Chưa có nhóm hàng nào'), (window.cnxT?window.cnxT('js.s_adm.b6970f13','Bấm nút "Thêm Nhóm Hàng" để tạo danh mục phân loại đồ uống, đồ ăn.'):'Bấm nút "Thêm Nhóm Hàng" để tạo danh mục phân loại đồ uống, đồ ăn.'));
             return;
         }
 
@@ -995,19 +1018,19 @@ const Admin = {
                             <span class="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/25 flex items-center justify-center text-xs shrink-0 shadow-sm">
                                 <i class="fas fa-${c.icon || 'tag'}"></i>
                             </span>
-                            <span class="whitespace-nowrap">${c.name}</span>
+                            <span class="whitespace-nowrap">${escapeHtml(c.name)}</span>
                         </div>
                     </td>
                     <td class="col-center">
-                        <span class="font-mono font-bold text-sky-400 text-xs bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${c.product_count || 0} món</span>
+                        <span class="font-mono font-bold text-sky-400 text-xs bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${Number(c.product_count || 0)} món</span>
                     </td>
-                    <td class="col-center"><span class="font-mono text-xs text-slate-400 whitespace-nowrap">${c.sort_order || 0}</span></td>
+                    <td class="col-center"><span class="font-mono text-xs text-slate-400 whitespace-nowrap">${Number(c.sort_order || 0)}</span></td>
                     <td class="col-right">
                         <div class="flex items-center justify-end gap-1.5">
-                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditCategoryModal(${c.id})" title="Sửa nhóm hàng">
+                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditCategoryModal(${Number(c.id)})" title="Sửa nhóm hàng">
                                 <i class="fas fa-pen text-[10px]"></i>
                             </button>
-                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteCategory(${c.id})" title="Xóa nhóm hàng">
+                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteCategory(${Number(c.id)})" title="Xóa nhóm hàng">
                                 <i class="fas fa-trash-can text-[10px]"></i>
                             </button>
                         </div>
@@ -1027,7 +1050,7 @@ const Admin = {
             const currentVal = el.value;
             let options = id === 'product-filter-category' ? '<option value="">-- Tất cả nhóm hàng --</option>' : '';
             this.categories.forEach(c => {
-                options += `<option value="${c.id}">${c.name}</option>`;
+                options += `<option value="${Number(c.id)}">${escapeHtml(c.name)}</option>`;
             });
             el.innerHTML = options;
             if (currentVal) el.value = currentVal;
@@ -1039,7 +1062,7 @@ const Admin = {
         document.getElementById('modal-cat-name').value = '';
         document.getElementById('modal-cat-icon').value = 'coffee';
         document.getElementById('modal-cat-order').value = '0';
-        document.getElementById('category-modal-title').innerText = 'Thêm Nhóm Hàng Mới';
+        document.getElementById('category-modal-title').innerText = (window.cnxT?window.cnxT('js.s_adm.c8220f64','Thêm Nhóm Hàng Mới'):'Thêm Nhóm Hàng Mới');
         document.getElementById('category-modal').classList.add('open');
     },
 
@@ -1050,7 +1073,7 @@ const Admin = {
         document.getElementById('modal-cat-name').value = cat.name;
         document.getElementById('modal-cat-icon').value = cat.icon || 'coffee';
         document.getElementById('modal-cat-order').value = cat.sort_order || 0;
-        document.getElementById('category-modal-title').innerText = 'Chỉnh Sửa Nhóm Hàng';
+        document.getElementById('category-modal-title').innerText = (window.cnxT?window.cnxT('js.s_adm.9e687d82','Chỉnh Sửa Nhóm Hàng'):'Chỉnh Sửa Nhóm Hàng');
         document.getElementById('category-modal').classList.add('open');
     },
 
@@ -1061,7 +1084,7 @@ const Admin = {
         const order = parseInt(document.getElementById('modal-cat-order').value) || 0;
 
         if (!name) {
-            alert('Vui lòng nhập tên nhóm hàng!');
+            alert((window.cnxT?window.cnxT('js.s_adm.7e7e0199','Vui lòng nhập tên nhóm hàng!'):'Vui lòng nhập tên nhóm hàng!'));
             return;
         }
 
@@ -1080,7 +1103,7 @@ const Admin = {
                 document.getElementById('category-modal').classList.remove('open');
                 await this.loadCategories();
             } else {
-                alert(data.message || 'Lỗi thao tác');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
             }
         } catch (e) {
             console.error('Error saving category:', e);
@@ -1088,14 +1111,14 @@ const Admin = {
     },
 
     async deleteCategory(catId) {
-        if (!confirm('Bạn có chắc chắn muốn xóa nhóm hàng này?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_adm.d5c59bd2','Bạn có chắc chắn muốn xóa nhóm hàng này?'):'Bạn có chắc chắn muốn xóa nhóm hàng này?')))) return;
         try {
             const res = await fetch(`api/categories.php?action=delete&id=${catId}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 await this.loadCategories();
             } else {
-                alert(data.message || 'Lỗi xóa nhóm hàng');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2b5aedc5','Lỗi xóa nhóm hàng'):'Lỗi xóa nhóm hàng'));
             }
         } catch (e) {
             console.error('Error deleting category:', e);
@@ -1130,7 +1153,7 @@ const Admin = {
         if (!tbody) return;
 
         if (!this.products || this.products.length === 0) {
-            tbody.innerHTML = this.renderEmptyState(9, 'fa-utensils', 'Không tìm thấy mặt hàng nào', 'Chưa có mặt hàng nào trong hệ thống hoặc không khớp với bộ lọc.');
+            tbody.innerHTML = this.renderEmptyState(9, 'fa-utensils', (window.cnxT?window.cnxT('js.s_adm.f4dc4de2','Không tìm thấy mặt hàng nào'):'Không tìm thấy mặt hàng nào'), (window.cnxT?window.cnxT('js.s_adm.ebf782e0','Chưa có mặt hàng nào trong hệ thống hoặc không khớp với bộ lọc.'):'Chưa có mặt hàng nào trong hệ thống hoặc không khớp với bộ lọc.'));
             return;
         }
 
@@ -1138,22 +1161,24 @@ const Admin = {
         this.products.forEach(p => {
             const isLocked = p.status === 'locked';
             const imgUrl = p.image || 'assets/images/dishes/default_dish.jpg';
+            const safeImgUrl = escapeHtml(CyberSecurity.safeUrl(imgUrl));
+            const safeProdName = escapeHtml(p.name);
             html += `
                 <tr class="hover:bg-sky-500/[0.04] transition-colors ${isLocked ? 'opacity-50' : ''}">
                     <td class="col-center">
-                        <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-900 border border-white/10 mx-auto shadow-sm relative group cursor-pointer" onclick="Admin.openEditProductModal(${p.id})">
-                            <img src="${imgUrl}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
+                        <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-900 border border-white/10 mx-auto shadow-sm relative group cursor-pointer" onclick="Admin.openEditProductModal(${Number(p.id)})">
+                            <img src="${safeImgUrl}" alt="${safeProdName}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" />
                         </div>
                     </td>
-                    <td><span class="font-mono text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${p.code || 'SP'}</span></td>
+                    <td><span class="font-mono text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 whitespace-nowrap">${escapeHtml(p.code || 'SP')}</span></td>
                     <td class="col-name">
                         <div class="font-bold text-white text-xs flex items-center gap-1.5 whitespace-nowrap">
-                            <span class="whitespace-nowrap">${p.name}</span>
+                            <span class="whitespace-nowrap">${safeProdName}</span>
                             ${p.is_topping == 1 ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shrink-0">Topping</span>' : ''}
                         </div>
                     </td>
-                    <td><span class="text-xs text-slate-300 font-medium whitespace-nowrap">${p.category_name || '-'}</span></td>
-                    <td class="col-center"><span class="text-xs text-slate-400 capitalize whitespace-nowrap">${p.unit || 'ly'}</span></td>
+                    <td><span class="text-xs text-slate-300 font-medium whitespace-nowrap">${escapeHtml(p.category_name || '-')}</span></td>
+                    <td class="col-center"><span class="text-xs text-slate-400 capitalize whitespace-nowrap">${escapeHtml(p.unit || 'ly')}</span></td>
                     <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs whitespace-nowrap">${this.formatMoney(p.sale_price)} đ</span></td>
                     <td class="col-money"><span class="font-mono text-slate-400 text-xs whitespace-nowrap">${this.formatMoney(p.cost_price)} đ</span></td>
                     <td class="col-center">
@@ -1190,7 +1215,8 @@ const Admin = {
         if (imgInput) imgInput.value = '';
         if (imgPreview) imgPreview.src = 'assets/images/dishes/default_dish.jpg';
 
-        document.getElementById('product-modal-title').innerText = 'Thêm Mặt Hàng Mới';
+        document.getElementById('product-modal-title').innerText = (window.cnxT?window.cnxT('ui.admin_html.h3_5800bc4e','Thêm Mặt Hàng Mới'):'Thêm Mặt Hàng Mới');
+        this.loadProductRecipes(0);
         document.getElementById('product-modal').classList.add('open');
     },
 
@@ -1213,7 +1239,8 @@ const Admin = {
         if (imgInput) imgInput.value = prod.image || '';
         if (imgPreview) imgPreview.src = dishImg;
 
-        document.getElementById('product-modal-title').innerText = 'Chỉnh Sửa Mặt Hàng';
+        document.getElementById('product-modal-title').innerText = (window.cnxT?window.cnxT('js.s_adm.9e11e7e5','Chỉnh Sửa Mặt Hàng'):'Chỉnh Sửa Mặt Hàng');
+        this.loadProductRecipes(prod.id);
         document.getElementById('product-modal').classList.add('open');
     },
 
@@ -1286,7 +1313,7 @@ const Admin = {
         }
         const custom_query = queryInput ? queryInput.value.trim() : '';
         if (!name && !custom_query) {
-            alert('Vui lòng nhập tên món ăn hoặc từ khóa trước khi tìm ảnh!');
+            alert((window.cnxT?window.cnxT('js.s_adm.f136a95b','Vui lòng nhập tên món ăn hoặc từ khóa trước khi tìm ảnh!'):'Vui lòng nhập tên món ăn hoặc từ khóa trước khi tìm ảnh!'));
             return;
         }
         this._smartSearchPage = Math.max(0, Number(page) || 0);
@@ -1296,13 +1323,13 @@ const Admin = {
         if (!picker || !grid) return;
 
         picker.classList.remove('hidden');
-        grid.innerHTML = '<div class="col-span-3 py-4 text-center text-xs text-slate-400 animate-pulse">Đang phân tích tông menu & tìm ảnh món thật (0 AI token)...</div>';
+        grid.innerHTML = (window.cnxT?window.cnxT('js.s_adm.a61b8eec','<div class="col-span-3 py-4 text-center text-xs text-slate-400 animate-pulse">Đang phân tích tông menu & tìm ảnh món thật (0 AI token)...</div>'):'<div class="col-span-3 py-4 text-center text-xs text-slate-400 animate-pulse">Đang phân tích tông menu & tìm ảnh món thật (0 AI token)...</div>');
 
         const { tone, dna } = await this.getEffectiveDishStyleTone();
-        const toneLabel = tone === 'bright' ? 'Nền sáng' : (tone === 'warm' ? 'Gỗ ấm' : 'Nền tối');
+        const toneLabel = tone === 'bright' ? 'Nền sáng' : (tone === 'warm' ? 'Gỗ ấm' : (window.cnxT?window.cnxT('js.s_adm.be718a1b','Nền tối'):'Nền tối'));
         if (badge) {
             const pageTxt = this._smartSearchPage > 0 ? ` • Trang ${this._smartSearchPage + 1}` : '';
-            badge.textContent = `Menu Style DNA: ${toneLabel} (${dna.count} ảnh mẫu)${pageTxt}`;
+            badge.textContent = `Menu Style DNA: ${toneLabel} (${dna.count} ${window.cnxT?window.cnxT('js.s_adm.fd256171','ảnh mẫu)'):'ảnh mẫu)'}${pageTxt}`;
         }
 
         try {
@@ -1313,7 +1340,7 @@ const Admin = {
             });
             const data = await res.json();
             if (!data.success || !Array.isArray(data.candidates) || !data.candidates.length) {
-                grid.innerHTML = `<div class="col-span-3 py-3 text-center text-xs text-rose-300">${data.message || 'Không tìm thấy ảnh phù hợp.'}</div>`;
+                grid.innerHTML = `<div class="col-span-3 py-3 text-center text-xs text-rose-300">${data.message || (window.cnxT?window.cnxT('js.s_adm.07a1cf7b','Không tìm thấy ảnh phù hợp.'):'Không tìm thấy ảnh phù hợp.')}</div>`;
                 return;
             }
             grid.innerHTML = '';
@@ -1321,7 +1348,7 @@ const Admin = {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'group relative aspect-[4/3] rounded-lg overflow-hidden border border-white/15 hover:border-emerald-400 bg-slate-950 transition-all';
-                btn.title = 'Chọn ảnh này & tự chuẩn hóa 640×480 theo tông menu';
+                btn.title = (window.cnxT?window.cnxT('js.s_adm.e3577c2b','Chọn ảnh này & tự chuẩn hóa 640×480 theo tông menu'):'Chọn ảnh này & tự chuẩn hóa 640×480 theo tông menu');
                 btn.onclick = () => this.applySmartDishCandidate(c.full_url, c.thumb_url);
 
                 const img = document.createElement('img');
@@ -1331,7 +1358,7 @@ const Admin = {
 
                 const ov = document.createElement('span');
                 ov.className = 'absolute inset-x-0 bottom-0 bg-slate-950/75 text-[10px] text-emerald-300 py-0.5 text-center opacity-0 group-hover:opacity-100 transition-opacity';
-                ov.textContent = 'Chọn & Đồng bộ';
+                ov.textContent = (window.cnxT?window.cnxT('js.s_adm.4a18b0fb','Chọn & Đồng bộ'):'Chọn & Đồng bộ');
 
                 btn.appendChild(img);
                 btn.appendChild(ov);
@@ -1355,7 +1382,7 @@ const Admin = {
             const data = await res.json();
             if (!data.success || !data.data_url) {
                 if (preview) preview.classList.remove('animate-pulse');
-                alert(data.message || 'Không tải được ảnh đã chọn!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.8c3bd0b7','Không tải được ảnh đã chọn!'):'Không tải được ảnh đã chọn!'));
                 return;
             }
             const { dna } = await this.getEffectiveDishStyleTone();
@@ -1403,14 +1430,14 @@ const Admin = {
                     }
                     resolve(cv.toDataURL('image/jpeg', 0.9));
                 };
-                img.onerror = () => reject(new Error('Không đọc được dữ liệu ảnh!'));
+                img.onerror = () => reject(new Error((window.cnxT?window.cnxT('js.s_adm.087f07a2','Không đọc được dữ liệu ảnh!'):'Không đọc được dữ liệu ảnh!')));
                 img.src = data.data_url;
             });
             if (picker) picker.classList.add('hidden');
             await this.uploadCroppedDishImage(normalizedB64);
         } catch (e) {
             if (preview) preview.classList.remove('animate-pulse');
-            alert('Lỗi xử lý ảnh: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_adm.c2d918ce','Lỗi xử lý ảnh: '):'Lỗi xử lý ảnh: ') + e.message);
         }
     },
 
@@ -1421,7 +1448,7 @@ const Admin = {
         const id = document.getElementById('modal-prod-id').value;
 
         if (!name) {
-            alert('Vui lòng nhập tên món ăn trước khi nhờ AI tạo ảnh!');
+            alert((window.cnxT?window.cnxT('js.s_adm.7ed5f06f','Vui lòng nhập tên món ăn trước khi nhờ AI tạo ảnh!'):'Vui lòng nhập tên món ăn trước khi nhờ AI tạo ảnh!'));
             return;
         }
 
@@ -1444,13 +1471,13 @@ const Admin = {
             if (data.success && data.image_url) {
                 preview.src = data.image_url;
                 input.value = data.image_url;
-                alert(data.message || 'AI đã tạo và gán ảnh món ăn thành công!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.5a61109c','AI đã tạo và gán ảnh món ăn thành công!'):'AI đã tạo và gán ảnh món ăn thành công!'));
             } else {
-                alert(data.message || 'Không thể tạo ảnh, vui lòng thử lại!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.a4685e24','Không thể tạo ảnh, vui lòng thử lại!'):'Không thể tạo ảnh, vui lòng thử lại!'));
             }
         } catch (e) {
             preview.classList.remove('animate-pulse');
-            alert('Lỗi kết nối AI: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_adm.b09dad32','Lỗi kết nối AI: '):'Lỗi kết nối AI: ') + e.message);
         }
     },
 
@@ -1498,7 +1525,7 @@ const Admin = {
         const src = (input ? input.value : '') || (preview ? preview.src : '');
 
         if (!src || src.includes('default_dish.jpg')) {
-            alert('Chưa có hình ảnh món ăn để cắt xén. Vui lòng bấm "Chọn File" hoặc "AI Tạo Ảnh" trước!');
+            alert((window.cnxT?window.cnxT('js.s_adm.cc481199','Chưa có hình ảnh món ăn để cắt xén. Vui lòng bấm "Chọn File" hoặc "AI Tạo Ảnh" trước!'):'Chưa có hình ảnh món ăn để cắt xén. Vui lòng bấm "Chọn File" hoặc "AI Tạo Ảnh" trước!'));
             return;
         }
 
@@ -1540,36 +1567,58 @@ const Admin = {
                     }
                 }
 
-                alert('Đã tự động cắt xén ảnh chuẩn 4:3 và lưu thành công!');
+                alert((window.cnxT?window.cnxT('js.s_adm.1d8725c0','Đã tự động cắt xén ảnh chuẩn 4:3 và lưu thành công!'):'Đã tự động cắt xén ảnh chuẩn 4:3 và lưu thành công!'));
             } else {
-                alert(data.message || 'Lưu ảnh thất bại!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.21cd5f33','Lưu ảnh thất bại!'):'Lưu ảnh thất bại!'));
             }
         } catch (e) {
             if (preview) preview.classList.remove('animate-pulse');
-            alert('Lỗi tải ảnh: ' + e.message);
+            alert((window.cnxT?window.cnxT('js.s_adm.a11a3fbe','Lỗi tải ảnh: '):'Lỗi tải ảnh: ') + e.message);
         }
     },
 
     async batchAiAssignImages() {
-        if (!confirm('Bạn có chắc muốn AI tự động phân tích toàn bộ menu và gán hình ảnh minh họa chất lượng cao cho tất cả món ăn không?')) {
+        const missing = (this.products || []).filter(p => !p.image || p.image.includes('default_dish') || p.image.trim() === '');
+        if (!missing.length) {
+            alert((window.cnxT?window.cnxT('js.s_adm.e2cafad4','Tất cả món ăn trong thực đơn đều đã có ảnh!'):'Tất cả món ăn trong thực đơn đều đã có ảnh!'));
             return;
         }
-
-        try {
-            const res = await fetch('api/products.php?action=ai_batch_assign_images', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message || 'Đã cập nhật hình ảnh menu thành công!');
-                this.loadProducts();
-            } else {
-                alert(data.message || 'Có lỗi xảy ra!');
-            }
-        } catch (e) {
-            alert('Lỗi: ' + e.message);
+        if (!(await window.cnxConfirm(`${window.cnxT?window.cnxT('js.s_adm.63697902','Tìm và gán ảnh tự động cho'):'Tìm và gán ảnh tự động cho'} ${missing.length} ${window.cnxT?window.cnxT('js.s_adm.c80471bb','món chưa có ảnh?\\n(Quá trình thực hiện tuần tự cho từng món)'):'món chưa có ảnh?\\n(Quá trình thực hiện tuần tự cho từng món)'}`))) {
+            return;
         }
+        let okCnt = 0;
+        for (const prod of missing) {
+            try {
+                const sRes = await fetch('api/products.php?action=search_dish_images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: prod.name })
+                }).then(r => r.json());
+                const first = sRes && sRes.success && Array.isArray(sRes.results) && sRes.results[0];
+                if (!first || !first.url) continue;
+                const fRes = await fetch('api/products.php?action=fetch_dish_image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_url: first.url, thumb_url: first.thumb || first.url })
+                }).then(r => r.json());
+                if (!fRes || !fRes.success || !fRes.data_url) continue;
+                const uRes = await fetch('api/products.php?action=upload_image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_data: fRes.data_url, filename: `dish_${prod.id}.jpg` })
+                }).then(r => r.json());
+                if (uRes && uRes.success && uRes.image_path) {
+                    await fetch('api/products.php?action=update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...prod, image: uRes.image_path, status: prod.status || 'active' })
+                    });
+                    okCnt++;
+                }
+            } catch (_) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin.js', _) : console.debug('admin.js', _)); }
+        }
+        alert(`${window.cnxT?window.cnxT('js.s_adm.138225c7','Đã tự động gán ảnh xong cho'):'Đã tự động gán ảnh xong cho'} ${okCnt}/${missing.length} ${window.cnxT?window.cnxT('js.s_adm.17fd7721','món!'):'món!'}`);
+        await this.loadProducts();
     },
 
     async saveProduct() {
@@ -1584,7 +1633,7 @@ const Admin = {
         const image = document.getElementById('modal-prod-image') ? document.getElementById('modal-prod-image').value.trim() : '';
 
         if (!name || category_id <= 0 || sale_price <= 0) {
-            alert('Vui lòng nhập tên món, chọn nhóm hàng và nhập giá bán hợp lệ!');
+            alert((window.cnxT?window.cnxT('js.s_adm.a0c70902','Vui lòng nhập tên món, chọn nhóm hàng và nhập giá bán hợp lệ!'):'Vui lòng nhập tên món, chọn nhóm hàng và nhập giá bán hợp lệ!'));
             return;
         }
 
@@ -1600,14 +1649,78 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
+                const savedId = Number(id || data.id || data.product_id || 0);
+                if (savedId > 0) await this.saveProductRecipes(savedId);
                 document.getElementById('product-modal').classList.remove('open');
                 await this.loadProducts();
             } else {
-                alert(data.message || 'Lỗi thao tác');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.2d4e917e','Lỗi thao tác'):'Lỗi thao tác'));
             }
         } catch (e) {
             console.error('Error saving product:', e);
         }
+    },
+
+    async loadProductRecipes(prodId) {
+        const box = document.getElementById('modal-prod-recipes-list');
+        if (!box) return;
+        box.innerHTML = (window.cnxT?window.cnxT('js.s_adm.4b564850','<div class="text-slate-400 text-[11px]">Đang tải định lượng...</div>'):'<div class="text-slate-400 text-[11px]">Đang tải định lượng...</div>');
+        try {
+            if (!Array.isArray(this.materialsList) || this.materialsList.length === 0) {
+                const mRes = await fetch('api/operations.php?action=materials').then(r => r.json());
+                if (mRes && mRes.success && Array.isArray(mRes.data)) this.materialsList = mRes.data;
+            }
+            let recipes = [];
+            if (prodId > 0) {
+                const rRes = await fetch('api/operations.php?action=get_recipes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_id: prodId })
+                }).then(r => r.json());
+                if (rRes && rRes.success && Array.isArray(rRes.data)) recipes = rRes.data;
+            }
+            box.innerHTML = '';
+            if (recipes.length === 0) {
+                box.innerHTML = (window.cnxT?window.cnxT('js.s_adm.cd9a2dc4','<div class="recipe-empty text-slate-500 italic text-[11px]">Chưa gắn định lượng (sẽ không tự trừ kho).</div>'):'<div class="recipe-empty text-slate-500 italic text-[11px]">Chưa gắn định lượng (sẽ không tự trừ kho).</div>');
+            } else {
+                recipes.forEach(r => this.addRecipeRow(r.material_id, r.quantity_per_unit));
+            }
+        } catch (e) {
+            box.innerHTML = (window.cnxT?window.cnxT('js.s_adm.6e7ee9bb','<div class="text-rose-400 text-[11px]">Không tải được định lượng.</div>'):'<div class="text-rose-400 text-[11px]">Không tải được định lượng.</div>');
+        }
+    },
+
+    addRecipeRow(selectedMatId = 0, qty = '') {
+        const box = document.getElementById('modal-prod-recipes-list');
+        if (!box) return;
+        const emptyEl = box.querySelector('.recipe-empty');
+        if (emptyEl) emptyEl.remove();
+        const mats = Array.isArray(this.materialsList) ? this.materialsList : [];
+        const opts = mats.map(m => `<option value="${m.id}" ${Number(m.id) === Number(selectedMatId) ? 'selected' : ''}>${m.name} (${m.unit})</option>`).join('');
+        const row = document.createElement('div');
+        row.className = 'recipe-row flex items-center gap-1.5';
+        row.innerHTML = `
+            <select class="recipe-mat-id liquid-input py-1 px-2 text-[11px] flex-1">${opts || (window.cnxT?window.cnxT('js.s_adm.afd96c68','<option value="0">Chưa có NL trong kho</option>'):'<option value="0">Chưa có NL trong kho</option>')}</select>
+            <input type="number" step="0.001" min="0" value="${qty}" placeholder="SL/món" class="recipe-mat-qty liquid-input py-1 px-2 text-[11px] w-24 font-mono" />
+            <button type="button" onclick="this.parentElement.remove()" class="px-2 py-1 rounded bg-rose-500/20 text-rose-300 hover:bg-rose-500/35 text-[11px]"><i class="fas fa-times"></i></button>
+        `;
+        box.appendChild(row);
+    },
+
+    async saveProductRecipes(prodId) {
+        const box = document.getElementById('modal-prod-recipes-list');
+        if (!box || !prodId) return;
+        const items = [];
+        box.querySelectorAll('.recipe-row').forEach(r => {
+            const material_id = parseInt(r.querySelector('.recipe-mat-id')?.value || '0', 10) || 0;
+            const quantity_per_unit = parseFloat(r.querySelector('.recipe-mat-qty')?.value || '0') || 0;
+            if (material_id > 0 && quantity_per_unit > 0) items.push({ material_id, quantity_per_unit });
+        });
+        await fetch('api/operations.php?action=save_recipes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: prodId, items })
+        });
     },
 
     async toggleProductLock(prodId) {
@@ -1627,14 +1740,14 @@ const Admin = {
     },
 
     async deleteProduct(prodId) {
-        if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này khỏi cơ sở dữ liệu?')) return;
+        if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_adm.cd962977','Bạn có chắc chắn muốn xóa mặt hàng này khỏi cơ sở dữ liệu?'):'Bạn có chắc chắn muốn xóa mặt hàng này khỏi cơ sở dữ liệu?')))) return;
         try {
             const res = await fetch(`api/products.php?action=delete&id=${prodId}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 await this.loadProducts();
             } else {
-                alert(data.message || 'Lỗi xóa mặt hàng');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.183fc55d','Lỗi xóa mặt hàng'):'Lỗi xóa mặt hàng'));
             }
         } catch (e) {
             console.error('Error deleting product:', e);
@@ -1702,7 +1815,7 @@ const Admin = {
             container.innerHTML = `
                 <div class="col-span-full py-12 text-center text-slate-500" style="grid-column:1/-1;">
                     <i class="fas fa-chair text-4xl mb-3 text-slate-600 block"></i>
-                    <p class="text-sm font-semibold">Không tìm thấy bàn nào phù hợp</p>
+                    <p class="text-sm font-semibold">${window.cnxT?window.cnxT('js.s_adm.0823f02c','Không tìm thấy bàn nào phù hợp'):'Không tìm thấy bàn nào phù hợp'}</p>
                     <p class="text-xs text-slate-600 mt-1">Bấm "Thêm Bàn" hoặc "Tạo Hàng Loạt" để tạo mới</p>
                 </div>
             `;
@@ -1718,8 +1831,8 @@ const Admin = {
             ...filtered.filter(t => groupOf(t) === 'TAI_QUAN')
         ];
         const groupMeta = {
-            TAI_QUAN: { label: 'Bàn Tại Quán', icon: 'fa-chair', color: '#38bdf8', border: 'rgba(56,189,248,.35)' },
-            MANG_VE:  { label: 'Đơn Mang Về',  icon: 'fa-bag-shopping', color: '#fbbf24', border: 'rgba(251,191,36,.35)' }
+            TAI_QUAN: { label: (window.cnxT?window.cnxT('js.s_adm.8c79998a','Bàn Tại Quán'):'Bàn Tại Quán'), icon: 'fa-chair', color: '#38bdf8', border: 'rgba(56,189,248,.35)' },
+            MANG_VE:  { label: (window.cnxT?window.cnxT('js.s_adm.a3cceab8','Đơn Mang Về'):'Đơn Mang Về'),  icon: 'fa-bag-shopping', color: '#fbbf24', border: 'rgba(251,191,36,.35)' }
         };
         const groupCounts = {
             TAI_QUAN: filtered.filter(t => groupOf(t) === 'TAI_QUAN').length,
@@ -1755,18 +1868,18 @@ const Admin = {
                                     ${t.code}
                                 </span>
                                 <span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold ${isTakeaway ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25' : 'bg-slate-800 text-slate-300 border border-white/10'} truncate">
-                                    ${isTakeaway ? 'Mang Về' : 'Tại Quán'}
+                                    ${isTakeaway ? 'Mang Về' : (window.cnxT?window.cnxT('ui.pos_html.div_2fa80da1','Tại Quán'):'Tại Quán')}
                                 </span>
                             </div>
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase whitespace-nowrap shrink-0 ${isOccupied ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
                                 <span class="w-1.5 h-1.5 rounded-full ${isOccupied ? 'bg-rose-400 animate-ping' : 'bg-emerald-400'}"></span>
-                                ${isOccupied ? 'Có khách' : 'Trống'}
+                                ${isOccupied ? 'Có khách' : (window.cnxT?window.cnxT('js.s_adm.cd79aac0','Trống'):'Trống')}
                             </span>
                         </div>
 
                         <!-- Table Name & Seats -->
                         <div class="flex items-baseline justify-between gap-1 mb-2">
-                            <h4 class="font-extrabold text-sm text-white truncate" title="${t.name}">${t.name}</h4>
+                            <h4 class="font-extrabold text-sm text-white truncate" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</h4>
                             <span class="text-[10px] text-slate-400 font-medium shrink-0">
                                 <i class="fas fa-chair text-slate-500 text-[9px] mr-0.5"></i>${guestCount} chỗ
                             </span>
@@ -1777,7 +1890,7 @@ const Admin = {
                             <div id="table-qr-${t.id}" style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
                             <div class="absolute inset-0 bg-slate-950/80 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 p-1 text-center">
                                 <i class="fas fa-search-plus text-base text-sky-400"></i>
-                                <span>Phóng to & In</span>
+                                <span>${window.cnxT?window.cnxT('js.s_adm.7ff8cd48','Phóng to & In'):'Phóng to & In'}</span>
                             </div>
                         </div>
 
@@ -1785,12 +1898,12 @@ const Admin = {
                         <div class="text-[11px] text-center my-1.5">
                             ${isOccupied ? `
                                 <div class="px-2 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-200 font-medium flex items-center justify-between">
-                                    <span class="truncate"><i class="fas fa-receipt mr-1 text-rose-400"></i>${t.order_code || 'Đang mở'}</span>
+                                    <span class="truncate"><i class="fas fa-receipt mr-1 text-rose-400"></i>${escapeHtml(t.order_code || (window.cnxT?window.cnxT('js.s_adm.21ae8ec7','Đang mở'):'Đang mở'))}</span>
                                     <span class="font-bold text-amber-300 ml-1 font-mono">${(Number(t.total_amount) || 0).toLocaleString('vi-VN')}đ</span>
                                 </div>
                             ` : `
                                 <div class="text-[10px] text-slate-400 font-medium">
-                                    <span class="text-emerald-400">●</span> Sẵn sàng đón khách
+                                    <span class="text-emerald-400">●</span> ${window.cnxT?window.cnxT('js.s_adm.fda1a4dc','Sẵn sàng đón khách'):'Sẵn sàng đón khách'}
                                 </div>
                             `}
                         </div>
@@ -1801,7 +1914,7 @@ const Admin = {
                         <button type="button" onclick="Admin.openTableQrModal(${t.id})" class="btn-glass text-[10px] py-1 px-2 text-sky-300 hover:text-white border-sky-500/30 hover:bg-sky-500/20 font-bold flex items-center gap-1 flex-1 justify-center shadow-sm" title="Mở mã QR standee">
                             <i class="fas fa-qrcode"></i> <span>Standee QR</span>
                         </button>
-                        <button type="button" onclick="Admin.copyDirectOrderUrl('${encodeURIComponent(orderUrl)}')" class="btn-glass text-[10px] py-1 px-1.5 text-slate-300 hover:text-white border-white/10" title="Sao chép link gọi món tại bàn">
+                        <button type="button" onclick="Admin.copyDirectOrderUrl('${escapeJsAttr(encodeURIComponent(orderUrl))}')" class="btn-glass text-[10px] py-1 px-1.5 text-slate-300 hover:text-white border-white/10" title="Sao chép link gọi món tại bàn">
                             <i class="fas fa-link"></i>
                         </button>
                         ${!isOccupied ? `
@@ -1885,7 +1998,7 @@ const Admin = {
         const area = areaInput ? areaInput.value : 'TAI_QUAN';
 
         if (!code || !name) {
-            alert('Vui lòng điền đầy đủ Mã bàn và Tên bàn!');
+            alert((window.cnxT?window.cnxT('js.s_adm.1442e9db','Vui lòng điền đầy đủ Mã bàn và Tên bàn!'):'Vui lòng điền đầy đủ Mã bàn và Tên bàn!'));
             return;
         }
 
@@ -1900,11 +2013,11 @@ const Admin = {
                 this.closeAddTableModal();
                 await this.loadTables();
             } else {
-                alert(data.message || 'Lỗi thêm bàn');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.f010a268','Lỗi thêm bàn'):'Lỗi thêm bàn'));
             }
         } catch (err) {
             console.error('addTable error:', err);
-            alert('Lỗi khi thêm bàn');
+            alert((window.cnxT?window.cnxT('js.s_adm.8ff5239a','Lỗi khi thêm bàn'):'Lỗi khi thêm bàn'));
         }
     },
 
@@ -1921,7 +2034,7 @@ const Admin = {
         const nameEl = document.getElementById('standee-display-name');
         if (nameEl) nameEl.textContent = table.name;
         const titleEl = document.getElementById('admin-table-qr-title');
-        if (titleEl) titleEl.textContent = `Standee QR Bàn: ${table.name} (${table.code})`;
+        if (titleEl) titleEl.textContent = `${window.cnxT?window.cnxT('js.s_adm.b0f386a9','Standee QR Bàn:'):'Standee QR Bàn:'} ${table.name} (${table.code})`;
 
         const orderUrl = `${getAdminBaseUrl()}customer.html?table=${encodeURIComponent(table.code)}&name=${encodeURIComponent(table.name)}`;
 
@@ -1965,7 +2078,7 @@ const Admin = {
         printZone.innerHTML = `
             <div style="max-width: 400px; margin: 0 auto; padding: 25px; border: 3px dashed #0284c7; border-radius: 16px; text-align: center; font-family: sans-serif; background: #ffffff; color: #020617;">
                 <div style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #0284c7; margin-bottom: 4px;">${(window.getStoreBrandName ? window.getStoreBrandName() : 'CyberNexus POS').toUpperCase()}</div>
-                <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 15px;">HỆ THỐNG GỌI MÓN & JUKEBOX THÔNG MINH TẠI BÀN</div>
+                <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 15px;">${window.cnxT?window.cnxT('js.s_adm.ee7c6b73','HỆ THỐNG GỌI MÓN & JUKEBOX THÔNG MINH TẠI BÀN'):'HỆ THỐNG GỌI MÓN & JUKEBOX THÔNG MINH TẠI BÀN'}</div>
                 
                 <div style="display: inline-block; padding: 8px 24px; border: 2px solid #0284c7; border-radius: 12px; background: #f0f9ff; margin-bottom: 15px;">
                     <span style="font-size: 26px; font-weight: 900; color: #0369a1; font-family: monospace;">${table.code}</span>
@@ -1975,10 +2088,10 @@ const Admin = {
                 <div id="print-single-qr-img" style="margin: 10px auto; width: 220px; height: 220px; display: flex; align-items: center; justify-content: center; background: #fff;"></div>
 
                 <div style="margin-top: 15px; font-size: 12px; font-weight: 700; color: #0f172a;">
-                    📷 Mở Camera / Zalo / App Ngân Hàng Quét Mã
+                    ${window.cnxT?window.cnxT('js.s_adm.e20473d1','📷 Mở Camera / Zalo / App Ngân Hàng Quét Mã'):'📷 Mở Camera / Zalo / App Ngân Hàng Quét Mã'}
                 </div>
                 <div style="margin-top: 4px; font-size: 11px; color: #64748b;">
-                    Xem thực đơn điện tử • Đặt món nhanh • Quán phục vụ tận bàn
+                    ${window.cnxT?window.cnxT('js.s_adm.7fc93b0f','Xem thực đơn điện tử • Đặt món nhanh • Quán phục vụ tận bàn'):'Xem thực đơn điện tử • Đặt món nhanh • Quán phục vụ tận bàn'}
                 </div>
                 <div style="margin-top: 15px; font-size: 9px; font-family: monospace; color: #94a3b8; word-break: break-all;">
                     ${orderUrl}
@@ -2015,7 +2128,7 @@ const Admin = {
             dataUrl = canvas.toDataURL('image/png');
         }
         if (!dataUrl) {
-            alert('Không tìm thấy ảnh mã QR để tải!');
+            alert((window.cnxT?window.cnxT('js.s_adm.fe42b5fe','Không tìm thấy ảnh mã QR để tải!'):'Không tìm thấy ảnh mã QR để tải!'));
             return;
         }
         const a = document.createElement('a');
@@ -2027,24 +2140,25 @@ const Admin = {
         document.body.removeChild(a);
     },
 
-    copyTableQrUrl() {
+    async copyTableQrUrl() {
         const urlEl = document.getElementById('admin-table-qr-url');
         if (!urlEl || !urlEl.textContent) return;
         const url = urlEl.textContent;
-        this.copyDirectOrderUrl(url);
+        await this.copyDirectOrderUrl(url);
     },
 
-    copyDirectOrderUrl(url) {
+    async copyDirectOrderUrl(url) {
         if (!url) return;
         const decoded = decodeURIComponent(url);
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(decoded).then(() => {
-                alert('Đã sao chép link gọi món tại bàn:\n' + decoded);
-            }).catch(() => {
-                prompt('Link gọi món tại bàn:', decoded);
-            });
+            try {
+                await navigator.clipboard.writeText(decoded);
+                alert((window.cnxT?window.cnxT('js.s_adm.18980c49','Đã sao chép link gọi món tại bàn:\n'):'Đã sao chép link gọi món tại bàn:\n') + decoded);
+            } catch (e) {
+                await window.cnxPrompt((window.cnxT?window.cnxT('js.s_adm.3a3f3dc9','Link gọi món tại bàn:'):'Link gọi món tại bàn:'), decoded);
+            }
         } else {
-            prompt('Link gọi món tại bàn:', decoded);
+            await window.cnxPrompt((window.cnxT?window.cnxT('js.s_adm.3a3f3dc9','Link gọi món tại bàn:'):'Link gọi món tại bàn:'), decoded);
         }
     },
 
@@ -2062,7 +2176,7 @@ const Admin = {
         const guestCount = parseInt(document.getElementById('batch-guest-count')?.value || '4', 10);
 
         if (toNum < fromNum) {
-            alert('Số kết thúc phải lớn hơn hoặc bằng số bắt đầu!');
+            alert((window.cnxT?window.cnxT('js.s_adm.0327a905','Số kết thúc phải lớn hơn hoặc bằng số bắt đầu!'):'Số kết thúc phải lớn hơn hoặc bằng số bắt đầu!'));
             return;
         }
 
@@ -2080,22 +2194,22 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Đã tạo thành công hàng loạt bàn!');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.b920013f','Đã tạo thành công hàng loạt bàn!'):'Đã tạo thành công hàng loạt bàn!'));
                 document.getElementById('admin-batch-tables-modal')?.classList.remove('open');
                 await this.loadTables();
             } else {
-                alert(data.message || 'Lỗi tạo hàng loạt bàn');
+                alert(data.message || (window.cnxT?window.cnxT('js.s_adm.4b63dd65','Lỗi tạo hàng loạt bàn'):'Lỗi tạo hàng loạt bàn'));
             }
         } catch (err) {
             console.error('submitBatchTables error:', err);
-            alert('Lỗi kết nối máy chủ');
+            alert((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'));
         }
     },
 
     printAllTableQr() {
         const tables = this.tables || [];
         if (tables.length === 0) {
-            alert('Chưa có bàn nào để in!');
+            alert((window.cnxT?window.cnxT('js.s_adm.90c02cd3','Chưa có bàn nào để in!'):'Chưa có bàn nào để in!'));
             return;
         }
 
@@ -2119,7 +2233,7 @@ const Admin = {
             html += `
                 <div class="print-table-card" style="border: 2px dashed #0284c7; border-radius: 14px; padding: 16px; text-align: center; page-break-inside: avoid; background: #ffffff;">
                     <div style="font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: #0284c7; text-transform: uppercase;">${brandNameUpper}</div>
-                    <div style="font-size: 10px; color: #64748b; margin-top: 2px;">MÃ QR GỌI MÓN & JUKEBOX</div>
+                    <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${window.cnxT?window.cnxT('js.s_adm.e22df3ab','MÃ QR GỌI MÓN & JUKEBOX'):'MÃ QR GỌI MÓN & JUKEBOX'}</div>
                     
                     <div style="display: inline-block; margin: 10px 0; padding: 4px 16px; border: 1.5px solid #0284c7; border-radius: 8px; background: #f0f9ff;">
                         <span style="font-size: 20px; font-weight: 900; color: #0369a1; font-family: monospace;">${t.code}</span>
@@ -2129,10 +2243,10 @@ const Admin = {
                     <div id="print-batch-qr-${t.id}" style="margin: 8px auto; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center;"></div>
 
                     <div style="font-size: 10px; font-weight: 700; color: #0f172a; margin-top: 6px;">
-                        📷 Mở Camera / Zalo quét mã
+                        ${window.cnxT?window.cnxT('js.s_adm.22d70618','📷 Mở Camera / Zalo quét mã'):'📷 Mở Camera / Zalo quét mã'}
                     </div>
                     <div style="font-size: 9px; color: #64748b; margin-top: 2px;">
-                        Xem menu • Đặt món • Phục vụ tận bàn
+                        ${window.cnxT?window.cnxT('js.s_adm.8891e554','Xem menu • Đặt món • Phục vụ tận bàn'):'Xem menu • Đặt món • Phục vụ tận bàn'}
                     </div>
                 </div>
             `;
@@ -2177,14 +2291,14 @@ const Admin = {
             });
             const data = await res.json();
             if (data.success) {
-                this.showToast('🗑️ Đã xóa bàn thành công!', 'info');
+                this.showToast((window.cnxT?window.cnxT('js.s_adm.076269bd','🗑️ Đã xóa bàn thành công!'):'🗑️ Đã xóa bàn thành công!'), 'info');
                 await this.loadTables();
             } else {
-                this.showToast(data.message || 'Lỗi xóa bàn', 'error');
+                this.showToast(data.message || (window.cnxT?window.cnxT('js.s_adm.10f7e2f7','Lỗi xóa bàn'):'Lỗi xóa bàn'), 'error');
             }
         } catch (e) {
             console.error('Error deleting table:', e);
-            this.showToast('Lỗi kết nối máy chủ', 'error');
+            this.showToast((window.cnxT?window.cnxT('js.m_sa.26ee0245','Lỗi kết nối máy chủ'):'Lỗi kết nối máy chủ'), 'error');
         }
     },
 
@@ -2239,7 +2353,7 @@ const Admin = {
             if (!tbody) return;
 
             if (data.data.length === 0) {
-                tbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', 'Chưa có hóa đơn nào', 'Không tìm thấy hóa đơn nào trong khoảng thời gian hoặc trạng thái đã lọc.');
+                tbody.innerHTML = this.renderEmptyState(7, 'fa-file-invoice-dollar', (window.cnxT?window.cnxT('js.s_adm.02a3f42e','Chưa có hóa đơn nào'):'Chưa có hóa đơn nào'), (window.cnxT?window.cnxT('js.s_adm.32a3a355','Không tìm thấy hóa đơn nào trong khoảng thời gian hoặc trạng thái đã lọc.'):'Không tìm thấy hóa đơn nào trong khoảng thời gian hoặc trạng thái đã lọc.'));
                 return;
             }
 
@@ -2249,14 +2363,14 @@ const Admin = {
                     ? '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Đã thanh toán</span>'
                     : (o.status === 'pending' 
                         ? '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Đang dùng</span>' 
-                        : '<span class="saas-badge bg-rose-500/15 text-rose-300 border border-rose-500/30"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Đã hủy</span>');
+                        : (window.cnxT?window.cnxT('js.s_adm.a9966ca4','<span class="saas-badge bg-rose-500/15 text-rose-300 border border-rose-500/30"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Đã hủy</span>'):'<span class="saas-badge bg-rose-500/15 text-rose-300 border border-rose-500/30"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Đã hủy</span>'));
 
                 html += `
                     <tr class="hover:bg-sky-500/[0.04] transition-colors">
                         <td><span class="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">${o.order_code || ('#' + o.id)}</span></td>
-                        <td><span class="font-bold text-white text-xs">${o.table_code || o.table_name || 'Mang về'}</span></td>
+                        <td><span class="font-bold text-white text-xs">${o.table_code || o.table_name || (window.cnxT?window.cnxT('ui.admin_html.option_db03f8a2','Mang về'):'Mang về')}</span></td>
                         <td><span class="text-xs text-slate-400 font-mono">${o.created_at ? window.formatDateDDMMYY(o.created_at, true) : '-'}</span></td>
-                        <td><span class="text-xs text-slate-300 font-medium">${o.user_name || 'Thu ngân'}</span></td>
+                        <td><span class="text-xs text-slate-300 font-medium">${o.user_name || (window.cnxT?window.cnxT('ui.ord_html.b_6951ffd8','Thu ngân'):'Thu ngân')}</span></td>
                         <td class="col-money"><span class="font-mono font-bold text-emerald-400 text-xs">${this.formatMoney(o.total_amount)} đ</span></td>
                         <td class="col-center">${statusBadge}</td>
                         <td class="col-right">
@@ -2309,7 +2423,7 @@ const Admin = {
                         <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="document.getElementById('history-detail-modal').classList.remove('open')">&times;</button>
                     </div>
                     <div class="text-xs text-slate-300 space-y-1 mb-4">
-                        <div>Bàn: <b class="text-white">${o.table_code}</b> | Thu ngân: <b class="text-white">${o.user_name}</b></div>
+                        <div>${window.cnxT?window.cnxT('ui.pos_html.div_1c36b836','Bàn:'):'Bàn:'} <b class="text-white">${o.table_code}</b> ${window.cnxT?window.cnxT('js.s_adm.2878a3f6','| Thu ngân:'):'| Thu ngân:'} <b class="text-white">${o.user_name}</b></div>
                         <div>Thời gian: ${window.formatDateDDMMYY(o.created_at, true)}</div>
                     </div>
                     <div class="max-h-60 overflow-y-auto mb-4 pr-1">
@@ -2317,23 +2431,23 @@ const Admin = {
                     </div>
                     <div class="pt-3 border-t border-white/10 space-y-1 text-xs">
                         <div class="flex justify-between text-slate-400">
-                            <span>Tiền hàng:</span>
+                            <span>${window.cnxT?window.cnxT('js.s_adm.28db4eb0','Tiền hàng:'):'Tiền hàng:'}</span>
                             <span>${this.formatMoney(o.subtotal)} đ</span>
                         </div>
                         ${o.discount_amount > 0 ? `
                         <div class="flex justify-between text-rose-400">
-                            <span>Giảm giá:</span>
+                            <span>${window.cnxT?window.cnxT('ui.pos_html.span_607b5d46','Giảm giá:'):'Giảm giá:'}</span>
                             <span>-${this.formatMoney(o.discount_amount)} đ</span>
                         </div>` : ''}
                         <div class="flex justify-between text-sm font-black text-emerald-400 pt-1 border-t border-white/5">
-                            <span>TỔNG TIỀN:</span>
+                            <span>${window.cnxT?window.cnxT('js.s_adm.45aea550','TỔNG TIỀN:'):'TỔNG TIỀN:'}</span>
                             <span>${this.formatMoney(o.total_amount)} đ</span>
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 mt-5">
-                        <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('history-detail-modal').classList.remove('open')">Đóng</button>
+                        <button type="button" class="btn-glass text-xs py-2 px-4" onclick="document.getElementById('history-detail-modal').classList.remove('open')">${window.cnxT?window.cnxT('ui.pos_html.button_cee55387','Đóng'):'Đóng'}</button>
                         <button type="button" class="btn-glass-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5 shadow" onclick="Admin.printReceipt(${o.id})">
-                            <i class="fas fa-print"></i> In Hóa Đơn (80mm)
+                            <i class="fas fa-print"></i> ${window.cnxT?window.cnxT('ui.pos_html.span_c3942868','In Hóa Đơn (80mm)'):'In Hóa Đơn (80mm)'}
                         </button>
                     </div>
                 </div>
@@ -2350,7 +2464,7 @@ const Admin = {
             const res = await fetch(`api/orders.php?order_id=${orderId}`);
             const data = await res.json();
             if (!data.success || !data.order) {
-                alert('Không thể tải chi tiết hóa đơn!');
+                alert((window.cnxT?window.cnxT('js.s_adm.1d9dd155','Không thể tải chi tiết hóa đơn!'):'Không thể tải chi tiết hóa đơn!'));
                 return;
             }
 
@@ -2385,71 +2499,15 @@ const Admin = {
                 `;
             });
 
-            const payMethodName = o.payment_method === 'banking' ? 'Chuyển khoản (VietQR)' : (o.payment_method === 'card' ? 'Thẻ POS' : 'Tiền mặt');
+            const receiptHtml = (window.ReceiptTemplate && typeof window.ReceiptTemplate.renderHtml === 'function')
+                ? window.ReceiptTemplate.renderHtml(o, items, brand, { isReprint: true })
+                : `<div>${storeName} - #${o.order_code}</div>`;
 
-            const receiptHtml = `
-                <div style="text-align: center; margin-bottom: 8px;">
-                    <div style="font-size: 16px; font-weight: 900; text-transform: uppercase;">${storeName}</div>
-                    <div style="font-size: 11px; color: #444; margin-top: 2px;">${address}</div>
-                    <div style="font-size: 11px; color: #444;">Hotline: <b>${hotline}</b></div>
-                    <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-                    <div style="font-size: 15px; font-weight: bold;">PHIẾU THANH TOÁN</div>
-                    <div style="font-size: 12px; font-weight: bold; margin-top: 2px;">Số HĐ: ${o.order_code}</div>
-                    <div style="font-size: 11px; color: #444;">Bàn: <b>${o.table_code}</b> | Thu ngân: <b>${o.user_name || 'Thu ngân'}</b></div>
-                    <div style="font-size: 11px; color: #444;">Thời gian: ${o.completed_at || o.created_at ? window.formatDateDDMMYY(o.completed_at || o.created_at, true) : ''}</div>
-                </div>
-                
-                <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-                
-                <div style="margin: 8px 0;">
-                    ${itemsHtml}
-                </div>
-                
-                <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-                
-                <div style="font-size: 12px; line-height: 1.6;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Tiền hàng:</span>
-                        <span style="font-weight: bold;">${this.formatMoney(o.subtotal)} đ</span>
-                    </div>
-                    ${o.discount_amount > 0 ? `
-                    <div style="display: flex; justify-content: space-between; color: #b91c1c;">
-                        <span>Giảm giá:</span>
-                        <span>-${this.formatMoney(o.discount_amount)} đ</span>
-                    </div>` : ''}
-                    ${o.vat_amount > 0 ? `
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>VAT (${o.vat_percent}%):</span>
-                        <span>+${this.formatMoney(o.vat_amount)} đ</span>
-                    </div>` : ''}
-                    <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-                    <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 900;">
-                        <span>TỔNG CỘNG:</span>
-                        <span>${this.formatMoney(o.total_amount)} đ</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px;">
-                        <span>Hình thức thanh toán:</span>
-                        <span style="font-weight: bold;">${payMethodName}</span>
-                    </div>
-                    ${o.payment_method === 'cash' ? `
-                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                        <span>Tiền khách đưa:</span>
-                        <span>${this.formatMoney(o.cash_received)} đ</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                        <span>Tiền thối lại:</span>
-                        <span style="font-weight: bold;">${this.formatMoney(o.change_amount)} đ</span>
-                    </div>` : ''}
-                </div>
-                
-                <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-                
-                <div style="text-align: center; font-size: 11px; color: #333; margin-top: 6px;">
-                    <div>Wifi: <b>${wifi}</b></div>
-                    <div style="font-weight: bold; margin-top: 4px; font-size: 12px;">CẢM ƠN VÀ HẸN GẶP LẠI QUÝ KHÁCH!</div>
-                    <div style="font-size: 9px; color: #777; margin-top: 2px;">In lại từ Quản trị POS Góc Phố</div>
-                </div>
-            `;
+            if (window.ReceiptTemplate && typeof window.ReceiptTemplate.printHtmlInIframe === 'function') {
+                const paperCfg = window.ReceiptTemplate.getConfig(brand);
+                window.ReceiptTemplate.printHtmlInIframe(receiptHtml, paperCfg.paper_size);
+                return;
+            }
 
             let iframe = document.getElementById('admin-print-iframe');
             if (!iframe) {
@@ -2472,7 +2530,7 @@ const Admin = {
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>In Hóa Đơn</title>
+                    <title>${window.cnxT?window.cnxT('js.s_adm.ca5dc50d','In Hóa Đơn'):'In Hóa Đơn'}</title>
                     <style>
                         @page { size: 80mm auto; margin: 0; }
                         * { box-sizing: border-box; }
@@ -2507,1686 +2565,6 @@ const Admin = {
         }
     },
 
-    // 6. Users & Employees Management
-    async loadUsers() {
-        try {
-            const res = await fetch('api/users.php');
-            const data = await res.json();
-            if (data.success) {
-                this.users = data.data;
-                this.renderUsersTable();
-            }
-        } catch (e) {
-            console.error('Error loading users:', e);
-        }
-    },
-
-    renderUsersTable() {
-        const tbody = document.getElementById('users-table-body');
-        if (!tbody) return;
-
-        if (!this.users || this.users.length === 0) {
-            tbody.innerHTML = this.renderEmptyState(8, 'fa-users-gear', 'Chưa có người dùng nào', 'Bấm nút "Thêm Người Dùng Mới" để tạo tài khoản nhân viên hoặc thu ngân.');
-            return;
-        }
-
-        let html = '';
-        this.users.forEach(u => {
-            let roleBadge = '';
-            let codeColor = 'text-sky-300 bg-sky-500/10 border-sky-500/20';
-
-            if (u.role === 'admin') {
-                roleBadge = '<span class="saas-badge bg-purple-500/15 text-purple-300 border border-purple-500/30"><i class="fas fa-crown text-[9px]"></i> Quản Trị (ADM)</span>';
-                codeColor = 'text-purple-300 bg-purple-500/10 border-purple-500/20';
-            } else if (u.role === 'cashier') {
-                roleBadge = '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fas fa-cash-register text-[9px]"></i> Thu Ngân (ACC)</span>';
-                codeColor = 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
-            } else if (u.role === 'kitchen') {
-                roleBadge = '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fas fa-fire text-[9px]"></i> Bếp / Bar (KIT)</span>';
-                codeColor = 'text-amber-300 bg-amber-500/10 border-amber-500/20';
-            } else if (u.role === 'customer') {
-                roleBadge = '<span class="saas-badge bg-pink-500/15 text-pink-300 border border-pink-500/30"><i class="fas fa-user text-[9px]"></i> Khách Hàng (USR)</span>';
-                codeColor = 'text-pink-300 bg-pink-500/10 border-pink-500/20';
-            } else {
-                roleBadge = '<span class="saas-badge bg-sky-500/15 text-sky-300 border border-sky-500/30"><i class="fas fa-person-walking text-[9px]"></i> Phục Vụ (STF)</span>';
-                codeColor = 'text-sky-300 bg-sky-500/10 border-sky-500/20';
-            }
-
-            const isLocked = u.status === 'locked';
-
-            html += `
-                <tr class="hover:bg-sky-500/[0.04] transition-colors ${isLocked ? 'opacity-50' : ''}">
-                    <td><span class="font-mono text-xs font-bold px-2 py-0.5 rounded border ${codeColor} whitespace-nowrap">${u.user_code || `U${u.id}`}</span></td>
-                    <td><span class="text-xs text-slate-300 font-mono font-medium whitespace-nowrap">${u.username}</span></td>
-                    <td class="col-name"><span class="text-xs font-bold text-white whitespace-nowrap">${u.fullname}</span></td>
-                    <td class="col-center whitespace-nowrap">${roleBadge}</td>
-                    <td><span class="text-xs text-slate-400 font-mono whitespace-nowrap">${u.phone || '-'}</span></td>
-                    <td class="col-center"><span class="font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-xs whitespace-nowrap">${u.pin_code || '-'}</span></td>
-                    <td class="col-center">
-                        <button type="button" onclick="Admin.toggleUserStatus(${u.id})" class="saas-badge ${isLocked ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'} cursor-pointer hover:opacity-80 transition whitespace-nowrap">
-                            <span class="w-1.5 h-1.5 rounded-full ${isLocked ? 'bg-rose-400' : 'bg-emerald-400'}"></span>
-                            ${isLocked ? 'Đang khóa' : 'Hoạt động'}
-                        </button>
-                    </td>
-                    <td class="col-right">
-                        <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
-                            <button type="button" class="saas-action-btn btn-edit" onclick="Admin.openEditUserModal(${u.id})" title="Sửa thông tin">
-                                <i class="fas fa-pen text-[10px]"></i>
-                            </button>
-                            <button type="button" class="saas-action-btn btn-key" onclick="Admin.openResetPassModal(${u.id})" title="Đổi mật khẩu / PIN">
-                                <i class="fas fa-key text-[10px]"></i>
-                            </button>
-                            <button type="button" class="saas-action-btn btn-delete" onclick="Admin.deleteUser(${u.id})" title="Xóa người dùng">
-                                <i class="fas fa-trash-can text-[10px]"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
-
-        tbody.innerHTML = html;
-    },
-
-    suggestNextUserCode(role) {
-        const prefixMap = {
-            admin: 'ADM',
-            cashier: 'ACC',
-            waiter: 'STF',
-            kitchen: 'KIT',
-            customer: 'USR'
-        };
-        const prefix = prefixMap[role] || 'STF';
-        let maxNum = 0;
-        if (Array.isArray(this.users)) {
-            this.users.forEach(u => {
-                if (u.user_code && u.user_code.toUpperCase().startsWith(prefix)) {
-                    const match = u.user_code.match(/\d+$/);
-                    if (match) {
-                        const num = parseInt(match[0], 10);
-                        if (num > maxNum) maxNum = num;
-                    }
-                }
-            });
-        }
-        return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
-    },
-
-    onUserRoleChange() {
-        const role = document.getElementById('modal-user-role').value;
-        const codeInput = document.getElementById('modal-user-code');
-        const isEdit = !!document.getElementById('modal-user-id').value;
-        if (!isEdit || !codeInput.value) {
-            codeInput.value = this.suggestNextUserCode(role);
-        }
-    },
-
-    openAddUserModal() {
-        document.getElementById('modal-user-id').value = '';
-        document.getElementById('modal-user-role').value = 'waiter';
-        document.getElementById('modal-user-code').value = this.suggestNextUserCode('waiter');
-        document.getElementById('modal-user-username').value = '';
-        document.getElementById('modal-user-username').disabled = false;
-        document.getElementById('modal-user-fullname').value = '';
-        document.getElementById('modal-user-phone').value = '';
-        document.getElementById('modal-user-pincode').value = Math.floor(1000 + Math.random() * 9000);
-        document.getElementById('modal-user-password').value = '123456';
-        document.getElementById('modal-user-pass-container').classList.remove('hidden');
-        document.getElementById('user-modal-title').innerText = 'Thêm Người Dùng Mới';
-        document.getElementById('user-modal').classList.add('open');
-    },
-
-    openEditUserModal(userId) {
-        const u = this.users.find(x => x.id === userId);
-        if (!u) return;
-
-        document.getElementById('modal-user-id').value = u.id;
-        document.getElementById('modal-user-code').value = u.user_code || this.suggestNextUserCode(u.role);
-        document.getElementById('modal-user-username').value = u.username;
-        document.getElementById('modal-user-username').disabled = true; // Cannot edit username
-        document.getElementById('modal-user-fullname').value = u.fullname;
-        document.getElementById('modal-user-role').value = u.role;
-        document.getElementById('modal-user-phone').value = u.phone || '';
-        document.getElementById('modal-user-pincode').value = u.pin_code || '';
-        document.getElementById('modal-user-pass-container').classList.add('hidden'); // Password changed via reset modal
-        document.getElementById('user-modal-title').innerText = `Chỉnh Sửa: ${u.fullname} (${u.user_code || ''})`;
-        document.getElementById('user-modal').classList.add('open');
-    },
-
-    async saveUser() {
-        const id = document.getElementById('modal-user-id').value;
-        const user_code = document.getElementById('modal-user-code').value.trim().toUpperCase();
-        const username = document.getElementById('modal-user-username').value.trim();
-        const fullname = document.getElementById('modal-user-fullname').value.trim();
-        const role = document.getElementById('modal-user-role').value;
-        const phone = document.getElementById('modal-user-phone').value.trim();
-        const pin_code = document.getElementById('modal-user-pincode').value.trim();
-        const password = document.getElementById('modal-user-password').value.trim();
-
-        if (!fullname) {
-            alert('Vui lòng nhập họ và tên người dùng!');
-            return;
-        }
-
-        const isEdit = !!id;
-        const url = isEdit ? 'api/users.php?action=update' : 'api/users.php?action=add';
-        const payload = isEdit 
-            ? { id, user_code, fullname, role, phone, pin_code, status: 'active' }
-            : { user_code, username, fullname, role, phone, pin_code, password };
-
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.success) {
-                document.getElementById('user-modal').classList.remove('open');
-                await this.loadUsers();
-            } else {
-                alert(data.message || 'Lỗi lưu thông tin người dùng');
-            }
-        } catch (e) {
-            console.error('Error saving user:', e);
-        }
-    },
-
-    openResetPassModal(userId) {
-        const u = this.users.find(x => x.id === userId);
-        if (!u) return;
-
-        document.getElementById('reset-user-id').value = u.id;
-        document.getElementById('reset-new-password').value = '';
-        document.getElementById('reset-new-pin').value = u.pin_code || '';
-        document.getElementById('reset-pass-modal').classList.add('open');
-    },
-
-    async submitResetPassword() {
-        const id = document.getElementById('reset-user-id').value;
-        const newPassword = document.getElementById('reset-new-password').value.trim();
-        const newPin = document.getElementById('reset-new-pin').value.trim();
-
-        if (!newPassword && !newPin) {
-            alert('Vui lòng nhập mật khẩu mới hoặc mã PIN mới!');
-            return;
-        }
-
-        try {
-            const res = await fetch('api/users.php?action=reset_password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, new_password: newPassword, new_pin: newPin })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert('Đổi mật khẩu / mã PIN thành công!');
-                document.getElementById('reset-pass-modal').classList.remove('open');
-                await this.loadUsers();
-            } else {
-                alert(data.message || 'Lỗi đổi mật khẩu');
-            }
-        } catch (e) {
-            console.error('Error resetting password:', e);
-        }
-    },
-
-    async toggleUserStatus(userId) {
-        try {
-            const res = await fetch('api/users.php?action=toggle_status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: userId })
-            });
-            const data = await res.json();
-            if (data.success) {
-                await this.loadUsers();
-            } else {
-                alert(data.message || 'Lỗi thao tác');
-            }
-        } catch (e) {
-            console.error('Error toggling user status:', e);
-        }
-    },
-
-    async deleteUser(userId) {
-        if (!confirm('Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?')) return;
-        try {
-            const res = await fetch(`api/users.php?action=delete&id=${userId}`, { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                await this.loadUsers();
-            } else {
-                alert(data.message || 'Lỗi xóa nhân viên');
-            }
-        } catch (e) {
-            console.error('Error deleting user:', e);
-        }
-    },
-
-    // 7. Kitchen & Staff Performance Analytics
-    setAnalyticsPreset(preset) {
-        const today = new Date();
-        const formatDate = (d) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-
-        let fromDate = new Date();
-        let toDate = new Date();
-
-        if (preset === 'today') {
-            fromDate = today;
-            toDate = today;
-        } else if (preset === 'yesterday') {
-            fromDate.setDate(today.getDate() - 1);
-            toDate.setDate(today.getDate() - 1);
-        } else if (preset === '7days') {
-            fromDate.setDate(today.getDate() - 6);
-            toDate = today;
-        } else if (preset === 'month') {
-            fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            toDate = today;
-        }
-
-        const fromInput = document.getElementById('ana-date-from');
-        const toInput = document.getElementById('ana-date-to');
-        if (fromInput) fromInput.value = formatDate(fromDate);
-        if (toInput) toInput.value = formatDate(toDate);
-
-        ['today', 'yesterday', '7days', 'month'].forEach(p => {
-            const btn = document.getElementById(`btn-ana-${p}`);
-            if (btn) {
-                if (p === preset) {
-                    btn.className = 'px-2.5 py-1 rounded-lg text-amber-300 bg-amber-500/20 font-bold';
-                } else {
-                    btn.className = 'px-2.5 py-1 rounded-lg text-slate-300 hover:text-white';
-                }
-            }
-        });
-
-        this.loadAnalyticsData();
-    },
-
-    async loadAnalyticsData() {
-        const fromInput = document.getElementById('ana-date-from');
-        const toInput = document.getElementById('ana-date-to');
-
-        const formatDate = (d) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-        const todayStr = formatDate(new Date());
-
-        if (fromInput && !fromInput.value) fromInput.value = todayStr;
-        if (toInput && !toInput.value) toInput.value = todayStr;
-
-        const dateFrom = fromInput ? fromInput.value : todayStr;
-        const dateTo = toInput ? toInput.value : todayStr;
-
-        try {
-            const res = await fetch(`api/reports.php?action=service_performance&date_from=${dateFrom}&date_to=${dateTo}`);
-            const data = await res.json();
-            if (!data.success) {
-                const staffTbody = document.getElementById('ana-staff-tbody');
-                if (staffTbody) staffTbody.innerHTML = this.renderEmptyState(6, 'fa-user-clock', 'Chưa có dữ liệu nhân viên', 'Dữ liệu xếp hạng phục vụ & thu ngân sẽ hiển thị khi phát sinh ca làm việc.');
-                const dishesTbody = document.getElementById('ana-dishes-tbody');
-                if (dishesTbody) dishesTbody.innerHTML = this.renderEmptyState(3, 'fa-mug-hot', 'Chưa có món chế biến', 'Top món sẽ cập nhật ngay khi bộ phận bếp hoàn thành món ăn.');
-                const logsTbody = document.getElementById('ana-logs-tbody');
-                if (logsTbody) logsTbody.innerHTML = this.renderEmptyState(7, 'fa-clipboard-check', 'Chưa có sự kiện nào', 'Nhật ký audit trail thời gian thực của bếp & phục vụ sẽ ghi nhận tại đây.');
-                return;
-            }
-
-            // 1. KPI Cards
-            const kpi = data.kitchen_kpi || {};
-            const setTxt = (id, val) => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = val;
-            };
-
-            setTxt('ana-stat-orders', kpi.total_orders_cooked || 0);
-            setTxt('ana-stat-items', `${kpi.total_items_cooked || 0} món / ly đã làm`);
-            setTxt('ana-stat-prep-time', `${kpi.avg_prep_minutes || 0} <span class="text-xs font-normal">phút/đơn</span>`);
-            setTxt('ana-stat-deliver-time', `${kpi.avg_deliver_minutes || 0} <span class="text-xs font-normal">phút</span>`);
-            setTxt('ana-stat-ontime-rate', `${kpi.on_time_rate || 100}%`);
-
-            // 2. Staff Ranking Table
-            const staffTbody = document.getElementById('ana-staff-tbody');
-            if (staffTbody) {
-                const staff = data.staff_stats || [];
-                if (staff.length === 0) {
-                    staffTbody.innerHTML = this.renderEmptyState(6, 'fa-user-clock', 'Chưa có dữ liệu nhân viên', 'Dữ liệu xếp hạng phục vụ & thu ngân sẽ hiển thị khi phát sinh ca làm việc.');
-                } else {
-                    let html = '';
-                    staff.forEach((u, i) => {
-                        let roleBadge = '<span class="saas-badge bg-slate-800 text-slate-300">Nhân viên</span>';
-                        if (u.role === 'admin') roleBadge = '<span class="saas-badge bg-purple-500/15 text-purple-300 border border-purple-500/30">Quản Lý</span>';
-                        if (u.role === 'cashier') roleBadge = '<span class="saas-badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Thu Ngân</span>';
-                        if (u.role === 'waiter') roleBadge = '<span class="saas-badge bg-sky-500/15 text-sky-300 border border-sky-500/30">Phục Vụ</span>';
-                        if (u.role === 'kitchen') roleBadge = '<span class="saas-badge bg-amber-500/15 text-amber-300 border border-amber-500/30">Bếp / Bar</span>';
-
-                        const rankMedal = i === 0 ? '🥇 ' : (i === 1 ? '🥈 ' : (i === 2 ? '🥉 ' : ''));
-
-                        html += `
-                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
-                                <td>
-                                    <div class="font-bold text-white text-xs flex items-center gap-1.5">
-                                        <span>${rankMedal}</span>
-                                        <span>${u.fullname}</span>
-                                        <span class="text-[10px] text-slate-400 font-mono">(@${u.username})</span>
-                                    </div>
-                                </td>
-                                <td>${roleBadge}</td>
-                                <td class="col-center font-mono font-bold text-sky-400 text-xs">${u.orders_created}</td>
-                                <td class="col-center font-mono font-bold text-emerald-400 text-xs">${u.orders_served}</td>
-                                <td class="col-money"><span class="font-mono font-bold text-amber-300 text-xs">${this.formatMoney(u.total_revenue)} đ</span></td>
-                                <td class="col-center font-mono text-slate-300 text-xs">${u.avg_deliver_minutes > 0 ? (u.avg_deliver_minutes + 'p') : '--'}</td>
-                            </tr>
-                        `;
-                    });
-                    staffTbody.innerHTML = html;
-                }
-            }
-
-            // 3. Top Cooked Dishes Table
-            const dishesTbody = document.getElementById('ana-dishes-tbody');
-            if (dishesTbody) {
-                const dishes = data.top_cooked_dishes || [];
-                if (dishes.length === 0) {
-                    dishesTbody.innerHTML = this.renderEmptyState(3, 'fa-fire-burner', 'Chưa có món chế biến', 'Top món sẽ cập nhật ngay khi bộ phận bếp hoàn thành món ăn.');
-                } else {
-                    let html = '';
-                    dishes.forEach((d, i) => {
-                        html += `
-                            <tr class="hover:bg-sky-500/[0.04] transition-colors">
-                                <td>
-                                    <div class="font-bold text-white text-xs flex items-center gap-1">
-                                        <span class="text-amber-400 font-mono font-bold text-xs">${i + 1}.</span>
-                                        <span class="truncate">${d.product_name}</span>
-                                    </div>
-                                </td>
-                                <td class="col-center font-mono font-bold text-amber-300 text-xs">
-                                    <span class="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">x${d.total_qty} ${d.unit || ''}</span>
-                                </td>
-                                <td class="col-money"><span class="font-mono font-bold text-slate-200 text-xs">${this.formatMoney(d.total_revenue)} đ</span></td>
-                            </tr>
-                        `;
-                    });
-                    dishesTbody.innerHTML = html;
-                }
-            }
-
-            // 4. Audit Service Logs Table
-            const logsTbody = document.getElementById('ana-logs-tbody');
-            if (logsTbody) {
-                const logs = data.recent_logs || [];
-                if (logs.length === 0) {
-                    logsTbody.innerHTML = this.renderEmptyState(7, 'fa-clock-rotate-left', 'Chưa có sự kiện nào', 'Nhật ký audit trail thời gian thực của bếp & phục vụ sẽ ghi nhận tại đây.');
-                } else {
-                    let html = '';
-                    logs.forEach(l => {
-                        let actionBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">${l.action_label}</span>`;
-                        if (l.action === 'order_created') actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30"><i class="fas fa-clipboard-list mr-1"></i>Nhận Order</span>';
-                        if (l.action === 'kitchen_ready') actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fas fa-fire mr-1"></i>Bếp Xong</span>';
-                        if (l.action === 'waiter_served') actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"><i class="fas fa-check-circle mr-1"></i>Đã Bưng Ra</span>';
-                        if (l.action === 'checkout') actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30"><i class="fas fa-cash-register mr-1"></i>Thanh Toán</span>';
-                        if (l.action === 'kitchen_reopen') actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30"><i class="fas fa-rotate-left mr-1"></i>Nấu Lại</span>';
-                        if (l.action === 'cancel_order') actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/30 text-rose-400 border border-rose-500/40"><i class="fas fa-times-circle mr-1"></i>Hủy Đơn</span>';
-
-                        const timeFormatted = l.created_at ? l.created_at.substring(11, 19) + ' ' + l.created_at.substring(8, 10) + '/' + l.created_at.substring(5, 7) : '--';
-
-                        html += `
-                            <tr class="border-b border-white/5 hover:bg-slate-800/40 transition-colors">
-                                <td class="p-2 text-slate-400 font-mono text-[11px]">${timeFormatted}</td>
-                                <td class="p-2 font-mono font-bold text-sky-400">${l.order_code}</td>
-                                <td class="p-2 font-bold text-amber-300">${l.table_code}</td>
-                                <td class="p-2">${actionBadge}</td>
-                                <td class="p-2 text-white font-semibold">${l.user_name || 'Hệ thống'}</td>
-                                <td class="p-2 text-slate-400 uppercase text-[10px]">${l.user_role || '--'}</td>
-                                <td class="p-2 text-slate-300 text-[11px] font-sans">${l.note || ''}</td>
-                            </tr>
-                        `;
-                    });
-                    logsTbody.innerHTML = html;
-                }
-            }
-        } catch (e) {
-            console.error('Error loading analytics:', e);
-        }
-    },
-
-    // ==========================================
-    // CLOUD SYNC (MYSQL) MANAGEMENT
-    // ==========================================
-    async openCloudSyncModal() {
-        if (!this.isModuleAllowed('cloud_sync_backup')) {
-            alert('Module [cloud_sync_backup] chưa được cấp phép hoặc đã bị Master tắt/khóa!');
-            return;
-        }
-        const modal = document.getElementById('cloud-sync-modal');
-        if (!modal) return;
-
-        // Reset alert and result
-        this.hideSyncAlert();
-        const resBox = document.getElementById('sync-result-box');
-        if (resBox) resBox.classList.add('hidden');
-
-        // Fetch current config
-        try {
-            const res = await fetch('api/sync_mysql.php?action=get_config');
-            const data = await res.json();
-            if (data.success && data.config) {
-                const c = data.config;
-                if (document.getElementById('sync-host')) document.getElementById('sync-host').value = c.host || '127.0.0.1';
-                if (document.getElementById('sync-port')) document.getElementById('sync-port').value = c.port || 3306;
-                if (document.getElementById('sync-database')) document.getElementById('sync-database').value = c.database || 'pos_sale_app';
-                if (document.getElementById('sync-user')) document.getElementById('sync-user').value = c.user || 'root';
-                if (document.getElementById('sync-password')) document.getElementById('sync-password').value = c.password || '';
-            }
-        } catch (err) {
-            console.error('Error fetching MySQL config:', err);
-        }
-
-        modal.classList.add('open');
-    },
-
-    closeCloudSyncModal() {
-        const modal = document.getElementById('cloud-sync-modal');
-        if (modal) modal.classList.remove('open');
-    },
-
-    toggleSyncPasswordVisibility() {
-        const passInput = document.getElementById('sync-password');
-        const eyeIcon = document.getElementById('sync-pass-eye');
-        if (!passInput || !eyeIcon) return;
-
-        if (passInput.type === 'password') {
-            passInput.type = 'text';
-            eyeIcon.classList.remove('fa-eye');
-            eyeIcon.classList.add('fa-eye-slash');
-        } else {
-            passInput.type = 'password';
-            eyeIcon.classList.remove('fa-eye-slash');
-            eyeIcon.classList.add('fa-eye');
-        }
-    },
-
-    showSyncAlert(type, message, technical = null) {
-        const alertBox = document.getElementById('cloud-sync-alert');
-        if (!alertBox) return;
-
-        alertBox.className = 'mb-4 p-3.5 rounded-xl border text-xs leading-relaxed transition-all duration-300';
-
-        let icon = 'fa-info-circle';
-        let bgBorder = 'bg-sky-500/10 border-sky-500/30 text-sky-200';
-
-        if (type === 'success') {
-            icon = 'fa-circle-check';
-            bgBorder = 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200';
-        } else if (type === 'error') {
-            icon = 'fa-triangle-exclamation';
-            bgBorder = 'bg-rose-500/15 border-rose-500/40 text-rose-200';
-        }
-
-        alertBox.className += ' ' + bgBorder;
-
-        let techHtml = '';
-        if (technical) {
-            techHtml = `
-                <div class="mt-2 pt-2 border-t border-white/10 text-[11px] font-mono text-slate-300">
-                    <span class="text-slate-400 font-bold block mb-0.5">Chi tiết lỗi kỹ thuật (Technical Log):</span>
-                    <pre class="whitespace-pre-wrap break-all bg-black/40 p-2 rounded text-rose-300">${this.escapeHtml(technical)}</pre>
-                </div>
-            `;
-        }
-
-        alertBox.innerHTML = `
-            <div class="flex items-start gap-2.5">
-                <i class="fas ${icon} text-base mt-0.5 shrink-0"></i>
-                <div class="flex-1">
-                    <div class="whitespace-pre-line">${message}</div>
-                    ${techHtml}
-                </div>
-            </div>
-        `;
-        alertBox.classList.remove('hidden');
-    },
-
-    hideSyncAlert() {
-        const alertBox = document.getElementById('cloud-sync-alert');
-        if (alertBox) {
-            alertBox.classList.add('hidden');
-            alertBox.innerHTML = '';
-        }
-    },
-
-    escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    },
-
-    getSyncFormData() {
-        const hostEl = document.getElementById('sync-host');
-        const portEl = document.getElementById('sync-port');
-        const dbEl = document.getElementById('sync-database');
-        const userEl = document.getElementById('sync-user');
-        const pwdEl = document.getElementById('sync-password');
-        const autoCreateEl = document.getElementById('sync-auto-create-db');
-        const saveCfgEl = document.getElementById('sync-save-config');
-        return {
-            host: hostEl && hostEl.value ? hostEl.value.trim() : '127.0.0.1',
-            port: parseInt(portEl && portEl.value ? portEl.value : '3306'),
-            database: dbEl && dbEl.value ? dbEl.value.trim() : 'pos_sale_app',
-            user: userEl && userEl.value ? userEl.value.trim() : 'root',
-            password: pwdEl && pwdEl.value ? pwdEl.value : '',
-            auto_create_db: autoCreateEl ? autoCreateEl.checked : true,
-            save_config: saveCfgEl ? saveCfgEl.checked : true
-        };
-    },
-
-    async testCloudConnection() {
-        const payload = this.getSyncFormData();
-        const testBtn = document.getElementById('btn-sync-test');
-        const origBtnText = testBtn ? testBtn.innerHTML : '';
-
-        if (!payload.host) {
-            this.showSyncAlert('error', 'Vui lòng điền địa chỉ máy chủ MySQL (Host)!');
-            return;
-        }
-
-        try {
-            if (testBtn) {
-                testBtn.disabled = true;
-                testBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-sky-400"></i><span>Đang kiểm tra...</span>';
-            }
-            this.showSyncAlert('info', `Đang thử kết nối đến ${payload.host}:${payload.port}...`);
-
-            const res = await fetch('api/sync_mysql.php?action=test_connection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                const dbStatus = data.database_exists 
-                    ? `<span class="text-emerald-400 font-bold">Đã tồn tại</span>`
-                    : `<span class="text-amber-400 font-bold">Chưa có (hệ thống sẽ tự tạo khi đồng bộ)</span>`;
-
-                this.showSyncAlert(
-                    'success',
-                    `✅ <b>${data.message}</b>\n• Phiên bản máy chủ: <b>${data.server_version}</b>\n• Trạng thái cơ sở dữ liệu <code>${data.database_name}</code>: ${dbStatus}`
-                );
-            } else {
-                this.showSyncAlert('error', data.message || 'Kết nối MySQL thất bại!', data.technical);
-            }
-        } catch (err) {
-            console.error('Test connection error:', err);
-            this.showSyncAlert('error', 'Không thể gửi yêu cầu kiểm tra kết nối đến backend!', err.message);
-        } finally {
-            if (testBtn) {
-                testBtn.disabled = false;
-                testBtn.innerHTML = origBtnText;
-            }
-        }
-    },
-
-    async startCloudSync() {
-        const payload = this.getSyncFormData();
-        const startBtn = document.getElementById('btn-sync-start');
-        const origBtnText = startBtn ? startBtn.innerHTML : '';
-
-        if (!confirm(`Bạn có chắc chắn muốn đồng bộ toàn bộ cơ sở dữ liệu lên MySQL tại ${payload.host}:${payload.port} [DB: ${payload.database}] không?`)) {
-            return;
-        }
-
-        try {
-            if (startBtn) {
-                startBtn.disabled = true;
-                startBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-white"></i><span>Đang đồng bộ...</span>';
-            }
-            this.showSyncAlert('info', `Đang sao lưu và đồng bộ toàn bộ bảng dữ liệu lên MySQL... Vui lòng chờ vài giây...`);
-
-            const res = await fetch('api/sync_mysql.php?action=sync_data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                this.showSyncAlert(
-                    'success',
-                    `🎉 <b>${data.message}</b>\n• Máy chủ: <b>${data.host} (${data.server_version})</b> | CSDL: <b>${data.database}</b>\n• Tổng số bản ghi đã đồng bộ: <b>${data.total_records} dòng</b>\n• Thời gian hoàn thành: <b>${data.synced_at}</b>`
-                );
-
-                // Render itemized tables breakdown
-                const resBox = document.getElementById('sync-result-box');
-                const resGrid = document.getElementById('sync-result-grid');
-                if (resBox && resGrid && data.synced_counts) {
-                    const tableNamesMap = {
-                        'users': 'Tài khoản',
-                        'categories': 'Danh mục',
-                        'products': 'Thực đơn/Món',
-                        'tables_areas': 'Bàn / Khu',
-                        'orders': 'Hóa đơn',
-                        'order_items': 'Chi tiết món',
-                        'store_settings': 'Cài đặt quán',
-                        'kitchen_service_logs': 'Nhật ký bếp'
-                    };
-
-                    let gridHtml = '';
-                    for (const [tbl, count] of Object.entries(data.synced_counts)) {
-                        const label = tableNamesMap[tbl] || tbl;
-                        gridHtml += `
-                            <div class="p-2 rounded bg-slate-800/80 border border-white/5 flex flex-col justify-between">
-                                <span class="text-slate-400 text-[10px]">${label}</span>
-                                <span class="text-cyan-300 font-bold text-sm font-mono">${count} <span class="text-[10px] text-slate-500 font-normal">dòng</span></span>
-                            </div>
-                        `;
-                    }
-                    resGrid.innerHTML = gridHtml;
-                    resBox.classList.remove('hidden');
-                }
-            } else {
-                this.showSyncAlert('error', data.message || 'Đồng bộ dữ liệu thất bại!', data.technical);
-            }
-        } catch (err) {
-            console.error('Start sync error:', err);
-            this.showSyncAlert('error', 'Lỗi kết nối khi gửi dữ liệu đồng bộ!', err.message);
-        } finally {
-            if (startBtn) {
-                startBtn.disabled = false;
-                startBtn.innerHTML = origBtnText;
-            }
-        }
-    },
-
-    switchSettingsGroup(group) {
-        const groups = document.querySelectorAll('#tab-settings .settings-group');
-        groups.forEach(el => {
-            const g = el.getAttribute('data-settings-group');
-            el.classList.toggle('hidden', group !== 'all' && g !== group);
-        });
-        const btns = document.querySelectorAll('#settings-group-tabs [data-sg-btn]');
-        btns.forEach(btn => {
-            const active = btn.getAttribute('data-sg-btn') === group;
-            if (btn.getAttribute('data-sg-btn') === 'all') {
-                btn.className = active
-                    ? 'px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-sky-500/25 text-sky-200 border border-sky-400/40 ml-auto transition'
-                    : 'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white border border-transparent ml-auto transition';
-            } else {
-                btn.className = active
-                    ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500/25 text-sky-200 border border-sky-400/40 transition'
-                    : 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-transparent transition';
-            }
-        });
-        const saveRow = document.getElementById('settings-save-row');
-        if (saveRow) saveRow.classList.toggle('hidden', group === 'wan');
-    },
-
-    // ========================================================
-    async loadWanTunnelStatus() {
-        const badge = document.getElementById('wan-tunnel-status-badge');
-        const meta = document.getElementById('wan-tunnel-meta');
-        const urlEl = document.getElementById('wan-master-url');
-        const enEl = document.getElementById('wan-tunnel-enabled');
-        if (!badge) return;
-        try {
-            const res = await fetch('api/wan_tunnel', { credentials: 'same-origin' });
-            const json = await res.json();
-            if (!json.success || !json.data) return;
-            const d = json.data;
-            if (urlEl && !urlEl.matches(':focus')) urlEl.value = d.master_url || '';
-            if (enEl) enEl.checked = !!d.enabled;
-            if (d.connected) {
-                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap shrink-0';
-                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Đang Online (Master OK)';
-            } else {
-                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 border border-white/10 whitespace-nowrap shrink-0';
-                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span> Offline / Đang thử lại';
-            }
-            if (meta) {
-                meta.textContent = `Chu kỳ Poll: ${d.poll_timeout_sec || 25}s | Heartbeat: ${d.heartbeat_interval_sec || 1800}s | PING ACK: ${d.ping_count || 0} lần (${d.last_ping_ack_at || 'chưa có'}) | Lần cuối nối: ${d.last_seen_at || 'chưa có'}${d.last_error ? ' | Lỗi: ' + d.last_error : ''}`;
-            }
-            const geoEl = document.getElementById('wan-net-geo-meta');
-            if (geoEl && d.net_geo) {
-                const ng = d.net_geo;
-                const hasGeo = Number(ng.geo_lat) !== 0 && Number(ng.geo_lng) !== 0;
-                const mapHref = hasGeo ? `https://www.google.com/maps?q=${ng.geo_lat},${ng.geo_lng}` : '#';
-                geoEl.innerHTML = `
-                    <span>LAN: <b class="text-sky-300">${ng.lan_ip || '—'}</b> &bull; WAN: <b class="text-purple-300">${ng.wan_ip || '—'}</b> &bull; Vị trí: <b class="text-emerald-300">${ng.geo_label || 'Chưa định vị'}</b> (${ng.geo_source === 'gps' ? 'GPS Chính xác' : 'Ước lượng IP'})</span>
-                    ${hasGeo ? `<a href="${mapHref}" target="_blank" rel="noopener" class="text-rose-300 hover:underline font-bold"><i class="fas fa-map-location-dot mr-1"></i>Xem trên Google Maps</a>` : ''}
-                `;
-            }
-        } catch (e) {
-            if (meta) meta.textContent = 'Không lấy được trạng thái kênh WAN: ' + e.message;
-        }
-    },
-
-    async pinStoreGpsLocation() {
-        const saveCoords = async (lat, lng, label) => {
-            const res = await fetch('api/wan_tunnel', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save_location', geo_lat: lat, geo_lng: lng, geo_label: label })
-            });
-            const json = await res.json();
-            alert(json.message || 'Đã ghim vị trí!');
-            this.loadWanTunnelStatus();
-        };
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                    const lat = Number(pos.coords.latitude.toFixed(6));
-                    const lng = Number(pos.coords.longitude.toFixed(6));
-                    const label = prompt(`Đã lấy tọa độ GPS thiết bị: ${lat}, ${lng}\nNhập tên địa chỉ hiển thị ngắn (VD: Thủ Đức, TP.HCM):`, '');
-                    if (label !== null) await saveCoords(lat, lng, label.trim());
-                },
-                async () => {
-                    const input = prompt('Trình duyệt không cấp quyền GPS.\nHãy dán link Google Maps (có @lat,lng) hoặc nhập tọa độ (VD: 10.85063, 106.77191):', '');
-                    if (!input) return;
-                    const m = input.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-                    if (!m) { alert('Tọa độ không hợp lệ!'); return; }
-                    const label = prompt('Tên địa điểm ngắn gọn:', '') || '';
-                    await saveCoords(parseFloat(m[1]), parseFloat(m[2]), label.trim());
-                },
-                { enableHighAccuracy: true, timeout: 6000 }
-            );
-        }
-    },
-
-    async saveWanTunnelConfig() {
-        const url = (document.getElementById('wan-master-url')?.value || '').trim();
-        const enabled = !!document.getElementById('wan-tunnel-enabled')?.checked;
-        if (!url) {
-            alert('Vui lòng nhập địa chỉ Master Server URL!');
-            return;
-        }
-        try {
-            const res = await fetch('api/wan_tunnel', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save', master_server_url: url, enabled })
-            });
-            const json = await res.json();
-            alert(json.message || 'Đã cập nhật cấu hình kết nối Master!');
-            setTimeout(() => this.loadWanTunnelStatus(), 1200);
-        } catch (e) {
-            alert('Lỗi lưu cấu hình WAN: ' + e.message);
-        }
-    },
-
-    // 8. OPERATIONS: KHO, CHI PHÍ VẬT LIỆU, TIỀN LƯƠNG & REALTIME STAFF
-    // ========================================================
-    currentOpsSubtab: 'realtime',
-    materialsList: [],
-    realtimeTimer: null,
-
-    loadOperationsTab() {
-        this.switchOpsSubtab(this.currentOpsSubtab || 'realtime');
-        // Setup realtime poll if not already running
-        if (!this.realtimeTimer) {
-            this.realtimeTimer = setInterval(() => {
-                if (!document.hidden && this.currentTab === 'operations' && this.currentOpsSubtab === 'realtime') {
-                    this.loadRealtimeStaff();
-                }
-            }, 8000);
-        }
-    },
-
-    switchOpsSubtab(subtab) {
-        this.currentOpsSubtab = subtab;
-
-        // Update sub-tab buttons
-        ['realtime', 'inventory', 'payroll', 'kpi'].forEach(s => {
-            const btn = document.getElementById(`ops-subtab-${s}`);
-            const view = document.getElementById(`ops-subview-${s}`);
-            if (btn) {
-                if (s === subtab) {
-                    btn.className = 'ops-subtab-btn px-3 py-1.5 rounded-lg font-bold transition-all bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5';
-                } else {
-                    btn.className = 'ops-subtab-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5';
-                }
-            }
-            if (view) {
-                if (s === subtab) {
-                    view.classList.remove('hidden');
-                } else {
-                    view.classList.add('hidden');
-                }
-            }
-        });
-
-        if (subtab === 'realtime') this.loadRealtimeStaff();
-        const subviewReqMod = {
-            inventory: 'inventory_recipes',
-            payroll: 'staff_shifts',
-            kpi: 'staff_kpi'
-        }[subtab];
-        if (subviewReqMod && !this.isModuleAllowed(subviewReqMod)) {
-            this.applySubviewLicenseLock(subtab, subviewReqMod, false);
-            return;
-        }
-        if (subtab === 'inventory') this.loadMaterials();
-        if (subtab === 'payroll') this.loadPayroll();
-        if (subtab === 'kpi' && typeof this.loadKpi === 'function') this.loadKpi();
-    },
-
-    toggleKpiConfigPanel() {
-        const panel = document.getElementById('kpi-config-panel');
-        if (panel) panel.classList.toggle('hidden');
-    },
-
-    async askAiCopilot(presetQuestion = '') {
-        const inp = document.getElementById('ai-copilot-input');
-        const out = document.getElementById('ai-copilot-answer');
-        const q = (presetQuestion || inp?.value || '').trim() || 'Tóm tắt tình hình kinh doanh hôm nay';
-        if (inp && presetQuestion) inp.value = presetQuestion;
-        if (!out) return;
-        out.classList.remove('hidden');
-        out.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5 text-purple-300"></i> Đang phân tích dữ liệu quán...';
-        try {
-            const res = await fetch('/api/ai/copilot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: q, use_ai: true })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi AI Copilot');
-            const meta = data.credits_charged > 0
-                ? `<div class="mt-2 pt-1.5 border-t border-white/10 text-[10px] text-purple-300 font-mono">⚡ ${data.engine} · Đã dùng ${data.credits_charged} AI Credit</div>`
-                : `<div class="mt-2 pt-1.5 border-t border-white/10 text-[10px] text-emerald-300 font-mono">⚡ ${data.engine} · Miễn phí (Offline)</div>`;
-            out.innerHTML = `<div>${(data.answer || '').replace(/</g, '&lt;')}</div>${meta}`;
-        } catch (e) {
-            out.innerHTML = `<span class="text-rose-300">${e.message || 'Không thể kết nối AI Copilot'}</span>`;
-        }
-    },
-
-    async testAndSaveTelegramBot() {
-        const telegram_bot_token = (document.getElementById('setting-tg-token')?.value || '').trim();
-        const telegram_chat_id = (document.getElementById('setting-tg-chat-id')?.value || '').trim();
-        try {
-            const res = await fetch('/api/telegram/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ telegram_bot_token, telegram_chat_id })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi gửi Telegram');
-            this.showToast(data.message || 'Đã gửi tin nhắn thử Telegram!', 'success');
-        } catch (e) {
-            alert(e.message || 'Lỗi cấu hình Telegram Bot');
-        }
-    },
-
-    async loadRouterDevices() {
-        try {
-            const [cfgRes, devRes] = await Promise.all([
-                fetch('/api/network/config').then(r => r.json()).catch(() => ({})),
-                fetch('/api/network/devices').then(r => r.json()).catch(() => ({}))
-            ]);
-            if (cfgRes && cfgRes.config) {
-                const c = cfgRes.config;
-                if (document.getElementById('rq-type')) document.getElementById('rq-type').value = c.router_type || 'simulation';
-                if (document.getElementById('rq-host')) document.getElementById('rq-host').value = c.host || '';
-                if (document.getElementById('rq-port')) document.getElementById('rq-port').value = c.port || 22;
-                if (document.getElementById('rq-user')) document.getElementById('rq-user').value = c.username || '';
-                if (document.getElementById('rq-free-min')) document.getElementById('rq-free-min').value = c.free_minutes ?? 10;
-                if (document.getElementById('rq-vip-min')) document.getElementById('rq-vip-min').value = c.vip_minutes ?? 180;
-                if (document.getElementById('rq-max-dev')) document.getElementById('rq-max-dev').value = c.max_devices_per_order ?? 2;
-                if (document.getElementById('rq-peak-windows')) document.getElementById('rq-peak-windows').value = c.peak_windows !== undefined ? c.peak_windows : '08:00-11:30, 18:30-22:00';
-                if (document.getElementById('rq-throttle70')) document.getElementById('rq-throttle70').checked = c.throttle_after_70_pct !== false;
-            }
-            const fmtRem = (sec) => {
-                if (!sec || sec <= 0) return '';
-                const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-                return ' • còn ' + (h > 0 ? `${h}g ` : '') + `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            };
-            const listEl = document.getElementById('router-qos-devices-list');
-            if (listEl && devRes && Array.isArray(devRes.devices)) {
-                if (devRes.devices.length === 0) {
-                    const notice = devRes.message || 'Chưa phát hiện thiết bị LAN nào từ Router.';
-                    listEl.innerHTML = `<div class="p-2.5 rounded-lg bg-slate-900/60 border border-white/10 text-[11px] text-slate-400">${escapeHtml(notice)}</div>`;
-                } else {
-                    listEl.innerHTML = devRes.devices.map(d => {
-                        const tier = d.tier || d.qos || 'free';
-                        const remTxt = fmtRem(Number(d.remaining_sec || 0));
-                        const stageTxt = Number(d.stage) === 2 ? ' (Giảm >90%)' : (Number(d.stage) === 1 ? ' (Giảm >70%)' : '');
-                        const qBadge = d.whitelisted || tier === 'whitelist'
-                            ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[10px] font-bold">Nội bộ ∞</span>'
-                            : (tier === 'vip' || tier === 'vip_high_speed'
-                                ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">VIP${escapeHtml(remTxt)}${escapeHtml(stageTxt)}</span>`
-                                : (tier === 'blocked'
-                                    ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">Đã ngắt</span>'
-                                    : `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px] font-bold">Free${escapeHtml(remTxt)}</span>`));
-                        return `
-                    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-[11px]">
-                        <div>
-                            <b class="text-white">${escapeHtml(d.name || 'Thiết bị')}</b>
-                            <span class="font-mono text-sky-300 ml-1.5">${escapeHtml(d.ip)}</span>
-                            <span class="font-mono text-slate-400 ml-1">(${escapeHtml(d.mac || '')})</span>
-                            ${qBadge}
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="Admin.toggleDeviceWhitelist('${escapeHtml(d.ip)}')" class="px-2 py-0.5 rounded ${d.whitelisted ? 'bg-sky-500 text-slate-950' : 'bg-sky-500/20 hover:bg-sky-500/35 text-sky-300'} font-bold" title="Ghim thiết bị nội bộ không giới hạn thời gian">Nội bộ ∞</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'vip_high_speed')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold">VIP</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Free</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeHtml(d.ip)}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">Ngắt</button>
-                        </div>
-                    </div>`;
-                    }).join('');
-                }
-            }
-        } catch (e) {}
-    },
-
-    async saveRouterQosConfig() {
-        try {
-            const payload = {
-                router_type: document.getElementById('rq-type')?.value || 'simulation',
-                host: (document.getElementById('rq-host')?.value || '').trim(),
-                port: Number(document.getElementById('rq-port')?.value || 22),
-                username: (document.getElementById('rq-user')?.value || '').trim(),
-                password: document.getElementById('rq-pass')?.value || '',
-                free_minutes: Math.max(1, Number(document.getElementById('rq-free-min')?.value || 10)),
-                vip_minutes: Math.max(5, Number(document.getElementById('rq-vip-min')?.value || 180)),
-                max_devices_per_order: Math.max(1, Number(document.getElementById('rq-max-dev')?.value || 2)),
-                peak_windows: (document.getElementById('rq-peak-windows')?.value || '').trim(),
-                throttle_after_70_pct: !!document.getElementById('rq-throttle70')?.checked
-            };
-            const res = await fetch('/api/network/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                this.showToast(data.message || 'Đã lưu cấu hình WiFi Marketing!', 'success');
-                this.loadRouterDevices();
-            }
-        } catch (e) { alert('Lỗi lưu cấu hình Router'); }
-    },
-
-    async toggleDeviceWhitelist(ip) {
-        try {
-            const res = await fetch('/api/network/whitelist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip })
-            });
-            const data = await res.json();
-            this.showToast(data.message || 'Đã cập nhật Whitelist', data.status === 'success' ? 'success' : 'error');
-            this.loadRouterDevices();
-        } catch (e) { alert('Lỗi cập nhật Whitelist'); }
-    },
-
-    async exportWifiLeadsCsv() {
-        try {
-            const token = localStorage.getItem('pos_token') || '';
-            const res = await fetch('/api/wifi/leads', {
-                headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-            });
-            const json = await res.json();
-            if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
-                alert('Chưa có dữ liệu khách WiFi Marketing để xuất.');
-                return;
-            }
-            const rows = [['ID', 'Ten Khach', 'SDT', 'IP', 'Loai', 'Ma Hoa Don', 'Thoi Gian']];
-            json.data.forEach(r => rows.push([r.id, r.customer_name || '', r.phone || '', r.client_ip || '', r.unlock_type || '', r.order_code || '', r.created_at || '']));
-            const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `wifi_leads_${new Date().toISOString().slice(0, 10)}.csv`;
-            a.click();
-        } catch (e) { alert('Không thể xuất CSV Leads'); }
-    },
-
-    async setDeviceQos(ip, qos) {
-        try {
-            const res = await fetch('/api/network/qos/set', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip, qos })
-            });
-            const data = await res.json();
-            this.showToast(data.message || `Đã đặt ${qos} cho ${ip}`, data.status === 'success' ? 'success' : 'error');
-        } catch (e) { alert('Lỗi cập nhật QoS'); }
-    },
-
-    openBillingModal() {
-        const m = document.getElementById('modal-store-billing');
-        if (m) m.classList.remove('hidden');
-        document.getElementById('billing-qr-result')?.classList.add('hidden');
-        this.onBillingTypeChange();
-    },
-
-    closeBillingModal() {
-        if (this._billingPollTimer) {
-            clearInterval(this._billingPollTimer);
-            this._billingPollTimer = null;
-        }
-        document.getElementById('modal-store-billing')?.classList.add('hidden');
-    },
-
-    onBillingTypeChange() {
-        const t = document.getElementById('billing-type-select')?.value || 'renew_plan';
-        const q = document.getElementById('billing-qty-select');
-        if (!q) return;
-        q.innerHTML = t === 'buy_ai_credits'
-            ? `<option value="100">+100 Credits (100.000đ)</option>
-               <option value="300">+300 Credits (300.000đ)</option>
-               <option value="500">+500 Credits (450.000đ)</option>
-               <option value="1000">+1.000 Credits (800.000đ)</option>`
-            : `<option value="1">1 Tháng (299.000đ)</option>
-               <option value="3">3 Tháng (897.000đ)</option>
-               <option value="6">6 Tháng - Giảm 10% (1.614.600đ)</option>
-               <option value="12">12 Tháng - Giảm 15% (3.049.800đ)</option>`;
-    },
-
-    async createStoreBillingOrder() {
-        const billing_type = document.getElementById('billing-type-select')?.value || 'renew_plan';
-        const quantity = Number(document.getElementById('billing-qty-select')?.value || 1);
-        try {
-            const res = await fetch('api/license_client?action=create_billing_order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ billing_type, quantity })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Không tạo được mã thanh toán');
-            document.getElementById('billing-qr-img').src = data.vietqr_url;
-            document.getElementById('billing-qr-amount').textContent = this.formatMoney(data.amount_vnd) + ' đ';
-            document.getElementById('billing-qr-note').textContent = data.bank_info?.note || data.order_code;
-            const stEl = document.getElementById('billing-qr-status');
-            if (stEl) {
-                stEl.textContent = `⏳ Đang chờ xác nhận thanh toán (${data.order_code})...`;
-                stEl.className = 'text-xs font-bold text-sky-300 p-2 rounded-lg bg-sky-500/10 border border-sky-500/30';
-            }
-            document.getElementById('billing-qr-result')?.classList.remove('hidden');
-            if (this._billingPollTimer) clearInterval(this._billingPollTimer);
-            this._billingPollTimer = setInterval(() => this.pollStoreBillingOrder(data.order_code), 3500);
-        } catch (e) {
-            alert(e.message || 'Lỗi tạo đơn VietQR');
-        }
-    },
-
-    async pollStoreBillingOrder(orderCode) {
-        if (!orderCode) return;
-        try {
-            const res = await fetch(`api/license_client?action=check_billing_order&order_code=${encodeURIComponent(orderCode)}`);
-            const data = await res.json();
-            if (data.success && data.order && data.order.status === 'paid') {
-                clearInterval(this._billingPollTimer);
-                this._billingPollTimer = null;
-                const stEl = document.getElementById('billing-qr-status');
-                if (stEl) {
-                    stEl.textContent = '✅ Thanh toán thành công! Đã tự động gia hạn / cộng AI Credit.';
-                    stEl.className = 'text-xs font-bold text-emerald-300 p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30';
-                }
-                if (typeof this.loadSettings === 'function') this.loadSettings();
-            }
-        } catch (e) {}
-    },
-
-    async loadKpi() {
-        const monthInput = document.getElementById('kpi-month-input');
-        if (monthInput && !monthInput.value) {
-            const d = new Date();
-            monthInput.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        }
-        const month = monthInput ? monthInput.value : '';
-        try {
-            const res = await fetch(`api/operations.php?action=get_kpi_dashboard&month=${encodeURIComponent(month)}`);
-            const data = await res.json();
-            if (!data.success) return;
-
-            const activeSla = data.active_sla || {};
-            const slaBadge = document.getElementById('kpi-active-sla-badge');
-            if (slaBadge) {
-                slaBadge.innerHTML = `<i class="fas fa-clock mr-1"></i> ${activeSla.label || 'Mặc định'}: Bếp <b>${activeSla.kitchen_sla_minutes || 10}p</b> · PV <b>${activeSla.waiter_sla_minutes || 3}p</b>`;
-                slaBadge.className = activeSla.is_peak
-                    ? 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                    : 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30';
-            }
-
-            const revSum = data.review_summary || {};
-            const avgBadge = document.getElementById('kpi-avg-rating-badge');
-            if (avgBadge) {
-                avgBadge.innerHTML = `⭐ ${Number(revSum.avg_rating || 0).toFixed(1)} / 5 (${revSum.total_reviews || 0} đánh giá)`;
-            }
-
-            const s = data.settings || {};
-            const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-            setVal('cfg-default-kitchen-sla', s.default_kitchen_sla ?? 10);
-            setVal('cfg-default-waiter-sla', s.default_waiter_sla ?? 3);
-            setVal('cfg-kpi-base', s.kpi_base_score ?? 100);
-            setVal('cfg-kitchen-ontime', s.kpi_kitchen_ontime_pts ?? 2);
-            setVal('cfg-kitchen-rush-pen', s.kpi_kitchen_rush_penalty ?? 5);
-            setVal('cfg-waiter-ontime', s.kpi_waiter_ontime_pts ?? 2);
-            setVal('cfg-waiter-remind-pen', s.kpi_waiter_remind_penalty ?? 3);
-            setVal('cfg-star-5', s.kpi_star_5_pts ?? 5);
-            setVal('cfg-star-4', s.kpi_star_4_pts ?? 2);
-            setVal('cfg-star-3', s.kpi_star_3_pts ?? 0);
-            setVal('cfg-star-2', s.kpi_star_2_pts ?? -3);
-            setVal('cfg-star-1', s.kpi_star_1_pts ?? -5);
-
-            const rulesNote = document.getElementById('kpi-rules-note');
-            if (rulesNote) {
-                rulesNote.innerHTML = `Quy tắc hiện tại: Nền <b>${s.kpi_base_score ?? 100}đ</b> · Bếp đúng hạn <b class="text-emerald-300">+${s.kpi_kitchen_ontime_pts ?? 2}</b> · Bị hối <b class="text-rose-300">-${s.kpi_kitchen_rush_penalty ?? 5}</b> · PV đúng hạn <b class="text-emerald-300">+${s.kpi_waiter_ontime_pts ?? 2}</b> · Bị Báo lại <b class="text-rose-300">-${s.kpi_waiter_remind_penalty ?? 3}</b> · Khách đánh giá 5⭐ <b class="text-amber-300">+${s.kpi_star_5_pts ?? 5}</b> / 1⭐ <b class="text-rose-300">${s.kpi_star_1_pts ?? -5}</b>.`;
-            }
-
-            // Render SLA Time Slots
-            const slotsEl = document.getElementById('kpi-sla-slots-list');
-            if (slotsEl) {
-                const slots = data.sla_slots || [];
-                slotsEl.innerHTML = slots.length === 0
-                    ? '<div class="text-[11px] text-slate-500 italic">Chưa có khung giờ riêng (đang dùng mặc định thấp điểm).</div>'
-                    : slots.map(sl => `
-                        <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-xs">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${sl.slot_type === 'peak' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}">${sl.slot_type === 'peak' ? 'Cao điểm' : 'Thấp điểm'}</span>
-                                <b class="text-white">${sl.name}</b>
-                                <span class="font-mono text-amber-300">${sl.start_time} - ${sl.end_time}</span>
-                                <span class="text-slate-400">Bếp: <b class="text-white">${sl.kitchen_sla_minutes}p</b> · PV: <b class="text-white">${sl.waiter_sla_minutes}p</b></span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button type="button" onclick="Admin.toggleSlaSlot(${sl.id}, '${sl.name.replace(/'/g, "\\'")}', '${sl.slot_type}', '${sl.start_time}', '${sl.end_time}', ${sl.kitchen_sla_minutes}, ${sl.waiter_sla_minutes}, ${sl.is_active ? 0 : 1})" class="px-2 py-0.5 rounded text-[10px] font-bold ${sl.is_active ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700 text-slate-400'}">${sl.is_active ? 'Đang bật' : 'Đang tắt'}</button>
-                                <button type="button" onclick="Admin.deleteSlaSlot(${sl.id})" class="text-rose-400 hover:text-rose-300 px-1.5 py-0.5" title="Xóa khung giờ"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </div>
-                    `).join('');
-            }
-
-            // Render Staff KPI Table
-            const tbody = document.getElementById('kpi-tbody');
-            if (tbody) {
-                const staff = data.staff_kpi || [];
-                const roleLabel = { admin: 'Chủ quán', cashier: 'Thu ngân', waiter: 'Phục vụ', kitchen: 'Bếp / Pha chế' };
-                tbody.innerHTML = staff.map(st => {
-                    const delta = Number(st.delta_points || 0);
-                    const score = Number(st.kpi_score || 100);
-                    const penCount = Number(st.rushed_count || 0) + Number(st.reminded_count || 0);
-                    return `
-                        <tr class="hover:bg-white/5">
-                            <td class="py-2.5 px-3 font-bold text-white">${st.fullname} <span class="text-[10px] text-slate-400 font-normal">(@${st.username})</span></td>
-                            <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold">${roleLabel[st.role] || st.role}</span></td>
-                            <td class="py-2.5 px-3 text-center font-mono text-sky-300">${st.orders_count || 0}</td>
-                            <td class="py-2.5 px-3 text-center font-mono text-emerald-400 font-bold">${st.ontime_count || 0}</td>
-                            <td class="py-2.5 px-3 text-center font-mono ${penCount > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">${penCount}</td>
-                            <td class="py-2.5 px-3 text-center font-mono text-amber-300">${st.review_count || 0}</td>
-                            <td class="py-2.5 px-3 text-center font-mono font-bold ${delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${delta >= 0 ? '+' + delta : delta}</td>
-                            <td class="py-2.5 px-3 text-right font-mono font-black text-sm ${score >= 100 ? 'text-emerald-400' : (score >= 80 ? 'text-amber-300' : 'text-rose-400')}">${score}</td>
-                        </tr>
-                    `;
-                }).join('') || '<tr><td colspan="8" class="py-6 text-center text-slate-500">Chưa có dữ liệu nhân viên</td></tr>';
-            }
-
-            // Render KPI Logs
-            const logsEl = document.getElementById('kpi-logs-tbody');
-            if (logsEl) {
-                const logs = data.recent_logs || [];
-                logsEl.innerHTML = logs.length === 0
-                    ? '<tr><td colspan="4" class="py-4 text-center text-slate-500">Chưa có biến động KPI trong kỳ này.</td></tr>'
-                    : logs.map(l => {
-                        const d = Number(l.points_delta || 0);
-                        return `
-                            <tr class="hover:bg-white/5">
-                                <td class="py-1.5 px-2 font-semibold text-white">${l.user_name || 'Hệ thống'}</td>
-                                <td class="py-1.5 px-2 text-slate-300">${l.note || l.event_type} <span class="font-mono text-[10px] text-sky-400">${l.order_code || ''}</span></td>
-                                <td class="py-1.5 px-2 text-right font-mono font-bold ${d >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${d >= 0 ? '+' + d : d}</td>
-                                <td class="py-1.5 px-2 text-right font-mono text-slate-400">${(l.created_at || '').substring(11, 16)}</td>
-                            </tr>
-                        `;
-                    }).join('');
-            }
-
-            // Render Customer Reviews
-            const revEl = document.getElementById('kpi-reviews-list');
-            if (revEl) {
-                const revs = data.recent_reviews || [];
-                revEl.innerHTML = revs.length === 0
-                    ? '<div class="py-4 text-center text-xs text-slate-500">Chưa có đánh giá sao từ khách hàng trong kỳ này.</div>'
-                    : revs.map(r => `
-                        <div class="p-2.5 rounded-lg bg-slate-900/70 border border-white/10 text-xs space-y-1">
-                            <div class="flex items-center justify-between">
-                                <span class="text-amber-400 font-bold">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
-                                <span class="text-[10px] font-mono text-slate-400">${r.table_code || ''} • ${r.order_code || ''} • ${(r.created_at || '').substring(0, 16)}</span>
-                            </div>
-                            ${r.comment ? `<div class="text-slate-300 italic">"${r.comment}"</div>` : '<div class="text-[10px] text-slate-500">Không có nhận xét thêm</div>'}
-                        </div>
-                    `).join('');
-            }
-        } catch (err) {
-            console.error('loadKpi error:', err);
-        }
-    },
-
-    async saveKpiSlaSettings() {
-        const g = (id, def) => Number(document.getElementById(id)?.value ?? def);
-        try {
-            const res = await fetch('api/operations.php?action=save_kpi_sla_settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    default_kitchen_sla: g('cfg-default-kitchen-sla', 10),
-                    default_waiter_sla: g('cfg-default-waiter-sla', 3),
-                    kpi_base_score: g('cfg-kpi-base', 100),
-                    kpi_kitchen_ontime_pts: g('cfg-kitchen-ontime', 2),
-                    kpi_kitchen_rush_penalty: g('cfg-kitchen-rush-pen', 5),
-                    kpi_waiter_ontime_pts: g('cfg-waiter-ontime', 2),
-                    kpi_waiter_remind_penalty: g('cfg-waiter-remind-pen', 3),
-                    kpi_star_5_pts: g('cfg-star-5', 5),
-                    kpi_star_4_pts: g('cfg-star-4', 2),
-                    kpi_star_3_pts: g('cfg-star-3', 0),
-                    kpi_star_2_pts: g('cfg-star-2', -3),
-                    kpi_star_1_pts: g('cfg-star-1', -5)
-                })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi lưu cấu hình');
-            this.showToast(data.message || 'Đã lưu cấu hình KPI & SLA!', 'success');
-            this.loadKpi();
-        } catch (e) {
-            alert(e.message || 'Lỗi lưu cấu hình KPI');
-        }
-    },
-
-    async addSlaSlot() {
-        const name = (document.getElementById('sla-slot-name')?.value || '').trim();
-        const slot_type = document.getElementById('sla-slot-type')?.value || 'peak';
-        const start_time = document.getElementById('sla-slot-start')?.value || '';
-        const end_time = document.getElementById('sla-slot-end')?.value || '';
-        const kitchen_sla_minutes = Number(document.getElementById('sla-slot-kitchen')?.value || 15);
-        const waiter_sla_minutes = Number(document.getElementById('sla-slot-waiter')?.value || 5);
-        if (!name || !start_time || !end_time) {
-            alert('Vui lòng nhập Tên khung giờ, Giờ bắt đầu và Giờ kết thúc!');
-            return;
-        }
-        try {
-            const res = await fetch('api/operations.php?action=save_sla_slot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active: 1 })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi thêm khung giờ');
-            document.getElementById('sla-slot-name').value = '';
-            this.showToast('Đã thêm khung giờ SLA!', 'success');
-            this.loadKpi();
-        } catch (e) {
-            alert(e.message || 'Lỗi thêm khung giờ');
-        }
-    },
-
-    async toggleSlaSlot(id, name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active) {
-        try {
-            const res = await fetch('api/operations.php?action=save_sla_slot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, name, slot_type, start_time, end_time, kitchen_sla_minutes, waiter_sla_minutes, is_active })
-            });
-            const data = await res.json();
-            if (data.success) this.loadKpi();
-        } catch (e) {}
-    },
-
-    async deleteSlaSlot(id) {
-        if (!confirm('Xóa khung giờ SLA này?')) return;
-        try {
-            const res = await fetch('api/operations.php?action=delete_sla_slot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            });
-            const data = await res.json();
-            if (data.success) this.loadKpi();
-        } catch (e) {}
-    },
-
-    // 8.1 Realtime Staff
-    async loadRealtimeStaff() {
-        try {
-            const res = await fetch('api/operations.php?action=get_realtime_staff');
-            const data = await res.json();
-            if (!data.success) return;
-
-            // Server time
-            const clockEl = document.getElementById('realtime-server-clock');
-            if (clockEl) clockEl.innerText = data.server_time || '';
-
-            // Summary counts
-            const summary = data.summary || {};
-            const cashierEl = document.getElementById('realtime-stat-cashier');
-            const kitchenEl = document.getElementById('realtime-stat-kitchen');
-            const waiterEl = document.getElementById('realtime-stat-waiter');
-            const adminEl = document.getElementById('realtime-stat-admin');
-            const badgeCountEl = document.getElementById('badge-online-count');
-
-            if (cashierEl) cashierEl.innerText = summary.cashier || 0;
-            if (kitchenEl) kitchenEl.innerText = summary.kitchen || 0;
-            if (waiterEl) waiterEl.innerText = summary.waiter || 0;
-            if (adminEl) adminEl.innerText = summary.admin || 0;
-            if (badgeCountEl) badgeCountEl.innerText = summary.total_working || 0;
-
-            const tbody = document.getElementById('realtime-staff-tbody');
-            if (!tbody) return;
-
-            if (!data.staff_list || data.staff_list.length === 0) {
-                tbody.innerHTML = this.renderEmptyState(8, 'fa-id-badge', 'Chưa có nhân viên trong ca làm việc', 'Khi nhân viên đăng nhập trên máy POS, Order hoặc Bếp, hệ thống sẽ tự động chấm công và hiển thị tại đây.');
-                return;
-            }
-
-            const roleBadges = {
-                cashier: { label: 'Thu Ngân (ACC)', class: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-                kitchen: { label: 'Tổ Bếp / Bar (KIT)', class: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-                waiter: { label: 'Order Phục Vụ (STF)', class: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-                admin: { label: 'Quản Trị (ADM)', class: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-                customer: { label: 'Khách VIP (USR)', class: 'bg-slate-700 text-slate-300 border-white/10' }
-            };
-
-            tbody.innerHTML = data.staff_list.map(st => {
-                const rInfo = roleBadges[st.role] || { label: st.role, class: 'bg-slate-700 text-slate-300' };
-                const isRecent = st.is_recently_active;
-                const statusBadge = isRecent 
-                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-[10px]"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Đang làm việc</span>`
-                    : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[10px]"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Vắng mặt tạm thời</span>`;
-
-                return `
-                    <tr class="hover:bg-white/5 transition-colors">
-                        <td class="py-2.5 px-3">
-                            <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center font-bold text-sky-400 text-xs">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                <div>
-                                    <div class="font-bold text-slate-200 text-xs">${st.fullname}</div>
-                                    <div class="text-[10px] font-mono text-slate-400">${st.user_code || st.username}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="py-2.5 px-3">
-                            <span class="px-2 py-0.5 rounded-md border text-[10px] font-bold ${rInfo.class}">${rInfo.label}</span>
-                        </td>
-                        <td class="py-2.5 px-3 font-mono text-slate-300">
-                            <i class="far fa-clock text-sky-400 mr-1 text-[10px]"></i>${st.check_in_display}
-                        </td>
-                        <td class="py-2.5 px-3">
-                            <span class="px-2 py-0.5 rounded-md bg-slate-800 text-sky-300 font-bold font-mono text-xs border border-white/5">
-                                ${st.elapsed_display}
-                            </span>
-                        </td>
-                        <td class="py-2.5 px-3 font-mono text-emerald-400 font-bold">
-                            ${Admin.formatMoney(st.hourly_rate)} đ/h
-                        </td>
-                        <td class="py-2.5 px-3">${statusBadge}</td>
-                        <td class="py-2.5 px-3 text-[11px] text-slate-400">
-                            <span class="truncate max-w-[120px] block" title="${st.device_info}">${st.device_info}</span>
-                        </td>
-                        <td class="py-2.5 px-3 text-right">
-                            <button type="button" onclick="Admin.manualCheckout(${st.attendance_id || 0}, ${st.user_id}, '${st.fullname}')" class="btn-glass text-[11px] py-1 px-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/30 font-bold shadow-sm" title="Chốt ca kết thúc cho nhân viên nếu quên checkout">
-                                <i class="fas fa-right-from-bracket mr-1"></i> Chốt Ca
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (e) {
-            console.error('loadRealtimeStaff error:', e);
-        }
-    },
-
-    async manualCheckout(attId, userId, name) {
-        if (!confirm(`Xác nhận chốt kết thúc ca làm việc cho nhân viên "${name}"?\nHệ thống sẽ tự động tính tổng số giờ làm và tiền lương ca đến thời điểm này.`)) {
-            return;
-        }
-        try {
-            const res = await fetch('api/operations.php?action=manual_checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ attendance_id: attId, user_id: userId })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message);
-                this.loadRealtimeStaff();
-                this.loadPayroll();
-            } else {
-                alert(data.message || 'Lỗi khi chốt ca');
-            }
-        } catch (e) {
-            alert('Lỗi kết nối máy chủ');
-        }
-    },
-
-    // 8.2 Inventory & Material Costs
-    toggleLowStockFilter() {
-        this._lowStockFilterOnly = !this._lowStockFilterOnly;
-        const card = document.getElementById('inv-card-low-stock');
-        if (card) {
-            card.classList.toggle('ring-2', this._lowStockFilterOnly);
-            card.classList.toggle('ring-rose-400/70', this._lowStockFilterOnly);
-            card.classList.toggle('bg-rose-500/10', this._lowStockFilterOnly);
-        }
-        this.loadMaterials();
-    },
-
-    async loadMaterials() {
-        try {
-            const search = document.getElementById('inv-search-input')?.value.trim() || '';
-            const cat = document.getElementById('inv-category-filter')?.value || 'all';
-
-            const res = await fetch(`api/operations.php?action=get_materials&search=${encodeURIComponent(search)}&category=${encodeURIComponent(cat)}`);
-            const data = await res.json();
-            if (!data.success) return;
-
-            this.materialsList = (data.materials || []).map(m => {
-                const qty = Number(m.quantity || 0);
-                const minQty = Number(m.min_quantity || 0);
-                const cost = Number(m.cost_price || 0);
-                return {
-                    ...m,
-                    is_low: m.is_low !== undefined ? Boolean(m.is_low) : (qty <= minQty),
-                    stock_value: (m.stock_value !== undefined && m.stock_value !== null) ? Number(m.stock_value) : Math.round(qty * cost)
-                };
-            });
-
-            // Update KPI
-            const summary = data.summary || {};
-            const totalItemsEl = document.getElementById('inv-stat-total-items');
-            const totalValueEl = document.getElementById('inv-stat-total-value');
-            const lowStockEl = document.getElementById('inv-stat-low-stock');
-            const lowNamesEl = document.getElementById('inv-stat-low-stock-names');
-
-            const lowItems = this.materialsList.filter(m => m.is_low);
-            if (totalItemsEl) totalItemsEl.innerText = summary.total_items ?? this.materialsList.length;
-            if (totalValueEl) totalValueEl.innerText = this.formatMoney(summary.total_stock_value || 0) + ' đ';
-            if (lowStockEl) lowStockEl.innerText = summary.low_stock_count ?? lowItems.length;
-            if (lowNamesEl) {
-                if (lowItems.length === 0) {
-                    lowNamesEl.innerText = 'Tồn kho an toàn';
-                    lowNamesEl.className = 'text-[10px] text-emerald-300 mt-1 block truncate';
-                } else {
-                    const preview = lowItems.slice(0, 2).map(x => `${x.name} (${x.quantity}/${x.min_quantity} ${x.unit})`).join(', ');
-                    const extra = lowItems.length > 2 ? ` +${lowItems.length - 2} món` : '';
-                    lowNamesEl.innerText = preview + extra;
-                    lowNamesEl.title = lowItems.map(x => `${x.name}: còn ${x.quantity} ${x.unit} (định mức ${x.min_quantity})`).join('\n');
-                    lowNamesEl.className = 'text-[10px] text-rose-300 mt-1 block truncate';
-                }
-            }
-
-            // Load month expense for materials
-            this.loadMonthMaterialExpense();
-
-            // Populate category filter if needed
-            const catFilter = document.getElementById('inv-category-filter');
-            if (catFilter && catFilter.options.length <= 1 && data.categories) {
-                data.categories.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c;
-                    opt.innerText = c;
-                    catFilter.appendChild(opt);
-                });
-            }
-
-            // Render table
-            const tbody = document.getElementById('inv-materials-tbody');
-            if (!tbody) return;
-
-            const displayList = this._lowStockFilterOnly ? lowItems : this.materialsList;
-            if (displayList.length === 0) {
-                tbody.innerHTML = this.renderEmptyState(10, 'fa-boxes-stacked', 'Kho nguyên vật liệu trống', this._lowStockFilterOnly ? 'Không có nguyên liệu nào dưới định mức tối thiểu.' : 'Chưa có nguyên vật liệu nào trong kho phù hợp với bộ lọc tìm kiếm.');
-                return;
-            }
-
-            tbody.innerHTML = displayList.map(m => {
-                const isLow = m.is_low;
-                const stockBadge = isLow 
-                    ? `<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 font-mono text-xs inline-flex items-center justify-center gap-1 mx-auto"><i class="fas fa-triangle-exclamation text-[10px]"></i> ${m.quantity} ${m.unit}</span>`
-                    : `<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 font-mono text-xs inline-block mx-auto">${m.quantity} ${m.unit}</span>`;
-
-                return `
-                    <tr class="hover:bg-white/5 transition-colors ${isLow ? 'bg-rose-500/5' : ''}">
-                        <td class="py-2.5 px-3 font-mono font-bold text-amber-400 text-center">${m.code}</td>
-                        <td class="py-2.5 px-3 text-left">
-                            <div class="font-bold text-slate-100 text-xs">${m.name}</div>
-                            ${m.note ? `<div class="text-[10px] text-slate-400 truncate max-w-xs">${m.note}</div>` : ''}
-                        </td>
-                        <td class="py-2.5 px-3 text-center">
-                            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold border border-white/5 inline-block">${m.category}</span>
-                        </td>
-                        <td class="py-2.5 px-3 text-slate-300 font-medium text-center">${m.unit}</td>
-                        <td class="py-2.5 px-3 text-center">${stockBadge}</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-400 text-xs text-center">${m.min_quantity} ${m.unit}</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-300 text-right">${Admin.formatMoney(m.cost_price)} đ</td>
-                        <td class="py-2.5 px-3 font-mono font-bold text-emerald-400 text-right">${Admin.formatMoney(m.stock_value)} đ</td>
-                        <td class="py-2.5 px-3 text-[11px] text-slate-400 text-center">${m.supplier || 'Chưa có'}</td>
-                        <td class="py-2.5 px-3 text-right">
-                            <div class="flex items-center justify-end gap-1">
-                                <button type="button" onclick="Admin.openStockTransactionModal('import', ${m.id})" class="p-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/30 text-xs" title="Nhập kho nhanh cho món này">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                                <button type="button" onclick="Admin.editMaterial(${m.id})" class="p-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border border-sky-500/30 text-xs" title="Sửa thông tin">
-                                    <i class="fas fa-pen"></i>
-                                </button>
-                                <button type="button" onclick="Admin.deleteMaterial(${m.id}, '${String(m.name || '').replace(/'/g, "\\'")}')" class="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-xs" title="Xóa">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (e) {
-            console.error('loadMaterials error:', e);
-        }
-    },
-
-    async loadMonthMaterialExpense() {
-        try {
-            const res = await fetch('api/operations.php?action=get_transactions&period=month&type=import');
-            const data = await res.json();
-            if (data.success) {
-                const el = document.getElementById('inv-stat-month-expense');
-                if (el) el.innerText = this.formatMoney(data.total_expense) + ' đ';
-            }
-        } catch (e) {}
-    },
-
-    openMaterialModal(mat = null) {
-        document.getElementById('modal-mat-id').value = mat ? mat.id : '';
-        document.getElementById('modal-mat-code').value = mat ? mat.code : '';
-        document.getElementById('modal-mat-name').value = mat ? mat.name : '';
-        document.getElementById('modal-mat-category').value = mat ? mat.category : 'Cà phê & Trà';
-        document.getElementById('modal-mat-unit').value = mat ? mat.unit : 'kg';
-        document.getElementById('modal-mat-qty').value = mat ? mat.quantity : 0;
-        document.getElementById('modal-mat-qty').disabled = mat ? true : false;
-        document.getElementById('modal-mat-minqty').value = mat ? mat.min_quantity : 5;
-        document.getElementById('modal-mat-cost').value = mat ? mat.cost_price : 0;
-        document.getElementById('modal-mat-supplier').value = mat ? (mat.supplier || '') : '';
-        document.getElementById('modal-mat-note').value = mat ? (mat.note || '') : '';
-
-        const title = document.getElementById('modal-material-title');
-        if (title) title.innerHTML = mat ? '<i class="fas fa-pen"></i> Sửa Nguyên Vật Liệu' : '<i class="fas fa-boxes-stacked"></i> Thêm Nguyên Vật Liệu Mới';
-
-        document.getElementById('modal-material').classList.add('open');
-    },
-
-    editMaterial(id) {
-        const mat = this.materialsList.find(m => m.id == id);
-        if (mat) this.openMaterialModal(mat);
-    },
-
-    closeMaterialModal() {
-        document.getElementById('modal-material').classList.remove('open');
-    },
-
-    async submitMaterial(e) {
-        e.preventDefault();
-        const id = document.getElementById('modal-mat-id').value;
-        const payload = {
-            id: id ? parseInt(id) : 0,
-            code: document.getElementById('modal-mat-code').value.trim(),
-            name: document.getElementById('modal-mat-name').value.trim(),
-            category: document.getElementById('modal-mat-category').value.trim(),
-            unit: document.getElementById('modal-mat-unit').value.trim(),
-            quantity: parseFloat(document.getElementById('modal-mat-qty').value) || 0,
-            min_quantity: parseFloat(document.getElementById('modal-mat-minqty').value) || 0,
-            cost_price: parseFloat(document.getElementById('modal-mat-cost').value) || 0,
-            supplier: document.getElementById('modal-mat-supplier').value.trim(),
-            note: document.getElementById('modal-mat-note').value.trim()
-        };
-
-        try {
-            const res = await fetch('api/operations.php?action=save_material', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message);
-                this.closeMaterialModal();
-                this.loadMaterials();
-            } else {
-                alert(data.message || 'Lỗi khi lưu nguyên vật liệu');
-            }
-        } catch (err) {
-            alert('Lỗi kết nối máy chủ');
-        }
-    },
-
-    async deleteMaterial(id, name) {
-        if (!confirm(`Bạn có chắc muốn xóa nguyên vật liệu "${name}" khỏi danh mục quản lý?`)) return;
-        try {
-            const res = await fetch('api/operations.php?action=delete_material', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            });
-            const data = await res.json();
-            if (data.success) {
-                this.loadMaterials();
-            } else {
-                alert(data.message || 'Lỗi khi xóa');
-            }
-        } catch (e) {
-            alert('Lỗi kết nối máy chủ');
-        }
-    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -4209,16 +2587,16 @@ function showForceChangePinModal() {
                     <i class="fa-solid fa-shield-halved" style="font-size:18px;"></i>
                 </div>
                 <div>
-                    <div style="font-size:16px;font-weight:700;color:#ffffff;line-height:1.3;">Đổi Mã PIN Bảo Mật Lần Đầu</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Bạn vừa đăng nhập bằng PIN mặc định 1 lần</div>
+                    <div style="font-size:16px;font-weight:700;color:#ffffff;line-height:1.3;">${window.cnxT?window.cnxT('js.s_adm.c0fd5493','Đổi Mã PIN Bảo Mật Lần Đầu'):'Đổi Mã PIN Bảo Mật Lần Đầu'}</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${window.cnxT?window.cnxT('js.s_adm.a0bc3f1a','Bạn vừa đăng nhập bằng PIN mặc định 1 lần'):'Bạn vừa đăng nhập bằng PIN mặc định 1 lần'}</div>
                 </div>
             </div>
             <p style="font-size:12.5px;color:#cbd5e1;line-height:1.5;margin:0 0 16px 0;">
-                Vui lòng thiết lập mã PIN cá nhân <strong style="color:#38bdf8;">6 chữ số</strong> mới (không trùng PIN mặc định) để tiếp tục sử dụng hệ thống.
+                ${window.cnxT?window.cnxT('js.s_adm.e3311faa','Vui lòng thiết lập mã PIN cá nhân'):'Vui lòng thiết lập mã PIN cá nhân'} <strong style="color:#38bdf8;">${window.cnxT?window.cnxT('js.s_adm.0e17c4fc','6 chữ số'):'6 chữ số'}</strong> ${window.cnxT?window.cnxT('js.s_adm.b0bad665','mới (không trùng PIN mặc định) để tiếp tục sử dụng hệ thống.'):'mới (không trùng PIN mặc định) để tiếp tục sử dụng hệ thống.'}
             </p>
             <form id="form-force-change-pin" autocomplete="off" style="display:flex;flex-direction:column;gap:14px;">
                 <div>
-                    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Mã PIN mới (6 chữ số)</label>
+                    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">${window.cnxT?window.cnxT('js.s_adm.e4265226','Mã PIN mới (6 chữ số)'):'Mã PIN mới (6 chữ số)'}</label>
                     <div style="position:relative;">
                         <input id="fcp-pin1" type="password" inputmode="numeric" maxlength="6" pattern="\\d{6}" required
                             placeholder="••••••"
@@ -4230,7 +2608,7 @@ function showForceChangePinModal() {
                     </div>
                 </div>
                 <div>
-                    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Nhập lại mã PIN mới</label>
+                    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">${window.cnxT?window.cnxT('js.s_adm.1263ec28','Nhập lại mã PIN mới'):'Nhập lại mã PIN mới'}</label>
                     <div style="position:relative;">
                         <input id="fcp-pin2" type="password" inputmode="numeric" maxlength="6" pattern="\\d{6}" required
                             placeholder="••••••"
@@ -4244,7 +2622,7 @@ function showForceChangePinModal() {
                 <div id="fcp-error" style="display:none;font-size:12px;color:#fda4af;background:rgba(244,63,94,0.14);border:1px solid rgba(244,63,94,0.4);border-radius:9px;padding:8px 12px;"></div>
                 <button id="fcp-submit" type="submit"
                     style="width:100%;padding:11px 16px;border:none;border-radius:11px;background:linear-gradient(90deg,#06b6d4,#2563eb);color:#ffffff;font-weight:700;font-size:13.5px;cursor:pointer;box-shadow:0 8px 20px rgba(6,182,212,0.28);margin-top:2px;">
-                    <i class="fa-solid fa-check" style="margin-right:6px;"></i>Xác nhận & Lưu mã PIN mới
+                    <i class="fa-solid fa-check" style="margin-right:6px;"></i>${window.cnxT?window.cnxT('js.s_adm.3ecb05c3','Xác nhận & Lưu mã PIN mới'):'Xác nhận & Lưu mã PIN mới'}
                 </button>
             </form>
         </div>
@@ -4285,17 +2663,17 @@ function showForceChangePinModal() {
         const v1 = pin1.value.trim();
         const v2 = pin2.value.trim();
         if (!/^\d{6}$/.test(v1)) {
-            showErr('Mã PIN mới phải gồm đúng 6 chữ số!');
+            showErr((window.cnxT?window.cnxT('js.s_adm.0f31f79f','Mã PIN mới phải gồm đúng 6 chữ số!'):'Mã PIN mới phải gồm đúng 6 chữ số!'));
             pin1.focus();
             return;
         }
         if (v1 !== v2) {
-            showErr('Hai lần nhập mã PIN không khớp!');
+            showErr((window.cnxT?window.cnxT('js.s_adm.0135dd2c','Hai lần nhập mã PIN không khớp!'):'Hai lần nhập mã PIN không khớp!'));
             pin2.focus();
             return;
         }
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang cập nhật...';
+        submitBtn.innerHTML = (window.cnxT?window.cnxT('js.s_adm.aa458f9c','<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang cập nhật...'):'<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang cập nhật...');
         try {
             const r = await fetch('api/auth.php?action=change_my_pin', {
                 method: 'POST',
@@ -4306,17 +2684,17 @@ function showForceChangePinModal() {
             if (d.success) {
                 localStorage.removeItem('cnx_must_change_pin');
                 modal.remove();
-                if (typeof Admin !== 'undefined' && typeof Admin.toast === 'function') {
-                    Admin.toast(d.message || 'Đã cập nhật mã PIN 6 số mới thành công!', 'success');
+                if (typeof Admin !== 'undefined' && typeof Admin.showToast === 'function') {
+                    Admin.showToast(window.cnxApiMsg ? cnxApiMsg(d, (window.cnxT?window.cnxT('js.s_adm.fcdb7468','Đã cập nhật mã PIN 6 số mới thành công!'):'Đã cập nhật mã PIN 6 số mới thành công!')) : (d.message || (window.cnxT?window.cnxT('js.s_adm.fcdb7468','Đã cập nhật mã PIN 6 số mới thành công!'):'Đã cập nhật mã PIN 6 số mới thành công!')), 'success');
                 }
             } else {
-                showErr(d.message || 'Không thể đổi PIN, vui lòng thử PIN khác!');
+                showErr(d.message || (window.cnxT?window.cnxT('js.s_adm.d81b713a','Không thể đổi PIN, vui lòng thử PIN khác!'):'Không thể đổi PIN, vui lòng thử PIN khác!'));
             }
         } catch (err) {
-            showErr('Lỗi kết nối: ' + err.message);
+            showErr((window.cnxT?window.cnxT('js.m_sa.e5f87ad3','Lỗi kết nối: '):'Lỗi kết nối: ') + err.message);
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i>Xác nhận & Lưu mã PIN mới';
+            submitBtn.innerHTML = (window.cnxT?window.cnxT('js.s_adm.ef8a0ac0','<i class="fa-solid fa-check mr-1.5"></i>Xác nhận & Lưu mã PIN mới'):'<i class="fa-solid fa-check mr-1.5"></i>Xác nhận & Lưu mã PIN mới');
         }
     });
 }

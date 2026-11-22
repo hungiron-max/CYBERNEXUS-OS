@@ -36,15 +36,15 @@ const CustomerAdCarousel = {
         if (dotsContainer) dotsContainer.innerHTML = '';
 
         const formatLabel = (rawLabel, isVid) => {
-            if (!rawLabel) return { text: isVid ? 'VIDEO TRẢI NGHIỆM' : 'ƯU ĐÃI ĐẶC BIỆT', icon: isVid ? 'fa-play' : 'fa-sparkles', badge: isVid ? 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' : 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+            if (!rawLabel) return { text: isVid ? 'VIDEO TRẢI NGHIỆM' : (window.cnxT?window.cnxT('js.s_ext.20d5aa06','ƯU ĐÃI ĐẶC BIỆT'):'ƯU ĐÃI ĐẶC BIỆT'), icon: isVid ? 'fa-play' : 'fa-sparkles', badge: isVid ? 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' : 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
             const s = String(rawLabel).trim();
-            if (s === 'KM1') return { text: 'ƯU ĐÃI ĐẶC BIỆT · KM1', icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
-            if (s === 'KM2') return { text: 'MÓN BÁN CHẠY NHẤT · KM2', icon: 'fa-fire', badge: 'border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 text-rose-200' };
-            if (s === 'KM3') return { text: 'MÓN MỚI TUẦN NÀY · KM3', icon: 'fa-star', badge: 'border-emerald-300/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-200' };
-            if (s === 'QC1') return { text: 'VIDEO TRẢI NGHIỆM · QC1', icon: 'fa-play', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
-            if (s === 'QC2') return { text: 'KHÁM PHÁ GÓC PHỐ · QC2', icon: 'fa-compass', badge: 'border-purple-300/40 bg-gradient-to-r from-purple-500/25 to-fuchsia-500/25 text-purple-200' };
-            if (/^KM/i.test(s)) return { text: `ƯU ĐÃI · ${s}`, icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
-            if (/^QC/i.test(s)) return { text: `QUẢNG CÁO · ${s}`, icon: 'fa-video', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
+            if (s === 'KM1') return { text: (window.cnxT?window.cnxT('ui.cust_html.span_954e33e1','ƯU ĐÃI ĐẶC BIỆT · KM1'):'ƯU ĐÃI ĐẶC BIỆT · KM1'), icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+            if (s === 'KM2') return { text: (window.cnxT?window.cnxT('ui.cust_html.span_3fb7a9be','MÓN BÁN CHẠY NHẤT · KM2'):'MÓN BÁN CHẠY NHẤT · KM2'), icon: 'fa-fire', badge: 'border-rose-300/40 bg-gradient-to-r from-rose-500/25 to-orange-500/25 text-rose-200' };
+            if (s === 'KM3') return { text: (window.cnxT?window.cnxT('js.s_ext.fbc136cf','MÓN MỚI TUẦN NÀY · KM3'):'MÓN MỚI TUẦN NÀY · KM3'), icon: 'fa-star', badge: 'border-emerald-300/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-200' };
+            if (s === 'QC1') return { text: (window.cnxT?window.cnxT('ui.cust_html.span_19b0629a','VIDEO TRẢI NGHIỆM · QC1'):'VIDEO TRẢI NGHIỆM · QC1'), icon: 'fa-play', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
+            if (s === 'QC2') return { text: (window.cnxT?window.cnxT('js.s_ext.c9125872','KHÁM PHÁ GÓC PHỐ · QC2'):'KHÁM PHÁ GÓC PHỐ · QC2'), icon: 'fa-compass', badge: 'border-purple-300/40 bg-gradient-to-r from-purple-500/25 to-fuchsia-500/25 text-purple-200' };
+            if (/^KM/i.test(s)) return { text: `${window.cnxT?window.cnxT('js.s_ext.543d3424','ƯU ĐÃI ·'):'ƯU ĐÃI ·'} ${s}`, icon: 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
+            if (/^QC/i.test(s)) return { text: `${window.cnxT?window.cnxT('js.s_ext.66acd33b','QUẢNG CÁO ·'):'QUẢNG CÁO ·'} ${s}`, icon: 'fa-video', badge: 'border-sky-300/40 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200' };
             return { text: s.toUpperCase(), icon: isVid ? 'fa-play' : 'fa-sparkles', badge: 'border-amber-300/40 bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200' };
         };
 
@@ -67,7 +67,7 @@ const CustomerAdCarousel = {
                             <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                             <i class="fas ${meta.icon} text-[9px]"></i> ${meta.text}
                         </span>
-                        <h3 class="mt-1 text-sm sm:text-base font-black leading-snug slide-title-rainbow">${slide.title || 'Video Trải Nghiệm Góc Phố'}</h3>
+                        <h3 class="mt-1 text-sm sm:text-base font-black leading-snug slide-title-rainbow">${slide.title || (window.cnxT?window.cnxT('js.s_cust.a4766bc0','Video Trải Nghiệm Góc Phố'):'Video Trải Nghiệm Góc Phố')}</h3>
                         <p class="mt-0.5 text-[11px] sm:text-xs leading-relaxed max-w-md line-clamp-1 sm:line-clamp-2 slide-desc-crisp">${slide.description || ''}</p>
                     </div>
                     <button type="button" onclick="CustomerAdCarousel.toggleSound()" class="customer-ad-sound absolute top-3 right-3 z-30 h-7 w-7 sm:h-8 sm:w-8 rounded-full border border-white/20 bg-slate-950/70 text-xs text-white backdrop-blur flex items-center justify-center hover:bg-white/20" title="Bật/Tắt tiếng">
@@ -194,7 +194,7 @@ const CustomerAdCarousel = {
             if (video) video.pause();
         } else {
             const video = this.slides[this.index]?.querySelector('video');
-            if (video) video.play().catch(() => {});
+            if (video) video.play().catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', errIgnored) : console.debug('customer_app.js', errIgnored)); });
             this.schedule();
         }
     },
@@ -249,16 +249,16 @@ const CustomerOrdering = {
                 this.appliedPromoCode = res.promo.code;
                 if (fb) {
                     fb.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300';
-                    fb.textContent = `✅ ${res.message} (Còn ${this.formatMoney(Math.max(0, subtotal - (res.discount_amount || 0)))} đ)`;
+                    fb.textContent = `✅ ${res.message} ${window.cnxT?window.cnxT('js.s_cust.996f24df','(Còn'):'(Còn'} ${this.formatMoney(Math.max(0, subtotal - (res.discount_amount || 0)))} ${window.cnxT?window.cnxT('js.s_cust.72b7fe2d','đ)'):'đ)'}`;
                 }
             } else {
                 this.appliedPromoCode = '';
                 if (fb) {
                     fb.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300';
-                    fb.textContent = `⚠️ ${res.message || 'Mã không hợp lệ'}`;
+                    fb.textContent = `⚠️ ${res.message || (window.cnxT?window.cnxT('js.s_cust.9d098341','Mã không hợp lệ'):'Mã không hợp lệ')}`;
                 }
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     },
 
     init() {
@@ -277,8 +277,64 @@ const CustomerOrdering = {
                 const p = document.getElementById('customer-order-phone');
                 if (p && !p.value) p.value = saved.phone;
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
         this.renderCart();
+        this.loadCatalogI18n();
+        if (!this._langBound) {
+            this._langBound = true;
+            window.addEventListener('cnx:lang-changed', () => {
+                this.applyCatalogI18nDom();
+                this.renderCart();
+            });
+        }
+    },
+
+    _catalogProductsMap: {},
+    _catalogCategoriesMap: {},
+
+    async loadCatalogI18n() {
+        try {
+            const [pRes, cRes] = await Promise.all([
+                fetch('api/products.php').then(r => r.json()).catch(() => null),
+                fetch('api/categories.php').then(r => r.json()).catch(() => null)
+            ]);
+            if (pRes && pRes.success && Array.isArray(pRes.data)) {
+                pRes.data.forEach(p => { this._catalogProductsMap[String(p.id)] = p; });
+            }
+            if (cRes && cRes.success && Array.isArray(cRes.data)) {
+                cRes.data.forEach(c => { this._catalogCategoriesMap[String(c.id)] = c; });
+            }
+            this.applyCatalogI18nDom();
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.loadCatalogI18n', e) : null); }
+    },
+
+    applyCatalogI18nDom() {
+        if (typeof window.cnxDbText !== 'function') return;
+        document.querySelectorAll('.product-item[data-product-id]').forEach(card => {
+            const pid = String(card.dataset.productId || '');
+            const pObj = this._catalogProductsMap[pid];
+            if (!pObj) return;
+            if (!card.dataset.productOriginName) card.dataset.productOriginName = pObj.name || card.dataset.productName || '';
+            const trName = window.cnxDbText(pObj, 'name', card.dataset.productOriginName);
+            const trUnit = window.cnxDbText(pObj, 'unit', pObj.unit || (window.cnxT?window.cnxT('js.s_cust.9fbdb238','cái'):'cái'));
+            card.dataset.productName = trName;
+            const h4 = card.querySelector('h4');
+            if (h4) h4.textContent = trName;
+            const unitSpan = card.querySelector('.pt-2.mt-2 span.text-xs.text-slate-400');
+            if (unitSpan && trUnit) unitSpan.textContent = '/ ' + trUnit;
+        });
+        document.querySelectorAll('#category-filter-pills .cat-pill').forEach(btn => {
+            const oc = btn.getAttribute('onclick') || '';
+            const m = oc.match(/filterCategory\((\d+)\)/);
+            if (!m) return;
+            const cid = m[1];
+            if (cid === '0') return;
+            const cObj = this._catalogCategoriesMap[cid];
+            if (!cObj) return;
+            const trCat = window.cnxDbText(cObj, 'name', cObj.name);
+            const cntMatch = (btn.textContent || '').match(/\(\d+\)/);
+            btn.textContent = trCat + (cntMatch ? (' ' + cntMatch[0]) : '');
+        });
     },
 
     setOrderMode(mode) {
@@ -317,9 +373,9 @@ const CustomerOrdering = {
             const dineInTables = json.data.filter(t => t.area_type !== 'MANG_VE' && t.area_type !== 'takeaway' && !String(t.code || '').startsWith('MV'));
             const freeTables = dineInTables.filter(t => t.status === 'free');
             if (freeTables.length === 0) {
-                sel.innerHTML = '<option value="">-- Hiện hết bàn trống (vui lòng chọn Mang Về hoặc hỏi nhân viên) --</option>';
+                sel.innerHTML = (window.cnxT?window.cnxT('js.s_cust.f5ef3830','<option value="">-- Hiện hết bàn trống (vui lòng chọn Mang Về hoặc hỏi nhân viên) --</option>'):'<option value="">-- Hiện hết bàn trống (vui lòng chọn Mang Về hoặc hỏi nhân viên) --</option>');
             } else {
-                sel.innerHTML = '<option value="">-- Chọn bàn trống bạn đang ngồi --</option>' +
+                sel.innerHTML = (window.cnxT?window.cnxT('js.s_cust.39cad72e','<option value="">-- Chọn bàn trống bạn đang ngồi --</option>'):'<option value="">-- Chọn bàn trống bạn đang ngồi --</option>') +
                     freeTables.map(t => `<option value="${t.id}" data-code="${t.code}">${t.code}${t.name && t.name !== t.code ? ' - ' + t.name : ''} (Đang trống)</option>`).join('');
                 const urlParams = new URLSearchParams(window.location.search);
                 const qTable = (urlParams.get('table') || urlParams.get('table_code') || '').trim().toUpperCase();
@@ -333,14 +389,14 @@ const CustomerOrdering = {
                     sel.value = prevVal;
                 }
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     },
 
     showToast(msg) {
         const toast = document.getElementById('customer-cart-toast');
         const msgEl = document.getElementById('customer-cart-toast-msg');
         if (!toast) return;
-        if (msgEl) msgEl.textContent = msg || 'Đã thêm món vào giỏ hàng!';
+        if (msgEl) msgEl.textContent = msg || (window.cnxT?window.cnxT('ui.cust_html.span_cf725e6b','Đã thêm món vào giỏ hàng!'):'Đã thêm món vào giỏ hàng!');
         toast.classList.remove('translate-y-4', 'opacity-0');
         toast.classList.add('translate-y-0', 'opacity-100');
         if (this._toastTimer) clearTimeout(this._toastTimer);
@@ -352,11 +408,11 @@ const CustomerOrdering = {
 
     itemNotes: {},
 
-    promptItemNote(pid) {
+    async promptItemNote(pid) {
         const cur = this.itemNotes[pid] || '';
         const p = this.getProductInfo(pid);
-        const name = p ? p.name : 'món này';
-        const note = prompt(`Ghi chú riêng cho "${name}" (VD: ít đường, không cay, làm kỹ...):`, cur);
+        const name = p ? p.name : (window.cnxT?window.cnxT('js.s_cust.1667ffa8','món này'):'món này');
+        const note = await window.cnxPrompt(`Ghi chú riêng cho "${name}" (VD: ít đường, không cay, làm kỹ...):`, cur);
         if (note !== null) {
             this.itemNotes[pid] = note.trim();
             this.renderCart();
@@ -367,7 +423,7 @@ const CustomerOrdering = {
         try {
             localStorage.setItem('cybernexus_customer_cart', JSON.stringify(this.cart));
             localStorage.setItem('cybernexus_customer_cart_notes', JSON.stringify(this.itemNotes));
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     },
 
     getProductInfo(pid) {
@@ -424,13 +480,17 @@ const CustomerOrdering = {
         const sheetTotalQty = document.getElementById('cart-sheet-total-qty');
         const submitBtnText = document.getElementById('btn-sheet-submit-text');
 
+        const tx = (k, vars, fb) => (typeof window.cnxT === 'function' ? window.cnxT(k, vars, fb) : (fb || k));
+
         if (statusText) {
-            statusText.textContent = count > 0 ? `Đang chọn thêm +${count} món mới` : 'Chưa chọn món mới';
+            statusText.textContent = count > 0
+                ? tx('customer.cart_selecting', { count }, `${window.cnxT?window.cnxT('js.s_cust.963a532e','Đang chọn thêm +'):'Đang chọn thêm +'}${count} ${window.cnxT?window.cnxT('js.s_cust.2600ef09','món mới'):'món mới'}`)
+                : tx('customer.cart_empty_status', (window.cnxT?window.cnxT('js.s_cust.708d6946','Chưa chọn món nào'):'Chưa chọn món nào'));
             statusText.className = count > 0 ? 'text-[10px] text-amber-400 font-medium' : 'text-[10px] text-slate-400 font-medium';
         }
-        if (subHeading) subHeading.textContent = `Món Mới Gọi Thêm (${count} món)`;
+        if (subHeading) subHeading.textContent = tx('customer.cart_subheading', { count }, `${window.cnxT?window.cnxT('js.s_cust.f1ccd2ec','Món Mới Gọi Thêm ('):'Món Mới Gọi Thêm ('}${count} ${window.cnxT?window.cnxT('js.s_cust.6ab5ce4d','món)'):'món)'}`);
         if (sheetTotalQty) sheetTotalQty.textContent = String(count);
-        if (submitBtnText) submitBtnText.textContent = 'Xác Nhận';
+        if (submitBtnText) submitBtnText.textContent = tx('customer.btn_confirm', (window.cnxT?window.cnxT('ui.sa_html.span_580fef1a','Xác Nhận'):'Xác Nhận'));
 
         const emptyEl = document.getElementById('customer-cart-empty');
         const activeEl = document.getElementById('customer-cart-active');
@@ -441,8 +501,10 @@ const CustomerOrdering = {
         if (count === 0) {
             if (emptyEl) emptyEl.classList.remove('hidden');
             if (activeEl) activeEl.classList.add('hidden');
-            totalEl.textContent = '0 đ';
-            if (bottomTotal) bottomTotal.textContent = '0 đ';
+            totalEl.textContent = (window.cnxT?window.cnxT('ui.sa_html.div_e995e897','0 đ'):'0 đ');
+            if (bottomTotal) bottomTotal.textContent = (window.cnxT?window.cnxT('ui.sa_html.div_e995e897','0 đ'):'0 đ');
+            const autoEl = document.getElementById('customer-auto-promo-preview');
+            if (autoEl) autoEl.classList.add('hidden');
             return;
         }
 
@@ -477,7 +539,7 @@ const CustomerOrdering = {
                             <button type="button" onclick="CustomerOrdering.changeQty(${id}, 1)" class="w-5 h-5 sm:w-6 sm:h-6 rounded bg-slate-800 hover:bg-sky-500/30 text-slate-300 hover:text-sky-300 flex items-center justify-center font-bold text-xs transition-colors">+</button>
                         </div>
                         <button type="button" onclick="CustomerOrdering.promptItemNote(${id})" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 flex items-center gap-1 transition-colors">
-                            <i class="fas fa-pen text-[9px]"></i> <span>Ghi chú</span>
+                            <i class="fas fa-pen text-[9px]"></i> <span>${window.cnxT?window.cnxT('ui.admin_html.ph_ad504eea','Ghi chú'):'Ghi chú'}</span>
                         </button>
                         <button type="button" onclick="CustomerOrdering.removeItem(${id})" class="text-[11px] w-6 h-6 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 flex items-center justify-center transition-colors" title="Xóa món">
                             <i class="fas fa-trash-alt text-[9px]"></i>
@@ -489,8 +551,63 @@ const CustomerOrdering = {
             list.appendChild(row);
         });
 
-        totalEl.textContent = `${this.formatMoney(total)} đ`;
-        if (bottomTotal) bottomTotal.textContent = `${this.formatMoney(total)} đ`;
+        totalEl.textContent = `${this.formatMoney(total)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
+        if (bottomTotal) bottomTotal.textContent = `${this.formatMoney(total)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
+        this.refreshAutoPromoPreview(total);
+    },
+
+    async refreshAutoPromoPreview(subtotal) {
+        const previewEl = document.getElementById('customer-auto-promo-preview');
+        if (!previewEl) return;
+        if (!subtotal || subtotal <= 0 || this.appliedPromoCode) {
+            previewEl.classList.add('hidden');
+            return;
+        }
+        try {
+            const reqSub = Math.round(subtotal);
+            if (this._lastAutoPromoSub !== reqSub || !this._lastAutoPromoRes) {
+                const res = await fetch(`api/promotions?action=active&subtotal=${reqSub}`).then(r => r.json());
+                this._lastAutoPromoSub = reqSub;
+                this._lastAutoPromoRes = res;
+            }
+            const res = this._lastAutoPromoRes;
+            const list = (res && res.success && Array.isArray(res.auto_promotions)) ? res.auto_promotions : [];
+            if (!list.length) {
+                previewEl.classList.add('hidden');
+                return;
+            }
+            let best = null;
+            let bestDisc = 0;
+            list.forEach(p => {
+                const dType = p.discount_type || 'percent';
+                const dVal = Number(p.discount_value || 0);
+                const maxCap = Number(p.max_discount_amount || 0);
+                let disc = dType === 'percent'
+                    ? Math.round((subtotal * Math.min(100, Math.max(0, dVal))) / 100)
+                    : Math.min(subtotal, Math.max(0, dVal));
+                if (dType === 'percent' && maxCap > 0 && disc > maxCap) disc = maxCap;
+                if (disc > bestDisc) {
+                    bestDisc = disc;
+                    best = p;
+                }
+            });
+            if (!best || bestDisc <= 0) {
+                previewEl.classList.add('hidden');
+                return;
+            }
+            const finalTotal = Math.max(0, subtotal - bestDisc);
+            const fallbackMsg = `${window.cnxT?window.cnxT('js.s_cust.852de243','🎁 Tự động áp dụng CTKM:'):'🎁 Tự động áp dụng CTKM:'} ${best.name || best.code} (-${this.formatMoney(bestDisc)} ${window.cnxT?window.cnxT('js.s_cust.c62ddfb6','đ) • Tạm tính:'):'đ) • Tạm tính:'} ${this.formatMoney(finalTotal)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
+            previewEl.textContent = typeof window.cnxT === 'function'
+                ? '🎁 ' + window.cnxT('customer.auto_promo_applied', {
+                    name: best.name || best.code,
+                    discount: this.formatMoney(bestDisc),
+                    finalTotal: this.formatMoney(finalTotal)
+                }, fallbackMsg)
+                : fallbackMsg;
+            previewEl.classList.remove('hidden');
+        } catch (e) {
+            previewEl.classList.add('hidden');
+        }
     },
 
     getCartTotal() {
@@ -531,7 +648,7 @@ const CustomerOrdering = {
     async submitOrderDirect() {
         const pids = Object.keys(this.cart);
         if (!pids.length) {
-            alert('Giỏ hàng đang trống! Vui lòng chọn món trước.');
+            alert((window.cnxT?window.cnxT('js.s_cust.20360484','Giỏ hàng đang trống! Vui lòng chọn món trước.'):'Giỏ hàng đang trống! Vui lòng chọn món trước.'));
             return;
         }
 
@@ -546,22 +663,22 @@ const CustomerOrdering = {
         const errorBox = document.getElementById('customer-order-error');
 
         if (!name) {
-            alert('Vui lòng nhập tên của bạn để quán phục vụ chính xác!');
+            alert((window.cnxT?window.cnxT('js.s_cust.0590f0c6','Vui lòng nhập tên của bạn để quán phục vụ chính xác!'):'Vui lòng nhập tên của bạn để quán phục vụ chính xác!'));
             document.getElementById('customer-order-name')?.focus();
             return;
         }
         if (!phone) {
-            alert('Vui lòng nhập số điện thoại để quán liên hệ giao hàng / phục vụ!');
+            alert((window.cnxT?window.cnxT('js.s_cust.c8380a8b','Vui lòng nhập số điện thoại để quán liên hệ giao hàng / phục vụ!'):'Vui lòng nhập số điện thoại để quán liên hệ giao hàng / phục vụ!'));
             document.getElementById('customer-order-phone')?.focus();
             return;
         }
         if (this.orderMode === 'dine_in' && selectedTableId <= 0) {
-            alert('Vui lòng chọn đúng số bàn trống bạn đang ngồi!');
+            alert((window.cnxT?window.cnxT('js.s_cust.4fabb7cd','Vui lòng chọn đúng số bàn trống bạn đang ngồi!'):'Vui lòng chọn đúng số bàn trống bạn đang ngồi!'));
             tableSelect?.focus();
             return;
         }
         if (this.orderMode === 'delivery' && !address) {
-            alert('Vui lòng nhập địa chỉ giao hàng chi tiết!');
+            alert((window.cnxT?window.cnxT('js.s_cust.5734b82a','Vui lòng nhập địa chỉ giao hàng chi tiết!'):'Vui lòng nhập địa chỉ giao hàng chi tiết!'));
             document.getElementById('customer-order-address')?.focus();
             return;
         }
@@ -569,12 +686,12 @@ const CustomerOrdering = {
         if (errorBox) errorBox.classList.add('hidden');
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang gửi đơn...';
+            submitBtn.innerHTML = (window.cnxT?window.cnxT('js.s_cust.1752d35e','<i class="fas fa-spinner fa-spin mr-1"></i> Đang gửi đơn...'):'<i class="fas fa-spinner fa-spin mr-1"></i> Đang gửi đơn...');
         }
 
         try {
             localStorage.setItem('pos_customer_order_info', JSON.stringify({ name, phone }));
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
 
         const itemNotesSummary = pids
             .filter(id => this.itemNotes[id])
@@ -585,9 +702,9 @@ const CustomerOrdering = {
             .join('; ');
 
         const fullNote = [
-            this.orderMode === 'dine_in' ? `Ngồi tại bàn: ${selectedTableCode}` : (this.orderMode === 'takeaway' ? 'Mang về tại quán' : `Giao hàng: ${address}`),
-            note ? `Ghi chú chung: ${note}` : '',
-            itemNotesSummary ? `Chi tiết món: ${itemNotesSummary}` : ''
+            this.orderMode === 'dine_in' ? `${window.cnxT?window.cnxT('js.s_cust.8263542f','Ngồi tại bàn:'):'Ngồi tại bàn:'} ${selectedTableCode}` : (this.orderMode === 'takeaway' ? 'Mang về tại quán' : `${window.cnxT?window.cnxT('js.s_cust.92fbda3c','Giao hàng:'):'Giao hàng:'} ${address}`),
+            note ? `${window.cnxT?window.cnxT('js.s_cust.971631de','Ghi chú chung:'):'Ghi chú chung:'} ${note}` : '',
+            itemNotesSummary ? `${window.cnxT?window.cnxT('js.s_cust.341b0757','Chi tiết món:'):'Chi tiết món:'} ${itemNotesSummary}` : ''
         ].filter(Boolean).join(' | ');
 
         const items = pids.map(id => {
@@ -602,6 +719,7 @@ const CustomerOrdering = {
         });
 
         try {
+            const urlSig = new URLSearchParams(window.location.search).get('sig') || '';
             const response = await fetch('api/orders?action=customer_order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -612,6 +730,7 @@ const CustomerOrdering = {
                     note: fullNote,
                     table_id: this.orderMode === 'dine_in' ? selectedTableId : 0,
                     table_code: this.orderMode === 'dine_in' ? selectedTableCode : (this.orderMode === 'takeaway' ? 'MV' : 'ONLINE'),
+                    table_sig: urlSig,
                     promo_code: this.appliedPromoCode || '',
                     items: items
                 })
@@ -622,7 +741,11 @@ const CustomerOrdering = {
                 if (data && data.table_conflict) {
                     await this.loadPublicTables();
                 }
-                throw new Error(data.message || 'Không thể tạo đơn hàng.');
+                throw new Error(data.message || (window.cnxT?window.cnxT('js.s_cust.1e21fa82','Không thể tạo đơn hàng.'):'Không thể tạo đơn hàng.'));
+            }
+
+            if (data.order_code && data.access_token) {
+                try { localStorage.setItem('cbnx_qr_token_' + data.order_code, data.access_token); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
             }
 
             // Reset cart
@@ -635,15 +758,15 @@ const CustomerOrdering = {
             this.showPaymentScreen(data);
         } catch (err) {
             if (errorBox) {
-                errorBox.textContent = err.message || 'Lỗi gửi đơn.';
+                errorBox.textContent = err.message || (window.cnxT?window.cnxT('js.s_cust.03481144','Lỗi gửi đơn.'):'Lỗi gửi đơn.');
                 errorBox.classList.remove('hidden');
             } else {
-                alert(err.message || 'Lỗi gửi đơn.');
+                alert(err.message || (window.cnxT?window.cnxT('js.s_cust.03481144','Lỗi gửi đơn.'):'Lỗi gửi đơn.'));
             }
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> <span>Xác Nhận</span>';
+                submitBtn.innerHTML = (window.cnxT?window.cnxT('js.s_cust.bda2b25d','<i class="fas fa-check-circle mr-1"></i> <span>Xác Nhận</span>'):'<i class="fas fa-check-circle mr-1"></i> <span>Xác Nhận</span>');
             }
         }
     },
@@ -655,7 +778,7 @@ const CustomerOrdering = {
         if (payment) payment.classList.remove('hidden');
 
         document.getElementById('customer-payment-order-code').textContent = order.order_code;
-        document.getElementById('customer-payment-total').textContent = `${this.formatMoney(order.total_amount)} đ`;
+        document.getElementById('customer-payment-total').textContent = `${this.formatMoney(order.total_amount)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
 
         let note = `THANH TOAN ${order.order_code}`;
         document.getElementById('customer-payment-note').textContent = note;
@@ -664,13 +787,15 @@ const CustomerOrdering = {
         let bankId = 'OCB';
         let accountNo = '0918608073';
         let accountName = 'NGUYEN CHI HUNG';
-        let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(accountName)}`;
+        let qrUrl = `/api/payment/vietqr_svg?bank_id=${encodeURIComponent(bankId)}&account_no=${encodeURIComponent(accountNo)}&amount=${amount}&add_info=${encodeURIComponent(note)}&account_name=${encodeURIComponent(accountName)}`;
+        let qrPayload = order.vietqr_payload || '';
 
         try {
             const res = await fetch(`api/orders?action=vietqr&amount=${amount}&order_code=${encodeURIComponent(order.order_code)}`);
             const data = await res.json();
             if (data.success) {
                 if (data.vietqr_url) qrUrl = data.vietqr_url;
+                if (data.vietqr_payload) qrPayload = data.vietqr_payload;
                 if (data.bank_id) bankId = data.bank_id;
                 if (data.account_no) accountNo = data.account_no;
                 if (data.account_name) accountName = data.account_name;
@@ -679,7 +804,7 @@ const CustomerOrdering = {
                     document.getElementById('customer-payment-note').textContent = note;
                 }
             }
-        } catch(e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
 
         const bEl = document.getElementById('customer-payment-bank');
         const aEl = document.getElementById('customer-payment-account');
@@ -689,22 +814,38 @@ const CustomerOrdering = {
         if (nEl) nEl.textContent = accountName;
 
         const qrImg = document.getElementById('customer-payment-qr');
-        if (qrImg) qrImg.src = qrUrl;
+        if (qrImg) {
+            if (typeof window.cnxRenderVietQr === 'function') {
+                window.cnxRenderVietQr(qrImg, { bank_id: bankId, account_no: accountNo, amount: amount, note: note, account_name: accountName, vietqr_url: qrUrl, vietqr_payload: qrPayload });
+            } else {
+                qrImg.src = qrUrl;
+            }
+        }
 
         const stEl = document.getElementById('customer-payment-status');
         const btnMark = document.getElementById('btn-customer-mark-transfer');
         if (btnMark) btnMark.classList.remove('hidden');
         if (stEl) {
+            const escTbl = (window.escapeHtml ? escapeHtml(order.table_code) : String(order.table_code || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
             if (order.order_type === 'dine_in') {
                 stEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
-                stEl.innerHTML = `🪑 Đơn bàn <b>${order.table_code}</b> đang chờ nhân viên xác nhận bàn. Bạn có thể quét VietQR thanh toán trước hoặc thanh toán tại quầy.`;
+                stEl.innerHTML = `🪑 Đơn bàn <b>${escTbl}</b> đang chờ nhân viên xác nhận bàn. Bạn có thể quét VietQR thanh toán trước hoặc thanh toán tại quầy.`;
             } else {
                 stEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
-                stEl.innerHTML = `⏳ Vui lòng thanh toán VietQR (${order.order_type === 'takeaway' ? 'Phiếu ' + order.table_code : 'Đơn Online'}) để Thu ngân xác nhận <b>Chuyển Bếp</b>.`;
+                stEl.innerHTML = `${window.cnxT?window.cnxT('js.s_cust.4c6675fb','⏳ Vui lòng thanh toán VietQR ('):'⏳ Vui lòng thanh toán VietQR ('}${order.order_type === 'takeaway' ? (window.cnxT?window.cnxT('js.s_cust.f0837251','Phiếu '):'Phiếu ') + escTbl : (window.cnxT?window.cnxT('ui.adm_html.span_61048c54','Đơn Online'):'Đơn Online')}) để Thu ngân xác nhận <b>${window.cnxT?window.cnxT('js.s_cust.9a34bc5b','Chuyển Bếp'):'Chuyển Bếp'}</b>.`;
             }
         }
         if (this._payPollTimer) clearInterval(this._payPollTimer);
-        this._payPollTimer = setInterval(() => this.checkOrderStatus(true), 3000);
+        this._payPollInFlight = false;
+        this._payPollTimer = setInterval(async () => {
+            if (this._payPollInFlight) return;
+            this._payPollInFlight = true;
+            try {
+                await this.checkOrderStatus(true);
+            } finally {
+                this._payPollInFlight = false;
+            }
+        }, 3000);
     },
 
     async markTransferSent() {
@@ -715,77 +856,65 @@ const CustomerOrdering = {
             const res = await fetch('api/orders?action=customer_mark_transfer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_code: this.currentOrder.order_code })
+                body: JSON.stringify({
+                    order_code: this.currentOrder.order_code,
+                    access_token: this.currentOrder.access_token || ''
+                })
             });
             const data = await res.json();
             if (data.success) {
                 const stEl = document.getElementById('customer-payment-status');
                 if (stEl) {
                     stEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
-                    stEl.innerHTML = '🔎 Đã báo Thu ngân! Hệ thống đang đối soát chuyển khoản để chuyển Bếp...';
+                    stEl.innerHTML = (window.cnxT?window.cnxT('js.s_cust.8834da24','🔎 Đã báo Thu ngân! Hệ thống đang đối soát chuyển khoản để chuyển Bếp...'):'🔎 Đã báo Thu ngân! Hệ thống đang đối soát chuyển khoản để chuyển Bếp...');
                 }
             }
-        } catch (e) {} finally {
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); } finally {
             if (btn) btn.disabled = false;
         }
     },
 
     async checkOrderStatus(silent = false) {
         if (!this.currentOrder || !this.currentOrder.order_code) return;
+        const code = this.currentOrder.order_code;
+        const accTok = encodeURIComponent(this.currentOrder.access_token || '');
+        const stEl = document.getElementById('customer-payment-status');
+        const btnMark = document.getElementById('btn-customer-mark-transfer');
         try {
-            const res = await fetch(`api/orders?action=check_payment&order_code=${encodeURIComponent(this.currentOrder.order_code)}`);
-            const json = await res.json();
-            if (!json.success || !json.data) return;
-            const d = json.data;
-            const stEl = document.getElementById('customer-payment-status');
-            const btnMark = document.getElementById('btn-customer-mark-transfer');
-            if (d.payment_status === 'paid') {
+            const [payRes, custRes] = await Promise.all([
+                fetch(`api/orders?action=check_payment&order_code=${encodeURIComponent(code)}&access_token=${accTok}`).then(r => r.json()).catch(() => null),
+                fetch(`api/orders?action=customer_status&token=${encodeURIComponent(code)}&access_token=${accTok}`).then(r => r.json()).catch(() => null)
+            ]);
+            const d = (payRes && payRes.success && payRes.data) ? payRes.data : null;
+            const o = (custRes && custRes.success && custRes.order) ? custRes.order : d;
+            if (d && d.payment_status === 'paid') {
                 if (btnMark) btnMark.classList.add('hidden');
-                if (stEl) {
+            }
+            if (stEl) {
+                if (d && d.payment_status === 'partial') {
+                    stEl.className = 'text-xs text-rose-300 font-bold p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30';
+                    stEl.innerHTML = `${window.cnxT?window.cnxT('js.s_cust.6b10df6f','⚠️ Số tiền chuyển ('):'⚠️ Số tiền chuyển ('}${this.formatMoney(d.paid_amount)}${window.cnxT?window.cnxT('js.s_cust.97a07c44','đ) chưa đủ'):'đ) chưa đủ'} ${this.formatMoney(d.total_amount)}${window.cnxT?window.cnxT('js.s_cust.0503407c','đ. Vui lòng liên hệ quầy!'):'đ. Vui lòng liên hệ quầy!'}`;
+                } else if (d && d.payment_status === 'verifying') {
+                    stEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
+                    stEl.innerHTML = (window.cnxT?window.cnxT('js.s_cust.a796980c','🔎 Thu ngân đang đối soát chuyển khoản của bạn...'):'🔎 Thu ngân đang đối soát chuyển khoản của bạn...');
+                } else if (o && (o.status === 'completed' || o.kitchen_status === 'served')) {
+                    stEl.className = 'text-xs text-emerald-300 font-semibold p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30';
+                    stEl.textContent = o.status === 'completed'
+                        ? '🎉 Đơn hàng đã hoàn tất! Cảm ơn quý khách.'
+                        : (window.cnxT?window.cnxT('js.s_cust.83ee131a','🍽️ Món đã được bưng ra! Chúc quý khách ngon miệng.'):'🍽️ Món đã được bưng ra! Chúc quý khách ngon miệng.');
+                } else if (o && o.kitchen_status === 'ready') {
+                    stEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
+                    stEl.textContent = (window.cnxT?window.cnxT('js.s_cust.89f2366d','🍳 Món đã chuẩn bị xong, đang giao tới quý khách!'):'🍳 Món đã chuẩn bị xong, đang giao tới quý khách!');
+                } else if (d && d.payment_status === 'paid') {
                     stEl.className = 'text-xs text-emerald-300 font-bold p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30';
-                    stEl.innerHTML = d.kitchen_status === 'ready'
-                        ? '🍽️ Món đã làm xong! Mời bạn nhận món.'
-                        : '✅ Đã xác nhận thanh toán! Bếp đang chuẩn bị món cho bạn.';
+                    stEl.textContent = (window.cnxT?window.cnxT('js.s_cust.316074a1','✅ Đã xác nhận thanh toán! Bếp đang chuẩn bị món cho bạn.'):'✅ Đã xác nhận thanh toán! Bếp đang chuẩn bị món cho bạn.');
+                } else if (!silent && d) {
+                    stEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
+                    stEl.textContent = `${window.cnxT?window.cnxT('js.s_cust.04f26719','⏳ Quán đã nhận đơn ('):'⏳ Quán đã nhận đơn ('}${this.formatMoney(d.total_amount)}${window.cnxT?window.cnxT('js.s_cust.91c820a8','đ), đang chờ xử lý / chế biến!'):'đ), đang chờ xử lý / chế biến!'}`;
                 }
-            } else if (d.payment_status === 'verifying' && stEl) {
-                stEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
-                stEl.innerHTML = '🔎 Thu ngân đang đối soát chuyển khoản của bạn...';
-            } else if (d.payment_status === 'partial' && stEl) {
-                stEl.className = 'text-xs text-rose-300 font-bold p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30';
-                stEl.innerHTML = `⚠️ Số tiền chuyển (${this.formatMoney(d.paid_amount)}đ) chưa đủ ${this.formatMoney(d.total_amount)}đ. Vui lòng liên hệ quầy!`;
-            } else if (!silent && stEl) {
-                stEl.innerHTML = `⏳ Trạng thái: ${d.kitchen_status === 'pending' ? 'Bếp đang làm' : 'Đang chờ xác nhận thanh toán / duyệt bàn'} (${this.formatMoney(d.total_amount)}đ)`;
             }
-        } catch (e) {}
-    },
-
-    async checkOrderStatus() {
-        if (!this.currentOrder?.order_code) return;
-        try {
-            const res = await fetch(`api/orders?action=customer_status&token=${encodeURIComponent(this.currentOrder.order_code)}`);
-            const data = await res.json();
-            if (data.success && data.order) {
-                const o = data.order;
-                const statusEl = document.getElementById('customer-payment-status');
-                if (statusEl) {
-                    if (o.status === 'completed' || o.kitchen_status === 'served') {
-                        statusEl.textContent = o.status === 'completed'
-                            ? '🎉 Đơn hàng đã hoàn tất! Cảm ơn quý khách.'
-                            : '🍽️ Món đã được bưng ra! Chúc quý khách ngon miệng.';
-                        statusEl.className = 'text-xs text-emerald-300 font-semibold p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30';
-                    } else if (o.kitchen_status === 'ready') {
-                        statusEl.textContent = '🍳 Món đã chuẩn bị xong, đang giao tới quý khách!';
-                        statusEl.className = 'text-xs text-sky-300 font-semibold p-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30';
-                    } else {
-                        statusEl.textContent = '⏳ Quán đã nhận đơn, bếp đang chế biến!';
-                        statusEl.className = 'text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20';
-                    }
-                }
-                this.syncReviewBox(o);
-            }
-        } catch (e) {
-            console.log('Error checking order status:', e);
-        }
+            if (o) this.syncReviewBox(o);
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     },
 
     selectedReviewStars: 0,
@@ -836,17 +965,18 @@ const CustomerOrdering = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     order_code: this.currentOrder.order_code,
+                    access_token: this.currentOrder.access_token || '',
                     rating,
                     comment
                 })
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Không thể gửi đánh giá');
+                throw new Error(data.message || (window.cnxT?window.cnxT('js.s_cust.e52a2080','Không thể gửi đánh giá'):'Không thể gửi đánh giá'));
             }
             this.syncReviewBox({ status: 'completed', customer_rating: rating });
         } catch (e) {
-            alert(e.message || 'Lỗi gửi đánh giá');
+            alert(e.message || (window.cnxT?window.cnxT('js.s_cust.b8577377','Lỗi gửi đánh giá'):'Lỗi gửi đánh giá'));
             if (btn) btn.disabled = false;
         }
     },
@@ -921,7 +1051,7 @@ async function showQuickVietQr() {
     }
 
     if (total <= 0) {
-        alert('Giỏ món hiện đang trống (0 đ). Vui lòng chọn món trước khi quét mã thanh toán VietQR!');
+        alert((window.cnxT?window.cnxT('js.s_cust.0da30d0d','Giỏ món hiện đang trống (0 đ). Vui lòng chọn món trước khi quét mã thanh toán VietQR!'):'Giỏ món hiện đang trống (0 đ). Vui lòng chọn món trước khi quét mã thanh toán VietQR!'));
         return;
     }
 
@@ -940,19 +1070,21 @@ async function showQuickVietQr() {
     const accNameEl = document.getElementById('quick-vietqr-acc-name');
     const noteEl = document.getElementById('quick-vietqr-note-text');
 
-    if (amtDisplay) amtDisplay.textContent = new Intl.NumberFormat('vi-VN').format(total) + ' đ';
+    if (amtDisplay) amtDisplay.textContent = new Intl.NumberFormat('vi-VN').format(total) + (window.cnxT?window.cnxT('js.m_sa.fce50cf4',' đ'):' đ');
     if (noteEl) noteEl.textContent = note;
 
     let bankId = 'OCB';
     let accountNo = '0918608073';
     let accountName = 'NGUYEN CHI HUNG';
-    let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(accountName)}`;
+    let qrUrl = `/api/payment/vietqr_svg?bank_id=${encodeURIComponent(bankId)}&account_no=${encodeURIComponent(accountNo)}&amount=${total}&add_info=${encodeURIComponent(note)}&account_name=${encodeURIComponent(accountName)}`;
+    let qrPayload = '';
 
     try {
         const res = await fetch(`api/orders?action=vietqr&amount=${total}&order_code=${encodeURIComponent(orderCode)}`);
         const data = await res.json();
         if (data.success) {
             if (data.vietqr_url) qrUrl = data.vietqr_url;
+            if (data.vietqr_payload) qrPayload = data.vietqr_payload;
             if (data.bank_id) bankId = data.bank_id;
             if (data.account_no) accountNo = data.account_no;
             if (data.account_name) accountName = data.account_name;
@@ -962,7 +1094,13 @@ async function showQuickVietQr() {
         console.log('Using default VietQR config:', err);
     }
 
-    if (qrImg) qrImg.src = qrUrl;
+    if (qrImg) {
+        if (typeof window.cnxRenderVietQr === 'function') {
+            window.cnxRenderVietQr(qrImg, { bank_id: bankId, account_no: accountNo, amount: total, note: note, account_name: accountName, vietqr_url: qrUrl, vietqr_payload: qrPayload });
+        } else {
+            qrImg.src = qrUrl;
+        }
+    }
     if (bankNameEl) bankNameEl.textContent = bankId + ' Bank';
     if (accNoEl) accNoEl.textContent = accountNo;
     if (accNameEl) accNameEl.textContent = accountName;
@@ -977,10 +1115,10 @@ function closeQuickVietQr() {
 }
 
 async function handleLogout() {
-    if (!confirm('Đăng xuất khỏi tài khoản?')) return;
+    if (!(await window.cnxConfirm((window.cnxT?window.cnxT('js.s_cust.86c13e7b','Đăng xuất khỏi tài khoản?'):'Đăng xuất khỏi tài khoản?')))) return;
     try {
         await fetch('api/auth.php?action=logout');
-    } catch(e) {}
+    } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_token');
     sessionStorage.clear();
@@ -1007,7 +1145,7 @@ async function getCustomerMenuShareUrl() {
                 var port = window.location.port ? (':' + window.location.port) : '';
                 origin = window.location.protocol + '//' + lanIp + port;
             }
-        } catch (e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     }
     return origin + '/customer.html' + (window.location.search || '');
 }
@@ -1030,10 +1168,10 @@ async function initHeroCustomerQr() {
             });
         } catch(e) {
             console.error("Hero QR render error:", e);
-            container.innerHTML = '<span class="text-rose-400 text-xs p-2">Lỗi mã QR</span>';
+            container.innerHTML = (window.cnxT?window.cnxT('js.s_cust.1d20914f','<span class="text-rose-400 text-xs p-2">Lỗi mã QR</span>'):'<span class="text-rose-400 text-xs p-2">Lỗi mã QR</span>');
         }
     } else {
-        container.innerHTML = '<span class="text-slate-400 text-xs p-2">Đang nạp mã QR...</span>';
+        container.innerHTML = (window.cnxT?window.cnxT('js.s_cust.d6d1cf5e','<span class="text-slate-400 text-xs p-2">Đang nạp mã QR...</span>'):'<span class="text-slate-400 text-xs p-2">Đang nạp mã QR...</span>');
     }
 }
 
@@ -1041,7 +1179,7 @@ async function copyCustomerDirectUrl() {
     var url = window._cachedCustomerQrUrl || await getCustomerMenuShareUrl();
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(function() {
-            alert('Đã sao chép link gọi món:\n' + url);
+            alert((window.cnxT?window.cnxT('js.s_cust.8fc45530','Đã sao chép link gọi món:\n'):'Đã sao chép link gọi món:\n') + url);
         });
     } else {
         var t = document.createElement('textarea');
@@ -1050,7 +1188,7 @@ async function copyCustomerDirectUrl() {
         t.select();
         document.execCommand('copy');
         document.body.removeChild(t);
-        alert('Đã sao chép link gọi món:\n' + url);
+        alert((window.cnxT?window.cnxT('js.s_cust.8fc45530','Đã sao chép link gọi món:\n'):'Đã sao chép link gọi món:\n') + url);
     }
 }
 
@@ -1077,9 +1215,16 @@ const CustomerJukebox = {
         await this.loadStatus();
         await this.loadTracks(true);
         if (this.timer) clearInterval(this.timer);
-        this.timer = setInterval(() => {
-            this.loadStatus();
-            this.loadTracks(true);
+        this._jukePollInFlight = false;
+        this.timer = setInterval(async () => {
+            if (this._jukePollInFlight) return;
+            this._jukePollInFlight = true;
+            try {
+                await this.loadStatus();
+                await this.loadTracks(true);
+            } finally {
+                this._jukePollInFlight = false;
+            }
         }, 10000);
     },
 
@@ -1100,9 +1245,9 @@ const CustomerJukebox = {
 
     updateNowPlayingUI() {
         if (!this.nowPlaying) return;
-        const title = this.nowPlaying.track_title || 'Chưa có bài hát';
-        const artist = this.nowPlaying.track_artist || 'Quán Tự Động';
-        const table = this.nowPlaying.table_name || 'Hệ Thống';
+        const title = this.nowPlaying.track_title || (window.cnxT?window.cnxT('js.s_cust.c2d84656','Chưa có bài hát'):'Chưa có bài hát');
+        const artist = this.nowPlaying.track_artist || (window.cnxT?window.cnxT('js.s_cust.9c3210e1','Quán Tự Động'):'Quán Tự Động');
+        const table = this.nowPlaying.table_name || (window.cnxT?window.cnxT('ui.cust_html.span_a5f81a9d','Hệ Thống'):'Hệ Thống');
 
         const barTitle = document.getElementById('jukebox-now-title');
         const barArtist = document.getElementById('jukebox-now-artist');
@@ -1145,7 +1290,7 @@ const CustomerJukebox = {
             container.innerHTML = `
                 <div class="p-6 text-center text-slate-400 text-xs rounded-xl bg-slate-900/50 border border-white/5">
                     <i class="fas fa-music-slash text-2xl mb-1 text-slate-600 block"></i>
-                    Không tìm thấy bài hát phù hợp.
+                    ${window.cnxT?window.cnxT('js.s_cust.fa7190dc','Không tìm thấy bài hát phù hợp.'):'Không tìm thấy bài hát phù hợp.'}
                 </div>
             `;
             return;
@@ -1165,19 +1310,19 @@ const CustomerJukebox = {
                             <i class="fas fa-music"></i>
                         </div>
                         <div class="min-w-0">
-                            <div class="font-bold text-xs text-white truncate">${t.title}</div>
+                            <div class="font-bold text-xs text-white truncate">${escapeHtml(t.title)}</div>
                             <div class="text-[11px] text-slate-400 flex items-center gap-2 truncate mt-0.5">
-                                <span>${t.artist}</span>
+                                <span>${escapeHtml(t.artist)}</span>
                                 <span>•</span>
-                                <span class="text-purple-300 font-medium">${t.genre || 'Music'}</span>
+                                <span class="text-purple-300 font-medium">${escapeHtml(t.genre || 'Music')}</span>
                                 <span>•</span>
                                 <span class="font-mono text-[10px] text-slate-500">${dur}</span>
                             </div>
                         </div>
                     </div>
-                    <button type="button" onclick="CustomerJukebox.requestSong(${t.id}, '${safeTitle}')" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all shadow-md shadow-purple-600/20 active:scale-95">
+                    <button type="button" onclick="CustomerJukebox.requestSong(${t.id}, '${escapeJsAttr(t.title || '')}')" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all shadow-md shadow-purple-600/20 active:scale-95">
                         <i class="fas fa-plus text-[10px]"></i>
-                        <span>Chọn bài</span>
+                        <span>${window.cnxT?window.cnxT('js.s_cust.88513a3c','Chọn bài'):'Chọn bài'}</span>
                     </button>
                 </div>
             `;
@@ -1194,7 +1339,7 @@ const CustomerJukebox = {
             listEl.innerHTML = `
                 <div class="p-6 text-center text-slate-400 text-xs rounded-xl bg-slate-900/50 border border-white/5">
                     <i class="fas fa-compact-disc text-2xl mb-1 text-slate-600 block animate-spin" style="animation-duration: 8s;"></i>
-                    Hàng đợi đang trống. Hãy là người đầu tiên chọn bài yêu thích!
+                    ${window.cnxT?window.cnxT('js.s_cust.f952fe30','Hàng đợi đang trống. Hãy là người đầu tiên chọn bài yêu thích!'):'Hàng đợi đang trống. Hãy là người đầu tiên chọn bài yêu thích!'}
                 </div>
             `;
             return;
@@ -1208,13 +1353,13 @@ const CustomerJukebox = {
                     </span>
                     <div class="min-w-0">
                         <div class="font-bold text-xs text-white truncate flex items-center gap-1.5">
-                            <span class="truncate">${q.track_title}</span>
+                            <span class="truncate">${escapeHtml(q.track_title)}</span>
                             ${q.is_priority ? '<span class="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 font-semibold">VIP</span>' : ''}
                         </div>
                         <div class="text-[11px] text-slate-400 flex items-center gap-2 truncate mt-0.5">
-                            <span>${q.track_artist}</span>
+                            <span>${escapeHtml(q.track_artist)}</span>
                             <span>•</span>
-                            <span class="text-amber-300 font-semibold">${q.table_name || 'Khách tại bàn'}</span>
+                            <span class="text-amber-300 font-semibold">${escapeHtml(q.table_name || (window.cnxT?window.cnxT('js.s_cust.3bfc4cc6','Khách tại bàn'):'Khách tại bàn'))}</span>
                         </div>
                     </div>
                 </div>
@@ -1244,16 +1389,16 @@ const CustomerJukebox = {
     },
 
     async requestSong(trackId, title) {
-        let tableName = 'Khách tại bàn';
+        let tableName = (window.cnxT?window.cnxT('js.s_cust.3bfc4cc6','Khách tại bàn'):'Khách tại bàn');
         let tableId = 0;
         try {
             const params = new URLSearchParams(window.location.search);
             const tCode = params.get('table') || params.get('table_code') || params.get('t');
             const tName = params.get('name') || params.get('table_name');
             if (tCode) {
-                tableName = tName || `Bàn ${tCode}`;
+                tableName = tName || `${window.cnxT?window.cnxT('ui.admin_html.th_839747c8','Bàn'):'Bàn'} ${tCode}`;
             }
-        } catch (_) {}
+        } catch (_) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', _) : console.debug('customer_app.js', _)); }
 
         try {
             const res = await fetch('/api/media/jukebox/request', {
@@ -1268,14 +1413,14 @@ const CustomerJukebox = {
             });
             const data = await res.json();
             if (data.success) {
-                this.showNotification('🎵 ' + (data.message || 'Đã thêm bài hát vào hàng đợi!'), 'success');
+                this.showNotification('🎵 ' + (data.message || (window.cnxT?window.cnxT('js.s_cust.bdc65d7d','Đã thêm bài hát vào hàng đợi!'):'Đã thêm bài hát vào hàng đợi!')), 'success');
                 await this.loadStatus();
                 this.switchTab('queue');
             } else {
-                this.showNotification('⚠️ ' + (data.message || 'Lỗi yêu cầu bài'), 'warning');
+                this.showNotification('⚠️ ' + (data.message || (window.cnxT?window.cnxT('js.s_cust.cccb6c18','Lỗi yêu cầu bài'):'Lỗi yêu cầu bài')), 'warning');
             }
         } catch (e) {
-            this.showNotification('❌ Lỗi kết nối: ' + e.message, 'error');
+            this.showNotification((window.cnxT?window.cnxT('js.s_cust.9f3fc2da','❌ Lỗi kết nối: '):'❌ Lỗi kết nối: ') + e.message, 'error');
         }
     },
 
@@ -1288,10 +1433,10 @@ const CustomerJukebox = {
             });
             const data = await res.json();
             if (data.success) {
-                this.showNotification('❤️ Đã thả tim bình chọn bài hát!', 'success');
+                this.showNotification((window.cnxT?window.cnxT('js.s_cust.d7778db3','❤️ Đã thả tim bình chọn bài hát!'):'❤️ Đã thả tim bình chọn bài hát!'), 'success');
                 this.loadStatus();
             } else {
-                this.showNotification(data.message || 'Lỗi bình chọn', 'warning');
+                this.showNotification(data.message || (window.cnxT?window.cnxT('js.s_med.3f8a253a','Lỗi bình chọn'):'Lỗi bình chọn'), 'warning');
             }
         } catch (e) {
             console.log('Vote song error:', e);
@@ -1395,9 +1540,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 banner.innerHTML = `
                     <div class="flex items-center gap-2">
                         <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]"><i class="fas fa-chair"></i></span>
-                        <span>Quý khách đang gọi món tại <strong class="underline font-mono">${tableCode} - ${tableName || 'Bàn'}</strong></span>
+                        <span>${window.cnxT?window.cnxT('js.s_cust.4d12d419','Quý khách đang gọi món tại'):'Quý khách đang gọi món tại'} <strong class="underline font-mono">${tableCode} - ${tableName || (window.cnxT?window.cnxT('ui.admin_html.th_839747c8','Bàn'):'Bàn')}</strong></span>
                     </div>
-                    <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">Phục vụ tại bàn</span>
+                    <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">${window.cnxT?window.cnxT('js.s_cust.54255f8e','Phục vụ tại bàn'):'Phục vụ tại bàn'}</span>
                 `;
                 header.parentNode.insertBefore(banner, header.nextSibling);
             }
@@ -1414,9 +1559,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (zone) {
                 const isAdmin = (u.role === 'admin' || u.is_super_admin === true);
                 const roleHomeMap = {
-                    waiter: { href: 'order.html', label: 'Phục vụ' },
-                    cashier: { href: 'index.html', label: 'Thu ngân' },
-                    kitchen: { href: 'kitchen.html', label: 'Bếp' }
+                    waiter: { href: 'order.html', label: (window.cnxT?window.cnxT('ui.ord_html.b_c7307f33','Phục vụ'):'Phục vụ') },
+                    cashier: { href: 'index.html', label: (window.cnxT?window.cnxT('ui.ord_html.b_6951ffd8','Thu ngân'):'Thu ngân') },
+                    kitchen: { href: 'kitchen.html', label: (window.cnxT?window.cnxT('ui.adm_html.span_590a5f5b','Bếp'):'Bếp') }
                 };
                 const roleHome = roleHomeMap[u.role];
                 const adminBadgeHtml = isAdmin
@@ -1442,6 +1587,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-        } catch(e) {}
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     }
 });

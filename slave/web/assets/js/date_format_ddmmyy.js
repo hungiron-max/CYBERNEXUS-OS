@@ -110,7 +110,7 @@
         input.addEventListener('change', () => syncInput(input));
         input.addEventListener('click', () => {
             if (typeof input.showPicker === 'function') {
-                try { input.showPicker(); } catch (e) {}
+                try { input.showPicker(); } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('date_format_ddmmyy.js', e) : console.debug('date_format_ddmmyy.js', e)); }
             }
         });
         syncInput(input);

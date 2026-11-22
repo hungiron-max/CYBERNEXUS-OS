@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Hợp Đồng Dịch Vụ - SDL002</title>
+  <style>
+    @page { size: A4; margin: 18mm 18mm 18mm 22mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Times New Roman", Times, serif; color: #111827; font-size: 13.5px; line-height: 1.55; margin: 0; background: #cbd5e1; }
+    .no-print { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #f8fafc; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .no-print button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 12px; }
+    .btn-print { background: #0284c7; color: #fff; }
+    .btn-close { background: #334155; color: #e2e8f0; margin-left: 8px; }
+    .a4-page { width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm 18mm 18mm 22mm; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.22); }
+    .center { text-align: center; }
+    h1 { font-size: 16.5px; text-transform: uppercase; margin: 12px 0 3px; letter-spacing: 0.3px; }
+    h2 { font-size: 13.5px; margin: 12px 0 4px; text-transform: uppercase; color: #0f172a; }
+    .party { border: 1px solid #94a3b8; padding: 9px 12px; border-radius: 4px; margin-bottom: 10px; background: #f8fafc; }
+    .party-title { font-weight: 700; text-transform: uppercase; margin-bottom: 4px; color: #0f172a; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+    .sign { display: flex; justify-content: space-between; margin-top: 26px; text-align: center; page-break-inside: avoid; }
+    .sign > div { width: 46%; }
+    ul { margin: 4px 0; padding-left: 20px; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .a4-page { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <div><b>Hợp Đồng Dịch Vụ Phần Mềm</b> — Mã quán: <b>SDL002</b> (Si Đô La)</div>
+    <div>
+      <button class="btn-print" onclick="window.print()">In / Xuất File PDF</button>
+      <button class="btn-close" onclick="window.close()">Đóng</button>
+    </div>
+  </div>
+
+  <div class="a4-page">
+    <div class="center">
+      <b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
+      <b><u>Độc lập - Tự do - Hạnh phúc</u></b>
+      <h1>HỢP ĐỒNG CUNG CẤP &amp; CẤP QUYỀN SỬ DỤNG PHẦN MỀM</h1>
+      <div>Số: <b>HĐ-SDL002-20261119</b> &nbsp;|&nbsp; Ngày lập: <b>19/11/2026</b></div>
+    </div>
+
+    <p style="margin-top:12px;font-style:italic;font-size:12.5px">
+      - Căn cứ Bộ luật Dân sự số 91/2015/QH13 và Luật Thương mại hiện hành;<br>
+      - Căn cứ Luật Sở hữu trí tuệ về bảo hộ quyền tác giả đối với chương trình máy tính;<br>
+      - Căn cứ nhu cầu sử dụng giải pháp quản lý bán hàng của Bên A và năng lực cung cấp của Bên B.
+    </p>
+
+    <div class="party">
+      <div class="party-title">BÊN B (BÊN CUNG CẤP DỊCH VỤ): HỆ THỐNG GIẢI PHÁP CYBERNEXUS OS</div>
+      <div>- Đơn vị phát triển &amp; vận hành: <b>CyberNexus OS Software Platform</b></div>
+      <div>- Đại diện: Bộ phận Kinh Doanh &amp; Triển Khai Kỹ Thuật CyberNexus OS</div>
+      <div>- Sản phẩm cấp phép: Phần mềm Quản lý Bán hàng &amp; Vận hành Chuỗi CyberNexus POS</div>
+    </div>
+
+    <div class="party">
+      <div class="party-title">BÊN A (BÊN SỬ DỤNG DỊCH VỤ): Trần Văn Đô</div>
+      <div class="grid-2">
+        <div>- Tên cửa hàng: <b>Si Đô La</b></div>
+        <div>- Mã quán: <b>SDL002</b></div>
+        <div>- Mã số thuế / CCCD: <b>123456789</b></div>
+        <div>- Điện thoại: <b>0989123456</b></div>
+        <div>- Người đại diện: <b>Trần Văn Đô</b></div>
+        <div>- Chức vụ: <b>Chủ hộ kinh doanh</b></div>
+      </div>
+      <div>- Email nhận thông báo &amp; hóa đơn: <b>dotran@gmail.com</b></div>
+      <div>- Địa chỉ trụ sở / xuất hóa đơn: <b>343 Nguyễn Trãi</b></div>
+      <div>- Địa chỉ lắp đặt cửa hàng: <b>343 Nguyễn Trãi</b></div>
+    </div>
+
+    <h2>Điều 1. Nội dung gói dịch vụ &amp; Cấp quyền sử dụng</h2>
+    <ul>
+      <li>Gói dịch vụ đăng ký: <b>Gói Trải Nghiệm (14 Ngày)</b> — Phí bản quyền: <b>Miễn phí (Gói Trải Nghiệm)</b></li>
+      <li>Mã khóa bản quyền (License Key): <b>LIC-4EC3-C35E-E804-1C52</b></li>
+      <li>Thời hạn hiệu lực: Từ ngày <b>19/11/2026</b> đến hết ngày <b>26/11/2026</b></li>
+      <li>Các phân hệ được cấp phép sử dụng: <b>POS Bán Hàng & In Nhiệt, Thanh Toán VietQR Tự Động, Màn Hình Bếp & Pha Chế (KDS), Báo Cáo Doanh Thu Chuyên Sâu, Nhân Viên, Phân Ca & Chấm Công, Thực Đơn QR Khách Hàng</b></li>
+    </ul>
+
+    <h2>Điều 2. Thanh toán &amp; Xuất hóa đơn tài chính</h2>
+    <div>
+      Bên A thanh toán đầy đủ 100% giá trị gói dịch vụ cho Bên B trước khi bàn giao bộ cài đặt chính thức (trừ trường hợp dùng thử Trial hoặc thỏa thuận bằng văn bản). Bên B xuất hóa đơn tài chính (VAT) theo đúng thông tin pháp nhân Bên A đã cung cấp sau khi nhận đủ thanh toán.
+    </div>
+
+    <h2>Điều 3. Cài đặt, Nghiệm thu &amp; Bảo hành kỹ thuật</h2>
+    <div>
+      Bên B tiến hành đóng gói bộ cài riêng cho Mã quán <b>SDL002</b>, hướng dẫn cài đặt và cùng Bên A kiểm thử vận hành thực tế theo <b>Biên bản bàn giao &amp; Nghiệm thu</b>. Thời hạn bảo hành và cập nhật OTA được áp dụng xuyên suốt thời hạn bản quyền nêu tại Điều 1.
+    </div>
+
+    <h2>Điều 4. Quyền và nghĩa vụ của các bên</h2>
+    <ul>
+      <li><b>Bên A:</b> Được sử dụng đầy đủ phân hệ đã mua, được hỗ trợ kỹ thuật và cập nhật phần mềm qua OTA. Có trách nhiệm bảo mật tài khoản quản trị, đổi mã PIN 6 số ngay lần đầu sử dụng và thanh toán gia hạn đúng hạn.</li>
+      <li><b>Bên B:</b> Đảm bảo phần mềm vận hành ổn định, đúng phân hệ cam kết; bảo mật dữ liệu kinh doanh của Bên A; hỗ trợ xử lý sự cố và chuyển đổi thiết bị khi Bên A thay phần cứng hợp lệ.</li>
+    </ul>
+
+    <h2>Điều 5. Bản quyền sở hữu trí tuệ &amp; Chế tài vi phạm</h2>
+    <div>
+      Bên A cam kết tuân thủ toàn bộ quy định tại <b>Điều Khoản Sử Dụng &amp; Trách Nhiệm Pháp Lý Về Bản Quyền</b> đính kèm hợp đồng này: không sao chép, chia sẻ bộ cài/License Key cho bên thứ ba, không dịch ngược hoặc can thiệp chữ ký số hệ thống. Mọi hành vi vi phạm dẫn đến thu hồi bản quyền ngay lập tức và chịu trách nhiệm bồi thường theo pháp luật.
+    </div>
+
+    <h2>Điều 6. Hiệu lực hợp đồng</h2>
+    <div>
+      Hợp đồng có hiệu lực kể từ ngày ký và được lập thành 02 (hai) bản có giá trị pháp lý như nhau, mỗi bên giữ 01 (một) bản làm căn cứ thực hiện.
+    </div>
+
+    <div class="sign">
+      <div><b>ĐẠI DIỆN BÊN A</b><br><i>(Ký, ghi rõ họ tên, đóng dấu nếu có)</i><br><br><br><br><b>Trần Văn Đô</b></div>
+      <div><b>ĐẠI DIỆN BÊN B</b><br><i>(Ký, ghi rõ họ tên, đóng dấu)</i><br><br><br><br><b>CYBERNEXUS OS</b></div>
+    </div>
+  </div>
+</body>
+</html>

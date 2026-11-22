@@ -2,6 +2,7 @@
 #include <fstream>
 #include <filesystem>
 #include <csignal>
+#include <cstdlib>
 #include <thread>
 #include <chrono>
 #include <atomic>
@@ -17,10 +18,76 @@
 #include "ConfigManager.hpp"
 #include "PluginManager.hpp"
 #include <random>
+#include <mutex>
 
 namespace fs = std::filesystem;
 using namespace SaleApp::Backend;
 using namespace SaleApp::Config;
+
+static std::mutex g_webIntegrityMtx;
+static nlohmann::json g_lastWebIntegrityReport = {
+    {"ok", true}, {"checked_count", 0}, {"mismatched_files", nlohmann::json::array()}, {"missing_files", nlohmann::json::array()}, {"checked_at", ""}
+};
+
+static nlohmann::json verifyWebIntegrity(const fs::path& webRoot) {
+    nlohmann::json report = {
+        {"ok", true},
+        {"has_manifest", false},
+        {"checked_count", 0},
+        {"mismatched_files", nlohmann::json::array()},
+        {"missing_files", nlohmann::json::array()},
+        {"checked_at", ""}
+    };
+    std::time_t nowT = std::time(nullptr);
+    char tBuf[32];
+    std::strftime(tBuf, sizeof(tBuf), "%Y-%m-%d %H:%M:%S", std::localtime(&nowT));
+    report["checked_at"] = std::string(tBuf);
+
+    fs::path manifestPath = webRoot / "web_integrity.json";
+    if (!fs::exists(manifestPath)) {
+        std::lock_guard<std::mutex> lk(g_webIntegrityMtx);
+        g_lastWebIntegrityReport = report;
+        return report;
+    }
+    report["has_manifest"] = true;
+    try {
+        std::ifstream mf(manifestPath, std::ios::binary);
+        nlohmann::json manifest;
+        mf >> manifest;
+        nlohmann::json filesMap = (manifest.is_object() && manifest.contains("files") && manifest["files"].is_object())
+            ? manifest["files"] : manifest;
+        int checked = 0;
+        for (auto it = filesMap.begin(); it != filesMap.end(); ++it) {
+            if (!it.value().is_string()) continue;
+            std::string rel = it.key();
+            if (rel == "version" || rel == "generated_at") continue;
+            std::string expectedSha = it.value().get<std::string>();
+            fs::path fp = webRoot / fs::u8path(rel);
+            checked++;
+            if (!fs::exists(fp)) {
+                report["ok"] = false;
+                report["missing_files"].push_back(rel);
+                continue;
+            }
+            std::ifstream ifs(fp, std::ios::binary);
+            std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+            std::string actualSha = SaleApp::Backend::AuthService::sha256(content);
+            if (actualSha != expectedSha) {
+                report["ok"] = false;
+                report["mismatched_files"].push_back({{"file", rel}, {"expected", expectedSha}, {"actual", actualSha}});
+            }
+        }
+        report["checked_count"] = checked;
+    } catch (const std::exception& e) {
+        report["ok"] = false;
+        report["error"] = e.what();
+    }
+    {
+        std::lock_guard<std::mutex> lk(g_webIntegrityMtx);
+        g_lastWebIntegrityReport = report;
+    }
+    return report;
+}
 
 static httplib::Server* g_server = nullptr;
 
@@ -46,16 +113,17 @@ int main(int argc, char* argv[]) {
     config.init("slave", argc, argv);
     config.printBanner();
 
-    // 2. Chế độ Slave POS: SuperAdmin bị vô hiệu hóa 100%
-    LicenseService::instance().setSuperAdminMode(false);
-
-    // 3. Mở CSDL nội bộ của quán
+    // 2. Mở CSDL nội bộ của quán trước khi khởi tạo LicenseService để chạy migration schema đúng thứ tự
     std::string dbPath = config.getDatabasePath().string();
     if (!Database::instance().open(dbPath)) {
         std::cerr << "[CRITICAL Slave] Khong the mo CSDL POS tai: " << dbPath << std::endl;
         return 1;
     }
     std::cout << "[DB Slave] Mo CSDL POS thanh cong: " << dbPath << std::endl;
+
+    // 3. Chế độ Slave POS: SuperAdmin bị vô hiệu hóa 100% & đảm bảo cột schema local_license_cache
+    LicenseService::instance().setSuperAdminMode(false);
+    LicenseService::instance().ensureTableExists();
 
     // Reset toàn bộ phiên đăng nhập & trạng thái online khi khởi động máy chủ mới
     AuthService::instance().clearAllSessions();
@@ -136,16 +204,49 @@ int main(int argc, char* argv[]) {
         {"X-Content-Type-Options", "nosniff"},
         {"X-Frame-Options", "SAMEORIGIN"},
         {"Referrer-Policy", "strict-origin-when-cross-origin"},
-        {"Content-Security-Policy", "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://img.vietqr.io https://api.vietqr.io https:; media-src 'self' data: blob:; connect-src 'self' ws: wss: https://api.vietqr.io https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"}
+        {"Access-Control-Allow-Origin", "*"},
+        {"Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"},
+        {"Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key"},
+        {"Content-Security-Policy", "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"}
     });
 
-    // BẢO MẬT KHO NHẠC: Mọi API Media/Jukebox và file nhạc tĩnh chỉ dành cho người dùng ĐÃ ĐĂNG NHẬP.
-    // Khách vãng lai (chưa đăng nhập) không được truy cập kho nhạc / hàng đợi / EQ.
+    svr.Options(".*", [](const httplib::Request&, httplib::Response& res) {
+        res.status = 204;
+    });
+
+    // BẢO MẬT HARDWARE NODE-LOCK, TRẠNG THÁI THUÊ BAO (ARCH-04) & KHO NHẠC:
+    // 1. Chặn vận hành nếu thư mục Slave bị copy sang máy khác Hardware ID, chữ ký bị sửa, đồng hồ bị vặn lùi, hoặc thuê bao bị SuperAdmin đình chỉ/hết hạn.
+    // 2. Mọi API Media/Jukebox và file nhạc tĩnh chỉ dành cho người dùng ĐÃ ĐĂNG NHẬP.
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         const std::string& p = req.path;
+        if (req.method == "OPTIONS") return httplib::Server::HandlerResponse::Unhandled;
+
+        std::string licCode, licReason;
+        if (p.rfind("/api/", 0) == 0 &&
+            p.rfind("/api/auth", 0) != 0 &&
+            p.rfind("/api/license", 0) != 0 &&
+            p.rfind("/api/wan_tunnel", 0) != 0 &&
+            p.rfind("/api/health", 0) != 0 &&
+            p.rfind("/api/system/integrity", 0) != 0 &&
+            p.rfind("/api/system/updates", 0) != 0 &&
+            !LicenseService::instance().isSystemActive(&licCode, &licReason)) {
+            std::string boundMid, curMid;
+            LicenseService::instance().isMachineMismatch(&boundMid, &curMid);
+            res.status = 403;
+            res.set_header("Cache-Control", "no-store");
+            res.set_content(nlohmann::json({
+                {"success", false},
+                {"code", licCode.empty() ? "LICENSE_INACTIVE" : licCode},
+                {"error", licCode.empty() ? "LICENSE_INACTIVE" : licCode},
+                {"machine_id", curMid},
+                {"bound_machine_id", boundMid},
+                {"message", licReason.empty() ? "Bản quyền cửa hàng không hợp lệ hoặc đã bị tạm khóa!" : licReason}
+            }).dump(), "application/json; charset=utf-8");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+
         bool isMediaPath = (p.rfind("/api/media", 0) == 0) || (p.rfind("/assets/media", 0) == 0);
         if (!isMediaPath) return httplib::Server::HandlerResponse::Unhandled;
-        if (req.method == "OPTIONS") return httplib::Server::HandlerResponse::Unhandled;
         auto userOpt = AuthService::instance().authenticate(req);
         if (userOpt.has_value()) return httplib::Server::HandlerResponse::Unhandled;
         res.status = 401;
@@ -174,6 +275,10 @@ int main(int argc, char* argv[]) {
     if (fs::exists(webDir / "img")) {
         svr.set_mount_point("/img", (webDir / "img").string());
         std::cout << "[Slave Static] Mount /img -> " << (webDir / "img").string() << std::endl;
+    }
+    if (fs::exists(webDir / "locales")) {
+        svr.set_mount_point("/locales", (webDir / "locales").string());
+        std::cout << "[Slave Static] Mount /locales -> " << (webDir / "locales").string() << std::endl;
     }
 
     // Chống cache JS/CSS trên trình duyệt/điện thoại máy trạm để tự nhận bản vá OTA ngay không cần Ctrl+F5
@@ -320,6 +425,10 @@ int main(int argc, char* argv[]) {
     svr.Get("/wifi", serveView("wifi"));
     svr.Get("/wifi.html", serveView("wifi"));
 
+    // Trang Chấm Công Web & Kiosk Nhân Sự (Personal + PIN 6 + Webcam Selfie)
+    svr.Get("/attendance", serveView("attendance"));
+    svr.Get("/attendance.html", serveView("attendance"));
+
     svr.Get("/login", serveView("login"));
     svr.Get("/login.html", serveView("login"));
     svr.Get("/login.php", serveView("login"));
@@ -359,7 +468,16 @@ int main(int argc, char* argv[]) {
     ctx.checkLicenseStatus = [](const std::string& code) { return LicenseService::instance().isModuleEnabled(code); };
     ctx.emitSystemEvent = [](const std::string& type, const CyberNexus::json& payload) { CyberNexus::PluginManager::instance().dispatchEvent(type, payload); };
 
+#ifdef _WIN32
+    _putenv_s("CYBERNEXUS_DB_PATH", config.getDatabasePath().string().c_str());
+#else
+    setenv("CYBERNEXUS_DB_PATH", config.getDatabasePath().string().c_str(), 1);
+#endif
+
     fs::path modulesDir = config.getBaseDir() / "modules";
+    if (const char* envMods = std::getenv("CYBERNEXUS_MODULES_DIR"); envMods && *envMods) {
+        modulesDir = envMods;
+    }
     size_t nPlugins = CyberNexus::PluginManager::instance().scanAndLoadDirectory(modulesDir.string(), ctx);
     CyberNexus::PluginManager::instance().registerAllActiveRoutes(svr);
     std::cout << "[Slave Plugins] Da quet va nap " << nPlugins << " dynamic plugin DLL tu: " << modulesDir.string() << std::endl;
@@ -397,6 +515,27 @@ int main(int argc, char* argv[]) {
         }
     });
     heartbeatThread.detach();
+
+    // [HR-03 + SEC-15] Background Maintenance Thread (Chạy autoProcessShifts mỗi 2 phút & auto_apply OTA khi 0 đơn pending mỗi 5s)
+    std::thread shiftMaintThread([]() {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        int tick = 0;
+        while (s_heartbeatRunning) {
+            if (tick % 24 == 2) {
+                try {
+                    SaleApp::Backend::ApiHandlers::runPeriodicShiftMaintenance();
+                } catch (...) {}
+            }
+            try {
+                SlaveUpdateManager::instance().tryAutoApplyIfIdle();
+            } catch (...) {}
+            ++tick;
+            for (int i = 0; i < 5 && s_heartbeatRunning; ++i) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+    });
+    shiftMaintThread.detach();
 
     // 7. Reverse Long-Polling Worker Thread (Xuyên NAT/WAN để Master kiểm tra Online & đẩy lệnh tức thì)
     SlaveTunnelStatus::instance().setStartTimeNow();
@@ -442,10 +581,20 @@ int main(int argc, char* argv[]) {
             std::string masterUrl = AppConfig::instance().getMasterServerUrl();
             if (masterUrl.empty()) masterUrl = "http://127.0.0.1:8500";
             std::string fbUrl = AppConfig::instance().getMasterFallbackUrl();
-            if (retryCount >= 3 && !fbUrl.empty() && fbUrl != masterUrl && (retryCount % 2 == 1)) {
+            if (retryCount >= 1 && !fbUrl.empty() && fbUrl != masterUrl && (retryCount % 2 == 1)) {
                 masterUrl = fbUrl;
             }
             std::string mid = LicenseService::instance().getMachineId();
+
+            std::string curAppVer = "2.1.8";
+            try {
+                std::ifstream vfs(AppConfig::instance().getBaseDir() / "version.txt");
+                std::string vl;
+                if (std::getline(vfs, vl) && !vl.empty()) {
+                    while (!vl.empty() && (vl.back() == '\r' || vl.back() == '\n' || vl.back() == ' ')) vl.pop_back();
+                    if (!vl.empty()) curAppVer = vl;
+                }
+            } catch (...) {}
 
             try {
                 httplib::Client cli(masterUrl);
@@ -457,7 +606,7 @@ int main(int argc, char* argv[]) {
                     {"uptime_sec", SlaveTunnelStatus::instance().getUptimeSec()},
                     {"active_orders", activeOrders},
                     {"db_ok", true},
-                    {"app_version", "2.1.8"},
+                    {"app_version", curAppVer},
                     {"lan_ip", netGeo.value("lan_ip", "")},
                     {"wan_ip", netGeo.value("wan_ip", "")},
                     {"geo_lat", netGeo.value("geo_lat", 0.0)},
@@ -468,7 +617,7 @@ int main(int argc, char* argv[]) {
                 json pollReq = {
                     {"license_key", key},
                     {"machine_id", mid},
-                    {"app_version", "2.1.8"},
+                    {"app_version", curAppVer},
                     {"port", AppConfig::instance().getBindPort()},
                     {"net_geo", netGeo},
                     {"runtime", runtime}
@@ -497,13 +646,20 @@ int main(int argc, char* argv[]) {
                                 std::string st = lic.value("subscription_status", "active");
                                 std::string ex = lic.value("expire_date", "2028-12-31");
                                 double cfp = lic.value("card_fee_percent", 0.0);
+                                std::string licSig = lic.value("license_signature", "");
                                 if (!em.empty()) {
-                                    Database::instance().execute(
+                                    bool updated = Database::instance().execute(
                                         "UPDATE local_license_cache SET enabled_modules = :em, blocked_modules = :bm, "
                                         "subscription_status = :st, expire_date = :ex, card_fee_percent = :cfp, "
-                                        "last_sync_at = datetime('now'), last_sync_status = 'online_ok' WHERE id = 1",
-                                        {{":em", em}, {":bm", bm}, {":st", st}, {":ex", ex}, {":cfp", cfp}}
+                                        "last_sync_at = datetime('now'), last_sync_status = 'online_ok', "
+                                        "license_signature = CASE WHEN :sig != '' THEN :sig ELSE COALESCE(license_signature, '') END WHERE id = 1",
+                                        {{":em", em}, {":bm", bm}, {":st", st}, {":ex", ex}, {":cfp", cfp}, {":sig", licSig}}
                                     );
+                                    if (updated && !licSig.empty()) {
+                                        try {
+                                            Database::instance().execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_ecdsa_enrolled', '1') ON CONFLICT(setting_key) DO UPDATE SET setting_value = '1'");
+                                        } catch (...) {}
+                                    }
                                 }
                             } catch (...) {}
                         }
@@ -512,21 +668,15 @@ int main(int argc, char* argv[]) {
                             for (const auto& cmd : resp["commands"]) {
                                 std::string cmdId = cmd.value("cmd_id", "");
                                 std::string cmdType = cmd.value("type", "");
+                                bool cmdOk = true;
+                                bool sendAckAfter = false;
+                                bool triggerAutoApplyAfterAck = false;
+
                                 if (cmdType == "PING" && !cmdId.empty()) {
-                                    json ackReq = {
-                                        {"license_key", key},
-                                        {"machine_id", mid},
-                                        {"cmd_id", cmdId},
-                                        {"ok", true},
-                                        {"runtime", runtime}
-                                    };
-                                    httplib::Client ackCli(masterUrl);
-                                    ackCli.set_connection_timeout(4, 0);
-                                    ackCli.set_read_timeout(5, 0);
-                                    ackCli.Post("/api/license/ack", ackReq.dump(), "application/json");
-                                    SlaveTunnelStatus::instance().markAckSent();
+                                    sendAckAfter = true;
                                 } else if (cmdType == "SYNC_LICENSE") {
                                     LicenseService::instance().verifyLicenseOnline(key, mid);
+                                    sendAckAfter = !cmdId.empty();
                                 } else if (cmdType == "UPDATE_MASTER_URL") {
                                     json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
                                     std::string newPrimary = payload.value("master_server_url", "");
@@ -534,7 +684,10 @@ int main(int argc, char* argv[]) {
                                     if (!newPrimary.empty()) {
                                         AppConfig::instance().persistMasterUrls(newPrimary, newFallback);
                                         std::cout << "[Slave Config] Updated Master URL -> " << newPrimary << " (fallback: " << newFallback << ")" << std::endl;
+                                    } else {
+                                        cmdOk = false;
                                     }
+                                    sendAckAfter = !cmdId.empty();
                                 } else if (cmdType == "STORE_NOTIFY" || cmdType == "OTA_UPDATE") {
                                     json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
                                     std::string nTitle = payload.value("title", cmdType == "OTA_UPDATE" ? "Có bản cập nhật mới từ Master" : "Thông báo từ Hệ thống");
@@ -547,7 +700,27 @@ int main(int argc, char* argv[]) {
                                         cmdType == "OTA_UPDATE" ? "SYSTEM_UPDATE" : "SYSTEM_NOTIFY",
                                         nTitle, nMsg, nVer, dlPath
                                     );
-                                    (void)autoApply; // OTA được kiểm soát & thực hiện an toàn tại Control Center
+                                    if (cmdType == "OTA_UPDATE" && autoApply) {
+                                        SlaveUpdateManager::instance().scheduleAutoApply(masterUrl, dlPath, nVer);
+                                        triggerAutoApplyAfterAck = true;
+                                    }
+                                    sendAckAfter = !cmdId.empty();
+                                } else if (cmdType == "SYNC_THEME") {
+                                    json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
+                                    std::string themeStr = payload.contains("theme_json")
+                                        ? (payload["theme_json"].is_string() ? payload["theme_json"].get<std::string>() : payload["theme_json"].dump())
+                                        : "";
+                                    try {
+                                        Database::instance().execute(
+                                            "INSERT INTO store_settings (setting_key, setting_value) VALUES ('theme_json', :tj) "
+                                            "ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value",
+                                            {{":tj", themeStr}}
+                                        );
+                                        std::cout << "[Theme Studio] Da dong bo giao dien moi tu Master!\n";
+                                    } catch (...) {
+                                        cmdOk = false;
+                                    }
+                                    sendAckAfter = !cmdId.empty();
                                 } else if (cmdType == "RESET_OWNER_PIN") {
                                     json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();
                                     std::string pin6 = payload.value("pin6", "");
@@ -575,7 +748,30 @@ int main(int argc, char* argv[]) {
                                             flagOut << "DEFAULT_OWNER_PIN.txt";
                                         }
                                         std::cout << "[PinVault] Da nhan lenh RESET_OWNER_PIN tu Master va tao file DEFAULT_OWNER_PIN.txt" << std::endl;
+                                        cmdOk = true;
+                                    } else {
+                                        cmdOk = false;
                                     }
+                                    sendAckAfter = !cmdId.empty();
+                                }
+
+                                if (sendAckAfter && !cmdId.empty()) {
+                                    json ackReq = {
+                                        {"license_key", key},
+                                        {"machine_id", mid},
+                                        {"cmd_id", cmdId},
+                                        {"cmd_type", cmdType},
+                                        {"ok", cmdOk},
+                                        {"runtime", runtime}
+                                    };
+                                    httplib::Client ackCli(masterUrl);
+                                    ackCli.set_connection_timeout(4, 0);
+                                    ackCli.set_read_timeout(5, 0);
+                                    ackCli.Post("/api/license/ack", ackReq.dump(), "application/json");
+                                    SlaveTunnelStatus::instance().markAckSent();
+                                }
+                                if (triggerAutoApplyAfterAck) {
+                                    SlaveUpdateManager::instance().tryAutoApplyIfIdle();
                                 }
                             }
                         }
@@ -608,10 +804,57 @@ int main(int argc, char* argv[]) {
     });
     tunnelThread.detach();
 
-    // Health check
+    svr.Post("/api/system/control", [&svr](const httplib::Request& req, httplib::Response& res) {
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt.has_value() || userOpt->role != "admin") {
+            res.status = 403;
+            res.set_content("{\"success\":false,\"message\":\"Chỉ Chủ quán (Admin) mới có quyền điều khiển máy chủ!\"}", "application/json; charset=utf-8");
+            return;
+        }
+        nlohmann::json body = nlohmann::json::object();
+        if (!req.body.empty()) body = nlohmann::json::parse(req.body, nullptr, false);
+        std::string act = body.is_object() ? body.value("action", "") : "";
+        if (act == "stop" || act == "shutdown") {
+            res.set_content("{\"success\":true,\"message\":\"Máy chủ C++ đang dừng an toàn...\"}", "application/json; charset=utf-8");
+            std::thread([&svr]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                s_heartbeatRunning.store(false);
+                svr.stop();
+            }).detach();
+            return;
+        }
+        res.status = 400;
+        res.set_content("{\"success\":false,\"message\":\"Lệnh điều khiển không hợp lệ.\"}", "application/json; charset=utf-8");
+    });
+
+    // Health check & Web Integrity check (SEC-19)
+    verifyWebIntegrity(webDir);
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) {
         res.set_content("{\"status\":\"healthy\",\"role\":\"slave\",\"time\":" + std::to_string(std::time(nullptr)) + "}", "application/json");
     });
+    svr.Get("/api/system/integrity", [webDir](const httplib::Request& req, httplib::Response& res) {
+        bool useCached = req.has_param("cached") && req.get_param_value("cached") == "1";
+        nlohmann::json rep;
+        if (!useCached) {
+            rep = verifyWebIntegrity(webDir);
+        } else {
+            std::lock_guard<std::mutex> lk(g_webIntegrityMtx);
+            rep = g_lastWebIntegrityReport;
+        }
+        bool isOk = rep.value("ok", false);
+        rep["success"] = isOk;
+        if (!isOk) {
+            try {
+                Database::instance().execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('WEB_INTEGRITY_TAMPERED', 'Cảnh báo file JS/HTML bị chỉnh sửa trái phép', 'CRITICAL', 0, 'INTEGRITY', 'SYSTEM', 0, 'sha256_mismatch', 0, 'System Watchdog', 'system', :dtl, datetime('now','localtime'))
+                )", {{":dtl", rep.dump()}});
+            } catch (...) {}
+        }
+        res.set_content(rep.dump(), "application/json; charset=utf-8");
+    });
+
+    svr.set_payload_max_length(105ULL * 1024ULL * 1024ULL);
 
     std::cout << "==========================================================" << std::endl;
     std::cout << "  🚀 MAY CHU CYBERNEXUS POS SLAVE SAN SANG:" << std::endl;

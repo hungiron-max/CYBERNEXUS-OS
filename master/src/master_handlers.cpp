@@ -1,10 +1,14 @@
 #include "master_handlers.hpp"
 #include "master_tunnel.h"
 #include "license.hpp"
+#include "license_crypto.hpp"
 #include "pos_bcrypt.h"
 #include "ConfigManager.hpp"
 #include "gemini_client.hpp"
 #include "pin_vault.hpp"
+#include "rate_limiter.hpp"
+#include "upload_guard.hpp"
+#include "vietqr_emvco.hpp"
 #include "sqlite3.h"
 #include <iostream>
 #include <fstream>
@@ -347,6 +351,7 @@ static void ensureMasterAiTables(Database& db) {
     ensureCol("ai_usage_logs", "key_id", "INTEGER DEFAULT 0");
     ensureCol("saas_tenants", "ai_monthly_quota", "INTEGER DEFAULT 50");
     ensureCol("saas_tenants", "ai_bonus_credits", "INTEGER DEFAULT 0");
+    ensureCol("saas_tenants", "theme_json", "TEXT DEFAULT ''");
 
     // Migrate legacy single key in master_settings into master_ai_keys if pool is empty
     try {
@@ -546,8 +551,23 @@ void MasterHandlers::sendJson(httplib::Response& res, const json& data, int stat
     res.set_content(data.dump(), "application/json; charset=utf-8");
 }
 
+static std::string inferMasterErrorCode(const std::string& message) {
+    if (message.find("Chưa đăng nhập") != std::string::npos || message.find("xác thực") != std::string::npos) return "AUTH_REQUIRED";
+    if (message.find("Super Admin") != std::string::npos || message.find("quyền") != std::string::npos) return "SUPER_ADMIN_REQUIRED";
+    if (message.find("Không tìm thấy cửa hàng") != std::string::npos || message.find("Không tìm thấy quán") != std::string::npos || message.find("hồ sơ") != std::string::npos) return "TENANT_NOT_FOUND";
+    if (message.find("License") != std::string::npos || message.find("giấy phép") != std::string::npos) return "LICENSE_INVALID";
+    if (message.find("bản vá") != std::string::npos || message.find("OTA") != std::string::npos) return "OTA_NOT_FOUND";
+    if (message.find("Số dư ví") != std::string::npos) return "RESELLER_INSUFFICIENT_BALANCE";
+    return "API_ERROR";
+}
+
 void MasterHandlers::sendError(httplib::Response& res, const std::string& message, int statusCode) {
-    json err = {{"success", false}, {"message", message}};
+    json err = {
+        {"success", false},
+        {"code", inferMasterErrorCode(message)},
+        {"params", json::object()},
+        {"message", message}
+    };
     sendJson(res, err, statusCode);
 }
 
@@ -631,6 +651,16 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             return def;
         };
 
+        // [SEC-11] Enforce authenticated SuperAdmin session for GET & Reseller actions
+        if (action != "login" && action != "logout" &&
+            action != "check" && action != "check_auth" && action != "status") {
+            json su = getSaSessionUser(req);
+            if (su.is_null() || !su.is_object()) {
+                sendJson(res, {{"success", false}, {"message", "Phiên đăng nhập SuperAdmin đã hết hạn hoặc không hợp lệ!"}}, 401);
+                return;
+            }
+        }
+
         // Reseller data queries (accessible via both GET & POST)
         if (action == "get_resellers") {
             auto rows = db.query(R"(
@@ -655,6 +685,33 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             sql += " ORDER BY id DESC LIMIT 100";
             auto rows = db.query(sql, params);
             sendJson(res, {{"success", true}, {"data", rows}, {"logs", rows}});
+            return;
+        }
+
+        if (action == "update_store_location") {
+            if (req.method == "POST") {
+                json su = getSaSessionUser(req);
+                if (!su.is_null() && su.value("role", "") == "auditor") {
+                    sendJson(res, {{"success", false}, {"message", "Ban Kiểm Toán chỉ có quyền xem (Read-only), không được phép thay đổi dữ liệu!"}}, 403);
+                    return;
+                }
+            }
+            int64_t tid = body.value("tenant_id", int64_t(0));
+            if (tid <= 0 && req.has_param("tenant_id")) {
+                try { tid = std::stoll(req.get_param_value("tenant_id")); } catch (...) {}
+            }
+            double lat = body.value("geo_lat", 0.0);
+            double lng = body.value("geo_lng", 0.0);
+            std::string label = body.value("geo_label", "");
+            if (tid <= 0 || lat == 0.0 || lng == 0.0) {
+                sendJson(res, {{"success", false}, {"message", "Vui lòng nhập đầy đủ tọa độ Google Maps hợp lệ!"}}, 400);
+                return;
+            }
+            db.execute(
+                "UPDATE saas_tenants SET geo_lat = :lat, geo_lng = :lng, geo_label = :lbl, geo_source = 'gps' WHERE id = :id",
+                {{":lat", lat}, {":lng", lng}, {":lbl", label}, {":id", tid}}
+            );
+            sendJson(res, {{"success", true}, {"message", "Đã cập nhật vị trí Google Maps chính xác cho cửa hàng!"}});
             return;
         }
 
@@ -734,26 +791,6 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 auto delRow = db.queryRow("SELECT COUNT(*) as cnt FROM saas_tenants WHERE subscription_status = 'deleted'");
                 int64_t deletedCount = delRow.is_null() ? 0 : delRow.value("cnt", int64_t(0));
                 sendJson(res, {{"success", true}, {"data", tenants}, {"deleted_count", deletedCount}});
-                return;
-            }
-
-            if (action == "update_store_location") {
-                int64_t tid = body.value("tenant_id", int64_t(0));
-                if (tid <= 0 && req.has_param("tenant_id")) {
-                    try { tid = std::stoll(req.get_param_value("tenant_id")); } catch (...) {}
-                }
-                double lat = body.value("geo_lat", 0.0);
-                double lng = body.value("geo_lng", 0.0);
-                std::string label = body.value("geo_label", "");
-                if (tid <= 0 || lat == 0.0 || lng == 0.0) {
-                    sendJson(res, {{"success", false}, {"message", "Vui lòng nhập đầy đủ tọa độ Google Maps hợp lệ!"}}, 400);
-                    return;
-                }
-                db.execute(
-                    "UPDATE saas_tenants SET geo_lat = :lat, geo_lng = :lng, geo_label = :lbl, geo_source = 'gps' WHERE id = :id",
-                    {{":lat", lat}, {":lng", lng}, {":lbl", label}, {":id", tid}}
-                );
-                sendJson(res, {{"success", true}, {"message", "Đã cập nhật vị trí Google Maps chính xác cho cửa hàng!"}});
                 return;
             }
 
@@ -904,8 +941,19 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     LIMIT 5
                 )");
 
-                json chartLabels = json::array({"Thg 6", "Thg 7", "Thg 8", "Thg 9", "Thg 10", "Thg 11"});
-                json chartData = json::array({1490000, 2490000, 3990000, 2890000, 4590000, revMonth > 0 ? revMonth : 3590000});
+                json chartRows = db.query(R"(
+                    SELECT strftime('%m/%Y', paid_at) as ym, COALESCE(SUM(amount), 0) as total
+                    FROM saas_invoices
+                    WHERE payment_status = 'paid' AND paid_at >= date('now', '-5 months', 'start of month')
+                    GROUP BY strftime('%Y-%m', paid_at)
+                    ORDER BY strftime('%Y-%m', paid_at) ASC
+                )");
+                json chartLabels = json::array();
+                json chartData = json::array();
+                for (const auto& cr : chartRows) {
+                    chartLabels.push_back("Thg " + cr.value("ym", ""));
+                    chartData.push_back(cr.value("total", 0.0));
+                }
 
                 json plansDist = db.query(R"(
                     SELECT plan_name, count(*) as count
@@ -920,8 +968,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         {"total_tenants", totalTenants},
                         {"active_tenants", activeTenants},
                         {"expiring_tenants", expiringTenants},
-                        {"revenue_month", revMonth > 0 ? revMonth : 1290000.0},
-                        {"revenue_year", revYear > 0 ? revYear : 15480000.0},
+                        {"revenue_month", revMonth},
+                        {"revenue_year", revYear},
                         {"urgent_renewals", urgent},
                         {"chart_labels", chartLabels},
                         {"chart_data", chartData},
@@ -1102,8 +1150,8 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         {"has_keys", true},
                         {"has_legacy_keys", true},
                         {"sodium", true},
-                        {"fingerprint", "ED25519-MASTER-CYBERNEXUS-NODE-LOCK"},
-                        {"algorithm", "Ed25519 Node-Locking"},
+                        {"fingerprint", SaleApp::LicenseCrypto::getPublicKeyFingerprint()},
+                        {"algorithm", "ECDSA P-256 CNG Node-Locking"},
                         {"grace_days", grace}
                     }}
                 });
@@ -1235,7 +1283,11 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
         if (req.method == "POST") {
             if (action != "login" && action != "logout") {
                 json su = getSaSessionUser(req);
-                if (!su.is_null() && su.is_object()) {
+                if (su.is_null() || !su.is_object()) {
+                    sendJson(res, {{"success", false}, {"message", "Phiên đăng nhập SuperAdmin đã hết hạn hoặc không hợp lệ!"}}, 401);
+                    return;
+                }
+                {
                     std::string sRole = su.value("role", "super_admin");
                     if (sRole == "auditor") {
                         sendJson(res, {{"success", false}, {"message", "Ban Kiểm Toán chỉ có quyền xem (Read-only), không được phép thay đổi dữ liệu!"}}, 403);
@@ -1272,6 +1324,23 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     return;
                 }
 
+                std::string clientIp = req.get_header_value("X-Forwarded-For");
+                if (clientIp.empty()) clientIp = req.remote_addr;
+                if (clientIp.empty()) clientIp = "127.0.0.1";
+                std::string lowerU = user;
+                std::transform(lowerU.begin(), lowerU.end(), lowerU.begin(), ::tolower);
+                std::string rlKey = clientIp + ":" + lowerU;
+                int retryAfter = 0;
+                if (SaleApp::Security::RateLimiter::instance().isLocked("master_auth", rlKey, retryAfter)) {
+                    sendJson(res, {
+                        {"success", false},
+                        {"code", "AUTH_RATE_LIMITED"},
+                        {"retry_after", retryAfter},
+                        {"message", "Tài khoản tạm khóa do đăng nhập sai quá 5 lần. Vui lòng thử lại sau " + std::to_string(retryAfter) + " giây."}
+                    }, 429);
+                    return;
+                }
+
                 // 1. Kiểm tra tài khoản nhân viên / bộ phận trong bảng saas_staff_users
                 auto staffRow = db.queryRow("SELECT * FROM saas_staff_users WHERE LOWER(username) = LOWER(:u) AND status = 'active' LIMIT 1", {{":u", user}});
                 if (!staffRow.is_null()) {
@@ -1282,6 +1351,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     }
 
                     if (valid) {
+                        SaleApp::Security::RateLimiter::instance().clearFailures("master_auth", rlKey);
                         int64_t sId = getInt(staffRow, "id", 0);
                         std::string sUser = getString(staffRow, "username", user);
                         std::string sRole = normalizeSaRole(getString(staffRow, "role", "staff"));
@@ -1349,6 +1419,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 }
 
                 if (valid) {
+                    SaleApp::Security::RateLimiter::instance().clearFailures("master_auth", rlKey);
                     recordAuditLog(db, 1, user, "super_admin", "AUTH_LOGIN", "SYSTEM", "Đăng nhập thành công SuperAdmin Quản Trị Tối Cao", "{}", req.remote_addr);
                     std::string token = "sa_master_session_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
                     res.set_header("Set-Cookie", "sa_token=" + token + "; Path=/; HttpOnly");
@@ -1372,6 +1443,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         {"redirect", "super_admin.html"}
                     });
                 } else {
+                    SaleApp::Security::RateLimiter::instance().recordFailure("master_auth", rlKey, 5, 300, 300);
                     recordAuditLog(db, 0, user, "unknown", "AUTH_FAILED", "SYSTEM", "Đăng nhập thất bại: sai tài khoản hoặc mật khẩu", "{}", req.remote_addr);
                     sendJson(res, {{"success", false}, {"message", "Tên tài khoản hoặc mật khẩu không chính xác!"}}, 401);
                 }
@@ -1509,9 +1581,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 if (action == "reset_hardware_lock") {
                 std::string tcode = getVal("tenant_code", "");
                 int64_t tid = getValInt("tenant_id", 0);
+                try { if (db.queryRow("SELECT 1 FROM pragma_table_info('saas_tenants') WHERE name='machine_reset_pending' LIMIT 1").is_null()) db.execute("ALTER TABLE saas_tenants ADD COLUMN machine_reset_pending INTEGER DEFAULT 0"); } catch (...) {}
                 db.execute(R"(
                     UPDATE saas_tenants 
-                    SET machine_id = NULL, machine_name = 'Chưa gán máy', machine_bound_at = NULL, last_check_ip = NULL 
+                    SET machine_id = NULL, machine_name = 'Chưa gán máy', machine_bound_at = NULL, last_check_ip = NULL, machine_reset_pending = 1 
                     WHERE tenant_code = :tc OR id = :id
                 )", {{":tc", tcode}, {":id", tid}});
                 recordAuditLog(db, 0, "Kỹ Thuật", "technical", "RESET_HARDWARE_LOCK", tcode, "Mở khóa ràng buộc phần cứng (Hardware Node-Lock) cho quán " + tcode, "{}", req.remote_addr);
@@ -1673,20 +1746,20 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::string savedLogoPath = "";
                 if (req.has_file("store_logo")) {
                     const auto& file = req.get_file_value("store_logo");
-                    std::string filename = file.filename;
-                    std::string ext = ".png";
-                    size_t dotPos = filename.find_last_of('.');
-                    if (dotPos != std::string::npos) ext = filename.substr(dotPos);
-                    auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
-                    std::string saveName = AuthService::sha256(filename + std::to_string(nowMs)).substr(0, 32) + ext;
-                    
-                    fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "tenant-logos";
-                    fs::create_directories(targetDir);
-                    fs::path targetPath = targetDir / saveName;
-                    std::ofstream ofs(targetPath, std::ios::binary);
-                    if (ofs) {
-                        ofs.write(file.content.data(), file.content.size());
-                        ofs.close();
+                    if (!file.content.empty()) {
+                        auto vLogo = SaleApp::Security::UploadGuard::validate(file.content, file.filename, SaleApp::Security::UploadKind::Image);
+                        if (!vLogo.ok) {
+                            sendJson(res, {{"success", false}, {"message", vLogo.error}}, 400);
+                            return;
+                        }
+                        std::string saveName = SaleApp::Security::UploadGuard::makeRandomUuidName("logo", vLogo.ext);
+                        fs::path targetDir = SaleApp::Config::AppConfig::instance().getUploadsDir() / "tenant-logos";
+                        fs::path targetPath;
+                        std::string wErr;
+                        if (!SaleApp::Security::UploadGuard::writeSafeFile(targetDir, saveName, file.content, targetPath, wErr)) {
+                            sendJson(res, {{"success", false}, {"message", wErr}}, 400);
+                            return;
+                        }
                         savedLogoPath = "uploads/tenant-logos/" + saveName;
                     }
                 }
@@ -1782,7 +1855,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     "UPDATE saas_tenants SET subscription_status = :st, updated_at = datetime('now') WHERE id = :id",
                     {{":st", status}, {":id", std::to_string(tid)}}
                 );
-                sendJson(res, {{"success", true}, {"message", "Đã cập nhật trạng thái cửa hàng thành công!"}});
+                if (tid > 0) {
+                    StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
+                }
+                sendJson(res, {{"success", true}, {"message", "Đã cập nhật trạng thái cửa hàng và đẩy lệnh đồng bộ!"}});
                 return;
             }
 
@@ -1887,7 +1963,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
                     {{":v", p}}
                 );
-                sendJson(res, {{"success", true}, {"message", "Đã lưu đường dẫn lưu trữ gói.", {"path", p}}});
+                sendJson(res, {{"success", true}, {"message", "Đã lưu đường dẫn lưu trữ gói."}, {"path", p}});
                 return;
             }
 
@@ -1909,9 +1985,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
             if (action == "reset_machine") {
                 int64_t tid = getValInt("tenant_id", 0);
-                db.execute("UPDATE saas_tenants SET machine_id = NULL, machine_name = NULL, machine_bound_at = NULL WHERE id = :id",
+                try { if (db.queryRow("SELECT 1 FROM pragma_table_info('saas_tenants') WHERE name='machine_reset_pending' LIMIT 1").is_null()) db.execute("ALTER TABLE saas_tenants ADD COLUMN machine_reset_pending INTEGER DEFAULT 0"); } catch (...) {}
+                db.execute("UPDATE saas_tenants SET machine_id = NULL, machine_name = NULL, machine_bound_at = NULL, machine_reset_pending = 1 WHERE id = :id",
                     {{":id", std::to_string(tid)}});
-                sendJson(res, {{"success", true}, {"message", "Đã gỡ ràng buộc máy thành công! Quán có thể kích hoạt trên máy mới."}});
+                sendJson(res, {{"success", true}, {"message", "Đã gỡ ràng buộc máy thành công! Quán phải kích hoạt lại trên máy mới."}});
                 return;
             }
 
@@ -1921,12 +1998,12 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 std::string newKey = generateRandomLicenseKey("LIC", kHexChars, sizeof(kHexChars) - 1);
                 db.execute("UPDATE saas_tenants SET license_key = :lk, machine_id = NULL, machine_name = NULL, machine_bound_at = NULL WHERE id = :id",
                     {{":lk", newKey}, {":id", std::to_string(tid)}});
-                sendJson(res, {{"success", true}, {"message", "Đã tạo mới License Key và thu hồi key cũ!", {"license_key", newKey}}});
+                sendJson(res, {{"success", true}, {"message", "Đã tạo mới License Key và thu hồi key cũ!"}, {"license_key", newKey}});
                 return;
             }
 
             if (action == "license_init_keys") {
-                sendJson(res, {{"success", true}, {"message", "Đã khởi tạo cặp khóa ký Ed25519 thành công!", {"fingerprint", "ED25519-MASTER-CYBERNEXUS-NODE-LOCK"}}});
+                sendJson(res, {{"success", true}, {"message", "Đã kiểm tra khóa ký số ECDSA P-256 Master thành công!"}, {"fingerprint", SaleApp::LicenseCrypto::getPublicKeyFingerprint()}});
                 return;
             }
 
@@ -1942,7 +2019,11 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             }
 
             if (action == "retry_store_package") {
-                sendJson(res, {{"success", true}, {"message", "Đã kiểm tra và đồng bộ gói quán thành công!"}});
+                int64_t tid = getValInt("tenant_id", 0);
+                if (tid > 0) {
+                    StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
+                }
+                sendJson(res, {{"success", true}, {"message", "Đã đẩy lệnh đồng bộ gói & bản quyền xuống máy quán!"}});
                 return;
             }
 
@@ -1979,7 +2060,13 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
 
                 if (req.has_file("document_file")) {
                     const auto& file = req.get_file_value("document_file");
-                    originalFilename = file.filename;
+                    auto vDoc = SaleApp::Security::UploadGuard::validate(file.content, file.filename, SaleApp::Security::UploadKind::Document);
+                    if (!vDoc.ok) {
+                        sendJson(res, {{"success", false}, {"message", vDoc.error}}, 400);
+                        return;
+                    }
+                    std::string safeBase = fs::path(file.filename).filename().string();
+                    if (safeBase.empty()) safeBase = "document" + vDoc.ext;
                     auto appendSignedSuffix = [](const std::string& fname) -> std::string {
                         size_t dp = fname.find_last_of('.');
                         std::string stem = (dp != std::string::npos) ? fname.substr(0, dp) : fname;
@@ -1991,32 +2078,27 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         }
                         return stem + "_signed" + extension;
                     };
-                    originalFilename = appendSignedSuffix(originalFilename);
+                    originalFilename = appendSignedSuffix(safeBase);
                     fileSize = file.content.size();
-                    size_t dotPos = originalFilename.find_last_of('.');
-                    if (dotPos != std::string::npos) ext = originalFilename.substr(dotPos);
+                    ext = vDoc.ext;
 
-                    auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
-                    std::string saveName = std::to_string(nowMs).substr(6) + "_" + originalFilename;
-                    fs::path targetPath = targetDir / saveName;
-                    std::ofstream ofs(targetPath.string(), std::ios::binary);
-                    if (ofs) {
-                        ofs.write(file.content.data(), file.content.size());
-                        ofs.close();
-                        savedRelPath = "packages/" + realTcode + "/" + category + "/" + saveName;
+                    std::string saveName = SaleApp::Security::UploadGuard::makeRandomUuidName("doc_" + realTcode, vDoc.ext);
+                    fs::path targetPath;
+                    std::string wErr;
+                    if (!SaleApp::Security::UploadGuard::writeSafeFile(targetDir, saveName, file.content, targetPath, wErr)) {
+                        sendJson(res, {{"success", false}, {"message", wErr}}, 400);
+                        return;
                     }
+                    savedRelPath = "packages/" + realTcode + "/" + category + "/" + saveName;
                 } else {
                     std::string docContent = getVal("document_content", "");
                     if (!docContent.empty()) {
                         originalFilename = category + "_" + realTcode + "_signed.txt";
                         ext = ".txt";
-                        auto nowMs = std::chrono::system_clock::now().time_since_epoch().count();
-                        std::string saveName = std::to_string(nowMs).substr(6) + "_" + originalFilename;
-                        fs::path targetPath = targetDir / saveName;
-                        std::ofstream ofs(targetPath.string(), std::ios::binary);
-                        if (ofs) {
-                            ofs.write(docContent.data(), docContent.size());
-                            ofs.close();
+                        std::string saveName = SaleApp::Security::UploadGuard::makeRandomUuidName("doc_" + realTcode, ".txt");
+                        fs::path targetPath;
+                        std::string wErr;
+                        if (SaleApp::Security::UploadGuard::writeSafeFile(targetDir, saveName, docContent, targetPath, wErr)) {
                             savedRelPath = "packages/" + realTcode + "/" + category + "/" + saveName;
                             fileSize = docContent.size();
                         }
@@ -2341,6 +2423,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                             upsertSetting("print_header_note", "Hân hạnh được phục vụ Quý khách!");
                             upsertSetting("print_footer_note", "Cảm ơn Quý khách - Hẹn gặp lại!");
                             {
+                                std::string tj = getString(tenant, "theme_json", "");
+                                if (!tj.empty()) upsertSetting("theme_json", tj);
+                            }
+                            {
                                 // Đánh dấu bản đóng gói mới đã ở phiên bản mới nhất của Master, tránh báo "Cập nhật" ngược về bản OTA cũ
                                 std::string latestOtaVer = "";
                                 try {
@@ -2421,19 +2507,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     fs::path stageModDir = stagingDir / "modules";
                     fs::create_directories(stageModDir);
 
-                    // Lõi POS Core & Finance Admin luôn được cấp phép
-                    if (fs::exists(slaveDir / "modules" / "libmod_pos_core.dll")) {
-                        fs::copy_file(slaveDir / "modules" / "libmod_pos_core.dll", stageModDir / "libmod_pos_core.dll", fs::copy_options::overwrite_existing);
-                        if (fs::exists(slaveDir / "modules" / "libmod_pos_core.dll.sig")) {
-                            fs::copy_file(slaveDir / "modules" / "libmod_pos_core.dll.sig", stageModDir / "libmod_pos_core.dll.sig", fs::copy_options::overwrite_existing);
-                        }
-                    }
-                    if (fs::exists(slaveDir / "modules" / "libmod_finance_admin.dll")) {
-                        fs::copy_file(slaveDir / "modules" / "libmod_finance_admin.dll", stageModDir / "libmod_finance_admin.dll", fs::copy_options::overwrite_existing);
-                        if (fs::exists(slaveDir / "modules" / "libmod_finance_admin.dll.sig")) {
-                            fs::copy_file(slaveDir / "modules" / "libmod_finance_admin.dll.sig", stageModDir / "libmod_finance_admin.dll.sig", fs::copy_options::overwrite_existing);
-                        }
-                    }
+                    // ARCH-01: POS Core & Finance Admin chay truc tiep trong slave_handlers.cpp; khong dong goi 2 DLL thua
 
                     // Module Media Streaming
                     if (enabledMods.find("mod_media_stream") != std::string::npos && fs::exists(slaveDir / "modules" / "libmod_media_stream.dll")) {
@@ -2922,7 +2996,7 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     {":cb", compName}
                 });
 
-                std::string allMods = R"(["pos_core","vietqr_payment","kitchen_bar","table_management","order_waiter","inventory_management","jukebox","loyalty_crm","ai_analytics","multi_branch"])";
+                std::string allMods = R"(["pos_core","vietqr_payment","qr_customer_order","qr_table_order","advertising_promotions","promo_voucher_engine","kitchen_kds","inventory_recipes","ai_invoice_ocr","ai_dish_studio","advanced_reports","staff_shifts","staff_kpi","finance_reports","cloud_sync_backup","mod_media_stream","mod_network_qos","mod_card_payment"])";
                 std::string cycle = (period == "1m") ? "monthly" : ((period == "lifetime") ? "lifetime" : "yearly");
 
                 // 3. Tạo bản ghi cửa hàng saas_tenants
@@ -3201,6 +3275,38 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 fs::remove_all(vDir);
             }
             sendJson(res, {{"success", true}, {"message", "Đã xóa bản vá v" + ver + " khỏi kho lưu trữ."}});
+            return;
+        }
+
+        if (action == "get_tenant_theme") {
+            std::string tc = getString(body, "tenant_code", "");
+            if (tc.empty() && req.has_param("tenant_code")) tc = req.get_param_value("tenant_code");
+            auto t = db.queryRow("SELECT id, tenant_code, store_name, theme_json FROM saas_tenants WHERE tenant_code = :tc LIMIT 1", {{":tc", tc}});
+            if (t.is_null()) { sendError(res, "Không tìm thấy cửa hàng!", 404); return; }
+            sendJson(res, {{"success", true}, {"tenant_code", tc}, {"store_name", getString(t, "store_name", "")}, {"theme_json", getString(t, "theme_json", "")}});
+            return;
+        }
+
+        if (action == "save_tenant_theme") {
+            std::string tc = getString(body, "tenant_code", "");
+            std::string tj = body.contains("theme_json")
+                ? (body["theme_json"].is_string() ? body["theme_json"].get<std::string>() : body["theme_json"].dump())
+                : "";
+            if (tc.empty() || tj.empty()) { sendError(res, "Thiếu mã quán hoặc dữ liệu theme_json!", 400); return; }
+            auto t = db.queryRow("SELECT id, store_name FROM saas_tenants WHERE tenant_code = :tc LIMIT 1", {{":tc", tc}});
+            if (t.is_null()) { sendError(res, "Không tìm thấy cửa hàng!", 404); return; }
+            int64_t tid = getInt(t, "id", 0);
+            try { db.execute("ALTER TABLE saas_tenants ADD COLUMN theme_json TEXT DEFAULT ''"); } catch (...) {}
+            db.execute("UPDATE saas_tenants SET theme_json = :tj WHERE id = :id", {{":tj", tj}, {":id", tid}});
+            bool pushed = StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_THEME", {{"theme_json", tj}}, true);
+            recordAuditLog(db, 0, "SuperAdmin", "super_admin", "SYNC_THEME", tc, "Cập nhật giao diện Theme Studio cho " + getString(t, "store_name", tc), "{}", req.remote_addr);
+            sendJson(res, {
+                {"success", true},
+                {"online_delivered", pushed},
+                {"message", pushed
+                    ? ("Đã lưu & đẩy giao diện mới xuống quán " + getString(t, "store_name", tc) + " ngay lập tức!")
+                    : ("Đã lưu giao diện cho quán " + getString(t, "store_name", tc) + " (sẽ tự đồng bộ khi quán Online hoặc khi đóng gói lại).")}
+            });
             return;
         }
 
@@ -3570,7 +3676,8 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
 
             // Hardware node-locking binding
             if (boundMachine.empty() && !machineId.empty()) {
-                db.execute("UPDATE saas_tenants SET machine_id = :mid, machine_bound_at = datetime('now'), last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
+                try { if (db.queryRow("SELECT 1 FROM pragma_table_info('saas_tenants') WHERE name='machine_reset_pending' LIMIT 1").is_null()) db.execute("ALTER TABLE saas_tenants ADD COLUMN machine_reset_pending INTEGER DEFAULT 0"); } catch (...) {}
+                db.execute("UPDATE saas_tenants SET machine_id = :mid, machine_reset_pending = 0, machine_bound_at = datetime('now'), last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
                     {{":mid", machineId}, {":ip", clientIp}, {":id", tid}});
                 boundMachine = machineId;
             } else if (!machineId.empty() && boundMachine != machineId) {
@@ -3599,15 +3706,24 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
                 }
             } catch (...) {}
 
+            std::string licExpDate = getString(tenant, "expire_date", "");
+            std::string licModsStr = "[]";
+            std::string licBlkStr = "[]";
+            try { licModsStr = json(enabledMods).dump(); } catch (...) {}
+            try { licBlkStr = json(blockedMods).dump(); } catch (...) {}
+            std::string canonPayload = SaleApp::LicenseCrypto::buildCanonicalPayload(licKey, boundMachine, licExpDate, licModsStr, subStatus, licBlkStr);
+            std::string licSig = SaleApp::LicenseCrypto::signLicensePayload(canonPayload);
+
             sendJson(res, {
                 {"success", true},
                 {"state", subStatus},
                 {"store_name", getString(tenant, "store_name", "")},
                 {"plan_name", getString(tenant, "plan_name", "")},
-                {"expire_date", getString(tenant, "expire_date", "")},
+                {"expire_date", licExpDate},
                 {"enabled_modules", enabledMods},
                 {"blocked_modules", blockedMods},
                 {"card_fee_percent", cardFeePct},
+                {"license_signature", licSig},
                 {"server_time", std::time(nullptr)}
             });
             return;
@@ -3706,7 +3822,8 @@ static void handleLicensePoll(const httplib::Request& req, httplib::Response& re
         }
 
         auto& db = Database::instance();
-        auto tenant = db.queryRow("SELECT id, machine_id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
+        try { if (db.queryRow("SELECT 1 FROM pragma_table_info('saas_tenants') WHERE name='machine_reset_pending' LIMIT 1").is_null()) db.execute("ALTER TABLE saas_tenants ADD COLUMN machine_reset_pending INTEGER DEFAULT 0"); } catch (...) {}
+        auto tenant = db.queryRow("SELECT id, machine_id, COALESCE(machine_reset_pending, 0) as machine_reset_pending FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
         if (tenant.is_null()) {
             replyTunnelJson(res, {{"success", false}, {"message", "Invalid license_key"}}, 404);
             return;
@@ -3714,8 +3831,9 @@ static void handleLicensePoll(const httplib::Request& req, httplib::Response& re
 
         int64_t tid = tenant["id"].get<int64_t>();
         std::string curMid = (tenant.contains("machine_id") && tenant["machine_id"].is_string()) ? tenant["machine_id"].get<std::string>() : "";
+        int resetPending = tenant.value("machine_reset_pending", 0);
         std::string reqMid = body.value("machine_id", "");
-        if (curMid.empty() && !reqMid.empty()) {
+        if (curMid.empty() && !reqMid.empty() && resetPending == 0) {
             db.execute("UPDATE saas_tenants SET machine_id = :mid, last_check_at = datetime('now') WHERE id = :id",
                        {{":mid", reqMid}, {":id", tid}});
         }
@@ -3748,20 +3866,38 @@ static void handleLicensePoll(const httplib::Request& req, httplib::Response& re
         // Refresh config and latest license rights after wait so Slave always stays in sync
         wanCfg = readWanConfigFromDb(db);
         auto licRow = db.queryRow(
-            "SELECT enabled_modules, blocked_modules, subscription_status, expire_date, card_fee_percent FROM saas_tenants WHERE id = :id LIMIT 1",
+            "SELECT license_key, machine_id, enabled_modules, blocked_modules, subscription_status, expire_date, card_fee_percent FROM saas_tenants WHERE id = :id LIMIT 1",
             {{":id", tid}}
         );
         json licSnapshot = json::object();
         if (!licRow.is_null()) {
-            licSnapshot["enabled_modules"] = licRow.value("enabled_modules", "[]");
-            licSnapshot["blocked_modules"] = licRow.value("blocked_modules", "[]");
-            licSnapshot["subscription_status"] = licRow.value("subscription_status", "active");
-            licSnapshot["expire_date"] = licRow.value("expire_date", "2028-12-31");
+            std::string rawEn = licRow.value("enabled_modules", "[]");
+            std::string normEn = "[]";
+            try {
+                json parsed = json::parse(rawEn, nullptr, false);
+                if (parsed.is_array()) normEn = parsed.dump();
+            } catch (...) {}
+            std::string lKey = licRow.value("license_key", "");
+            std::string lMid = (licRow.contains("machine_id") && licRow["machine_id"].is_string()) ? licRow["machine_id"].get<std::string>() : "";
+            std::string lExp = licRow.value("expire_date", "2028-12-31");
+            std::string lSub = licRow.value("subscription_status", "active");
+            std::string lBlkRaw = licRow.value("blocked_modules", "[]");
+            std::string normBlk = "[]";
+            try {
+                auto pb = json::parse(lBlkRaw, nullptr, false);
+                if (pb.is_array()) normBlk = pb.dump();
+            } catch (...) {}
+            licSnapshot["enabled_modules"] = normEn;
+            licSnapshot["blocked_modules"] = normBlk;
+            licSnapshot["subscription_status"] = lSub;
+            licSnapshot["expire_date"] = lExp;
             double cfp = 0.0;
             try {
                 if (licRow.contains("card_fee_percent") && licRow["card_fee_percent"].is_number()) cfp = licRow["card_fee_percent"].get<double>();
             } catch (...) {}
             licSnapshot["card_fee_percent"] = cfp;
+            std::string canon = SaleApp::LicenseCrypto::buildCanonicalPayload(lKey, lMid, lExp, normEn, lSub, normBlk);
+            licSnapshot["license_signature"] = SaleApp::LicenseCrypto::signLicensePayload(canon);
         }
         replyTunnelJson(res, {{"success", true}, {"commands", cmdArr}, {"config", wanCfg}, {"license", licSnapshot}});
     } catch (const std::exception& e) {
@@ -3777,11 +3913,13 @@ static void handleLicenseAck(const httplib::Request& req, httplib::Response& res
         }
         std::string key = body.value("license_key", "");
         std::string cmdId = body.value("cmd_id", "");
+        std::string reqCmdType = body.value("cmd_type", "");
         bool ok = body.value("ok", true);
         json runtime = body.contains("runtime") && body["runtime"].is_object() ? body["runtime"] : json::object();
 
         auto& db = Database::instance();
         std::string clientIp = extractClientWanIp(req);
+        int64_t tenantId = 0;
         if (!key.empty()) {
             db.execute(
                 "UPDATE saas_tenants SET last_check_at = datetime('now'), last_check_ip = :ip WHERE license_key = :k",
@@ -3789,11 +3927,25 @@ static void handleLicenseAck(const httplib::Request& req, httplib::Response& res
             );
             auto tRow = db.queryRow("SELECT id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
             if (!tRow.is_null() && tRow.contains("id") && tRow["id"].is_number()) {
-                saveTenantNetGeo(db, tRow["id"].get<int64_t>(), clientIp, json::object(), runtime);
+                tenantId = tRow["id"].get<int64_t>();
+                saveTenantNetGeo(db, tenantId, clientIp, json::object(), runtime);
             }
         }
         bool matched = !cmdId.empty() && StoreTunnelManager::instance().completeAck(cmdId, ok, runtime);
-        replyTunnelJson(res, {{"success", true}, {"matched", matched}});
+        std::string persistedType;
+        int64_t persistedTid = 0;
+        bool persistedMatched = !cmdId.empty() && StoreTunnelManager::instance().ackPersistedCommand(cmdId, persistedType, persistedTid);
+        std::string effectiveType = !persistedType.empty() ? persistedType : reqCmdType;
+        int64_t effectiveTid = (persistedTid > 0) ? persistedTid : tenantId;
+
+        if (ok && effectiveType == "RESET_OWNER_PIN") {
+            if (effectiveTid > 0) {
+                db.execute("UPDATE saas_tenants SET pin_reset_pending = 0 WHERE id = :id", {{":id", effectiveTid}});
+            } else if (!key.empty()) {
+                db.execute("UPDATE saas_tenants SET pin_reset_pending = 0 WHERE license_key = :k", {{":k", key}});
+            }
+        }
+        replyTunnelJson(res, {{"success", true}, {"matched", matched || persistedMatched}, {"cmd_type", effectiveType}});
     } catch (const std::exception& e) {
         replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
     }
@@ -3811,6 +3963,13 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
     svr.Post("/api/master", handleSuperAdmin);
     svr.Get("/api/master.php", handleSuperAdmin);
     svr.Post("/api/master.php", handleSuperAdmin);
+    svr.Get("/theme_studio", [](const httplib::Request&, httplib::Response& res) {
+        fs::path p = SaleApp::Config::AppConfig::instance().getWebDir() / "theme_studio.html";
+        if (!fs::exists(p)) { res.status = 404; res.set_content("theme_studio.html not found", "text/plain"); return; }
+        std::ifstream ifs(p.string(), std::ios::binary);
+        std::string c((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        res.set_content(c, "text/html; charset=utf-8");
+    });
 
     // Remote Verification & Reverse Long-Polling Endpoints for Slaves (WAN)
     svr.Post("/api/license/verify", handleLicenseVerification);
@@ -3892,6 +4051,15 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             if (aiAction == "fetch_dish_image") {
                 std::string fullUrl = getString(body, "full_url");
                 std::string thumbUrl = getString(body, "thumb_url");
+                std::string ssrfReason;
+                if (!fullUrl.empty() && SaleApp::Security::isPrivateOrLocalUrl(fullUrl, &ssrfReason)) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Từ chối URL nội bộ (SSRF): " + ssrfReason}}, 400);
+                    return;
+                }
+                if (!thumbUrl.empty() && SaleApp::Security::isPrivateOrLocalUrl(thumbUrl, &ssrfReason)) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Từ chối Thumbnail URL nội bộ (SSRF): " + ssrfReason}}, 400);
+                    return;
+                }
                 std::string imgB64, mime, err;
                 bool ok = (!fullUrl.empty() && SaleApp::AI::fetchImageAsBase64(fullUrl, imgB64, mime, err));
                 if (!ok && !thumbUrl.empty() && thumbUrl != fullUrl) {
@@ -4219,6 +4387,222 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         }
     });
 
+    svr.Post("/api/i18n/ai-translate", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            json su = getSaSessionUser(req);
+            json body = parseBody(req);
+            auto& db = Database::instance();
+            const std::string passedKeyEarly = getString(body, "gemini_api_key");
+            const bool isLoopback = (req.remote_addr == "127.0.0.1" || req.remote_addr == "::1" || req.remote_addr == "::ffff:127.0.0.1");
+            if (su.is_null() && !(isLoopback && !passedKeyEarly.empty() && passedKeyEarly.find("•••") == std::string::npos)) {
+                std::string licKey = getString(body, "license_key");
+                if (licKey.empty()) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "Yêu cầu đăng nhập SuperAdmin để dịch thuật AI trên Master!"}}, 401);
+                    return;
+                }
+                auto tenant = db.queryRow("SELECT id FROM saas_tenants WHERE license_key = :lk AND subscription_status = 'active' LIMIT 1", {{":lk", licKey}});
+                if (tenant.is_null()) {
+                    replyTunnelJson(res, {{"success", false}, {"message", "License key không hợp lệ!"}}, 403);
+                    return;
+                }
+            }
+            ensureMasterAiTables(db);
+            std::string passedKey = getString(body, "gemini_api_key");
+            std::string apiKey = (!passedKey.empty() && passedKey.find("•••") == std::string::npos) ? passedKey : "";
+            if (apiKey.empty()) {
+                json activeKeyRow = selectActiveGeminiKey(db);
+                if (!activeKeyRow.is_null()) apiKey = activeKeyRow.value("api_key", "");
+            }
+            if (apiKey.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Master chưa có Gemini API Key khả dụng!"}}, 503);
+                return;
+            }
+            std::string srcLang = getString(body, "source_lang", "vi");
+            std::string tgtLang = getString(body, "target_lang", "en");
+            std::string tgtName = getString(body, "target_lang_name", tgtLang);
+            json itemsIn = (body.contains("items") && body["items"].is_array()) ? body["items"] : json::array();
+            if (itemsIn.empty() && !getString(body, "text").empty()) {
+                itemsIn.push_back({{"key", getString(body, "key", "single")}, {"text", getString(body, "text")}});
+            }
+            if (itemsIn.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Danh sách chuỗi cần dịch đang trống!"}}, 400);
+                return;
+            }
+            if (itemsIn.size() > 50) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Mỗi lượt AI Translate tối đa 50 chuỗi!"}}, 400);
+                return;
+            }
+            std::string prompt = "You are a professional software localization translator for an F&B POS & Restaurant OS (CyberNexus POS).\n"
+                "Translate each UI string accurately and naturally from source language '" + srcLang + "' to target language '" + tgtLang + "' (" + tgtName + ").\n"
+                "STRICT RULES:\n"
+                "1. Preserve ALL placeholders like {name}, {count}, {0}, %s, %d, and HTML tags verbatim without translating inside braces.\n"
+                "2. Keep terminology concise for POS buttons, kitchen displays, and receipts.\n"
+                "3. Return strictly JSON object: {\"translations\": [{\"key\": \"...\", \"translated\": \"...\"}]}.\n\n"
+                "Input JSON:\n" + itemsIn.dump();
+            json contents = json::array({{{"parts", json::array({{{"text", prompt}}})}}});
+            std::string textOut, modelUsed, err;
+            if (!SaleApp::AI::geminiGenerateContentText(apiKey, contents, true, textOut, modelUsed, err)) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Lỗi Gemini AI Translate: " + err}}, 502);
+                return;
+            }
+            json parsed = json::parse(textOut, nullptr, false);
+            if (!parsed.is_object() || !parsed.contains("translations")) {
+                replyTunnelJson(res, {{"success", false}, {"message", "AI trả về JSON không hợp lệ cho i18n!"}}, 502);
+                return;
+            }
+            replyTunnelJson(res, {{"success", true}, {"translations", parsed["translations"]}, {"model", modelUsed}});
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", std::string("AI Translate error: ") + e.what()}}, 500);
+        }
+    });
+
+    auto ensureMasterI18nSchema = [](Database& db) {
+        try {
+            db.execute(R"(
+                CREATE TABLE IF NOT EXISTS i18n_catalog (
+                    key TEXT PRIMARY KEY,
+                    group_code TEXT DEFAULT 'custom',
+                    layer TEXT DEFAULT 'frontend',
+                    screen TEXT DEFAULT '',
+                    comp_type TEXT DEFAULT 'api_msg',
+                    field_name TEXT DEFAULT '',
+                    source_file TEXT DEFAULT '',
+                    max_chars INTEGER DEFAULT 120,
+                    origin_vi TEXT DEFAULT '',
+                    translations_json TEXT DEFAULT '{}',
+                    status TEXT DEFAULT 'approved',
+                    source_modified INTEGER DEFAULT 0,
+                    updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+                )
+            )");
+        } catch (...) {}
+    };
+
+    svr.Get("/api/i18n/catalog", [ensureMasterI18nSchema](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
+        if (su.is_null()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Yêu cầu đăng nhập SuperAdmin!"}}, 401);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureMasterI18nSchema(db);
+        json rows = db.query("SELECT * FROM i18n_catalog ORDER BY key ASC");
+        replyTunnelJson(res, {{"success", true}, {"saved_rows", rows}, {"db_entities", json::array()}});
+    });
+
+    svr.Post("/api/i18n/save", [ensureMasterI18nSchema](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
+        if (su.is_null()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Yêu cầu đăng nhập SuperAdmin!"}}, 401);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureMasterI18nSchema(db);
+        json body = parseBody(req);
+        json items = (body.contains("rows") && body["rows"].is_array()) ? body["rows"] : json::array();
+        if (items.empty() && !getString(body, "key").empty()) items.push_back(body);
+        if (items.empty()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Thiếu dữ liệu câu ngôn ngữ!"}}, 400);
+            return;
+        }
+        int savedCnt = 0;
+        db.beginTransaction();
+        for (const auto& r : items) {
+            std::string k = getString(r, "key");
+            if (k.empty()) continue;
+            json rawTr = (r.contains("raw") && r["raw"].is_object()) ? r["raw"] : json::object();
+            db.execute(R"(
+                INSERT INTO i18n_catalog (key, group_code, layer, screen, comp_type, field_name, source_file, max_chars, origin_vi, translations_json, status, source_modified, updated_at)
+                VALUES (:k, :g, :ly, :sc, :ct, :fn, :sf, :mc, :ori, :tj, :st, 0, datetime('now','localtime'))
+                ON CONFLICT(key) DO UPDATE SET
+                    group_code = :g, layer = :ly, screen = :sc, comp_type = :ct, field_name = :fn,
+                    source_file = :sf, max_chars = :mc, origin_vi = :ori, translations_json = :tj,
+                    status = :st, updated_at = datetime('now','localtime')
+            )", {
+                {":k", k}, {":g", getString(r, "group", "custom")}, {":ly", getString(r, "layer", "frontend")},
+                {":sc", getString(r, "screen", "")}, {":ct", getString(r, "comp_type", "api_msg")},
+                {":fn", getString(r, "field_name", k)}, {":sf", getString(r, "source_file", "")},
+                {":mc", getInt(r, "max_chars", 120)}, {":ori", getString(r, "origin", getString(rawTr, "vi", ""))},
+                {":tj", rawTr.dump()}, {":st", getString(r, "status", "approved")}
+            });
+            savedCnt++;
+        }
+        db.commit();
+        replyTunnelJson(res, {{"success", true}, {"saved_count", savedCnt}, {"message", "Đã lưu " + std::to_string(savedCnt) + " mục ngôn ngữ trên Master!"}});
+    });
+
+    svr.Post("/api/i18n/publish", [ensureMasterI18nSchema](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
+        if (su.is_null()) {
+            replyTunnelJson(res, {{"success", false}, {"message", "Yêu cầu đăng nhập SuperAdmin!"}}, 401);
+            return;
+        }
+        auto& db = Database::instance();
+        ensureMasterI18nSchema(db);
+        json body = parseBody(req);
+        std::string lang = getString(body, "lang", "en");
+        if (lang.empty()) lang = "en";
+        fs::path webDir = SaleApp::Config::AppConfig::instance().getWebDir();
+        fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir();
+        fs::path webLoc = webDir / "locales" / (lang + ".json");
+        fs::path rootLoc = baseDir / "locales" / (lang + ".json");
+        bool writeRootLoc = (fs::weakly_canonical(webDir.parent_path()) == fs::weakly_canonical(baseDir));
+        json locObj = json::object();
+        if (fs::exists(webLoc)) {
+            try { std::ifstream ifs(webLoc, std::ios::binary); ifs >> locObj; } catch (...) { locObj = json::object(); }
+        }
+        if (!locObj.is_object()) locObj = json::object();
+        if (!locObj.contains("csv_messages") || !locObj["csv_messages"].is_object()) locObj["csv_messages"] = json::object();
+        json catRows = db.query("SELECT key, translations_json, origin_vi FROM i18n_catalog WHERE status = 'approved'");
+        int applied = 0;
+        for (const auto& cr : catRows) {
+            std::string k = getString(cr, "key");
+            if (k.empty()) continue;
+            json tr = json::parse(getString(cr, "translations_json", "{}"), nullptr, false);
+            std::string val = (tr.is_object() && tr.contains(lang) && tr[lang].is_string()) ? tr[lang].get<std::string>() : "";
+            if (val.empty()) continue;
+            locObj["csv_messages"][k] = val;
+            applied++;
+        }
+        std::string outBytes = locObj.dump(2) + "\n";
+        try { fs::create_directories(webLoc.parent_path()); std::ofstream f1(webLoc, std::ios::binary); f1.write(outBytes.data(), static_cast<std::streamsize>(outBytes.size())); } catch (...) {}
+        if (writeRootLoc) {
+            try { fs::create_directories(rootLoc.parent_path()); std::ofstream f2(rootLoc, std::ios::binary); f2.write(outBytes.data(), static_cast<std::streamsize>(outBytes.size())); } catch (...) {}
+        }
+        replyTunnelJson(res, {{"success", true}, {"lang", lang}, {"published_keys", applied}, {"message", "Đã xuất bản /locales/" + lang + ".json trên Master!"}});
+    });
+
+    svr.Get("/i18n_studio.html", [](const httplib::Request&, httplib::Response& res) {
+        fs::path p = SaleApp::Config::AppConfig::instance().getBaseDir().parent_path() / "docs" / "16_QUAN_TRI_NGON_NGU_I18N_STUDIO.html";
+        std::ifstream ifs(p, std::ios::binary);
+        if (!ifs) { res.status = 404; return; }
+        std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        res.set_content(content, "text/html; charset=utf-8");
+    });
+
+    svr.Get("/i18n_studio_data.js", [](const httplib::Request&, httplib::Response& res) {
+        fs::path p = SaleApp::Config::AppConfig::instance().getBaseDir().parent_path() / "docs" / "i18n_studio_data.js";
+        std::ifstream ifs(p, std::ios::binary);
+        if (!ifs) { res.status = 404; return; }
+        std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        res.set_content(content, "application/javascript; charset=utf-8");
+    });
+
+    svr.Get("/api/payment/vietqr_svg", [](const httplib::Request& req, httplib::Response& res) {
+        std::string bankId = req.has_param("bank_id") ? req.get_param_value("bank_id") : "MB";
+        std::string accNo = req.has_param("account_no") ? req.get_param_value("account_no") : "0918608073";
+        std::string accName = req.has_param("account_name") ? req.get_param_value("account_name") : "CYBERNEXUS SAAS";
+        std::string addInfo = req.has_param("add_info") ? req.get_param_value("add_info") : "GIA HAN SALEAPP";
+        long long amount = 0;
+        if (req.has_param("amount")) {
+            try { amount = std::stoll(req.get_param_value("amount")); } catch (...) { amount = 0; }
+        }
+        std::string emv = SaleApp::VietQr::buildEmvCoPayload(bankId, accNo, amount, addInfo, accName);
+        std::string svg = SaleApp::VietQr::buildOfflineVietQrSvg(emv, bankId, accNo, amount, addInfo, accName);
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(svg, "image/svg+xml; charset=utf-8");
+    });
+
     // Store OTA Patch & Manifest Endpoints
     svr.Get("/api/updates/latest", [](const httplib::Request&, httplib::Response& res) {
         fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
@@ -4351,6 +4735,16 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 {{":m", qty}, {":tid", tid}}
             );
         }
+        double amtVnd = ord.value("amount_vnd", 0.0);
+        if (amtVnd > 0.0) {
+            try {
+                db.execute(
+                    "INSERT INTO saas_invoices (tenant_id, invoice_code, amount, payment_method, payment_status, paid_at, note) "
+                    "VALUES (:tid, :ic, :amt, 'vietqr_auto', 'paid', datetime('now', 'localtime'), :nt)",
+                    {{":tid", tid}, {":ic", ord.value("order_code", "")}, {":amt", amtVnd}, {":nt", "Self-service billing (" + bType + ")"}}
+                );
+            } catch (...) {}
+        }
         db.commit();
     };
 
@@ -4455,11 +4849,18 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
 
     svr.Post("/api/billing/webhook", [ensureBillingSchema, applyBillingPaid](const httplib::Request& req, httplib::Response& res) {
         try {
+            auto& db = Database::instance();
+            auto secRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'billing_webhook_secret' LIMIT 1");
+            std::string expectedSec = secRow.is_null() ? "" : secRow.value("setting_value", "");
+            std::string gotSec = req.has_header("X-Billing-Secret") ? req.get_header_value("X-Billing-Secret") : "";
+            if (!expectedSec.empty() && gotSec != expectedSec) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Invalid webhook secret"}}, 401);
+                return;
+            }
             json body = json::parse(req.body);
             std::string orderCode = body.value("order_code", "");
             std::string payRef = body.value("payment_ref", "AUTO_WEBHOOK");
             double amt = body.value("amount", 0.0);
-            auto& db = Database::instance();
             ensureBillingSchema(db);
             auto ord = db.queryRow("SELECT * FROM saas_billing_orders WHERE order_code = :oc LIMIT 1", {{":oc", orderCode}});
             if (ord.is_null()) {
@@ -4482,8 +4883,10 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
     });
 
     svr.Get("/api/billing/orders", [ensureBillingSchema](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
         auto userOpt = AuthService::instance().authenticate(req);
-        if (!userOpt || !userOpt->is_super_admin) {
+        bool isSa = (!su.is_null() && su.is_object()) || (userOpt && userOpt->is_super_admin);
+        if (!isSa) {
             replyTunnelJson(res, {{"success", false}, {"message", "Unauthorized"}}, 403);
             return;
         }
@@ -4494,8 +4897,10 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
     });
 
     svr.Post("/api/billing/confirm", [ensureBillingSchema, applyBillingPaid](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
         auto userOpt = AuthService::instance().authenticate(req);
-        if (!userOpt || !userOpt->is_super_admin) {
+        bool isSa = (!su.is_null() && su.is_object()) || (userOpt && userOpt->is_super_admin);
+        if (!isSa) {
             replyTunnelJson(res, {{"success", false}, {"message", "Unauthorized"}}, 403);
             return;
         }
@@ -4513,6 +4918,55 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 applyBillingPaid(db, ord, "SUPERADMIN_MANUAL");
             }
             replyTunnelJson(res, {{"success", true}, {"message", "Đã duyệt thanh toán & cộng hạn/credit cho quán!"}});
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
+    });
+
+    // Cloud Backup Upload from Slave (SQLite snapshot)
+    svr.Post("/api/slave/backup", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            std::string lKey = req.has_header("X-License-Key") ? req.get_header_value("X-License-Key") : "";
+            std::string mid = req.has_header("X-Machine-Id") ? req.get_header_value("X-Machine-Id") : "";
+            if (lKey.empty() || req.body.empty()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Thiếu license_key hoặc dữ liệu backup!"}}, 400);
+                return;
+            }
+            auto& db = Database::instance();
+            auto tenant = db.queryRow("SELECT id, tenant_code, machine_id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", lKey}});
+            if (tenant.is_null()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "License Key không hợp lệ!"}}, 403);
+                return;
+            }
+            std::string boundMid = (tenant.contains("machine_id") && tenant["machine_id"].is_string()) ? tenant["machine_id"].get<std::string>() : "";
+            if (!boundMid.empty() && !mid.empty() && boundMid != mid) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Hardware ID không khớp!"}}, 403);
+                return;
+            }
+            std::string tCode = tenant.value("tenant_code", "STORE");
+            fs::path backupRoot = SaleApp::Config::AppConfig::instance().getBaseDir() / "backups" / tCode;
+            std::error_code ec;
+            fs::create_directories(backupRoot, ec);
+            auto now = std::time(nullptr);
+            std::tm tmBuf{};
+            localtime_s(&tmBuf, &now);
+            char ts[32];
+            std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", &tmBuf);
+            std::string fname = std::string("store_local_") + ts + ".db";
+            fs::path outPath = backupRoot / fname;
+            std::ofstream ofs(outPath, std::ios::binary | std::ios::trunc);
+            if (!ofs.is_open()) {
+                replyTunnelJson(res, {{"success", false}, {"message", "Không thể ghi file backup trên Master!"}}, 500);
+                return;
+            }
+            ofs.write(req.body.data(), static_cast<std::streamsize>(req.body.size()));
+            ofs.close();
+            replyTunnelJson(res, {
+                {"success", true},
+                {"message", "Đã sao lưu dữ liệu quán lên Master thành công!"},
+                {"filename", fname},
+                {"size_bytes", req.body.size()}
+            });
         } catch (const std::exception& e) {
             replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
         }

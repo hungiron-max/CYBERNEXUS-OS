@@ -1,4 +1,5 @@
 #include "license.hpp"
+#include "license_crypto.hpp"
 #include "db.hpp"
 #include "auth.hpp"
 #include "httplib.h"
@@ -28,6 +29,7 @@ LicenseService::LicenseService() {
 void LicenseService::ensureTableExists() {
     try {
         auto& db = Database::instance();
+        if (!db.getHandle()) return;
         db.execute(R"(
             CREATE TABLE IF NOT EXISTS local_license_cache (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -45,6 +47,23 @@ void LicenseService::ensureTableExists() {
                 last_sync_status TEXT DEFAULT 'ready'
             )
         )");
+
+        json cols = db.query("PRAGMA table_info(local_license_cache)");
+        auto hasCol = [&](const char* name) {
+            for (const auto& c : cols) {
+                if (c.value("name", "") == name) return true;
+            }
+            return false;
+        };
+        if (!hasCol("blocked_modules")) {
+            try { db.execute("ALTER TABLE local_license_cache ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
+        }
+        if (!hasCol("card_fee_percent")) {
+            try { db.execute("ALTER TABLE local_license_cache ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
+        }
+        if (!hasCol("license_signature")) {
+            try { db.execute("ALTER TABLE local_license_cache ADD COLUMN license_signature TEXT DEFAULT ''"); } catch (...) {}
+        }
 
         // Insert initial minimal license record if empty (strict fail-closed: only pos_core until Master syncs)
         auto row = db.queryRow("SELECT id, enabled_modules, blocked_modules FROM local_license_cache WHERE id = 1");
@@ -70,8 +89,6 @@ void LicenseService::ensureTableExists() {
                 VALUES (1, :lk, :sn, 'Chủ Quán', 'Gói Cơ Bản (Starter)', 'active', '2028-12-31', 30, :mid, '', '["pos_core"]', datetime('now'), 'init')
             )", {{":lk", cfgKey}, {":sn", cfgStore}, {":mid", mid}});
         }
-        try { db.execute("ALTER TABLE local_license_cache ADD COLUMN blocked_modules TEXT DEFAULT '[]'"); } catch (...) {}
-        try { db.execute("ALTER TABLE local_license_cache ADD COLUMN card_fee_percent REAL DEFAULT 0.0"); } catch (...) {}
     } catch (const std::exception& e) {
         std::cerr << "[Slave License Warning] ensureTableExists: " << e.what() << std::endl;
     }
@@ -264,6 +281,122 @@ std::string LicenseService::getMachineId() {
     return m_cachedMachineId;
 }
 
+bool LicenseService::isMachineMismatch(std::string* outBound, std::string* outCurrent) {
+    std::string currentMid = getMachineId();
+    if (outCurrent) *outCurrent = currentMid;
+    std::string boundMid, licKey, expDate, enMods, blkMods, subStatus, sigHex;
+    bool sigEnrolled = false;
+    try {
+        auto& db = Database::instance();
+        auto row = db.queryRow("SELECT license_key, bound_machine_id, expire_date, enabled_modules, COALESCE(blocked_modules, '[]') as blocked_modules, COALESCE(subscription_status, 'active') as subscription_status, COALESCE(license_signature, '') as license_signature FROM local_license_cache WHERE id = 1");
+        if (!row.is_null()) {
+            licKey = row.value("license_key", "");
+            boundMid = row.contains("bound_machine_id") && row["bound_machine_id"].is_string() ? row["bound_machine_id"].get<std::string>() : "";
+            expDate = row.value("expire_date", "");
+            enMods = row.value("enabled_modules", "[]");
+            blkMods = row.value("blocked_modules", "[]");
+            subStatus = row.value("subscription_status", "active");
+            sigHex = row.value("license_signature", "");
+        }
+        auto sRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'cnx_ecdsa_enrolled' LIMIT 1");
+        sigEnrolled = (!sRow.is_null() && sRow.value("setting_value", "") == "1");
+    } catch (...) {}
+    if (outBound) *outBound = boundMid;
+    if (!boundMid.empty() && boundMid != currentMid) return true;
+    if (!sigHex.empty() || sigEnrolled) {
+        std::string normMods = "[]";
+        std::string normBlk = "[]";
+        try {
+            json arr = json::parse(enMods, nullptr, false);
+            if (arr.is_array()) normMods = arr.dump();
+        } catch (...) {}
+        try {
+            json bArr = json::parse(blkMods, nullptr, false);
+            if (bArr.is_array()) normBlk = bArr.dump();
+        } catch (...) {}
+        std::string canon6 = SaleApp::LicenseCrypto::buildCanonicalPayload(licKey, boundMid, expDate, normMods, subStatus, normBlk);
+        bool okSig = SaleApp::LicenseCrypto::verifyLicensePayload(canon6, sigHex);
+        if (!okSig && (subStatus == "active" || subStatus == "trial") && normBlk == "[]") {
+            std::string canon4 = SaleApp::LicenseCrypto::buildCanonicalPayload(licKey, boundMid, expDate, normMods);
+            okSig = SaleApp::LicenseCrypto::verifyLicensePayload(canon4, sigHex);
+        }
+        if (!okSig) {
+            if (outBound) *outBound = "SIGNATURE_TAMPERED";
+            return true;
+        }
+    }
+    return false;
+}
+
+bool LicenseService::isSystemActive(std::string* outCode, std::string* outReason) {
+    std::string mismatchBound, mismatchCur;
+    if (isMachineMismatch(&mismatchBound, &mismatchCur)) {
+        if (mismatchBound == "SIGNATURE_TAMPERED") {
+            if (outCode) *outCode = "LICENSE_SIGNATURE_TAMPERED";
+            if (outReason) *outReason = "Phát hiện dữ liệu bản quyền local_license_cache bị chỉnh sửa trái phép (Chữ ký ECDSA P-256 không khớp)!";
+        } else {
+            if (outCode) *outCode = "HARDWARE_NODE_LOCK_MISMATCH";
+            if (outReason) *outReason = "Thiết bị không khớp Hardware ID đã khóa bản quyền (" + mismatchBound + ")!";
+        }
+        return false;
+    }
+
+    auto& db = Database::instance();
+    auto row = db.queryRow("SELECT COALESCE(subscription_status, 'active') as subscription_status, COALESCE(expire_date, '2028-12-31') as expire_date FROM local_license_cache WHERE id = 1");
+    std::string subStatus = row.is_null() ? "active" : row.value("subscription_status", "active");
+    std::string expireDate = row.is_null() ? "2028-12-31" : row.value("expire_date", "2028-12-31");
+
+    // 1. Anti-Clock-Rollback guard (ARCH-04)
+    std::time_t nowEpoch = std::time(nullptr);
+    int64_t maxObs = 0;
+    try {
+        auto mRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'cnx_max_observed_epoch' LIMIT 1");
+        if (!mRow.is_null()) {
+            std::string sv = mRow.value("setting_value", "0");
+            if (!sv.empty()) maxObs = std::stoll(sv);
+        }
+    } catch (...) {}
+    if (maxObs > 0 && static_cast<int64_t>(nowEpoch) + 600 < maxObs) {
+        if (outCode) *outCode = "LICENSE_CLOCK_TAMPERED";
+        if (outReason) *outReason = "Phát hiện đồng hồ hệ thống Windows bị chỉnh lùi trái phép (Clock Rollback)! Vui lòng chỉnh lại giờ chuẩn hoặc kết nối Máy chủ Master.";
+        return false;
+    }
+    if (static_cast<int64_t>(nowEpoch) > maxObs + 60) {
+        try {
+            db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_max_observed_epoch', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                       {{":v", std::to_string(static_cast<int64_t>(nowEpoch))}});
+        } catch (...) {}
+    }
+
+    // 2. SuperAdmin Suspension / Deletion guard
+    if (subStatus == "suspended" || subStatus == "locked" || subStatus == "deleted") {
+        if (outCode) *outCode = "LICENSE_SUSPENDED";
+        if (outReason) *outReason = "Thuê bao cửa hàng đã bị Máy chủ SuperAdmin tạm khóa (" + subStatus + ")! Vui lòng liên hệ nhà cung cấp.";
+        return false;
+    }
+
+    // 3. Expiration Date guard
+    std::tm expTm = {};
+    int daysLeft = 365;
+    if (std::sscanf(expireDate.c_str(), "%d-%d-%d", &expTm.tm_year, &expTm.tm_mon, &expTm.tm_mday) == 3) {
+        expTm.tm_year -= 1900;
+        expTm.tm_mon -= 1;
+        expTm.tm_hour = 23;
+        expTm.tm_min = 59;
+        expTm.tm_sec = 59;
+        std::time_t expTime = std::mktime(&expTm);
+        daysLeft = static_cast<int>(std::difftime(expTime, nowEpoch) / 86400.0);
+        if (expTime < nowEpoch) daysLeft = -1;
+    }
+    if (subStatus == "expired" || daysLeft < 0) {
+        if (outCode) *outCode = "LICENSE_EXPIRED";
+        if (outReason) *outReason = "Bản quyền cửa hàng đã hết hạn (" + expireDate + "). Vui lòng gia hạn với Máy chủ SuperAdmin!";
+        return false;
+    }
+
+    return true;
+}
+
 std::vector<std::string> LicenseService::getEnabledModules(int64_t tenantId) {
     (void)tenantId;
     auto& db = Database::instance();
@@ -291,11 +424,9 @@ std::vector<std::string> LicenseService::getEnabledModules(int64_t tenantId) {
 }
 
 bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
-    if (moduleCode == "pos_core" || moduleCode == "mod_pos_core" ||
-        moduleCode == "finance_admin" || moduleCode == "mod_finance_admin") return true;
+    if (!isSystemActive()) return false;
     std::string stripped = moduleCode;
     if (stripped.rfind("mod_", 0) == 0) stripped = stripped.substr(4);
-    if (stripped == "pos_core" || stripped == "finance_admin") return true;
 
     auto& db = Database::instance();
     auto row = db.queryRow("SELECT blocked_modules FROM local_license_cache WHERE id = 1");
@@ -313,6 +444,8 @@ bool LicenseService::isModuleEnabled(const std::string& moduleCode) {
             }
         } catch (...) {}
     }
+
+    if (stripped == "pos_core" || stripped == "finance_admin") return true;
 
     auto enabled = getEnabledModules();
     for (const auto& m : enabled) {
@@ -354,17 +487,26 @@ json LicenseService::verifyLicenseOnline(const std::string& licenseKey, const st
     }
 
     try {
-        httplib::Client cli(masterUrl);
-        cli.set_connection_timeout(3, 0);
-        cli.set_read_timeout(5, 0);
-
         json reqBody = {
             {"action", "verify"},
             {"license_key", licenseKey},
             {"machine_id", machineId}
         };
+        auto postVerify = [&](const std::string& targetUrl) -> httplib::Result {
+            httplib::Client cli(targetUrl);
+            cli.set_connection_timeout(3, 0);
+            cli.set_read_timeout(5, 0);
+            return cli.Post("/api/license/verify", reqBody.dump(), "application/json");
+        };
 
-        auto res = cli.Post("/api/license/verify", reqBody.dump(), "application/json");
+        auto res = postVerify(masterUrl);
+        if (!res) {
+            std::string fbUrl = SaleApp::Config::AppConfig::instance().getMasterFallbackUrl();
+            if (!fbUrl.empty() && fbUrl != masterUrl) {
+                res = postVerify(fbUrl);
+                if (res) masterUrl = fbUrl;
+            }
+        }
         if (res && res->status == 200) {
             json resp = json::parse(res->body);
             if (resp.value("success", false)) {
@@ -384,12 +526,14 @@ json LicenseService::verifyLicenseOnline(const std::string& licenseKey, const st
                     blockedModsStr = resp["blocked_modules"].dump();
                 }
                 double cardFeePct = resp.value("card_fee_percent", 0.0);
+                std::string licSig = resp.value("license_signature", "");
 
-                db.execute(R"(
+                bool updated = db.execute(R"(
                     UPDATE local_license_cache 
                     SET license_key = :k, store_name = :sn, plan_name = :pn, subscription_status = :st,
                         expire_date = :exp, enabled_modules = :em, blocked_modules = :bm, card_fee_percent = :cfp,
-                        last_sync_at = datetime('now'), last_sync_status = 'online_ok', bound_machine_id = :mid
+                        last_sync_at = datetime('now'), last_sync_status = 'online_ok', bound_machine_id = :mid,
+                        license_signature = CASE WHEN :sig != '' THEN :sig ELSE COALESCE(license_signature, '') END
                     WHERE id = 1
                 )", {
                     {":k", licenseKey},
@@ -400,8 +544,23 @@ json LicenseService::verifyLicenseOnline(const std::string& licenseKey, const st
                     {":em", enabledModsStr},
                     {":bm", blockedModsStr},
                     {":cfp", cardFeePct},
-                    {":mid", machineId}
+                    {":mid", machineId},
+                    {":sig", licSig}
                 });
+                if (updated && !licSig.empty()) {
+                    try {
+                        db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_ecdsa_enrolled', '1') ON CONFLICT(setting_key) DO UPDATE SET setting_value = '1'");
+                    } catch (...) {}
+                }
+                if (resp.contains("server_time") && resp["server_time"].is_number_integer()) {
+                    int64_t srvT = resp["server_time"].get<int64_t>();
+                    int64_t nowT = static_cast<int64_t>(std::time(nullptr));
+                    int64_t bestT = std::max(srvT, nowT);
+                    try {
+                        db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_max_observed_epoch', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                                   {{":v", std::to_string(bestT)}});
+                    } catch (...) {}
+                }
 
                 return {
                     {"success", true},
@@ -482,7 +641,18 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
 
     std::string state = "valid";
     std::string msg = "Bản quyền hợp lệ (Chế độ Edge Node Offline-First).";
-    if (daysLeft < 0 || subStatus == "expired") {
+    std::string mismatchBound, mismatchCur;
+    if (isMachineMismatch(&mismatchBound, &mismatchCur)) {
+        if (mismatchBound == "SIGNATURE_TAMPERED" || (!boundMid.empty() && boundMid == machineId)) {
+            state = "signature_tampered";
+            subStatus = "signature_tampered";
+            msg = "Phát hiện dữ liệu bản quyền bị chỉnh sửa trái phép (Chữ ký ECDSA P-256 không khớp)! Vui lòng đồng bộ lại với Master.";
+        } else {
+            state = "machine_mismatch";
+            subStatus = "machine_mismatch";
+            msg = "Cảnh báo sao chép trái phép (Hardware Node-Lock): Bản quyền đã gắn cho máy " + boundMid + " (Máy hiện tại: " + machineId + "). Vui lòng Reset Khóa Máy trên Master!";
+        }
+    } else if (daysLeft < 0 || subStatus == "expired") {
         state = "expired";
         msg = "Bản quyền đã hết hạn. Vui lòng liên hệ nhà phát triển để gia hạn.";
     } else if (daysLeft <= 14) {

@@ -37,8 +37,23 @@ body {
   min-height: 100vh;
   user-select: none;
   -webkit-user-select: none;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--cn-font-i18n, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", "Noto Sans Thai", "Microsoft YaHei", "Yu Gothic UI", "Malgun Gothic", sans-serif);
   overflow-x: hidden;
+}
+
+/* Multi-language & CJK/Thai Responsive Typography (I18N-14) */
+html[lang="zh"] body, html[lang="ja"] body, html[lang="ko"] body, html[lang="th"] body {
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+table th, .saas-table th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.3;
+}
+button[data-i18n], .btn-glass[data-i18n], .btn-glass-primary[data-i18n], .btn-glass-success[data-i18n] {
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 /* Floating Ambient Orbs (Tắt hiệu ứng làm mờ nặng trên iPad/Mobile để chống tràn bộ nhớ và treo máy) */
@@ -595,7 +610,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 11px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   white-space: nowrap !important;
   position: sticky;
@@ -617,7 +632,7 @@ body {
 }
 
 .saas-table tbody td {
-  padding: 10px 16px;
+  padding: 10px 12px;
   color: #e2e8f0;
   vertical-align: middle;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -1001,4 +1016,139 @@ body {
     letter-spacing: 0.05em !important;
     margin-top: 3px !important;
 }
+.bottom-sheet {
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bottom-sheet.open {
+    transform: translateY(0);
+}
 
+
+
+/* ============================================================================
+   Unified 3-Zone Top Navigator (.cn-top-nav) — Master & Slave Shared System
+   ============================================================================ */
+.cn-top-nav {
+  min-height: 54px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+.cn-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.cn-nav-center {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  flex: 0 1 auto;
+  margin: 0 auto;
+  min-width: 0;
+  padding: 3px 6px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cn-nav-center::-webkit-scrollbar { display: none; }
+.cn-nav-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(148, 163, 184, 0.32);
+  flex: 0 0 auto;
+  margin: 0 2px;
+}
+.cn-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 3px 5px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+}
+.cn-nav-btn {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  line-height: 1 !important;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cn-nav-btn--danger {
+  background: rgba(225, 29, 72, 0.18) !important;
+  border: 1px solid rgba(244, 63, 94, 0.45) !important;
+  color: #fda4af !important;
+}
+.cn-nav-btn--danger:hover {
+  background: rgba(225, 29, 72, 0.34) !important;
+  border-color: rgba(251, 113, 133, 0.7) !important;
+  color: #fff !important;
+}
+.cn-lang-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 2px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  flex-shrink: 0;
+  gap: 2px;
+}
+.cn-user-pill {
+  height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.cn-user-name {
+  max-width: 115px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+/* Compact Action Buttons Inside Tables (Prevents Horizontal Cut-off) */
+table .btn-glass,
+td .btn-glass,
+.saas-table .btn-glass {
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+  border-radius: 8px !important;
+  min-height: 28px;
+  line-height: 1.15;
+}
+.saas-table {
+  width: 100%;
+}

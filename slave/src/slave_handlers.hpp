@@ -33,6 +33,9 @@ public:
     static void handleAdvertising(const httplib::Request& req, httplib::Response& res);
     static void handlePromotions(const httplib::Request& req, httplib::Response& res);
     static void handleMediaTracks(const httplib::Request& req, httplib::Response& res);
+
+    // Periodic background maintenance
+    static void runPeriodicShiftMaintenance();
 };
 
 } // namespace SaleApp::Backend
