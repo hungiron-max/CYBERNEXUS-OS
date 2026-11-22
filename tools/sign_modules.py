@@ -27,6 +27,13 @@ def sign_file(path: str) -> str:
         "signed_by": "CyberNexus-SuperAdmin",
     }
     sig_path = path + ".sig"
+    if os.path.exists(sig_path):
+        try:
+            existing = json.load(open(sig_path, "r", encoding="utf-8"))
+            if existing.get("version") == 2 and existing.get("ecdsa_sig") and existing.get("sha256") == file_hash:
+                return sig_path
+        except Exception:
+            pass
     with open(sig_path, "w", encoding="utf-8") as sf:
         json.dump(sig_data, sf, indent=2)
     return sig_path

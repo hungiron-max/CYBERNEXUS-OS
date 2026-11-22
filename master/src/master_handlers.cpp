@@ -4949,7 +4949,11 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             fs::create_directories(backupRoot, ec);
             auto now = std::time(nullptr);
             std::tm tmBuf{};
+#ifdef _WIN32
             localtime_s(&tmBuf, &now);
+#else
+            localtime_r(&now, &tmBuf);
+#endif
             char ts[32];
             std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", &tmBuf);
             std::string fname = std::string("store_local_") + ts + ".db";

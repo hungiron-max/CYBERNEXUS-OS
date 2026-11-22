@@ -83,7 +83,7 @@ def run_e2e():
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS saas_settings (key TEXT PRIMARY KEY, value TEXT);
             CREATE TABLE IF NOT EXISTS store_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT);
-            CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_code TEXT, username TEXT UNIQUE, password_hash TEXT, fullname TEXT, role TEXT, status TEXT DEFAULT 'active', is_online INTEGER DEFAULT 0);
+            CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_code TEXT, username TEXT UNIQUE, password TEXT, fullname TEXT, role TEXT, status TEXT DEFAULT 'active', is_online INTEGER DEFAULT 0, hourly_rate REAL DEFAULT 25000, salary_type TEXT DEFAULT 'hourly', pin_code TEXT DEFAULT '123456', last_active_at TEXT);
             CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, sort_order INTEGER DEFAULT 0, status TEXT DEFAULT 'active');
             CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT, name TEXT, category_id INTEGER DEFAULT 1, sale_price REAL DEFAULT 25000, unit TEXT DEFAULT 'ly', status TEXT DEFAULT 'active', is_available INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0);
             CREATE TABLE IF NOT EXISTS tables_areas (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT, name TEXT, area_type TEXT DEFAULT 'TAI_QUAN', status TEXT DEFAULT 'free', active_order_id INTEGER, guest_count INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now','localtime')));
@@ -117,7 +117,7 @@ def run_e2e():
                 created_at TEXT DEFAULT (datetime('now','localtime'))
             );
             CREATE TABLE IF NOT EXISTS materials (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT, name TEXT, unit TEXT DEFAULT 'kg', stock_qty REAL DEFAULT 10, min_stock_qty REAL DEFAULT 2);
-            INSERT INTO users (id, user_code, username, password_hash, fullname, role, status) VALUES (1, 'ADMIN', 'admin', 'admin123', 'Chủ Quán E2E', 'admin', 'active');
+            INSERT INTO users (id, user_code, username, password, fullname, role, status) VALUES (1, 'ADMIN', 'admin', 'admin123', 'Chủ Quán E2E', 'admin', 'active');
             INSERT INTO categories (id, name) VALUES (1, 'Cà Phê');
             INSERT INTO products (id, code, name, category_id, sale_price) VALUES (1, 'CF01', 'Cà Phê Sữa Đá', 1, 29000);
             INSERT INTO tables_areas (id, code, name, area_type) VALUES (1, 'TQ1', 'Bàn Tại Quán 01', 'TAI_QUAN');
@@ -159,12 +159,12 @@ def run_e2e():
                 print("--- SLAVE LOG ---\n" + open(log_path, "r", encoding="utf-8", errors="replace").read())
             assert ready, "cybernexus_slave failed to start in time"
 
-            # 1. Login as seeded superadmin
+            # 1. Login as seeded admin
             st, login_res = http_req(
                 base_url,
                 "/api/auth?action=login",
                 method="POST",
-                body={"username": "superadmin", "password": "admin123"},
+                body={"username": "admin", "password": "admin123"},
             )
             assert st == 200 and login_res.get("success"), f"Login failed: {st} {login_res}"
             token = login_res.get("token") or login_res.get("data", {}).get("token", "")

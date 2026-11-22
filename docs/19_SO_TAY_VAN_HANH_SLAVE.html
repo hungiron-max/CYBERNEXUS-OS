@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberNexus OS — Sổ Tay Vận Hành & Thuyết Minh Hệ Thống SLAVE</title>
+<style>
+  :root {
+    --bg: #070b14;
+    --bg2: #0b1120;
+    --panel: rgba(15, 23, 42, 0.88);
+    --panel-solid: #0f172a;
+    --panel-2: rgba(30, 41, 59, 0.72);
+    --panel-hover: rgba(30, 41, 59, 0.92);
+    --border: rgba(148, 163, 184, 0.16);
+    --border-strong: rgba(56, 189, 248, 0.35);
+    --text: #e2e8f0;
+    --text-strong: #f8fafc;
+    --muted: #94a3b8;
+    --sky: #38bdf8;
+    --emerald: #34d399;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --violet: #a78bfa;
+    --cyan: #22d3ee;
+    --shadow: 0 12px 32px rgba(2, 6, 23, 0.55);
+  }
+  [data-theme="light"] {
+    --bg: #f1f5f9;
+    --bg2: #e2e8f0;
+    --panel: rgba(255, 255, 255, 0.96);
+    --panel-solid: #ffffff;
+    --panel-2: #f8fafc;
+    --panel-hover: #f1f5f9;
+    --border: rgba(15, 23, 42, 0.12);
+    --border-strong: rgba(2, 132, 199, 0.45);
+    --text: #1e293b;
+    --text-strong: #0f172a;
+    --muted: #64748b;
+    --sky: #0284c7;
+    --emerald: #059669;
+    --amber: #d97706;
+    --rose: #e11d48;
+    --violet: #7c3aed;
+    --cyan: #0891b2;
+    --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  body {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 15% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+      radial-gradient(ellipse 60% 45% at 85% -10%, rgba(167, 139, 250, 0.10), transparent 60%);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.28); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.48); }
+  [data-theme="light"] body { background-image: none; }
+
+  /* Topbar */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(7, 11, 20, 0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+  }
+  [data-theme="light"] .topbar { background: rgba(255, 255, 255, 0.94); }
+  .topbar-inner {
+    max-width: 1520px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: nowrap;
+  }
+  @media (max-width: 1240px) { .topbar-inner { flex-wrap: wrap; } }
+  .brand-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #fff; font-weight: 800; letter-spacing: 0.03em;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+    flex-shrink: 0;
+  }
+  .brand h1 {
+    margin: 0; font-size: 14.5px; font-weight: 800; color: var(--text-strong);
+    letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .brand-sub { font-size: 11px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
+  .doc-switch {
+    display: inline-flex; align-items: center;
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    border-radius: 9px; padding: 2px; gap: 2px;
+    flex-shrink: 0;
+  }
+  .doc-switch a {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 7px;
+    font-size: 11.5px; font-weight: 700;
+    text-decoration: none; color: var(--muted);
+    transition: all 0.15s ease; white-space: nowrap;
+  }
+  .doc-switch a:hover { color: var(--text-strong); }
+  .doc-switch a.active {
+    background: rgba(56, 189, 248, 0.16);
+    color: var(--sky);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
+  }
+  .top-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; flex-shrink: 0; }
+  @media (max-width: 900px) { .top-actions { flex-wrap: wrap; } }
+  .btn-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 800;
+    background: rgba(148, 163, 184, 0.22); color: var(--text-strong);
+  }
+  .btn.active .btn-badge { background: var(--sky); color: #031525; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .pill-sky { border-color: rgba(56,189,248,0.35); background: rgba(56,189,248,0.12); color: var(--sky); }
+  .pill-emerald { border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.12); color: var(--emerald); }
+  .pill-amber { border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.12); color: var(--amber); }
+  .pill-rose { border-color: rgba(251,113,133,0.35); background: rgba(251,113,133,0.12); color: var(--rose); }
+  .pill-violet { border-color: rgba(167,139,250,0.35); background: rgba(167,139,250,0.12); color: var(--violet); }
+  .pill-muted { color: var(--muted); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 11px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--border-strong); background: var(--panel-hover); color: var(--text-strong); }
+  .btn-primary {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    border-color: rgba(56,189,248,0.5); color: #fff;
+  }
+  .btn-primary:hover { filter: brightness(1.08); color: #fff; }
+  .btn-emerald { background: rgba(16,185,129,0.16); border-color: rgba(52,211,153,0.4); color: var(--emerald); }
+  .btn-amber { background: rgba(245,158,11,0.16); border-color: rgba(251,191,36,0.4); color: var(--amber); }
+  .btn-rose { background: rgba(244,63,94,0.14); border-color: rgba(251,113,133,0.4); color: var(--rose); }
+  .btn-sm { padding: 4px 8px; font-size: 11.5px; border-radius: 6px; }
+  .btn.active { border-color: var(--sky); background: rgba(56,189,248,0.18); color: var(--sky); }
+
+  /* Container */
+  .wrap {
+    width: 100%; max-width: 1520px; margin: 0 auto;
+    padding: 12px 20px 14px;
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #viewRoot {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .pane-scroll {
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto; padding-right: 4px;
+  }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px; margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 1180px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .kpi {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+    box-shadow: var(--shadow);
+    cursor: pointer; transition: transform 0.12s ease, border-color 0.15s ease;
+  }
+  .kpi:hover { transform: translateY(-1px); border-color: var(--border-strong); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .kpi-val { font-size: 22px; font-weight: 800; color: var(--text-strong); margin: 2px 0; line-height: 1.2; }
+  .kpi-sub { font-size: 11.5px; color: var(--muted); }
+
+  /* Nav Tabs */
+  .tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px; margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .tab-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 14px; border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--muted);
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  .tab-btn:hover { color: var(--text-strong); border-color: var(--border-strong); }
+  .tab-btn.active {
+    background: linear-gradient(135deg, rgba(14,165,233,0.22), rgba(99,102,241,0.22));
+    border-color: var(--sky);
+    color: var(--text-strong);
+    box-shadow: 0 4px 16px rgba(14,165,233,0.18);
+  }
+  .tab-count {
+    font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+    background: rgba(148,163,184,0.18); color: var(--text);
+  }
+  .tab-btn.active .tab-count { background: var(--sky); color: #031525; }
+
+  /* Module Quick Strip */
+  .mod-strip {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .mod-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.14s ease;
+  }
+  .mod-chip:hover { border-color: var(--border-strong); background: var(--panel-hover); }
+  .mod-chip.active { border-color: var(--sky); background: rgba(56,189,248,0.16); color: var(--sky); }
+  .mod-chip small { color: var(--muted); font-weight: 600; font-size: 11px; }
+
+  /* Filter Toolbar */
+  .toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .input, .select {
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    color: var(--text-strong);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    outline: none;
+  }
+  .input:focus, .select:focus { border-color: var(--sky); box-shadow: 0 0 0 2px rgba(56,189,248,0.18); }
+  .search-box { flex: 1 1 260px; min-width: 220px; }
+  .toolbar-right { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .result-count { font-size: 12px; color: var(--muted); font-weight: 600; padding: 0 4px; }
+
+  /* Table */
+  .table-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+  }
+  .pane-scroll .table-card { flex: 0 0 auto; overflow: visible; }
+  .table-scroll {
+    flex: 1 1 auto; min-height: 0;
+    overflow: auto;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    position: sticky; top: 0; z-index: 6;
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted); font-weight: 700;
+    padding: 10px 12px;
+    background: var(--panel-solid);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  [data-theme="light"] thead th { background: #f8fafc; }
+  tbody tr.main-row {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s ease;
+    cursor: pointer;
+  }
+  tbody tr.main-row:hover { background: var(--panel-hover); }
+  tbody tr.main-row.expanded { background: rgba(56, 189, 248, 0.07); }
+  tbody td { padding: 10px 12px; vertical-align: top; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .code-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px; font-weight: 700;
+    color: var(--sky);
+    background: rgba(56,189,248,0.1);
+    border: 1px solid rgba(56,189,248,0.25);
+    padding: 2px 6px; border-radius: 6px;
+    display: inline-block; white-space: nowrap;
+  }
+  .title-main { font-weight: 700; color: var(--text-strong); font-size: 13.5px; }
+  .title-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .chev {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 5px;
+    color: var(--muted); font-size: 11px; transition: transform 0.15s ease;
+  }
+  tr.expanded .chev { transform: rotate(90deg); color: var(--sky); }
+
+  /* Detail Drawer Row */
+  tr.detail-row td {
+    padding: 0;
+    background: rgba(7, 11, 20, 0.55);
+    border-bottom: 1px solid var(--border-strong);
+  }
+  [data-theme="light"] tr.detail-row td { background: #f8fafc; }
+  .detail-box {
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 980px) { .detail-box { grid-template-columns: 1fr; } }
+  .detail-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .detail-section:last-child { margin-bottom: 0; }
+  .detail-h {
+    font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--sky); margin: 0 0 8px 0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .step-list { margin: 0; padding-left: 18px; }
+  .step-list li { margin-bottom: 5px; color: var(--text); }
+  .note-list { margin: 0; padding-left: 16px; }
+  .note-list li { margin-bottom: 4px; color: var(--text); font-size: 12.5px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .db-link {
+    cursor: pointer; text-decoration: none;
+    transition: all 0.12s ease;
+  }
+  .db-link:hover { border-color: var(--sky); color: var(--sky); background: rgba(56,189,248,0.14); }
+
+  /* Comment Box */
+  .comment-box {
+    background: var(--panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .status-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+  .status-pill {
+    padding: 4px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+    cursor: pointer; transition: all 0.12s ease;
+  }
+  .status-pill:hover { border-color: var(--border-strong); color: var(--text-strong); }
+  .status-pill.st-none.active { border-color: var(--muted); background: rgba(148,163,184,0.2); color: var(--text-strong); }
+  .status-pill.st-ok.active { border-color: var(--emerald); background: rgba(52,211,153,0.2); color: var(--emerald); }
+  .status-pill.st-fix.active { border-color: var(--rose); background: rgba(251,113,133,0.2); color: var(--rose); }
+  .status-pill.st-train.active { border-color: var(--amber); background: rgba(251,191,36,0.2); color: var(--amber); }
+
+  .comment-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; max-height: 220px; overflow-y: auto; }
+  .comment-item {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px;
+  }
+  .comment-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .comment-author { font-weight: 700; color: var(--sky); }
+  .comment-text { font-size: 12.5px; color: var(--text-strong); white-space: pre-wrap; word-break: break-word; }
+  .comment-del { background: none; border: none; color: var(--rose); cursor: pointer; font-size: 11px; padding: 0 4px; opacity: 0.75; }
+  .comment-del:hover { opacity: 1; }
+  .comment-form { display: flex; flex-direction: column; gap: 6px; }
+  .comment-form-row { display: flex; gap: 6px; }
+  .comment-form textarea {
+    width: 100%; min-height: 56px; resize: vertical;
+    background: var(--panel-solid); border: 1px solid var(--border);
+    color: var(--text-strong); border-radius: 8px; padding: 7px 9px; font-size: 12.5px;
+    font-family: inherit;
+  }
+  .comment-form textarea:focus { outline: none; border-color: var(--sky); }
+
+  /* Flows */
+  .card-grid {
+    display: flex; flex-direction: column; gap: 12px;
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto; padding-right: 4px;
+  }
+  .flow-card, .case-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .flow-head {
+    padding: 13px 16px;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    cursor: pointer; flex-wrap: wrap;
+  }
+  .flow-head:hover { background: var(--panel-hover); }
+  .flow-body {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+    background: rgba(7, 11, 20, 0.35);
+  }
+  [data-theme="light"] .flow-body { background: #f8fafc; }
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .t-step {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--sky);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .t-step-num { font-size: 11px; font-weight: 800; color: var(--sky); display: flex; justify-content: space-between; align-items: center; }
+  .t-step-act { font-weight: 700; color: var(--text-strong); font-size: 13px; }
+  .t-step-meta { font-size: 11.5px; color: var(--muted); }
+
+  /* Role Matrix & Guides */
+  .role-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .matrix-cell { text-align: center; font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .m-2 { color: var(--emerald); }
+  .m-1 { color: var(--amber); }
+  .m-0 { color: var(--muted); opacity: 0.45; }
+  .guide-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .guide-item:last-child { border-bottom: none; }
+  .guide-item.done { opacity: 0.68; }
+  .guide-item.done .title-main { text-decoration: line-through; }
+  .guide-chk { width: 17px; height: 17px; accent-color: var(--emerald); cursor: pointer; flex-shrink: 0; }
+
+  /* DB Schema Pills */
+  .col-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .col-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 6px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    font-size: 11.5px;
+  }
+  .col-chip.pk { border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.12); }
+  .col-type { color: var(--muted); font-size: 10.5px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; z-index: 99;
+    background: #0f172a; color: #f8fafc;
+    border: 1px solid var(--sky);
+    padding: 10px 16px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+    opacity: 0; transform: translateY(10px);
+    transition: all 0.2s ease; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Empty state */
+  .empty {
+    text-align: center; padding: 36px 16px; color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  /* Section header */
+  .sec-title {
+    font-size: 15px; font-weight: 800; color: var(--text-strong);
+    margin: 18px 0 10px; display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Print */
+  @media print {
+    :root, [data-theme="light"] {
+      --bg: #ffffff; --panel: #ffffff; --panel-solid: #ffffff; --panel-2: #f8fafc;
+      --border: #cbd5e1; --border-strong: #94a3b8;
+      --text: #1e293b; --text-strong: #0f172a; --muted: #475569;
+      --sky: #0369a1; --emerald: #047857; --amber: #b45309; --rose: #be123c; --violet: #6d28d9; --cyan: #0e7490;
+    }
+    .topbar, .toolbar, .mod-strip, .tabs, .comment-form, .btn, .top-actions { display: none !important; }
+    html, body, .wrap, #viewRoot, .table-card, .table-scroll, .card-grid, .pane-scroll {
+      height: auto !important; overflow: visible !important; display: block !important;
+    }
+    body { background: #fff !important; background-image: none !important; color: #0f172a !important; font-size: 11.5px; }
+    .wrap { padding: 0 !important; max-width: 100% !important; }
+    .table-card, .flow-card, .case-card, .kpi, .detail-section, .comment-box, .t-step {
+      box-shadow: none !important; border-color: #cbd5e1 !important; background: #fff !important;
+      break-inside: avoid;
+    }
+    thead th { background: #f1f5f9 !important; color: #0f172a !important; }
+    tr.detail-row td, .flow-body { background: #f8fafc !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-group">
+      <div class="brand">
+        <div class="brand-logo">CN</div>
+        <div style="min-width:0">
+          <h1 id="appTitle">Sổ tay Vận hành & Thuyết minh Hệ thống SLAVE</h1>
+          <div class="brand-sub" id="appMeta">Đang tải dữ liệu...</div>
+        </div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <nav class="doc-switch" aria-label="Chuyển đổi sổ tay">
+        <a href="19_SO_TAY_VAN_HANH_SLAVE.html" class="active">🏪 SLAVE</a>
+        <a href="20_SO_TAY_VAN_HANH_MASTER.html">🏛️ MASTER</a>
+      </nav>
+      <button class="btn" id="btnOnlyCommented" title="Chỉ hiện các mục đã có comment hoặc trạng thái rà soát">💬 Ghi chú <span class="btn-badge" id="topNoteCount">0</span></button>
+      <button class="btn" id="btnImportJson" title="Nhập file JSON comment/rà soát">📥 Nhập</button>
+      <input type="file" id="fileImportJson" accept=".json" style="display:none">
+      <button class="btn btn-emerald" id="btnExportJson" title="Lưu toàn bộ trạng thái rà soát & comment ra file JSON">📤 JSON</button>
+      <button class="btn btn-primary" id="btnExportCsv" title="Xuất toàn bộ danh mục & trạng thái rà soát/comment ra Excel CSV (UTF-8)">📊 Excel</button>
+      <button class="btn" id="btnTheme" title="Chuyển chế độ Sáng / Tối">☀️ Sáng</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- KPI Summary -->
+  <section class="kpi-grid" id="kpiGrid"></section>
+
+  <!-- Main Tabs -->
+  <nav class="tabs" id="mainTabs">
+    <button class="tab-btn active" data-tab="funcs">📋 Chức năng & Hướng dẫn <span class="tab-count" id="cnt-funcs">0</span></button>
+    <button class="tab-btn" data-tab="flows">🔄 Quy trình Vận hành <span class="tab-count" id="cnt-flows">0</span></button>
+    <button class="tab-btn" data-tab="roles">👥 Phân quyền & Đào tạo <span class="tab-count" id="cnt-roles">5</span></button>
+    <button class="tab-btn" data-tab="db">🗄️ Cơ sở dữ liệu SQLite <span class="tab-count" id="cnt-db">0</span></button>
+    <button class="tab-btn" data-tab="api">🔌 API Endpoints & Actions <span class="tab-count" id="cnt-api">0</span></button>
+    <button class="tab-btn" data-tab="cases">🛠️ Tình huống & Sự cố <span class="tab-count" id="cnt-cases">0</span></button>
+  </nav>
+
+  <!-- Dynamic View Container -->
+  <section id="viewRoot"></section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="slave_manual_data.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const DATA = window.SLAVE_MANUAL;
+  if (!DATA) {
+    document.getElementById('viewRoot').innerHTML =
+      '<div class="empty">❌ Không tải được <code>slave_manual_data.js</code>. Hãy đảm bảo file nằm cùng thư mục với <code>19_SO_TAY_VAN_HANH_SLAVE.html</code>.</div>';
+    return;
+  }
+
+  const STORAGE_KEY = 'cbnx_slave_manual_notes_v1';
+  const STATUS_META = {
+    '':      { label: 'Chưa rà',       cls: 'st-none',  pill: 'pill-muted' },
+    'ok':    { label: '✓ Đạt chuẩn',   cls: 'st-ok',    pill: 'pill-emerald' },
+    'fix':   { label: '⚠ Cần chỉnh sửa', cls: 'st-fix', pill: 'pill-rose' },
+    'train': { label: '📘 Ghi chú đào tạo', cls: 'st-train', pill: 'pill-amber' }
+  };
+  const ROLE_LABEL = {
+    all: 'Tất cả',
+    admin: 'Chủ quán',
+    cashier: 'Thu ngân',
+    kitchen: 'Bếp / Pha chế',
+    waiter: 'Phục vụ',
+    customer: 'Khách (QR)',
+    guest: 'Khách WiFi'
+  };
+  const MOD_MAP = Object.fromEntries(DATA.modules.map(m => [m.id, m]));
+  const FUNC_MAP = Object.fromEntries(DATA.funcs.map(f => [f.id, f]));
+
+  // Reverse indexes: DB table -> funcs, API path -> funcs
+  const DB_TO_FUNCS = {};
+  const API_TO_FUNCS = {};
+  DATA.funcs.forEach(f => {
+    (f.data || []).forEach(t => {
+      const k = t.trim();
+      if (!DB_TO_FUNCS[k]) DB_TO_FUNCS[k] = [];
+      DB_TO_FUNCS[k].push(f);
+    });
+    (f.api || []).forEach(a => {
+      const m = a.match(/(\/[a-zA-Z0-9_\-\/.]+)/);
+      if (m) {
+        const p = m[1];
+        if (!API_TO_FUNCS[p]) API_TO_FUNCS[p] = [];
+        if (!API_TO_FUNCS[p].includes(f)) API_TO_FUNCS[p].push(f);
+      }
+    });
+  });
+
+  // Persistent state
+  function loadStore() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          reviewerName: parsed.reviewerName || 'Chủ quán',
+          items: parsed.items || {},
+          onboarding: parsed.onboarding || {},
+          theme: parsed.theme || 'dark'
+        };
+      }
+    } catch (e) {}
+    return { reviewerName: 'Chủ quán', items: {}, onboarding: {}, theme: 'dark' };
+  }
+  let STORE = loadStore();
+  function saveStore() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STORE)); } catch (e) {}
+    updateStatsUI();
+  }
+  function getItemNote(id) {
+    return STORE.items[id] || { status: '', comments: [] };
+  }
+  function setItemStatus(id, status) {
+    if (!STORE.items[id]) STORE.items[id] = { status: '', comments: [] };
+    STORE.items[id].status = status;
+    if (!STORE.items[id].status && (!STORE.items[id].comments || STORE.items[id].comments.length === 0)) {
+      delete STORE.items[id];
+    }
+    saveStore();
+  }
+  function addItemComment(id, author, text) {
+    const clean = (text || '').trim();
+    if (!clean) return false;
+    const auth = (author || '').trim() || 'Chủ quán';
+    STORE.reviewerName = auth;
+    if (!STORE.items[id]) STORE.items[id] = { status: '', comments: [] };
+    const now = new Date();
+    const ts = now.toLocaleString('vi-VN', { hour12: false });
+    STORE.items[id].comments.push({
+      id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      author: auth,
+      text: clean,
+      ts: ts
+    });
+    saveStore();
+    return true;
+  }
+  function deleteItemComment(id, cid) {
+    if (!STORE.items[id] || !STORE.items[id].comments) return;
+    STORE.items[id].comments = STORE.items[id].comments.filter(c => c.id !== cid);
+    if (!STORE.items[id].status && STORE.items[id].comments.length === 0) {
+      delete STORE.items[id];
+    }
+    saveStore();
+  }
+
+  // UI State
+  const UI = {
+    tab: 'funcs',
+    onlyCommented: false,
+    // funcs filters
+    fQuery: '',
+    fMod: 'ALL',
+    fRole: 'ALL',
+    fStatus: 'ALL',
+    fLic: 'ALL',
+    expandedFuncs: new Set(),
+    // flows filters
+    flQuery: '',
+    flActor: 'ALL',
+    flStatus: 'ALL',
+    expandedFlows: new Set(['FLOW-01']),
+    // roles
+    activeRoleGuide: 'admin',
+    // db filters
+    dbQuery: '',
+    dbGroup: 'ALL',
+    dbStatus: 'ALL',
+    expandedDb: new Set(),
+    // api filters
+    apiQuery: '',
+    apiMethod: 'ALL',
+    actionQuery: '',
+    // cases filters
+    cQuery: '',
+    cSev: 'ALL',
+    cMod: 'ALL',
+    cStatus: 'ALL',
+    expandedCases: new Set()
+  };
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', STORE.theme === 'light' ? 'light' : 'dark');
+    document.getElementById('btnTheme').textContent = STORE.theme === 'light' ? '🌙 Tối' : '☀️ Sáng';
+  }
+  function matchesStatusFilter(id, filterVal) {
+    const note = getItemNote(id);
+    const hasNote = Boolean(note.status) || (note.comments && note.comments.length > 0);
+    if (UI.onlyCommented && !hasNote) return false;
+    if (filterVal === 'ALL') return true;
+    if (filterVal === 'HAS_COMMENT') return (note.comments && note.comments.length > 0);
+    if (filterVal === 'NONE') return !note.status;
+    return note.status === filterVal;
+  }
+  function commentSearchText(id) {
+    const note = getItemNote(id);
+    if (!note.comments || !note.comments.length) return '';
+    return note.comments.map(c => c.author + ' ' + c.text).join(' ');
+  }
+
+  function computeReviewStats() {
+    let ok = 0, fix = 0, train = 0, totalComments = 0, notedItems = 0;
+    Object.values(STORE.items).forEach(it => {
+      const cLen = (it.comments || []).length;
+      if (it.status === 'ok') ok++;
+      else if (it.status === 'fix') fix++;
+      else if (it.status === 'train') train++;
+      totalComments += cLen;
+      if (it.status || cLen > 0) notedItems++;
+    });
+    return { ok, fix, train, totalComments, notedItems };
+  }
+
+  function updateStatsUI() {
+    const st = computeReviewStats();
+    document.getElementById('topNoteCount').textContent = st.notedItems;
+    const btn = document.getElementById('btnOnlyCommented');
+    btn.classList.toggle('active', UI.onlyCommented);
+
+    const kpi = document.getElementById('kpiGrid');
+    kpi.innerHTML = `
+      <div class="kpi" data-jump-tab="funcs">
+        <div class="kpi-label">Chức năng chi tiết</div>
+        <div class="kpi-val" style="color:var(--sky)">${DATA.funcs.length}</div>
+        <div class="kpi-sub">${DATA.modules.length} màn hình / phân hệ</div>
+      </div>
+      <div class="kpi" data-jump-tab="flows">
+        <div class="kpi-label">Quy trình End-to-End</div>
+        <div class="kpi-val" style="color:var(--violet)">${DATA.flows.length}</div>
+        <div class="kpi-sub">Từ gọi món → chốt ca → OTA</div>
+      </div>
+      <div class="kpi" data-jump-tab="db">
+        <div class="kpi-label">Bảng dữ liệu SQLite</div>
+        <div class="kpi-val" style="color:var(--emerald)">${DATA.db.length}</div>
+        <div class="kpi-sub">${(DATA.meta.undocumented_tables || []).length === 0 ? '100% đã thuyết minh' : 'Còn bảng chưa mô tả'}</div>
+      </div>
+      <div class="kpi" data-jump-tab="api">
+        <div class="kpi-label">API Endpoints (C++)</div>
+        <div class="kpi-val" style="color:var(--cyan)">${DATA.api.length}</div>
+        <div class="kpi-sub">${Object.values(DATA.actions || {}).reduce((s, a) => s + a.length, 0)} action handlers</div>
+      </div>
+      <div class="kpi" data-jump-tab="cases">
+        <div class="kpi-label">Tình huống & Sự cố</div>
+        <div class="kpi-val" style="color:var(--amber)">${DATA.cases.length}</div>
+        <div class="kpi-sub">Hướng dẫn xử lý nhanh tại quán</div>
+      </div>
+      <div class="kpi" id="kpiReviewCard">
+        <div class="kpi-label">Rà soát & Comment</div>
+        <div class="kpi-val" style="color:var(--rose)">${st.notedItems} <span style="font-size:13px;color:var(--muted)">(${st.totalComments} 💬)</span></div>
+        <div class="kpi-sub">✓ ${st.ok} đạt • ⚠ ${st.fix} sửa • 📘 ${st.train} đào tạo</div>
+      </div>
+    `;
+    kpi.querySelectorAll('[data-jump-tab]').forEach(el => {
+      el.onclick = () => switchTab(el.getAttribute('data-jump-tab'));
+    });
+    const revCard = document.getElementById('kpiReviewCard');
+    if (revCard) {
+      revCard.onclick = () => {
+        UI.onlyCommented = !UI.onlyCommented;
+        updateStatsUI();
+        renderView();
+      };
+    }
+  }
+
+  function renderStatusBadge(id) {
+    const note = getItemNote(id);
+    const meta = STATUS_META[note.status || ''] || STATUS_META[''];
+    return `<span class="pill ${meta.pill}">${meta.label}</span>`;
+  }
+
+  function renderCommentBadge(id) {
+    const note = getItemNote(id);
+    const n = (note.comments || []).length;
+    if (!n) return `<span class="pill pill-muted">💬 0</span>`;
+    return `<span class="pill pill-sky">💬 ${n}</span>`;
+  }
+
+  function renderReviewPanel(id) {
+    const note = getItemNote(id);
+    const cur = note.status || '';
+    const comments = note.comments || [];
+    const statusBtns = Object.entries(STATUS_META).map(([k, v]) =>
+      `<button type="button" class="status-pill ${v.cls} ${cur === k ? 'active' : ''}" data-set-status="${esc(id)}" data-val="${esc(k)}">${v.label}</button>`
+    ).join('');
+    const listHtml = comments.length
+      ? comments.map(c => `
+          <div class="comment-item">
+            <div class="comment-meta">
+              <span><span class="comment-author">${esc(c.author)}</span> · ${esc(c.ts)}</span>
+              <button type="button" class="comment-del" data-del-comment="${esc(id)}" data-cid="${esc(c.id)}" title="Xóa comment">✕ Xóa</button>
+            </div>
+            <div class="comment-text">${esc(c.text)}</div>
+          </div>
+        `).join('')
+      : `<div style="font-size:12px;color:var(--muted);padding:4px 0 8px;">Chưa có ghi chú nào cho mục này. Anh có thể thêm nhận xét, yêu cầu chỉnh sửa hoặc lưu ý đào tạo nhân viên bên dưới.</div>`;
+
+    return `
+      <div class="comment-box" data-comment-box="${esc(id)}">
+        <div class="detail-h">📝 Đánh giá & Ghi chú (${comments.length})</div>
+        <div class="status-bar">${statusBtns}</div>
+        <div class="comment-list">${listHtml}</div>
+        <div class="comment-form">
+          <div class="comment-form-row">
+            <input type="text" class="input" style="flex:1" data-c-author="${esc(id)}" value="${esc(STORE.reviewerName)}" placeholder="Người ghi chú (VD: Chủ quán, Quản lý)">
+            <button type="button" class="btn btn-primary btn-sm" data-add-comment="${esc(id)}">+ Lưu ghi chú</button>
+          </div>
+          <textarea data-c-text="${esc(id)}" placeholder="Nhập comment, yêu cầu chỉnh sửa, câu hỏi hoặc hướng dẫn riêng cho quán... (Ctrl+Enter để lưu)"></textarea>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindReviewEvents(root) {
+    root.querySelectorAll('[data-set-status]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-set-status');
+        const val = btn.getAttribute('data-val');
+        setItemStatus(id, val);
+        toast('Đã cập nhật trạng thái rà soát cho ' + id);
+        renderView();
+      };
+    });
+    root.querySelectorAll('[data-add-comment]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-add-comment');
+        const authorEl = root.querySelector(`[data-c-author="${CSS.escape(id)}"]`);
+        const textEl = root.querySelector(`[data-c-text="${CSS.escape(id)}"]`);
+        if (addItemComment(id, authorEl ? authorEl.value : '', textEl ? textEl.value : '')) {
+          toast('Đã lưu ghi chú cho ' + id);
+          renderView();
+        } else {
+          toast('Vui lòng nhập nội dung ghi chú');
+        }
+      };
+    });
+    root.querySelectorAll('textarea[data-c-text]').forEach(ta => {
+      ta.onkeydown = (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+          e.preventDefault();
+          const id = ta.getAttribute('data-c-text');
+          const btn = root.querySelector(`[data-add-comment="${CSS.escape(id)}"]`);
+          if (btn) btn.click();
+        }
+      };
+    });
+    root.querySelectorAll('[data-del-comment]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-del-comment');
+        const cid = btn.getAttribute('data-cid');
+        deleteItemComment(id, cid);
+        toast('Đã xóa ghi chú');
+        renderView();
+      };
+    });
+    root.querySelectorAll('[data-jump-db]').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const tbl = el.getAttribute('data-jump-db');
+        UI.dbQuery = tbl;
+        UI.dbGroup = 'ALL';
+        UI.expandedDb.add(tbl);
+        switchTab('db');
+      };
+    });
+    root.querySelectorAll('[data-jump-func]').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const fid = el.getAttribute('data-jump-func');
+        UI.fQuery = fid;
+        UI.fMod = 'ALL';
+        UI.fRole = 'ALL';
+        UI.fStatus = 'ALL';
+        UI.fLic = 'ALL';
+        UI.expandedFuncs.add(fid);
+        switchTab('funcs');
+      };
+    });
+  }
+
+  // ==================== TAB 1: FUNCTIONS ====================
+  function renderFuncsTab() {
+    const root = document.getElementById('viewRoot');
+    const modCounts = {};
+    DATA.funcs.forEach(f => { modCounts[f.mod] = (modCounts[f.mod] || 0) + 1; });
+
+    const q = UI.fQuery.trim().toLowerCase();
+    const filtered = DATA.funcs.filter(f => {
+      if (UI.fMod !== 'ALL' && f.mod !== UI.fMod) return false;
+      if (UI.fRole !== 'ALL' && !(f.roles || []).includes(UI.fRole) && !(f.roles || []).includes('all')) return false;
+      if (UI.fLic === 'YES' && !f.lic) return false;
+      if (UI.fLic === 'NO' && f.lic) return false;
+      if (!matchesStatusFilter(f.id, UI.fStatus)) return false;
+      if (q) {
+        const hay = [
+          f.id, f.mod, f.sec, f.title, f.summary, f.lic, f.src, f.test,
+          (f.steps || []).join(' '),
+          (f.data || []).join(' '),
+          (f.api || []).join(' '),
+          (f.notes || []).join(' '),
+          (f.cases || []).join(' '),
+          commentSearchText(f.id)
+        ].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const modChipsHtml = `
+      <div class="mod-strip">
+        <button class="mod-chip ${UI.fMod === 'ALL' ? 'active' : ''}" data-fmod="ALL">✨ Tất cả màn hình <small>(${DATA.funcs.length})</small></button>
+        ${DATA.modules.map(m => `
+          <button class="mod-chip ${UI.fMod === m.id ? 'active' : ''}" data-fmod="${esc(m.id)}" title="${esc(m.url + ' — ' + m.desc)}">
+            ${m.icon} ${esc(m.name)} <small>(${modCounts[m.id] || 0})</small>
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    const activeModBanner = UI.fMod !== 'ALL' && MOD_MAP[UI.fMod] ? `
+      <div class="toolbar" style="border-color:var(--border-strong);background:rgba(56,189,248,0.08)">
+        <span style="font-size:18px">${MOD_MAP[UI.fMod].icon}</span>
+        <div>
+          <strong style="color:var(--text-strong)">${esc(MOD_MAP[UI.fMod].name)}</strong>
+          <span class="pill pill-sky mono" style="margin-left:6px">${esc(MOD_MAP[UI.fMod].url)}</span>
+          <div style="font-size:12px;color:var(--muted)">${esc(MOD_MAP[UI.fMod].desc)}</div>
+        </div>
+      </div>
+    ` : '';
+
+    const rowsHtml = filtered.length ? filtered.map(f => {
+      const exp = UI.expandedFuncs.has(f.id);
+      const m = MOD_MAP[f.mod] || { icon: '•', name: f.mod };
+      const roleBadges = (f.roles || []).map(r => `<span class="pill">${esc(ROLE_LABEL[r] || r)}</span>`).join(' ');
+      const dbShort = (f.data || []).slice(0, 3).map(t => `<span class="pill pill-emerald mono">${esc(t)}</span>`).join(' ')
+        + ((f.data || []).length > 3 ? ` <span class="pill pill-muted">+${f.data.length - 3}</span>` : '');
+      const licBadge = f.lic ? `<span class="pill pill-violet" title="Yêu cầu gói bản quyền">🔑 ${esc(f.lic)}</span>` : '';
+
+      let detailHtml = '';
+      if (exp) {
+        const stepsHtml = (f.steps || []).map(s => `<li>${esc(s)}</li>`).join('');
+        const notesHtml = (f.notes || []).map(s => `<li>${esc(s)}</li>`).join('');
+        const casesHtml = (f.cases || []).map(s => `<li>${esc(s)}</li>`).join('');
+        const dbBadges = (f.data || []).map(t => `<span class="pill pill-emerald mono db-link" data-jump-db="${esc(t)}" title="Bấm để xem cấu trúc bảng ${esc(t)}">${esc(t)}</span>`).join('');
+        const apiBadges = (f.api || []).map(a => `<div class="mono" style="font-size:11.5px;color:var(--cyan);margin-bottom:3px;">${esc(a)}</div>`).join('');
+
+        detailHtml = `
+          <tr class="detail-row">
+            <td colspan="7">
+              <div class="detail-box">
+                <div>
+                  <div class="detail-section">
+                    <div class="detail-h">🧭 Hướng dẫn thao tác chi tiết</div>
+                    <ol class="step-list">${stepsHtml || '<li>Chưa có bước thao tác.</li>'}</ol>
+                  </div>
+                  ${notesHtml ? `
+                    <div class="detail-section">
+                      <div class="detail-h">💡 Lưu ý vận hành & Quy tắc hệ thống</div>
+                      <ul class="note-list">${notesHtml}</ul>
+                    </div>` : ''}
+                  ${casesHtml ? `
+                    <div class="detail-section">
+                      <div class="detail-h">⚡ Tình huống thực tế & Cách xử lý</div>
+                      <ul class="note-list">${casesHtml}</ul>
+                    </div>` : ''}
+                  <div class="detail-section">
+                    <div class="detail-h">🔬 Tham chiếu kỹ thuật & Kiểm thử</div>
+                    <div style="font-size:12px;color:var(--muted)">
+                      <div><strong>Mã nguồn:</strong> <span class="mono">${esc(f.src || '—')}</span></div>
+                      <div style="margin-top:3px"><strong>Kiểm thử (QA):</strong> ${esc(f.test || '—')}</div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="detail-section">
+                    <div class="detail-h">🗄️ Bảng dữ liệu SQLite liên quan (bấm để xem cột)</div>
+                    <div class="chip-row">${dbBadges || '<span class="muted">—</span>'}</div>
+                  </div>
+                  <div class="detail-section">
+                    <div class="detail-h">🔌 API Endpoints gọi xuống Slave C++</div>
+                    ${apiBadges || '<span class="muted">—</span>'}
+                    ${f.lic ? `<div style="margin-top:8px"><span class="pill pill-violet">🔑 License Module: ${esc(f.lic)}</span></div>` : ''}
+                  </div>
+                  ${renderReviewPanel(f.id)}
+                </div>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
+      return `
+        <tr class="main-row ${exp ? 'expanded' : ''}" data-toggle-func="${esc(f.id)}">
+          <td style="white-space:nowrap">
+            <span class="chev">▶</span>
+            <span class="code-id">${esc(f.id)}</span>
+          </td>
+          <td style="min-width:155px">
+            <div style="font-weight:700;color:var(--text-strong);font-size:12.5px">${m.icon} ${esc(m.name)}</div>
+            <div style="font-size:11.5px;color:var(--muted)">${esc(f.sec)}</div>
+          </td>
+          <td style="min-width:280px">
+            <div class="title-main">${esc(f.title)} ${licBadge}</div>
+            <div class="title-sub">${esc(f.summary)}</div>
+          </td>
+          <td style="min-width:120px"><div class="chip-row">${roleBadges}</div></td>
+          <td style="min-width:170px"><div class="chip-row">${dbShort}</div></td>
+          <td style="white-space:nowrap">${renderStatusBadge(f.id)}</td>
+          <td style="white-space:nowrap">${renderCommentBadge(f.id)}</td>
+        </tr>
+        ${detailHtml}
+      `;
+    }).join('') : `<tr><td colspan="7" class="empty">Không tìm thấy chức năng nào khớp bộ lọc hiện tại.</td></tr>`;
+
+    root.innerHTML = `
+      ${modChipsHtml}
+      ${activeModBanner}
+      <div class="toolbar">
+        <input type="text" class="input search-box" id="inpFuncSearch" value="${esc(UI.fQuery)}" placeholder="🔍 Tìm mã, tên chức năng, bước hướng dẫn, bảng DB, API hoặc nội dung comment...">
+        <select class="select" id="selFuncRole">
+          <option value="ALL">👥 Mọi vai trò</option>
+          ${Object.entries(ROLE_LABEL).filter(([k]) => k !== 'all').map(([k, v]) =>
+            `<option value="${k}" ${UI.fRole === k ? 'selected' : ''}>${v}</option>`
+          ).join('')}
+        </select>
+        <select class="select" id="selFuncStatus">
+          <option value="ALL" ${UI.fStatus === 'ALL' ? 'selected' : ''}>📌 Mọi trạng thái rà soát</option>
+          <option value="NONE" ${UI.fStatus === 'NONE' ? 'selected' : ''}>Chưa rà</option>
+          <option value="ok" ${UI.fStatus === 'ok' ? 'selected' : ''}>✓ Đạt chuẩn</option>
+          <option value="fix" ${UI.fStatus === 'fix' ? 'selected' : ''}>⚠ Cần chỉnh sửa</option>
+          <option value="train" ${UI.fStatus === 'train' ? 'selected' : ''}>📘 Ghi chú đào tạo</option>
+          <option value="HAS_COMMENT" ${UI.fStatus === 'HAS_COMMENT' ? 'selected' : ''}>💬 Chỉ mục có comment</option>
+        </select>
+        <select class="select" id="selFuncLic">
+          <option value="ALL" ${UI.fLic === 'ALL' ? 'selected' : ''}>🔑 Mọi gói License</option>
+          <option value="YES" ${UI.fLic === 'YES' ? 'selected' : ''}>Chỉ mục cần License mở rộng</option>
+          <option value="NO" ${UI.fLic === 'NO' ? 'selected' : ''}>Chức năng cốt lõi (mặc định)</option>
+        </select>
+        <div class="toolbar-right">
+          <span class="result-count">${filtered.length} / ${DATA.funcs.length} mục</span>
+          <button class="btn btn-sm" id="btnExpandAllFunc">Mở tất cả</button>
+          <button class="btn btn-sm" id="btnCollapseAllFunc">Thu gọn</button>
+          <button class="btn btn-sm" id="btnResetFunc">Xóa lọc</button>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Mã</th>
+                <th>Màn hình / Phân khu</th>
+                <th>Chức năng & Thuyết minh</th>
+                <th>Vai trò</th>
+                <th>Dữ liệu SQLite</th>
+                <th>Rà soát</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    root.querySelectorAll('[data-fmod]').forEach(b => {
+      b.onclick = () => { UI.fMod = b.getAttribute('data-fmod'); renderView(); };
+    });
+    const inp = document.getElementById('inpFuncSearch');
+    inp.oninput = () => { UI.fQuery = inp.value; renderView(); focusEnd('inpFuncSearch'); };
+    document.getElementById('selFuncRole').onchange = (e) => { UI.fRole = e.target.value; renderView(); };
+    document.getElementById('selFuncStatus').onchange = (e) => { UI.fStatus = e.target.value; renderView(); };
+    document.getElementById('selFuncLic').onchange = (e) => { UI.fLic = e.target.value; renderView(); };
+    document.getElementById('btnExpandAllFunc').onclick = () => { filtered.forEach(f => UI.expandedFuncs.add(f.id)); renderView(); };
+    document.getElementById('btnCollapseAllFunc').onclick = () => { UI.expandedFuncs.clear(); renderView(); };
+    document.getElementById('btnResetFunc').onclick = () => {
+      UI.fQuery = ''; UI.fMod = 'ALL'; UI.fRole = 'ALL'; UI.fStatus = 'ALL'; UI.fLic = 'ALL';
+      UI.onlyCommented = false; updateStatsUI(); renderView();
+    };
+    root.querySelectorAll('[data-toggle-func]').forEach(tr => {
+      tr.onclick = () => {
+        const id = tr.getAttribute('data-toggle-func');
+        if (UI.expandedFuncs.has(id)) UI.expandedFuncs.delete(id); else UI.expandedFuncs.add(id);
+        renderView();
+      };
+    });
+    bindReviewEvents(root);
+  }
+
+  // ==================== TAB 2: FLOWS ====================
+  function renderFlowsTab() {
+    const root = document.getElementById('viewRoot');
+    const allActors = Array.from(new Set(DATA.flows.flatMap(fl => fl.actors || [])));
+    const q = UI.flQuery.trim().toLowerCase();
+
+    const filtered = DATA.flows.filter(fl => {
+      if (UI.flActor !== 'ALL' && !(fl.actors || []).includes(UI.flActor)) return false;
+      if (!matchesStatusFilter(fl.id, UI.flStatus)) return false;
+      if (q) {
+        const hay = [
+          fl.id, fl.title, fl.goal, (fl.actors || []).join(' '),
+          (fl.notes || []).join(' '),
+          (fl.steps || []).map(s => `${s.actor} ${s.screen} ${s.action} ${s.data} ${s.api}`).join(' '),
+          commentSearchText(fl.id)
+        ].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const cardsHtml = filtered.length ? filtered.map(fl => {
+      const exp = UI.expandedFlows.has(fl.id);
+      const actorsHtml = (fl.actors || []).map(a => `<span class="pill pill-violet">${esc(a)}</span>`).join(' ');
+      const bodyHtml = exp ? `
+        <div class="flow-body">
+          <div class="timeline">
+            ${(fl.steps || []).map((s, idx) => `
+              <div class="t-step">
+                <div class="t-step-num">
+                  <span>BƯỚC ${idx + 1} · ${esc(s.actor)}</span>
+                  <span class="pill mono" style="font-size:10.5px">${esc(s.screen)}</span>
+                </div>
+                <div class="t-step-act">${esc(s.action)}</div>
+                <div class="t-step-meta"><strong>DB:</strong> <span class="mono">${esc(s.data || '—')}</span></div>
+                <div class="t-step-meta"><strong>API:</strong> <span class="mono" style="color:var(--cyan)">${esc(s.api || '—')}</span></div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="detail-box" style="padding:0">
+            <div class="detail-section" style="margin-bottom:0">
+              <div class="detail-h">💡 Lưu ý quan trọng của quy trình</div>
+              <ul class="note-list">${(fl.notes || []).map(n => `<li>${esc(n)}</li>`).join('') || '<li>—</li>'}</ul>
+            </div>
+            ${renderReviewPanel(fl.id)}
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="flow-card">
+          <div class="flow-head" data-toggle-flow="${esc(fl.id)}">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+                <span class="code-id">${esc(fl.id)}</span>
+                <span class="title-main" style="font-size:14.5px">${esc(fl.title)}</span>
+              </div>
+              <div class="title-sub" style="margin-bottom:6px">🎯 ${esc(fl.goal)}</div>
+              <div class="chip-row">${actorsHtml} <span class="pill pill-sky">${(fl.steps || []).length} bước</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+              ${renderStatusBadge(fl.id)}
+              ${renderCommentBadge(fl.id)}
+              <span class="btn btn-sm">${exp ? '▲ Thu gọn' : '▼ Xem luồng'}</span>
+            </div>
+          </div>
+          ${bodyHtml}
+        </div>
+      `;
+    }).join('') : `<div class="empty">Không có quy trình nào khớp bộ lọc.</div>`;
+
+    root.innerHTML = `
+      <div class="toolbar">
+        <input type="text" class="input search-box" id="inpFlowSearch" value="${esc(UI.flQuery)}" placeholder="🔍 Tìm tên quy trình, mục tiêu, bước thao tác, màn hình, API, comment...">
+        <select class="select" id="selFlowActor">
+          <option value="ALL">👥 Mọi đối tượng tham gia</option>
+          ${allActors.map(a => `<option value="${esc(a)}" ${UI.flActor === a ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+        </select>
+        <select class="select" id="selFlowStatus">
+          <option value="ALL" ${UI.flStatus === 'ALL' ? 'selected' : ''}>📌 Mọi trạng thái</option>
+          <option value="NONE" ${UI.flStatus === 'NONE' ? 'selected' : ''}>Chưa rà</option>
+          <option value="ok" ${UI.flStatus === 'ok' ? 'selected' : ''}>✓ Đạt chuẩn</option>
+          <option value="fix" ${UI.flStatus === 'fix' ? 'selected' : ''}>⚠ Cần chỉnh sửa</option>
+          <option value="train" ${UI.flStatus === 'train' ? 'selected' : ''}>📘 Ghi chú đào tạo</option>
+          <option value="HAS_COMMENT" ${UI.flStatus === 'HAS_COMMENT' ? 'selected' : ''}>💬 Có comment</option>
+        </select>
+        <div class="toolbar-right">
+          <span class="result-count">${filtered.length} / ${DATA.flows.length} quy trình</span>
+          <button class="btn btn-sm" id="btnExpAllFl">Mở tất cả</button>
+          <button class="btn btn-sm" id="btnColAllFl">Thu gọn</button>
+        </div>
+      </div>
+      <div class="card-grid">${cardsHtml}</div>
+    `;
+
+    const inp = document.getElementById('inpFlowSearch');
+    inp.oninput = () => { UI.flQuery = inp.value; renderView(); focusEnd('inpFlowSearch'); };
+    document.getElementById('selFlowActor').onchange = (e) => { UI.flActor = e.target.value; renderView(); };
+    document.getElementById('selFlowStatus').onchange = (e) => { UI.flStatus = e.target.value; renderView(); };
+    document.getElementById('btnExpAllFl').onclick = () => { filtered.forEach(f => UI.expandedFlows.add(f.id)); renderView(); };
+    document.getElementById('btnColAllFl').onclick = () => { UI.expandedFlows.clear(); renderView(); };
+    root.querySelectorAll('[data-toggle-flow]').forEach(el => {
+      el.onclick = () => {
+        const id = el.getAttribute('data-toggle-flow');
+        if (UI.expandedFlows.has(id)) UI.expandedFlows.delete(id); else UI.expandedFlows.add(id);
+        renderView();
+      };
+    });
+    bindReviewEvents(root);
+  }
+
+  // ==================== TAB 3: ROLES & ONBOARDING ====================
+  function renderRolesTab() {
+    const root = document.getElementById('viewRoot');
+    const roleId = UI.activeRoleGuide;
+    const roleObj = DATA.roles.find(r => r.id === roleId) || DATA.roles[0];
+    const guideIds = (DATA.guides && DATA.guides[roleId]) || [];
+    const doneMap = STORE.onboarding[roleId] || {};
+    const doneCount = guideIds.filter(id => doneMap[id]).length;
+    const pct = guideIds.length ? Math.round((doneCount / guideIds.length) * 100) : 0;
+
+    const matrixRows = DATA.matrix.map(row => `
+      <tr class="main-row" style="cursor:default">
+        <td style="font-weight:600;color:var(--text-strong)">${esc(row.f)}</td>
+        ${row.v.map(val => {
+          if (val === 2) return `<td class="matrix-cell m-2">✓ Toàn quyền</td>`;
+          if (val === 1) return `<td class="matrix-cell m-1">◐ Hạn chế / Cá nhân</td>`;
+          return `<td class="matrix-cell m-0">—</td>`;
+        }).join('')}
+      </tr>
+    `).join('');
+
+    const guideListHtml = guideIds.map((fid, idx) => {
+      const f = FUNC_MAP[fid];
+      if (!f) return '';
+      const m = MOD_MAP[f.mod] || { icon: '•', name: f.mod };
+      const checked = Boolean(doneMap[fid]);
+      return `
+        <div class="guide-item ${checked ? 'done' : ''}">
+          <input type="checkbox" class="guide-chk" data-onb-role="${esc(roleId)}" data-onb-fid="${esc(fid)}" ${checked ? 'checked' : ''}>
+          <span class="pill pill-muted" style="min-width:28px;justify-content:center">${idx + 1}</span>
+          <span class="code-id">${esc(f.id)}</span>
+          <div style="flex:1;min-width:200px">
+            <div class="title-main">${esc(f.title)}</div>
+            <div class="title-sub">${m.icon} ${esc(m.name)} · ${esc(f.summary)}</div>
+          </div>
+          <button class="btn btn-sm" data-jump-func="${esc(f.id)}">Xem hướng dẫn →</button>
+        </div>
+      `;
+    }).join('');
+
+    root.innerHTML = `<div class="pane-scroll">
+      <div class="sec-title" style="margin-top:4px">🎓 Lộ trình Đào tạo & Checklist Thành thạo theo Vai trò</div>
+      <div class="role-tabs">
+        ${DATA.roles.map(r => {
+          const g = (DATA.guides && DATA.guides[r.id]) || [];
+          const d = g.filter(id => (STORE.onboarding[r.id] || {})[id]).length;
+          return `<button class="btn ${r.id === roleId ? 'active' : ''}" data-role-guide="${esc(r.id)}">
+            ${esc(r.name)} <span class="pill pill-sky">${d}/${g.length}</span>
+          </button>`;
+        }).join('')}
+      </div>
+      <div class="table-card" style="margin-bottom:20px">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <strong style="color:var(--text-strong);font-size:14px">${esc(roleObj.name)}</strong>
+            <span class="pill pill-sky mono" style="margin-left:6px">Trang mặc định: ${esc(roleObj.home)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="pill pill-emerald">Tiến độ đào tạo: ${doneCount}/${guideIds.length} (${pct}%)</span>
+            <button class="btn btn-sm" id="btnResetOnb">Đặt lại checklist</button>
+          </div>
+        </div>
+        <div>${guideListHtml || '<div class="empty">Chưa có lộ trình cho vai trò này.</div>'}</div>
+      </div>
+
+      <div class="sec-title">🛡️ Ma trận Phân quyền Chi tiết (5 Vai trò × ${DATA.matrix.length} Nhóm chức năng)</div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Nhóm chức năng / Quyền hạn</th>
+                ${DATA.roles.map(r => `<th style="text-align:center">${esc(r.name)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>${matrixRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+    root.querySelectorAll('[data-role-guide]').forEach(b => {
+      b.onclick = () => { UI.activeRoleGuide = b.getAttribute('data-role-guide'); renderView(); };
+    });
+    root.querySelectorAll('[data-onb-fid]').forEach(chk => {
+      chk.onchange = () => {
+        const r = chk.getAttribute('data-onb-role');
+        const fid = chk.getAttribute('data-onb-fid');
+        if (!STORE.onboarding[r]) STORE.onboarding[r] = {};
+        if (chk.checked) STORE.onboarding[r][fid] = true; else delete STORE.onboarding[r][fid];
+        saveStore();
+        renderView();
+      };
+    });
+    document.getElementById('btnResetOnb').onclick = () => {
+      delete STORE.onboarding[roleId];
+      saveStore();
+      toast('Đã đặt lại checklist đào tạo cho ' + roleObj.name);
+      renderView();
+    };
+    bindReviewEvents(root);
+  }
+
+  // ==================== TAB 4: DATABASE ====================
+  function renderDbTab() {
+    const root = document.getElementById('viewRoot');
+    const groups = Array.from(new Set(DATA.db.map(t => t.group))).sort();
+    const q = UI.dbQuery.trim().toLowerCase();
+
+    const filtered = DATA.db.filter(t => {
+      if (UI.dbGroup !== 'ALL' && t.group !== UI.dbGroup) return false;
+      const noteId = 'DB:' + t.name;
+      if (!matchesStatusFilter(noteId, UI.dbStatus)) return false;
+      if (q) {
+        const hay = [
+          t.name, t.group, t.desc,
+          (t.cols || []).map(c => c.n + ' ' + c.t).join(' '),
+          commentSearchText(noteId)
+        ].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const rowsHtml = filtered.length ? filtered.map(t => {
+      const exp = UI.expandedDb.has(t.name);
+      const noteId = 'DB:' + t.name;
+      const usedBy = DB_TO_FUNCS[t.name] || [];
+
+      let detailHtml = '';
+      if (exp) {
+        const colsHtml = (t.cols || []).map(c => `
+          <span class="col-chip ${c.pk ? 'pk' : ''}">
+            ${c.pk ? '<span title="Primary Key">🔑</span>' : ''}
+            <strong class="mono">${esc(c.n)}</strong>
+            <span class="col-type mono">${esc(c.t)}</span>
+          </span>
+        `).join('');
+        const usedHtml = usedBy.length
+          ? usedBy.map(f => `<span class="pill pill-sky db-link" data-jump-func="${esc(f.id)}">${esc(f.id)} · ${esc(f.title)}</span>`).join('')
+          : '<span style="color:var(--muted);font-size:12px">Bảng hệ thống nội bộ / dùng nền.</span>';
+
+        detailHtml = `
+          <tr class="detail-row">
+            <td colspan="6">
+              <div class="detail-box">
+                <div>
+                  <div class="detail-section">
+                    <div class="detail-h">📐 Cấu trúc cột (${(t.cols || []).length} cột)</div>
+                    <div class="col-grid">${colsHtml}</div>
+                  </div>
+                  <div class="detail-section">
+                    <div class="detail-h">🔗 Chức năng sử dụng bảng này (${usedBy.length})</div>
+                    <div class="chip-row">${usedHtml}</div>
+                  </div>
+                </div>
+                <div>${renderReviewPanel(noteId)}</div>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
+      return `
+        <tr class="main-row ${exp ? 'expanded' : ''}" data-toggle-db="${esc(t.name)}">
+          <td style="white-space:nowrap">
+            <span class="chev">▶</span>
+            <span class="code-id">${esc(t.name)}</span>
+          </td>
+          <td style="white-space:nowrap"><span class="pill pill-violet">${esc(t.group)}</span></td>
+          <td>
+            <div style="color:var(--text-strong);font-size:13px">${esc(t.desc)}</div>
+          </td>
+          <td style="white-space:nowrap"><span class="pill">${(t.cols || []).length} cột</span> <span class="pill pill-muted">${t.rows} dòng</span></td>
+          <td style="white-space:nowrap">${renderStatusBadge(noteId)}</td>
+          <td style="white-space:nowrap">${renderCommentBadge(noteId)}</td>
+        </tr>
+        ${detailHtml}
+      `;
+    }).join('') : `<tr><td colspan="6" class="empty">Không tìm thấy bảng dữ liệu nào khớp bộ lọc.</td></tr>`;
+
+    root.innerHTML = `
+      <div class="toolbar">
+        <input type="text" class="input search-box" id="inpDbSearch" value="${esc(UI.dbQuery)}" placeholder="🔍 Tìm tên bảng, tên cột (VD: kpi_logs, kitchen_sent_at, vietqr), mô tả...">
+        <select class="select" id="selDbGroup">
+          <option value="ALL">📂 Mọi nhóm dữ liệu (${groups.length})</option>
+          ${groups.map(g => `<option value="${esc(g)}" ${UI.dbGroup === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+        </select>
+        <select class="select" id="selDbStatus">
+          <option value="ALL" ${UI.dbStatus === 'ALL' ? 'selected' : ''}>📌 Mọi trạng thái</option>
+          <option value="NONE" ${UI.dbStatus === 'NONE' ? 'selected' : ''}>Chưa rà</option>
+          <option value="ok" ${UI.dbStatus === 'ok' ? 'selected' : ''}>✓ Đạt chuẩn</option>
+          <option value="fix" ${UI.dbStatus === 'fix' ? 'selected' : ''}>⚠ Cần chỉnh sửa</option>
+          <option value="HAS_COMMENT" ${UI.dbStatus === 'HAS_COMMENT' ? 'selected' : ''}>💬 Có comment</option>
+        </select>
+        <div class="toolbar-right">
+          <span class="result-count">${filtered.length} / ${DATA.db.length} bảng</span>
+          <button class="btn btn-sm" id="btnExpAllDb">Mở tất cả</button>
+          <button class="btn btn-sm" id="btnColAllDb">Thu gọn</button>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Tên bảng SQLite</th>
+                <th>Phân nhóm</th>
+                <th>Thuyết minh mục đích & Dữ liệu lưu trữ</th>
+                <th>Quy mô</th>
+                <th>Rà soát</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const inp = document.getElementById('inpDbSearch');
+    inp.oninput = () => { UI.dbQuery = inp.value; renderView(); focusEnd('inpDbSearch'); };
+    document.getElementById('selDbGroup').onchange = (e) => { UI.dbGroup = e.target.value; renderView(); };
+    document.getElementById('selDbStatus').onchange = (e) => { UI.dbStatus = e.target.value; renderView(); };
+    document.getElementById('btnExpAllDb').onclick = () => { filtered.forEach(t => UI.expandedDb.add(t.name)); renderView(); };
+    document.getElementById('btnColAllDb').onclick = () => { UI.expandedDb.clear(); renderView(); };
+    root.querySelectorAll('[data-toggle-db]').forEach(tr => {
+      tr.onclick = () => {
+        const n = tr.getAttribute('data-toggle-db');
+        if (UI.expandedDb.has(n)) UI.expandedDb.delete(n); else UI.expandedDb.add(n);
+        renderView();
+      };
+    });
+    bindReviewEvents(root);
+  }
+
+  // ==================== TAB 5: API ====================
+  function renderApiTab() {
+    const root = document.getElementById('viewRoot');
+    const q = UI.apiQuery.trim().toLowerCase();
+    const filtered = DATA.api.filter(ep => {
+      if (UI.apiMethod !== 'ALL' && !(ep.methods || []).includes(UI.apiMethod)) return false;
+      if (q) {
+        const hay = `${ep.path} ${(ep.methods || []).join(' ')} ${ep.desc || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const rowsHtml = filtered.length ? filtered.map(ep => {
+      const mBadges = (ep.methods || []).map(m => {
+        const cls = m === 'GET' ? 'pill-emerald' : m === 'POST' ? 'pill-sky' : m === 'DELETE' ? 'pill-rose' : 'pill-amber';
+        return `<span class="pill ${cls} mono">${esc(m)}</span>`;
+      }).join(' ');
+      const used = API_TO_FUNCS[ep.path] || [];
+      const usedHtml = used.slice(0, 4).map(f => `<span class="pill db-link" data-jump-func="${esc(f.id)}">${esc(f.id)}</span>`).join(' ')
+        + (used.length > 4 ? ` <span class="pill pill-muted">+${used.length - 4}</span>` : '');
+      return `
+        <tr class="main-row" style="cursor:default">
+          <td style="white-space:nowrap">${mBadges}</td>
+          <td class="mono" style="color:var(--cyan);font-weight:600">${esc(ep.path)}</td>
+          <td>${esc(ep.desc || 'Route phục vụ hệ thống / tài nguyên tĩnh Slave')}</td>
+          <td><div class="chip-row">${usedHtml || '<span style="color:var(--muted);font-size:11.5px">—</span>'}</div></td>
+        </tr>
+      `;
+    }).join('') : `<tr><td colspan="4" class="empty">Không tìm thấy endpoint nào khớp bộ lọc.</td></tr>`;
+
+    const aq = UI.actionQuery.trim().toLowerCase();
+    const actionsHtml = Object.entries(DATA.actions || {}).map(([file, list]) => {
+      const flist = aq ? list.filter(a => a.toLowerCase().includes(aq)) : list;
+      return `
+        <div class="detail-section">
+          <div class="detail-h">⚙️ ${esc(file)} (${flist.length} / ${list.length} actions)</div>
+          <div class="chip-row">
+            ${flist.map(a => `<span class="pill mono">${esc(a)}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">Không có action khớp.</span>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    root.innerHTML = `
+      <div class="toolbar">
+        <input type="text" class="input search-box" id="inpApiSearch" value="${esc(UI.apiQuery)}" placeholder="🔍 Tìm đường dẫn API (VD: /api/orders, /api/staff, webhook, ota)...">
+        <select class="select" id="selApiMethod">
+          <option value="ALL" ${UI.apiMethod === 'ALL' ? 'selected' : ''}>Mọi HTTP Method</option>
+          <option value="GET" ${UI.apiMethod === 'GET' ? 'selected' : ''}>GET</option>
+          <option value="POST" ${UI.apiMethod === 'POST' ? 'selected' : ''}>POST</option>
+          <option value="PUT" ${UI.apiMethod === 'PUT' ? 'selected' : ''}>PUT</option>
+          <option value="DELETE" ${UI.apiMethod === 'DELETE' ? 'selected' : ''}>DELETE</option>
+        </select>
+        <div class="toolbar-right">
+          <span class="result-count">${filtered.length} / ${DATA.api.length} endpoints</span>
+        </div>
+      </div>
+      <div class="pane-scroll">
+      <div class="table-card" style="margin-bottom:18px">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Endpoint Path</th>
+                <th>Mô tả chức năng</th>
+                <th>Chức năng sử dụng</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sec-title">🧩 Danh mục ?action= trong C++ Handlers</div>
+      <div class="toolbar">
+        <input type="text" class="input search-box" id="inpActionSearch" value="${esc(UI.actionQuery)}" placeholder="🔍 Lọc nhanh tên action C++ (VD: checkout, shift, vietqr, kpi, backup)...">
+      </div>
+      ${actionsHtml}
+      </div>
+    `;
+
+    const inp = document.getElementById('inpApiSearch');
+    inp.oninput = () => { UI.apiQuery = inp.value; renderView(); focusEnd('inpApiSearch'); };
+    document.getElementById('selApiMethod').onchange = (e) => { UI.apiMethod = e.target.value; renderView(); };
+    const ainp = document.getElementById('inpActionSearch');
+    ainp.oninput = () => { UI.actionQuery = ainp.value; renderView(); focusEnd('inpActionSearch'); };
+    bindReviewEvents(root);
+  }
+
+  // ==================== TAB 6: CASES ====================
+  function renderCasesTab() {
+    const root = document.getElementById('viewRoot');
+    const q = UI.cQuery.trim().toLowerCase();
+    const filtered = DATA.cases.filter(c => {
+      if (UI.cSev !== 'ALL' && c.sev !== UI.cSev) return false;
+      if (UI.cMod !== 'ALL' && !(c.mods || []).includes(UI.cMod)) return false;
+      if (!matchesStatusFilter(c.id, UI.cStatus)) return false;
+      if (q) {
+        const hay = `${c.id} ${c.symptom} ${c.cause} ${c.fix} ${(c.mods || []).join(' ')} ${commentSearchText(c.id)}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const cardsHtml = filtered.length ? filtered.map(c => {
+      const exp = UI.expandedCases.has(c.id);
+      const sevCls = c.sev === 'Cao' ? 'pill-rose' : c.sev === 'Trung bình' ? 'pill-amber' : 'pill-sky';
+      const modBadges = (c.mods || []).map(mid => {
+        const m = MOD_MAP[mid];
+        return `<span class="pill">${m ? m.icon + ' ' + esc(m.name) : esc(mid)}</span>`;
+      }).join(' ');
+
+      return `
+        <div class="case-card">
+          <div class="flow-head" data-toggle-case="${esc(c.id)}">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+                <span class="code-id">${esc(c.id)}</span>
+                <span class="pill ${sevCls}">Mức độ: ${esc(c.sev)}</span>
+                ${modBadges}
+              </div>
+              <div class="title-main" style="font-size:14px">🚨 ${esc(c.symptom)}</div>
+              <div class="title-sub" style="margin-top:5px"><strong style="color:var(--amber)">Nguyên nhân:</strong> ${esc(c.cause)}</div>
+              <div class="title-sub" style="margin-top:3px"><strong style="color:var(--emerald)">Cách xử lý chuẩn:</strong> ${esc(c.fix)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+              ${renderStatusBadge(c.id)}
+              ${renderCommentBadge(c.id)}
+              <span class="btn btn-sm">${exp ? '▲ Ẩn ghi chú' : '💬 Ghi chú'}</span>
+            </div>
+          </div>
+          ${exp ? `<div class="flow-body" style="padding-top:12px">${renderReviewPanel(c.id)}</div>` : ''}
+        </div>
+      `;
+    }).join('') : `<div class="empty">Không có tình huống sự cố nào khớp bộ lọc.</div>`;
+
+    root.innerHTML = `
+      <div class="toolbar">
+        <input type="text" class="input search-box" id="inpCaseSearch" value="${esc(UI.cQuery)}" placeholder="🔍 Tìm triệu chứng lỗi, nguyên nhân, cách khắc phục (VD: 429, VietQR, mất mạng, camera)...">
+        <select class="select" id="selCaseSev">
+          <option value="ALL" ${UI.cSev === 'ALL' ? 'selected' : ''}>🚦 Mọi mức độ</option>
+          <option value="Cao" ${UI.cSev === 'Cao' ? 'selected' : ''}>Cao</option>
+          <option value="Trung bình" ${UI.cSev === 'Trung bình' ? 'selected' : ''}>Trung bình</option>
+          <option value="Thấp" ${UI.cSev === 'Thấp' ? 'selected' : ''}>Thấp</option>
+        </select>
+        <select class="select" id="selCaseMod">
+          <option value="ALL">🖥️ Mọi màn hình</option>
+          ${DATA.modules.map(m => `<option value="${esc(m.id)}" ${UI.cMod === m.id ? 'selected' : ''}>${m.icon} ${esc(m.name)}</option>`).join('')}
+        </select>
+        <select class="select" id="selCaseStatus">
+          <option value="ALL" ${UI.cStatus === 'ALL' ? 'selected' : ''}>📌 Mọi trạng thái</option>
+          <option value="ok" ${UI.cStatus === 'ok' ? 'selected' : ''}>✓ Đạt chuẩn</option>
+          <option value="fix" ${UI.cStatus === 'fix' ? 'selected' : ''}>⚠ Cần chỉnh sửa</option>
+          <option value="HAS_COMMENT" ${UI.cStatus === 'HAS_COMMENT' ? 'selected' : ''}>💬 Có comment</option>
+        </select>
+        <div class="toolbar-right">
+          <span class="result-count">${filtered.length} / ${DATA.cases.length} tình huống</span>
+        </div>
+      </div>
+      <div class="card-grid">${cardsHtml}</div>
+    `;
+
+    const inp = document.getElementById('inpCaseSearch');
+    inp.oninput = () => { UI.cQuery = inp.value; renderView(); focusEnd('inpCaseSearch'); };
+    document.getElementById('selCaseSev').onchange = (e) => { UI.cSev = e.target.value; renderView(); };
+    document.getElementById('selCaseMod').onchange = (e) => { UI.cMod = e.target.value; renderView(); };
+    document.getElementById('selCaseStatus').onchange = (e) => { UI.cStatus = e.target.value; renderView(); };
+    root.querySelectorAll('[data-toggle-case]').forEach(el => {
+      el.onclick = () => {
+        const id = el.getAttribute('data-toggle-case');
+        if (UI.expandedCases.has(id)) UI.expandedCases.delete(id); else UI.expandedCases.add(id);
+        renderView();
+      };
+    });
+    bindReviewEvents(root);
+  }
+
+  function focusEnd(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.focus();
+      const len = el.value.length;
+      try { el.setSelectionRange(len, len); } catch (e) {}
+    }
+  }
+
+  function switchTab(tab) {
+    UI.tab = tab;
+    document.querySelectorAll('#mainTabs .tab-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+    });
+    renderView();
+  }
+
+  function renderView() {
+    if (UI.tab === 'funcs') renderFuncsTab();
+    else if (UI.tab === 'flows') renderFlowsTab();
+    else if (UI.tab === 'roles') renderRolesTab();
+    else if (UI.tab === 'db') renderDbTab();
+    else if (UI.tab === 'api') renderApiTab();
+    else if (UI.tab === 'cases') renderCasesTab();
+  }
+
+  // ==================== EXPORT / IMPORT ====================
+  function downloadFile(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function resolveItemInfo(id) {
+    if (FUNC_MAP[id]) return { type: 'Chức năng', title: FUNC_MAP[id].title, mod: FUNC_MAP[id].mod };
+    const fl = DATA.flows.find(x => x.id === id);
+    if (fl) return { type: 'Quy trình', title: fl.title, mod: 'FLOW' };
+    const cs = DATA.cases.find(x => x.id === id);
+    if (cs) return { type: 'Sự cố', title: cs.symptom, mod: (cs.mods || []).join('/') };
+    if (id.startsWith('DB:')) {
+      const nm = id.slice(3);
+      const t = DATA.db.find(x => x.name === nm);
+      return { type: 'Bảng SQLite', title: t ? t.desc : nm, mod: t ? t.group : 'DB' };
+    }
+    return { type: 'Khác', title: id, mod: '' };
+  }
+
+  document.getElementById('btnExportJson').onclick = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: DATA.meta.version,
+      ota: DATA.meta.ota,
+      store: STORE
+    };
+    downloadFile('slave_manual_review_' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+    toast('Đã xuất file JSON sao lưu rà soát & comment');
+  };
+
+  document.getElementById('btnExportCsv').onclick = () => {
+    const csvEsc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const header = ['Loại', 'Mã mục', 'Phân hệ', 'Tiêu đề', 'Tóm tắt / Mục tiêu', 'Trạng thái rà soát', 'Số Comment', 'Toàn bộ lịch sử Comment'];
+    const lines = [header.map(csvEsc).join(',')];
+    const rows = [];
+    DATA.funcs.forEach(f => rows.push({ type: 'Chức năng', id: f.id, mod: f.mod, title: f.title, desc: f.summary }));
+    DATA.flows.forEach(fl => rows.push({ type: 'Quy trình', id: fl.id, mod: 'FLOW', title: fl.title, desc: fl.goal }));
+    DATA.cases.forEach(c => rows.push({ type: 'Sự cố', id: c.id, mod: (c.mods || []).join('/'), title: c.symptom, desc: c.fix }));
+    const exportList = UI.onlyCommented
+      ? rows.filter(r => { const it = STORE.items[r.id]; return it && (it.status || (it.comments && it.comments.length)); })
+      : rows;
+    exportList.forEach(r => {
+      const it = STORE.items[r.id] || { status: '', comments: [] };
+      const stLabel = (STATUS_META[it.status || ''] || STATUS_META['']).label;
+      const cmts = it.comments || [];
+      const all = cmts.map(c => `[${c.author} - ${c.ts}] ${c.text}`).join(' | ');
+      lines.push([r.type, r.id, r.mod, r.title, r.desc, stLabel, cmts.length, all].map(csvEsc).join(','));
+    });
+    downloadFile('so_tay_slave_' + new Date().toISOString().slice(0, 10) + '.csv', '\uFEFF' + lines.join('\r\n'), 'text/csv;charset=utf-8');
+    toast('Đã xuất file Excel CSV (' + exportList.length + ' dòng)');
+  };
+
+  document.getElementById('btnImportJson').onclick = () => document.getElementById('fileImportJson').click();
+  document.getElementById('fileImportJson').onchange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const incoming = parsed.store || parsed;
+        if (incoming.items) {
+          STORE.items = Object.assign({}, STORE.items, incoming.items);
+        }
+        if (incoming.onboarding) {
+          STORE.onboarding = Object.assign({}, STORE.onboarding, incoming.onboarding);
+        }
+        if (incoming.reviewerName) STORE.reviewerName = incoming.reviewerName;
+        saveStore();
+        renderView();
+        toast('Đã nhập thành công dữ liệu rà soát & comment!');
+      } catch (err) {
+        toast('❌ File JSON không hợp lệ');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+    e.target.value = '';
+  };
+
+  document.getElementById('btnOnlyCommented').onclick = () => {
+    UI.onlyCommented = !UI.onlyCommented;
+    updateStatsUI();
+    renderView();
+  };
+
+  document.getElementById('btnTheme').onclick = () => {
+    STORE.theme = STORE.theme === 'light' ? 'dark' : 'light';
+    applyTheme();
+    saveStore();
+  };
+
+  document.querySelectorAll('#mainTabs .tab-btn').forEach(b => {
+    b.onclick = () => switchTab(b.getAttribute('data-tab'));
+  });
+
+  // ==================== INIT ====================
+  document.getElementById('appTitle').textContent = DATA.meta.title;
+  document.getElementById('appMeta').innerHTML = `
+    <span class="pill pill-sky">Phiên bản ${esc(DATA.meta.version)}</span>
+    <span class="pill pill-emerald">OTA ${esc(DATA.meta.ota)}</span>
+    <span>Cập nhật từ mã nguồn & SQLite thật: ${esc(DATA.meta.generated)}</span>
+  `;
+  document.getElementById('cnt-funcs').textContent = DATA.funcs.length;
+  document.getElementById('cnt-flows').textContent = DATA.flows.length;
+  document.getElementById('cnt-roles').textContent = DATA.roles.length;
+  document.getElementById('cnt-db').textContent = DATA.db.length;
+  document.getElementById('cnt-api').textContent = DATA.api.length;
+  document.getElementById('cnt-cases').textContent = DATA.cases.length;
+
+  applyTheme();
+  updateStatsUI();
+  renderView();
+})();
+</script>
+</body>
+</html>
