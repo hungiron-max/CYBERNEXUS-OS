@@ -1,8 +1,5 @@
 {
-  "version": "2026.11.22.04",
   "auto_publish": false,
-  "title": "Dot 7: 100% Offline Backend Architecture, ECDSA P-256 License Lockdown, Thin-Client JS Adapter & Full-Stack I18N Studio",
-  "notes": "Hoan thien toan bo 9 hang muc Dot 7: ARCH-04..06 (Khoa cung License Pre-Routing Gate 403 + ECDSA P-256 6-field + Anti-Clock-Rollback + requireModule, 100% Offline EMVCo VietQR CRC16-CCITT C++ SVG generator va xoa du lieu nhay cam localStorage, Thin-Client JS Adapter preview_quote + syncServerSession Object.freeze + WEB_INTEGRITY_TAMPERED audit); I18N-09..14 (Nang cap I18N Studio cap Truong/Cot/Bang + Edit Ngon ngu goc + AI Dich theo Nhom/Toan bo, gan data-i18n cho 11 trang HTML Slave/Master voi 2030 keys, ket noi Studio truc tiep /api/i18n/catalog|save|publish tu dong cap nhat locales/<lang>.json & web_integrity.json, Da ngon ngu Database i18n_json cho Mon an/Nhom hang/Ban, Mau in Hoa don song ngu Viet-Anh/Viet-Trung receipt_lang_mode, va CSS CJK/Thai Font Stack + CSP 100% Offline).",
   "created_at": "2026-11-22 14:56:25",
   "files": [
     "CyberNexus_Control_Center.exe",
@@ -93,5 +90,11 @@
     "web/locales/vi.json",
     "locales/en.json",
     "locales/vi.json"
-  ]
+  ],
+  "notes": "Hoan thien toan bo 9 hang muc Dot 7: ARCH-04..06 (Khoa cung License Pre-Routing Gate 403 + ECDSA P-256 6-field + Anti-Clock-Rollback + requireModule, 100% Offline EMVCo VietQR CRC16-CCITT C++ SVG generator va xoa du lieu nhay cam localStorage, Thin-Client JS Adapter preview_quote + syncServerSession Object.freeze + WEB_INTEGRITY_TAMPERED audit); I18N-09..14 (Nang cap I18N Studio cap Truong/Cot/Bang + Edit Ngon ngu goc + AI Dich theo Nhom/Toan bo, gan data-i18n cho 11 trang HTML Slave/Master voi 2030 keys, ket noi Studio truc tiep /api/i18n/catalog|save|publish tu dong cap nhat locales/<lang>.json & web_integrity.json, Da ngon ngu Database i18n_json cho Mon an/Nhom hang/Ban, Mau in Hoa don song ngu Viet-Anh/Viet-Trung receipt_lang_mode, va CSS CJK/Thai Font Stack + CSP 100% Offline).",
+  "pushed_stores": [
+    "ALL"
+  ],
+  "title": "Dot 7: 100% Offline Backend Architecture, ECDSA P-256 License Lockdown, Thin-Client JS Adapter & Full-Stack I18N Studio",
+  "version": "2026.11.22.04"
 }

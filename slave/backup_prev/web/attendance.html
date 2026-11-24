@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="ui.att_html.title_7d444c48">CyberNexus OS — Chấm Công Web &amp; Kiosk Nhân Sự</title>
+    <link rel="stylesheet" href="assets/css/app-tailwind.min.css" />
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2" />
+    <link rel="stylesheet" href="assets/css/theme.css?v=4" />
+    <script src="assets/js/theme.js?v=3"></script>
+    <script src="assets/js/store_brand.js"></script>
+    <script src="assets/js/security_utils.js?v=2"></script>
+    <script src="assets/js/i18n.js?v=2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+    <header class="liquid-header cn-top-nav z-30 shrink-0 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
+        <div class="cn-nav-left">
+            <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400 shrink-0">
+                <i class="fas fa-fingerprint text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-sm sm:text-base text-white whitespace-nowrap" data-i18n="ui.att_html.h1_90f22af0">CỔNG CHẤM CÔNG NHÂN SỰ (WEB &amp; KIOSK)</h1>
+                <p class="text-[11px] text-slate-400 whitespace-nowrap" data-i18n="ui.att_html.p_a41e8159">Đồng bộ trực tiếp bảng công &amp; bảng lương tháng</p>
+            </div>
+        </div>
+        <div class="cn-nav-center">
+            <div id="att-nav-back-zone" class="flex items-center gap-1.5 shrink-0">
+                <a href="index.html" class="btn-glass cn-nav-btn text-sky-300 border-sky-500/30" title="Về POS Bán Hàng"><i class="fas fa-cash-register text-xs"></i><span>POS</span></a>
+            </div>
+            <div class="px-3 py-1 rounded-lg bg-slate-950 border border-white/10 font-mono text-xs text-sky-300" id="att-live-clock">--:--:--</div>
+        </div>
+        <div class="cn-nav-right">
+            <div class="cn-lang-pill" title="Language / Ngôn ngữ" data-i18n-title="ui.sa_html.div_title_c60b3893">
+                <button type="button" data-cnx-lang-btn="vi" onclick="if(window.cnxSetLang)cnxSetLang('vi')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">VI</button>
+                <button type="button" data-cnx-lang-btn="en" onclick="if(window.cnxSetLang)cnxSetLang('en')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">EN</button>
+            </div>
+            <span id="cn-theme-slot"></span>
+            <div id="att-user-badge-zone" class="flex items-center gap-1.5 shrink-0">
+                <a href="login.html" class="cn-nav-btn cn-nav-btn--danger" title="Đăng xuất"><i class="fas fa-sign-out-alt text-xs"></i><span>Đăng xuất</span></a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 space-y-4">
+        <div class="flex flex-wrap gap-2 border-b border-white/10 pb-2">
+            <button type="button" id="att-mode-live-btn" onclick="AttendanceKiosk.switchMode('live')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">
+                <i class="fas fa-signal mr-1.5"></i> Theo Dõi Ca Real-Time
+            </button>
+            <button type="button" id="att-mode-personal-btn" onclick="AttendanceKiosk.switchMode('personal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-white/10" data-i18n="ui.att_html.button_66eb2f42">
+                <i class="fas fa-user-check mr-1.5"></i> Tài Khoản Cá Nhân (Web Check-in / Check-out)
+            </button>
+            <button type="button" id="att-mode-kiosk-btn" onclick="AttendanceKiosk.switchMode('kiosk')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-white/10" data-i18n="ui.att_html.button_ee111ae3">
+                <i class="fas fa-tablet-screen-button mr-1.5"></i> Kiosk Quầy (PIN 6 số + Camera Selfie)
+            </button>
+        </div>
+
+        <div id="att-banner" class="hidden p-3.5 rounded-xl border text-xs font-semibold"></div>
+
+        <!-- Mode 0: Real-Time Store Shift Board (HR-11) -->
+        <section id="att-panel-live" class="space-y-4">
+            <div id="hr-live-kpis" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5"></div>
+
+            <!-- Employee Quick Shift Actions -->
+            <div id="hr-my-shift-bar" class="hidden liquid-glass p-3.5 rounded-2xl border border-sky-500/30 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs font-bold text-white" id="hr-my-shift-title">Ca làm việc hôm nay</div>
+                    <div class="text-[11px] text-slate-400" id="hr-my-shift-sub">---</div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="AttendanceKiosk.promptDelivery()" class="btn-glass cn-nav-btn bg-sky-500/20 text-sky-200 border-sky-400/40"><i class="fas fa-motorcycle text-xs"></i> Đi giao hàng</button>
+                    <button type="button" onclick="AttendanceKiosk.setShiftStatus('break_temp', 'Nghỉ giải lao giữa buổi')" class="btn-glass cn-nav-btn bg-purple-500/20 text-purple-200 border-purple-400/40"><i class="fas fa-mug-hot text-xs"></i> Nghỉ giữa buổi</button>
+                    <button type="button" onclick="AttendanceKiosk.setShiftStatus('working', 'Quay lại trực ca')" class="btn-glass cn-nav-btn bg-emerald-500/20 text-emerald-200 border-emerald-400/40"><i class="fas fa-play text-xs"></i> Quay lại trực ca</button>
+                    <button type="button" onclick="AttendanceKiosk.promptEarlyLeave()" class="btn-glass cn-nav-btn bg-amber-500/20 text-amber-200 border-amber-400/40"><i class="fas fa-person-walking-arrow-right text-xs"></i> Xin chốt ca sớm</button>
+                </div>
+            </div>
+
+            <!-- Hikvision Device Health & Unmatched Logs -->
+            <div id="hr-hik-status-bar" class="hidden liquid-glass p-3 rounded-2xl border border-indigo-500/30 space-y-2 text-xs"></div>
+
+            <!-- Filter & Live Table -->
+            <div class="liquid-glass p-4 rounded-2xl border border-white/10 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-xs font-black uppercase tracking-wide text-sky-300"><i class="fas fa-users-viewfinder mr-1.5"></i> Trạng Thái Ca Làm Việc Real-Time (Tự cập nhật 5s)</h2>
+                    <div class="flex items-center gap-2">
+                        <select id="hr-role-filter" onchange="AttendanceKiosk.renderLiveBoard()" class="liquid-input py-1 px-2.5 text-xs bg-slate-900">
+                            <option value="ALL">Tất cả bộ phận</option>
+                            <option value="cashier">Thu ngân</option>
+                            <option value="kitchen">Bếp / Pha chế</option>
+                            <option value="waiter">Phục vụ</option>
+                            <option value="admin">Quản lý</option>
+                        </select>
+                        <button type="button" onclick="AttendanceKiosk.loadLiveBoard()" class="btn-glass cn-nav-btn text-sky-200"><i class="fas fa-sync-alt text-xs"></i> Làm mới</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="text-[10px] uppercase text-slate-400 border-b border-white/10">
+                            <tr>
+                                <th class="py-2">Nhân viên / Bộ phận</th>
+                                <th>Trạng thái Real-Time</th>
+                                <th>Nguồn</th>
+                                <th>Vào ca / Heartbeat</th>
+                                <th>Chi tiết (Giao hàng / Nghỉ / Lý do)</th>
+                                <th class="text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hr-live-tbody" class="divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mode 1: Personal -->
+        <section id="att-panel-personal" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="liquid-glass p-4 rounded-2xl border border-white/10 space-y-3">
+                <div id="att-login-box" class="hidden space-y-2.5">
+                    <h2 class="text-sm font-bold text-amber-300" data-i18n="ui.att_html.h2_15fde28e"><i class="fas fa-lock mr-1"></i> Đăng nhập nhân viên</h2>
+                    <input type="text" id="att-login-user" placeholder="Tên đăng nhập..." data-i18n-placeholder="ui.att_html.ph_a59ea82e" class="liquid-input w-full text-xs py-2 px-3" />
+                    <input type="password" id="att-login-pass" placeholder="Mật khẩu..." data-i18n-placeholder="ui.att_html.ph_db562c33" class="liquid-input w-full text-xs py-2 px-3" />
+                    <button type="button" onclick="AttendanceKiosk.personalLogin()" class="btn-glass-primary w-full py-2 text-xs font-bold" data-i18n="ui.att_html.button_ce5e3019">Đăng Nhập &amp; Nạp Ca</button>
+                </div>
+
+                <div id="att-profile-box" class="hidden space-y-3">
+                    <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div>
+                            <div class="text-sm font-black text-white" id="att-user-fullname">---</div>
+                            <div class="text-[11px] text-slate-400" id="att-user-role">---</div>
+                        </div>
+                        <button type="button" onclick="AttendanceKiosk.personalLogout()" class="btn-glass text-[11px] py-1 px-2.5 text-rose-300 border-rose-500/30" data-i18n="ui.att_html.button_3720a24f">Đổi TK</button>
+                    </div>
+                    <div id="att-active-shift-card" class="p-3 rounded-xl bg-slate-900/80 border border-white/10 text-xs"></div>
+                    <input type="text" id="att-personal-note" placeholder="Ghi chú ca làm (tuỳ chọn)..." data-i18n-placeholder="ui.att_html.ph_8110662a" class="liquid-input w-full text-xs py-2 px-3" />
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <button type="button" id="btn-web-checkin" onclick="AttendanceKiosk.submitWebPunch('web_checkin')" class="btn-glass-success py-3 text-xs font-extrabold" data-i18n="ui.att_html.button_2b2cdf79">
+                            <i class="fas fa-right-to-bracket mr-1"></i> CHECK-IN VÀO CA
+                        </button>
+                        <button type="button" id="btn-web-checkout" onclick="AttendanceKiosk.submitWebPunch('web_checkout')" class="btn-glass py-3 text-xs font-extrabold bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border-rose-500/40" data-i18n="ui.att_html.button_893db002">
+                            <i class="fas fa-right-from-bracket mr-1"></i> CHECK-OUT TAN CA
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col">
+                <h3 class="text-xs font-bold uppercase text-slate-300 mb-2" data-i18n="ui.att_html.h3_2909609a"><i class="fas fa-clock-rotate-left mr-1 text-sky-400"></i> Lịch sử chấm công 14 ngày gần nhất</h3>
+                <div class="flex-1 overflow-y-auto max-h-80">
+                    <table class="w-full text-left text-xs">
+                        <thead class="text-[10px] uppercase text-slate-400 border-b border-white/10">
+                            <tr><th class="py-1.5" data-i18n="ui.att_html.th_70d5dde1">Ngày</th><th data-i18n="ui.att_html.th_3703a936">Vào</th><th data-i18n="ui.att_html.th_2d1b83f4">Ra</th><th data-i18n="ui.att_html.th_28f86401">Nguồn</th><th class="text-right" data-i18n="ui.att_html.th_735192a9">Giờ</th></tr>
+                        </thead>
+                        <tbody id="att-personal-history" class="divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mode 2: Kiosk PIN 6 + Webcam -->
+        <section id="att-panel-kiosk" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="liquid-glass p-4 rounded-2xl border border-sky-500/30 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-sky-300 uppercase" data-i18n="ui.att_html.span_5a94ff13"><i class="fas fa-camera mr-1"></i> Camera Selfie Xác Thực</span>
+                    <button type="button" id="btn-toggle-cam" onclick="AttendanceKiosk.toggleCamera()" class="btn-glass text-[11px] py-1 px-2.5" data-i18n="ui.att_html.button_3dea1462">Bật Camera</button>
+                </div>
+                <div class="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10 aspect-video flex items-center justify-center">
+                    <video id="att-webcam-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                    <canvas id="att-webcam-canvas" class="hidden"></canvas>
+                    <div id="att-webcam-placeholder" class="text-center text-xs text-slate-500 p-4" data-i18n="ui.att_html.div_d3913396">
+                        <i class="fas fa-video-slash text-2xl mb-1 block"></i>
+                        Camera đang tắt (tùy chọn khi dùng Kiosk PIN)
+                    </div>
+                </div>
+                <select id="att-kiosk-mode" class="liquid-input w-full text-xs py-2 px-3 bg-slate-900">
+                    <option value="auto" data-i18n="ui.att_html.option_802391c9">Tự động nhận diện (Chưa vào ca -> Check-in | Đang ca -> Check-out)</option>
+                    <option value="checkin" data-i18n="ui.att_html.option_7ced16ea">Bắt buộc Check-in (Vào ca)</option>
+                    <option value="checkout" data-i18n="ui.att_html.option_ced97b66">Bắt buộc Check-out (Tan ca)</option>
+                </select>
+            </div>
+
+            <div class="liquid-glass p-4 rounded-2xl border border-white/10 space-y-3">
+                <label class="block text-xs font-bold text-slate-300" data-i18n="ui.att_html.label_623fc270">Nhập mã PIN nhân viên (6 số):</label>
+                <input type="password" id="att-kiosk-pin" maxlength="8" placeholder="••••••" class="liquid-input w-full text-center font-mono text-2xl tracking-widest py-2.5" />
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="AttendanceKiosk.appendPin('1')" class="btn-glass py-3 text-base font-bold">1</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('2')" class="btn-glass py-3 text-base font-bold">2</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('3')" class="btn-glass py-3 text-base font-bold">3</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('4')" class="btn-glass py-3 text-base font-bold">4</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('5')" class="btn-glass py-3 text-base font-bold">5</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('6')" class="btn-glass py-3 text-base font-bold">6</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('7')" class="btn-glass py-3 text-base font-bold">7</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('8')" class="btn-glass py-3 text-base font-bold">8</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('9')" class="btn-glass py-3 text-base font-bold">9</button>
+                    <button type="button" onclick="AttendanceKiosk.clearPin()" class="btn-glass py-3 text-xs font-bold text-amber-300" data-i18n="ui.att_html.button_cc6ae076">Xóa</button>
+                    <button type="button" onclick="AttendanceKiosk.appendPin('0')" class="btn-glass py-3 text-base font-bold">0</button>
+                    <button type="button" onclick="AttendanceKiosk.submitKioskPunch()" class="btn-glass-success py-3 text-xs font-black" data-i18n="ui.att_html.button_ac597bea">QUẸT CÔNG</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="assets/js/security_utils.js?v=2"></script>
+    <script src="assets/js/attendance_kiosk.js?v=1"></script>
+</body>
+</html>

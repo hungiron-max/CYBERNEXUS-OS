@@ -51,30 +51,64 @@ Object.assign(Admin, {
             const res = await fetch('/api/media/schedules');
             const data = await res.json();
             if (!data.success) return;
+            const masterOn = (data.master_enabled !== false);
+            this._mediaScheduleMasterEnabled = masterOn;
+            this._activeScheduleGenre = (masterOn && data.active_schedule && data.active_schedule.genre) ? String(data.active_schedule.genre) : '';
+            if (Array.isArray(this.mediaCatalog) && this.mediaCatalog.length > 0) {
+                this.filterMediaCatalog();
+            }
+            const masterBtn = document.getElementById('media-schedule-master-btn');
+            if (masterBtn) {
+                masterBtn.className = masterOn
+                    ? 'btn-glass text-[11px] py-1 px-2.5 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-500/40 font-bold flex items-center gap-1'
+                    : 'btn-glass text-[11px] py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 border-white/15 font-bold flex items-center gap-1';
+                masterBtn.innerHTML = masterOn
+                    ? '<i class="fas fa-toggle-on text-emerald-400"></i> Khung giờ: BẬT'
+                    : '<i class="fas fa-toggle-off text-slate-400"></i> Khung giờ: TẮT (Tự do)';
+            }
             const badge = document.getElementById('media-active-schedule-badge');
             if (badge) {
                 const act = data.active_schedule;
-                badge.innerHTML = act
-                    ? `<i class="fas fa-music mr-1"></i> ${window.cnxT?window.cnxT('js.s_med.2629bcd7','Đang áp dụng:'):'Đang áp dụng:'} <b>${escapeHtml(act.name)}</b> (${escapeHtml(act.start_time)}-${escapeHtml(act.end_time)}) · <b>${escapeHtml(act.genre)}</b>`
-                    : `${window.cnxT?window.cnxT('js.s_med.18d5663d','Mặc định:'):'Mặc định:'} ${escapeHtml(data.active_genre || 'Pop')}`;
+                badge.innerHTML = !masterOn
+                    ? `<i class="fas fa-unlock text-amber-300 mr-1"></i> Chế độ tự do (đã tắt khóa khung giờ)`
+                    : (act
+                        ? `<i class="fas fa-music mr-1"></i> ${window.cnxT?window.cnxT('js.s_med.2629bcd7','Đang áp dụng:'):'Đang áp dụng:'} <b>${escapeHtml(act.name)}</b> (${escapeHtml(act.start_time)}-${escapeHtml(act.end_time)}) · <b>${escapeHtml(act.genre)}</b>`
+                        : `${window.cnxT?window.cnxT('js.s_med.18d5663d','Mặc định:'):'Mặc định:'} ${escapeHtml(data.active_genre || 'Pop')}`);
             }
             const listEl = document.getElementById('media-schedules-list');
             if (listEl) {
                 const slots = data.schedules || [];
                 listEl.innerHTML = slots.map(sl => `
-                    <div class="p-2.5 rounded-xl bg-slate-900/75 border ${sl.is_active ? 'border-fuchsia-500/30' : 'border-white/5 opacity-60'} flex items-center justify-between gap-2 text-xs">
+                    <div class="px-2.5 py-1.5 rounded-xl bg-slate-900/75 border ${sl.is_active && masterOn ? 'border-fuchsia-500/35' : 'border-white/5 opacity-55'} flex items-center justify-between gap-2 text-[11px]">
                         <div class="min-w-0">
                             <div class="font-bold text-white truncate">${escapeHtml(sl.name)}</div>
-                            <div class="text-[11px] font-mono text-amber-300">${escapeHtml(sl.start_time)} - ${escapeHtml(sl.end_time)} · <span class="text-sky-300 font-sans font-semibold">${escapeHtml(sl.genre)}</span></div>
+                            <div class="text-[10px] font-mono text-amber-300 truncate">${escapeHtml(sl.start_time)}-${escapeHtml(sl.end_time)} · <span class="text-sky-300 font-sans font-semibold">${escapeHtml(sl.genre)}</span></div>
                         </div>
-                        <div class="flex items-center gap-1.5 shrink-0">
-                            <button type="button" onclick="Admin.toggleMediaSchedule(${sl.id}, '${escapeJsAttr(sl.name)}', '${escapeJsAttr(sl.start_time)}', '${escapeJsAttr(sl.end_time)}', '${escapeJsAttr(sl.genre)}', ${sl.is_active ? 0 : 1})" class="px-2 py-0.5 rounded text-[10px] font-bold ${sl.is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700 text-slate-400'}">${sl.is_active ? 'Bật' : (window.cnxT?window.cnxT('ui.admin_html.option_4320b18f','Tắt'):'Tắt')}</button>
-                            <button type="button" onclick="Admin.deleteMediaSchedule(${sl.id})" class="text-rose-400 hover:text-rose-300 px-1" title="Xóa"><i class="fas fa-trash"></i></button>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button type="button" onclick="Admin.toggleMediaSchedule(${sl.id}, '${escapeJsAttr(sl.name)}', '${escapeJsAttr(sl.start_time)}', '${escapeJsAttr(sl.end_time)}', '${escapeJsAttr(sl.genre)}', ${sl.is_active ? 0 : 1})" class="px-1.5 py-0.5 rounded text-[10px] font-bold ${sl.is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700 text-slate-400'}">${sl.is_active ? 'Bật' : 'Tắt'}</button>
+                            <button type="button" onclick="Admin.deleteMediaSchedule(${sl.id})" class="text-rose-400 hover:text-rose-300 px-0.5" title="Xóa"><i class="fas fa-trash text-[10px]"></i></button>
                         </div>
                     </div>
                 `).join('');
             }
         } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin_media_dsp.js', e) : console.debug('admin_media_dsp.js', e)); }
+    },
+
+    async toggleMasterMediaSchedule() {
+        const nextVal = this._mediaScheduleMasterEnabled === false ? 1 : 0;
+        try {
+            const res = await fetch('/api/media/schedules/toggle_master', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: nextVal })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Lỗi đổi trạng thái lịch khung giờ');
+            this.showToast(data.message, 'success');
+            this.loadMediaSchedules();
+        } catch (e) {
+            this.showToast(e.message || 'Lỗi kết nối', 'error');
+        }
     },
 
     async autoClassifyMediaTracks() {
@@ -431,6 +465,9 @@ Object.assign(Admin, {
             });
             const data = await res.json();
             if (data.success) {
+                if (window.JukeboxEngine && typeof window.JukeboxEngine.broadcastEq === 'function') {
+                    window.JukeboxEngine.broadcastEq(payload);
+                }
                 alert((window.cnxT?window.cnxT('js.s_med.1f340962','Đã áp dụng cấu hình 10-Band DSP Equalizer vào hệ thống âm thanh!'):'Đã áp dụng cấu hình 10-Band DSP Equalizer vào hệ thống âm thanh!'));
             } else {
                 alert(data.message || (window.cnxT?window.cnxT('js.s_med.195ce86d','Lỗi khi áp dụng Equalizer'):'Lỗi khi áp dụng Equalizer'));
@@ -564,33 +601,57 @@ Object.assign(Admin, {
             const dur = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             const isYtStream = t.source_type === 'youtube';
             const isYtOffline = !isYtStream && Boolean(t.yt_video_id);
-            const badgeHtml = isYtStream
-                ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold shrink-0">YT Stream</span>`
-                : (isYtOffline
-                    ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0">YT Offline</span>`
-                    : `<span class="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 border border-teal-500/25 text-[9px] font-bold shrink-0">Offline</span>`);
+            const fileMissing = !isYtStream && (t.file_exists === false);
+            const badgeHtml = fileMissing
+                ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] font-bold shrink-0">Thiếu file</span>`
+                : (isYtStream
+                    ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold shrink-0">YT Stream</span>`
+                    : (isYtOffline
+                        ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0">YT Offline</span>`
+                        : `<span class="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 border border-teal-500/25 text-[9px] font-bold shrink-0">Offline</span>`));
             const offlineBtnHtml = isYtStream
                 ? `<button type="button" onclick="Admin.upgradeYoutubeTrackOffline(${t.id}, this)" class="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Tải về MP3 để phát Offline khi mất mạng"><i class="fas fa-download"></i> ${window.cnxT?window.cnxT('js.s_med.8b03be0c','Lưu Offline'):'Lưu Offline'}</button>`
                 : '';
+            const playBtnHtml = fileMissing
+                ? `<button type="button" disabled class="px-2 py-1 rounded-lg bg-slate-800/80 text-slate-500 border border-white/5 text-[10px] font-bold flex items-center gap-1 shrink-0 cursor-not-allowed" title="File không tồn tại trên đĩa"><i class="fas fa-ban"></i> Lỗi file</button>`
+                : `<button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý"><i class="fas fa-plus"></i> ${window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát'}</button>`;
+
+            const genreText = String(t.genre || 'Pop').trim() || 'Pop';
+            const gLower = genreText.toLowerCase();
+            const genreClass = gLower.includes('edm') || gLower.includes('sôi')
+                ? 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30'
+                : (gLower.includes('acoustic') || gLower.includes('êm') || gLower.includes('lofi')
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    : (gLower.includes('ballad')
+                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                        : 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'));
+            const activeSlotG = (this._mediaScheduleMasterEnabled !== false && this._activeScheduleGenre) ? this._activeScheduleGenre : '';
+            const slotMatched = !activeSlotG || gLower === activeSlotG.toLowerCase();
+            const genreBadgeHtml = `<span class="px-1.5 py-0.5 rounded border text-[9px] font-bold shrink-0 ${genreClass}">${escapeHtml(genreText)}</span>`;
+            const slotBadgeHtml = activeSlotG
+                ? (slotMatched
+                    ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0" title="Phù hợp khung giờ hiện tại">✓ Hợp giờ</span>`
+                    : `<span class="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-400 border border-white/10 text-[9px] font-semibold shrink-0" title="Khác thể loại khung giờ (${escapeHtml(activeSlotG)}) — Admin vẫn có thể chèn phát">Ngoài giờ</span>`)
+                : '';
 
             return `
-                <div class="p-2 rounded-xl bg-slate-900/50 border border-white/5 hover:border-sky-500/30 transition flex items-center justify-between gap-2">
-                    <div class="min-w-0 flex items-center gap-2">
+                <div class="p-2 rounded-xl bg-slate-900/50 border ${activeSlotG && !slotMatched ? 'border-white/5 opacity-80' : 'border-white/10'} hover:border-sky-500/30 transition flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1 flex items-center gap-2">
                         <i class="${isYtStream ? 'fab fa-youtube text-rose-400' : 'fas fa-music text-sky-400'} text-xs shrink-0"></i>
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <span class="font-bold text-white truncate text-xs">${escapeHtml(t.title)}</span>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-white truncate text-xs leading-snug">${escapeHtml(t.title)}</div>
+                            <div class="flex items-center gap-1.5 mt-0.5 flex-nowrap overflow-hidden">
+                                <span class="text-[10px] text-slate-400 truncate">${escapeHtml(t.artist)} • <span class="text-slate-500 font-mono">${dur}</span></span>
+                                ${genreBadgeHtml}
                                 ${badgeHtml}
+                                ${slotBadgeHtml}
                             </div>
-                            <div class="text-[10px] text-slate-400 truncate">${escapeHtml(t.artist)} • <span class="text-slate-500 font-mono">${dur}</span></div>
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
                         ${offlineBtnHtml}
-                        <button type="button" onclick="Admin.editYoutubeTrack(${t.id})" class="px-2 py-1 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Sửa thông tin bài hát YouTube"><i class="fas fa-edit"></i> ${window.cnxT?window.cnxT('js.s_inv.3d5c572b','Sửa'):'Sửa'}</button>
-                        <button type="button" onclick="Admin.requestMediaTrack(${t.id})" class="px-2 py-1 rounded-lg bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Đưa vào hàng đợi Jukebox với quyền Quản lý">
-                            <i class="fas fa-plus"></i> ${window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát'}
-                        </button>
+                        <button type="button" onclick="Admin.editYoutubeTrack(${t.id})" class="px-2 py-1 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0 transition" title="Sửa thông tin bài hát"><i class="fas fa-edit"></i> ${window.cnxT?window.cnxT('js.s_inv.3d5c572b','Sửa'):'Sửa'}</button>
+                        ${playBtnHtml}
                     </div>
                 </div>
             `;
@@ -598,16 +659,25 @@ Object.assign(Admin, {
     },
 
     filterMediaCatalog(keyword) {
-        if (!keyword || !keyword.trim()) {
-            this.renderMediaCatalog(this.mediaCatalog);
-            return;
-        }
-        const kw = keyword.toLowerCase().trim();
-        const filtered = this.mediaCatalog.filter(t => 
-            t.title.toLowerCase().includes(kw) || 
-            t.artist.toLowerCase().includes(kw) || 
-            (t.genre && t.genre.toLowerCase().includes(kw))
-        );
+        const searchEl = document.getElementById('media-catalog-search');
+        const genreEl = document.getElementById('media-catalog-genre-filter');
+        const rawKw = (typeof keyword === 'string') ? keyword : (searchEl ? searchEl.value : '');
+        const kw = (rawKw || '').toLowerCase().trim();
+        const selGenre = genreEl ? genreEl.value : 'ALL';
+        const activeSlotG = (this._mediaScheduleMasterEnabled !== false && this._activeScheduleGenre) ? this._activeScheduleGenre.toLowerCase() : '';
+
+        const filtered = (this.mediaCatalog || []).filter(t => {
+            const trkG = String(t.genre || 'Pop').trim();
+            if (selGenre === '__MATCH_SLOT__') {
+                if (activeSlotG && trkG.toLowerCase() !== activeSlotG) return false;
+            } else if (selGenre && selGenre !== 'ALL') {
+                if (trkG.toLowerCase() !== selGenre.toLowerCase()) return false;
+            }
+            if (!kw) return true;
+            return (t.title && t.title.toLowerCase().includes(kw)) ||
+                   (t.artist && t.artist.toLowerCase().includes(kw)) ||
+                   trkG.toLowerCase().includes(kw);
+        });
         this.renderMediaCatalog(filtered);
     },
 
@@ -840,12 +910,33 @@ Object.assign(Admin, {
         },
 
         setVolume(val) {
+            const pct = Math.max(0, Math.min(100, Math.round(Number(val) || 0)));
+            if (pct > 0) this._lastVolume = pct;
+            const slider = document.getElementById('admin-media-volume-slider');
+            if (slider && Number(slider.value) !== pct) slider.value = pct;
+            const txt = document.getElementById('admin-media-volume-text');
+            if (txt) txt.textContent = `${pct}%`;
+            const icon = document.getElementById('admin-media-volume-icon');
+            if (icon) {
+                icon.className = pct === 0 ? 'fas fa-volume-mute text-rose-400 text-xs' : 'fas fa-volume-up text-xs';
+            }
             if (window.JukeboxEngine) {
-                window.JukeboxEngine.setVolume(val);
+                window.JukeboxEngine.setVolume(pct);
                 return;
             }
             if (!this.audio) this.init();
-            this.audio.volume = Math.max(0, Math.min(1, Number(val) / 100));
+            this.audio.volume = pct / 100;
+        },
+
+        toggleMute() {
+            const slider = document.getElementById('admin-media-volume-slider');
+            const cur = slider ? Number(slider.value) : (window.JukeboxEngine ? Math.round((window.JukeboxEngine.volume || 0) * 100) : 100);
+            if (cur > 0) {
+                this._lastVolume = cur;
+                this.setVolume(0);
+            } else {
+                this.setVolume(this._lastVolume || 80);
+            }
         },
 
         setDucking(enable) {
@@ -1134,6 +1225,15 @@ Object.assign(Admin, {
                             <label class="block text-[11px] font-bold text-slate-300 mb-1">${window.cnxT?window.cnxT('js.s_med.a849f7b7','Nghệ sĩ / Ca sĩ'):'Nghệ sĩ / Ca sĩ'}</label>
                             <input type="text" id="edit-track-artist-input" class="liquid-input w-full py-2 px-3 rounded-xl bg-slate-900 border border-white/15 text-xs text-white" />
                         </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-300 mb-1">Thể loại nhạc (khớp Khung Giờ)</label>
+                            <select id="edit-track-genre-select" class="liquid-input w-full py-2 px-3 rounded-xl bg-slate-900 border border-white/15 text-xs text-white">
+                                <option value="Sôi động / EDM">Sôi động / EDM</option>
+                                <option value="Êm dịu / Acoustic">Êm dịu / Acoustic</option>
+                                <option value="Ballad">Ballad</option>
+                                <option value="Pop">Pop</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
                         <button type="button" onclick="document.getElementById('edit-track-info-modal').classList.add('hidden');document.getElementById('edit-track-info-modal').classList.remove('flex');" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold">${window.cnxT?window.cnxT('ui.admin_html.button_d7d5c86c','Hủy'):'Hủy'}</button>
@@ -1146,13 +1246,25 @@ Object.assign(Admin, {
 
         const titleInput = document.getElementById('edit-track-title-input');
         const artistInput = document.getElementById('edit-track-artist-input');
+        const genreSelect = document.getElementById('edit-track-genre-select');
         const saveBtn = document.getElementById('edit-track-save-btn');
         titleInput.value = track.title || '';
         artistInput.value = track.artist || '';
+        if (genreSelect) {
+            const curG = track.genre || 'Pop';
+            if (!Array.from(genreSelect.options).some(o => o.value === curG)) {
+                const opt = document.createElement('option');
+                opt.value = curG;
+                opt.textContent = curG;
+                genreSelect.appendChild(opt);
+            }
+            genreSelect.value = curG;
+        }
 
         saveBtn.onclick = async () => {
             const newTitle = titleInput.value.trim();
             const newArtist = artistInput.value.trim();
+            const newGenre = genreSelect ? genreSelect.value : (track.genre || 'Pop');
             if (!newTitle) {
                 this.showToast((window.cnxT?window.cnxT('js.s_med.9cdbf697','Tên bài hát không được để trống!'):'Tên bài hát không được để trống!'), 'warning');
                 return;
@@ -1163,7 +1275,7 @@ Object.assign(Admin, {
                 const res = await fetch('/api/media/youtube/edit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ track_id: trackId, title: newTitle, artist: newArtist })
+                    body: JSON.stringify({ track_id: trackId, title: newTitle, artist: newArtist, genre: newGenre })
                 });
                 const data = await res.json();
                 if (!data.success) {

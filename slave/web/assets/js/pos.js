@@ -14,6 +14,8 @@ const POS = {
     selectedCategoryId: 'all',
     discount: { type: 'amount', value: 0 },
     vatPercent: 0,
+    vatMode: 'none',
+    defaultVatRate: 0,
     customerName: (window.cnxT?window.cnxT('js.s_pos.53fa7723','Khách vãng lai'):'Khách vãng lai'),
     guestCount: 1,
     note: '',
@@ -28,6 +30,7 @@ const POS = {
         }
         this.bindEvents();
         await this.loadSettings();
+        await this.loadTaxPolicy();
         await this.loadCategories();
         await this.loadProducts();
         await this.loadTables();
@@ -35,6 +38,34 @@ const POS = {
         this.selectDefaultTable();
         this.startClock();
         this.startNotificationPolling();
+    },
+
+    // Load store VAT policy (PAY-06: none | exclusive | inclusive)
+    async loadTaxPolicy() {
+        try {
+            const res = await fetch('/api/finance.php?action=get_tax_settings', { cache: 'no-store' });
+            const json = await res.json();
+            if (json && json.success && json.data) {
+                const mode = String(json.data.pos_vat_mode || 'none');
+                const rate = parseFloat(json.data.pos_vat_rate ?? '0') || 0;
+                this.vatMode = (mode === 'exclusive' || mode === 'inclusive') ? mode : 'none';
+                this.defaultVatRate = (this.vatMode === 'none') ? 0 : Math.max(0, rate);
+                this.vatPercent = this.defaultVatRate;
+            }
+        } catch (e) { /* keep 0% default */ }
+    },
+
+    computeVatBreakdown(afterDiscount) {
+        const rate = Math.max(0, Number(this.vatPercent) || 0);
+        if (this.vatMode === 'inclusive' && rate > 0) {
+            const vatAmount = Math.round(afterDiscount - (afterDiscount / (1 + rate / 100)));
+            return { vatAmount, total: afterDiscount };
+        }
+        if (rate > 0) {
+            const vatAmount = Math.round((afterDiscount * rate) / 100);
+            return { vatAmount, total: afterDiscount + vatAmount };
+        }
+        return { vatAmount: 0, total: afterDiscount };
     },
 
     // Format currency (e.g. 120,000 đ)
@@ -664,7 +695,7 @@ const POS = {
             this.activeOrderStatus = '';
             this.cart = [];
             this.discount = { type: 'amount', value: 0 };
-            this.vatPercent = 0;
+            this.vatPercent = this.defaultVatRate || 0;
             this.customerName = (window.cnxT?window.cnxT('js.s_pos.53fa7723','Khách vãng lai'):'Khách vãng lai');
             this.guestCount = 1;
             this.note = '';
@@ -1155,8 +1186,7 @@ const POS = {
         }
 
         const afterDiscount = Math.max(0, subtotal - discountAmount);
-        const vatAmount = (afterDiscount * Math.max(0, this.vatPercent)) / 100;
-        const total = afterDiscount + vatAmount;
+        const { vatAmount, total } = this.computeVatBreakdown(afterDiscount);
 
         if (subtotalEl) subtotalEl.innerText = this.formatMoney(subtotal);
         if (discountEl) discountEl.innerText = this.formatMoney(discountAmount);
@@ -1926,8 +1956,7 @@ const POS = {
         }
 
         const afterDiscount = Math.max(0, subtotal - discountAmount);
-        const vatAmount = (afterDiscount * Math.max(0, this.vatPercent)) / 100;
-        const total = afterDiscount + vatAmount;
+        const { vatAmount, total } = this.computeVatBreakdown(afterDiscount);
 
         this._checkoutIdempKey = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()

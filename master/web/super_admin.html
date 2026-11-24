@@ -14,9 +14,8 @@
     <script src="assets/js/chart.min.js"></script>
     <!-- Liquid Glass Custom Styles -->
     <link rel="stylesheet" href="assets/css/liquid-glass.css?v=5">
-
-    <link rel="stylesheet" href="assets/css/super_admin.css?v=20261119c">
     <link rel="stylesheet" href="assets/css/theme.css?v=4">
+    <link rel="stylesheet" href="assets/css/super_admin.css?v=20261119c">
     <script src="assets/js/theme.js?v=3"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen flex flex-col font-sans antialiased overflow-hidden selection:bg-purple-500 selection:text-white">
@@ -203,6 +202,10 @@
                     <span data-i18n="ui.sa_html.span_a42a9998">Biểu Mẫu &amp; Hợp Đồng</span>
                 </button>
 
+                <button type="button" onclick="window.MasterMysqlBackup && MasterMysqlBackup.openConsole()" id="nav-tab-mysql-backup" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-sky-300 hover:text-white hover:bg-sky-500/15 transition">
+                    <i class="fas fa-database w-4 text-center text-sky-400"></i>
+                    <span>Sao Lưu MySQL Quán</span>
+                </button>
                 <button type="button" onclick="SuperAdmin.switchTab('settings')" id="nav-tab-settings" class="saas-nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all whitespace-nowrap" data-i18n="ui.sa_html.button_cbd2b71b">
                     <i class="fas fa-sliders text-rose-400 w-4 text-center shrink-0"></i>
                     <span data-i18n="ui.sa_html.span_c751c798">Cài Đặt SaaS & VietQR</span>
@@ -2468,5 +2471,6 @@
     }
 })();
 </script>
+<script src="assets/js/super_admin_mysql_backup.js?v=1"></script>
 </body>
 </html>

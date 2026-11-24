@@ -1,21 +1,23 @@
 {
-  "generated_at": "2026-11-20 11:54:13",
-  "count": 15,
+  "generated_at": "2026-11-24 19:20:23",
+  "count": 17,
   "files": {
-    "admin.html": "eb8e412c88e7bdd17faa41e7c4627c9c188de68b95ab8442610796227774e8f4",
-    "super_admin.html": "9688fddb48f50c813998b881c92b9e0c3013c147cae3713935b5c51b5c05dcec",
-    "theme_studio.html": "f22ed7bb8f286983a7cbbebf216e23dc755f11495462502a0558767dc5775265",
-    "assets/css/app-tailwind.min.css": "afec2615c92285a789cf6a803ac2c55967e40f5698c47021fd2aa91abdb09964",
-    "assets/css/liquid-glass.css": "9b3510fb710513a2a3b4a609893dbb79756730213654527b5a4ad2ca5291a71d",
+    "i18n_studio.html": "5072117b7daa7e31429c6a9b3889fb6862894e9ae6d444dfa27fb8bf0810260f",
+    "super_admin.html": "1ceff877445f3c72fbaa479a6b403c6a1c4243af87c004dbf18bbf886c4ce79e",
+    "theme_studio.html": "18e1aab7c0677aee5e98cf174b78e4bc0311adb02dd3060f8f058b17e138c9d8",
+    "assets/css/app-tailwind.min.css": "903f224051ef3478c993d95a15574ed536e282a6a3d723cf8991b3a87e9e7f35",
+    "assets/css/liquid-glass.css": "4dc721cad7d57491cd44b882c5e795bc344e4dc516381b2e1710760a7705468b",
     "assets/css/super_admin.css": "204319123839ae36987ea1eb9ce706b8ce8168ed48cb2d87f721930cf0729d86",
-    "assets/css/theme.css": "3b053a318838b606b89ef37ec13d8801ecf96d1f8dc517b24c18903c8ff5a56b",
+    "assets/css/theme.css": "67b551fed7c35b29ebf1aae4f6fc5485e94574435d67c32527a745dbc1aa5c80",
     "assets/vendor/qrcode.min.js": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
     "assets/vendor/fontawesome/css/all.min.css": "c22cfb6520a7fdbb738632834019acf47c78b1279462c0eb4cb83bae83ecb5a7",
-    "assets/js/admin.js": "3ffa5536abd7ace2730b82e0ade9d7e4009074fd03c89e973c5b2f29b7b37bf9",
     "assets/js/chart.min.js": "87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2",
-    "assets/js/image_processor.js": "1aea08af5e0dcf1040a453c9242a657f35bec0ddfb8e08e8e2c141989a54f1ad",
-    "assets/js/security_utils.js": "2300013a402d762a9790e99c51c61541b8ed7628c4468619ab8341deb23d26c1",
-    "assets/js/super_admin.js": "f6b9069973f95ca797bd97993ed090138b5e2312b2bbe9f6ede4050c891f9ce3",
-    "assets/js/theme.js": "4061e3553cfba9ff19513b25019be7de93b0628758ec142dd4ae0f8ca83f9b11"
+    "assets/js/i18n.js": "cb551748e7887bffd5bcc587fa8a84f4948e9f023b986c6f481590de5a9c2eb9",
+    "assets/js/image_processor.js": "713bfd191b38bbf746e6a770221d69dc5e95199ad7790d1308ae0500896bc8b3",
+    "assets/js/security_utils.js": "07be83a92984d08c15c1394925f6f16e34d3ebd375531689230c31ce63707133",
+    "assets/js/super_admin.js": "2e266d66f969a596402f59dabf7b94b3bfae990b43d237d4edff23c9d1fc0910",
+    "assets/js/super_admin_ext.js": "7b9b8b90f230d5ef331bcce03076475bc526a4448c87df14242e01c60a23f46d",
+    "assets/js/super_admin_mysql_backup.js": "751f6810fd0bae5cba757ce6aaa8f763f0291485d8ba273218b0cba2d92a8816",
+    "assets/js/theme.js": "a8fb1b44941632200019cbe1558e42e4818b9193c9e724a27c03aaea89f015f4"
   }
 }

@@ -1266,7 +1266,7 @@ const CustomerJukebox = {
 
     async loadTracks(silent = false) {
         try {
-            const res = await fetch('/api/media/tracks');
+            const res = await fetch('/api/media/tracks?playable_only=1');
             const data = await res.json();
             if (data.success && Array.isArray(data.tracks)) {
                 const sig = data.tracks.map(t => `${t.id}:${t.title}:${t.artist}:${t.genre}`).join('|');

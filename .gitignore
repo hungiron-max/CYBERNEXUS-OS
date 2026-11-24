@@ -2,6 +2,8 @@
 build/
 bin/
 release/
+node_modules/
+tools/tailwind/tailwindcss.exe
 *.exe
 *.dll
 *.obj

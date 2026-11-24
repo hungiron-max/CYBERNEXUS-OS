@@ -418,6 +418,7 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: var(--shadow);
+    flex-shrink: 0;
   }
   .flow-head {
     padding: 13px 16px;
@@ -489,6 +490,21 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
+  .img-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-bottom: 12px; flex-shrink: 0; }
+  .img-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    cursor: zoom-in; transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .img-card:hover { transform: translateY(-2px); border-color: var(--sky); }
+  .img-card img { width: 100%; height: 185px; object-fit: cover; display: block; background: #070b14; }
+  .img-cap { padding: 8px 12px; font-size: 12px; font-weight: 700; color: var(--text-strong); display: flex; justify-content: space-between; align-items: center; }
+  .lb-overlay {
+    position: fixed; inset: 0; z-index: 999; background: rgba(2,6,23,0.92); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out;
+  }
+  .lb-overlay.open { display: flex; }
+  .lb-overlay img { max-width: 96vw; max-height: 92vh; border-radius: 14px; border: 1px solid rgba(56,189,248,0.45); box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
+
   /* Empty state */
   .empty {
     text-align: center; padding: 36px 16px; color: var(--muted);
@@ -539,6 +555,7 @@
     </div>
     <div class="top-actions">
       <nav class="doc-switch" aria-label="Chuyển đổi sổ tay">
+        <a href="13_BANG_THEO_DOI_KHUYET_TAT.html">📋 Theo dõi</a>
         <a href="19_SO_TAY_VAN_HANH_SLAVE.html">🏪 SLAVE</a>
         <a href="20_SO_TAY_VAN_HANH_MASTER.html" class="active">🏛️ MASTER</a>
       </nav>
@@ -571,6 +588,7 @@
 </main>
 
 <div class="toast" id="toast"></div>
+<div class="lb-overlay" id="imgLightbox" onclick="this.classList.remove('open')"><img id="imgLightboxPic" src="" alt=""></div>
 
 <script src="master_manual_data.js"></script>
 <script>
@@ -719,6 +737,7 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  window.openImgLightbox = function(src, alt) { const lb=document.getElementById("imgLightbox"), im=document.getElementById("imgLightboxPic"); if(lb&&im){ im.src=src; im.alt=alt||""; lb.classList.add("open"); } };
   function toast(msg) {
     const el = document.getElementById('toast');
     el.textContent = msg;
@@ -1225,7 +1244,14 @@
           <button class="btn btn-sm" id="btnColAllFl">Thu gọn</button>
         </div>
       </div>
-      <div class="card-grid">${cardsHtml}</div>
+      <div class="card-grid">
+      <div class="img-gallery">
+        <div class="img-card" onclick="openImgLightbox('images/master_superadmin_overview.png','Tổng quan Kiến trúc MASTER Super Admin SaaS (Port 8500)')">
+          <img src="images/master_superadmin_overview.png" alt="Tổng quan MASTER Super Admin" loading="lazy" style="height:220px;object-fit:contain">
+          <div class="img-cap"><span>🏛️ Sơ đồ Tổng Quan Kiến Trúc MASTER Super Admin SaaS (Port 8500)</span><span class="pill pill-violet">🔍 Phóng to</span></div>
+        </div>
+      </div>
+${cardsHtml}</div>
     `;
 
     const inp = document.getElementById('inpFlowSearch');
@@ -1677,12 +1703,26 @@
   }
 
   function renderView() {
+    const root = document.getElementById('viewRoot');
+    const prevScroll = {};
+    if (root) {
+      ['.table-scroll', '.card-grid', '.pane-scroll'].forEach(sel => {
+        const el = root.querySelector(sel);
+        if (el) prevScroll[sel] = { top: el.scrollTop, left: el.scrollLeft };
+      });
+    }
     if (UI.tab === 'funcs') renderFuncsTab();
     else if (UI.tab === 'flows') renderFlowsTab();
     else if (UI.tab === 'roles') renderRolesTab();
     else if (UI.tab === 'db') renderDbTab();
     else if (UI.tab === 'api') renderApiTab();
     else if (UI.tab === 'cases') renderCasesTab();
+    if (root) {
+      Object.entries(prevScroll).forEach(([sel, pos]) => {
+        const el = root.querySelector(sel);
+        if (el) { el.scrollTop = pos.top; el.scrollLeft = pos.left; }
+      });
+    }
   }
 
   // ==================== EXPORT / IMPORT ====================

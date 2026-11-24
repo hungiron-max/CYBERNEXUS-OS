@@ -27,8 +27,10 @@ class LicenseService {
 public:
     static LicenseService& instance();
 
-    // 1. Hardware ID (Bước 5.1)
+    // 1. Hardware ID (Bước 5.1 & LIC-03 Multi-Factor Fingerprint)
     std::string getMachineId();
+    std::vector<std::string> getHardwareFactors();
+    std::string computeRightsRevision();
     bool isMachineMismatch(std::string* outBound = nullptr, std::string* outCurrent = nullptr);
 
     // 2. 14 Modules Catalog & Matrix

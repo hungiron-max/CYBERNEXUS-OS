@@ -1851,6 +1851,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             if (action == "toggle_status") {
                 int64_t tid = getValInt("tenant_id", 0);
                 std::string status = getVal("status", "active");
+                if (status != "active" && status != "trial" && status != "grace" && status != "suspended" && status != "locked" && status != "expired") {
+                    sendError(res, "Trạng thái thuê bao không hợp lệ: " + status, 400);
+                    return;
+                }
                 db.execute(
                     "UPDATE saas_tenants SET subscription_status = :st, updated_at = datetime('now') WHERE id = :id",
                     {{":st", status}, {":id", std::to_string(tid)}}
@@ -1858,7 +1862,10 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 if (tid > 0) {
                     StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
                 }
-                sendJson(res, {{"success", true}, {"message", "Đã cập nhật trạng thái cửa hàng và đẩy lệnh đồng bộ!"}});
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "TOGGLE_STATUS", std::to_string(tid),
+                    "Đổi trạng thái thuê bao quán ID " + std::to_string(tid) + " -> " + status,
+                    json({{"tenant_id", tid}, {"status", status}}).dump(), req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã cập nhật trạng thái cửa hàng (" + status + "), ghi Audit và đẩy lệnh đồng bộ tức thì!"}});
                 return;
             }
 
@@ -1904,7 +1911,13 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         {":dm", std::to_string(months)}, {":ed", newExpire}, {":note", note}
                     }
                 );
-                sendJson(res, {{"success", true}, {"message", "Gia hạn thành công đến ngày " + newExpire + "!"}});
+                if (tid > 0) {
+                    StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_LICENSE", json::object(), true);
+                }
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "QUICK_EXTEND", std::to_string(tid),
+                    "Gia hạn nhanh +" + std::to_string(months) + " tháng cho " + store_name + " đến " + newExpire,
+                    json({{"tenant_id", tid}, {"months", months}, {"new_expire", newExpire}, {"invoice_code", invCode}}).dump(), req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Gia hạn thành công đến ngày " + newExpire + " và đã đẩy đồng bộ tức thì xuống quán!"}});
                 return;
             }
 
@@ -2008,13 +2021,27 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
             }
 
             if (action == "license_save_grace") {
-                int64_t grace = getValInt("grace_days", 7);
+                int64_t grace = std::max<int64_t>(0, std::min<int64_t>(60, getValInt("grace_days", 7)));
+                int64_t offMax = std::max<int64_t>(1, std::min<int64_t>(90, getValInt("offline_max_days", 14)));
                 db.execute(
                     "INSERT INTO saas_settings (setting_key, setting_value) VALUES ('saas_grace_period_days', :v) "
                     "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
                     {{":v", std::to_string(grace)}}
                 );
-                sendJson(res, {{"success", true}, {"message", "Đã lưu số ngày ân hạn offline thành công!"}});
+                db.execute(
+                    "INSERT INTO saas_settings (setting_key, setting_value) VALUES ('saas_offline_max_days', :v) "
+                    "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                    {{":v", std::to_string(offMax)}}
+                );
+                auto activeRows = db.query("SELECT id FROM saas_tenants WHERE subscription_status IN ('active', 'trial', 'grace')");
+                for (const auto& ar : activeRows) {
+                    int64_t atid = ar.value("id", int64_t(0));
+                    if (atid > 0) StoreTunnelManager::instance().enqueueCommand(atid, "SYNC_LICENSE", json::object(), true);
+                }
+                recordAuditLog(db, 0, "SuperAdmin", "super_admin", "SAVE_GRACE_POLICY", "GLOBAL",
+                    "Cập nhật chính sách ân hạn (" + std::to_string(grace) + " ngày) & Offline Lease (" + std::to_string(offMax) + " ngày)",
+                    json({{"grace_days", grace}, {"offline_max_days", offMax}}).dump(), req.remote_addr);
+                sendJson(res, {{"success", true}, {"message", "Đã lưu chính sách ân hạn & đồng bộ xuống toàn chuỗi cửa hàng!"}});
                 return;
             }
 
@@ -3076,8 +3103,14 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         sendError(res, "Bản vá v" + chosenVer + " dành riêng cho [" + patchTenant + "], không khớp với [" + targetCode + "]!", 400);
                         return;
                     }
-                    // Ghi nhận mã quán đã được đẩy vào manifest của bản vá để hiển thị [ĐÃ ĐẨY] / [CHƯA ĐẨY]
+                    if (manifest.value("release_status", "") == "revoked") {
+                        sendError(res, "Bản vá v" + chosenVer + " đã bị THU HỒI (revoked), không thể đẩy xuống cửa hàng!", 400);
+                        return;
+                    }
+                    // Ghi nhận mã quán đã được đẩy & trạng thái vòng đời (pilot / published) vào manifest + DB ota_store_rollouts
                     try {
+                        db.execute("CREATE TABLE IF NOT EXISTS ota_releases (version TEXT PRIMARY KEY, release_status TEXT DEFAULT 'draft', scope TEXT DEFAULT 'global', target_tenant TEXT DEFAULT '', sha256 TEXT DEFAULT '', size_bytes INTEGER DEFAULT 0, notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))");
+                        db.execute("CREATE TABLE IF NOT EXISTS ota_store_rollouts (id INTEGER PRIMARY KEY AUTOINCREMENT, version TEXT NOT NULL, tenant_id INTEGER NOT NULL, tenant_code TEXT NOT NULL, status TEXT DEFAULT 'queued', detail TEXT DEFAULT '', pushed_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), UNIQUE(version, tenant_id))");
                         json pushedArr = manifest.contains("pushed_stores") && manifest["pushed_stores"].is_array()
                             ? manifest["pushed_stores"] : json::array();
                         std::string markCode = (targetCode.empty() || targetCode == "ALL") ? "ALL" : targetCode;
@@ -3087,8 +3120,31 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                         }
                         if (!existsMark) pushedArr.push_back(markCode);
                         manifest["pushed_stores"] = pushedArr;
+                        if (markCode == "ALL") {
+                            manifest["release_status"] = "published";
+                            manifest["auto_publish"] = true;
+                        } else if (manifest.value("release_status", "draft") == "draft") {
+                            manifest["release_status"] = "pilot";
+                        }
                         std::ofstream mfOut(manifestPath.string(), std::ios::binary | std::ios::trunc);
                         if (mfOut) mfOut << manifest.dump(2) << "\n";
+                        db.execute(
+                            "INSERT INTO ota_releases (version, release_status, scope, target_tenant, sha256, size_bytes, notes, updated_at) "
+                            "VALUES (:v, :st, :sc, :tt, :sh, :sz, :nt, datetime('now')) "
+                            "ON CONFLICT(version) DO UPDATE SET release_status = :st, updated_at = datetime('now')",
+                            {{":v", chosenVer}, {":st", manifest.value("release_status", "pilot")}, {":sc", patchTenant.empty() ? "global" : "store"},
+                             {":tt", patchTenant}, {":sh", manifest.value("sha256", "")}, {":sz", manifest.value("size_bytes", int64_t(0))}, {":nt", manifest.value("release_notes", "")}}
+                        );
+                        // OTA-04: Sync published global release to updates/manifest.json & updates/patch_latest.zip
+                        if (manifest.value("release_status", "") == "published" && patchTenant.empty()) {
+                            std::error_code ecCopy;
+                            fs::path archZip = updatesDir / "archive" / chosenVer / "patch.zip";
+                            if (fs::exists(archZip, ecCopy)) {
+                                fs::copy_file(archZip, updatesDir / "patch_latest.zip", fs::copy_options::overwrite_existing, ecCopy);
+                            }
+                            std::ofstream liveMf((updatesDir / "manifest.json").string(), std::ios::trunc);
+                            if (liveMf) liveMf << manifest.dump(2) << "\n";
+                        }
                     } catch (...) {}
                 }
 
@@ -3121,6 +3177,23 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     bool isOnline = StoreTunnelManager::instance().enqueueCommand(tid, cmdType, payload, true);
                     if (isOnline) onlineDelivered++;
                     else queuedOffline++;
+                    if (mode == "ota_update") {
+                        try {
+                            std::string tc = t.value("tenant_code", "");
+                            db.execute(
+                                "INSERT INTO ota_store_rollouts (version, tenant_id, tenant_code, status, detail, pushed_at, updated_at) "
+                                "VALUES (:v, :tid, :tc, :st, :dt, datetime('now'), datetime('now')) "
+                                "ON CONFLICT(version, tenant_id) DO UPDATE SET status = :st, detail = :dt, updated_at = datetime('now')",
+                                {{":v", payload.value("version", "")}, {":tid", tid}, {":tc", tc},
+                                 {":st", isOnline ? "delivered" : "queued"}, {":dt", isOnline ? "Tunnel delivered" : "Queued offline"}}
+                            );
+                        } catch (...) {}
+                    }
+                }
+                if (mode == "ota_update") {
+                    recordAuditLog(db, 0, "SuperAdmin", "super_admin", "OTA_PUSH", targetCode.empty() ? "ALL" : targetCode,
+                        "Đẩy OTA v" + payload.value("version", "") + " tới " + std::to_string(totalTargets) + " cửa hàng (" + std::to_string(onlineDelivered) + " online)",
+                        payload.dump(), req.remote_addr);
                 }
 
                 sendJson(res, {
@@ -3181,23 +3254,39 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                             }
                         }
                         bool autoPub = targetTenant.empty() && mf.value("auto_publish", false);
+                        json pushedArr = (mf.contains("pushed_stores") && mf["pushed_stores"].is_array()) ? mf["pushed_stores"] : json::array();
+                        std::string relStatus = mf.value("release_status", "");
+                        if (relStatus.empty()) {
+                            if (autoPub) relStatus = "published";
+                            else if (!pushedArr.empty()) {
+                                bool hasNonAll = false;
+                                for (const auto& s : pushedArr) { if (s.is_string() && s.get<std::string>() != "ALL") hasNonAll = true; }
+                                relStatus = hasNonAll ? "pilot" : "draft";
+                            } else {
+                                relStatus = "draft";
+                            }
+                        }
+                        if (relStatus == "revoked") autoPub = false;
                         patches.push_back({
                             {"version", ver},
                             {"title", mf.value("title", "Bản vá " + ver)},
-                            {"notes", mf.value("notes", "")},
-                            {"created_at", mf.value("created_at", "")},
+                            {"notes", mf.value("release_notes", mf.value("notes", ""))},
+                            {"created_at", mf.value("release_date", mf.value("created_at", ""))},
                             {"target_tenant", targetTenant},
                             {"scope", targetTenant.empty() ? "global" : "store"},
                             {"auto_publish", autoPub},
-                            {"pushed_stores", mf.contains("pushed_stores") && mf["pushed_stores"].is_array() ? mf["pushed_stores"] : json::array()},
+                            {"release_status", relStatus},
+                            {"pushed_stores", pushedArr},
                             {"files_count", mf.contains("files") && mf["files"].is_array() ? mf["files"].size() : 0},
                             {"size_bytes", static_cast<int64_t>(fs::file_size(zipPath))},
-                            {"is_active", (!activeVer.empty() && ver == activeVer)}
+                            {"is_active", (!activeVer.empty() && ver == activeVer && autoPub)}
                         });
                     } catch (...) {}
                 }
             }
             std::sort(patches.begin(), patches.end(), [](const json& a, const json& b) {
+                std::string va = a.value("version", ""), vb = b.value("version", "");
+                if (va != vb) return va > vb;
                 return a.value("created_at", "") > b.value("created_at", "");
             });
             sendJson(res, {
@@ -3237,16 +3326,56 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                 return;
             }
             mfJson["auto_publish"] = true;
+            mfJson["release_status"] = "published";
             {
+                std::ofstream outArch(mfSrc.string(), std::ios::binary | std::ios::trunc);
+                outArch << mfJson.dump(2) << "\n";
                 std::ofstream out((updatesDir / "manifest.json").string(), std::ios::binary | std::ios::trunc);
                 out << mfJson.dump(2) << "\n";
             }
             fs::copy_file(zipSrc, updatesDir / "patch_latest.zip", fs::copy_options::overwrite_existing);
+            recordAuditLog(db, 0, "SuperAdmin", "super_admin", "OTA_PUBLISH", ver,
+                "Duyệt & phát hành đại trà bản vá OTA v" + ver, mfJson.dump(), req.remote_addr);
             sendJson(res, {
                 {"success", true},
                 {"active_version", ver},
                 {"message", "Đã duyệt & phát hành bản vá v" + ver + " cho phép các quán tự quét OTA!"}
             });
+            return;
+        }
+
+        if (action == "revoke_patch") {
+            std::string ver = getString(body, "version");
+            if (ver.empty() || ver.find("..") != std::string::npos || ver.find('/') != std::string::npos || ver.find('\\') != std::string::npos) {
+                sendError(res, "Phiên bản bản vá không hợp lệ!", 400);
+                return;
+            }
+            fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
+            fs::path mfSrc = updatesDir / "archive" / ver / "manifest.json";
+            if (!fs::exists(mfSrc)) {
+                sendError(res, "Không tìm thấy bản vá v" + ver, 404);
+                return;
+            }
+            json mfJson;
+            { std::ifstream in(mfSrc.string()); in >> mfJson; }
+            mfJson["auto_publish"] = false;
+            mfJson["release_status"] = "revoked";
+            { std::ofstream out(mfSrc.string(), std::ios::binary | std::ios::trunc); out << mfJson.dump(2) << "\n"; }
+            if (fs::exists(updatesDir / "manifest.json")) {
+                try {
+                    json curMf;
+                    { std::ifstream in((updatesDir / "manifest.json").string()); in >> curMf; }
+                    if (curMf.value("version", "") == ver) {
+                        curMf["auto_publish"] = false;
+                        curMf["release_status"] = "revoked";
+                        std::ofstream out((updatesDir / "manifest.json").string(), std::ios::binary | std::ios::trunc);
+                        out << curMf.dump(2) << "\n";
+                    }
+                } catch (...) {}
+            }
+            recordAuditLog(db, 0, "SuperAdmin", "super_admin", "OTA_REVOKE", ver,
+                "Thu hồi khẩn cấp bản vá OTA v" + ver, mfJson.dump(), req.remote_addr);
+            sendJson(res, {{"success", true}, {"message", "Đã THU HỒI (Revoke) bản vá v" + ver + "! Các quán sẽ không thể tải bản này."}});
             return;
         }
 
@@ -3674,19 +3803,47 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
             std::string boundMachine = getString(tenant, "machine_id", "");
             std::string subStatus = getString(tenant, "subscription_status", "active");
 
-            // Hardware node-locking binding
+            // Hardware node-locking binding (LIC-03: hỗ trợ Multi-Factor 2/3 tolerance chống khóa oan khi cài lại Win/thay ổ cứng)
+            try { if (db.queryRow("SELECT 1 FROM pragma_table_info('saas_tenants') WHERE name='hardware_factors_json' LIMIT 1").is_null()) db.execute("ALTER TABLE saas_tenants ADD COLUMN hardware_factors_json TEXT DEFAULT '[]'"); } catch (...) {}
+            json incomingFactors = (body.contains("hardware_factors") && body["hardware_factors"].is_array()) ? body["hardware_factors"] : json::array();
+            std::string storedFactorsStr = getString(tenant, "hardware_factors_json", "[]");
+            json storedFactors = json::array();
+            try { json pf = json::parse(storedFactorsStr, nullptr, false); if (pf.is_array()) storedFactors = pf; } catch (...) {}
+
             if (boundMachine.empty() && !machineId.empty()) {
                 try { if (db.queryRow("SELECT 1 FROM pragma_table_info('saas_tenants') WHERE name='machine_reset_pending' LIMIT 1").is_null()) db.execute("ALTER TABLE saas_tenants ADD COLUMN machine_reset_pending INTEGER DEFAULT 0"); } catch (...) {}
-                db.execute("UPDATE saas_tenants SET machine_id = :mid, machine_reset_pending = 0, machine_bound_at = datetime('now'), last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
-                    {{":mid", machineId}, {":ip", clientIp}, {":id", tid}});
+                db.execute("UPDATE saas_tenants SET machine_id = :mid, hardware_factors_json = :hf, machine_reset_pending = 0, machine_bound_at = datetime('now'), last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
+                    {{":mid", machineId}, {":hf", incomingFactors.dump()}, {":ip", clientIp}, {":id", tid}});
                 boundMachine = machineId;
             } else if (!machineId.empty() && boundMachine != machineId) {
-                sendJson(res, {
-                    {"success", false},
-                    {"state", "hardware_mismatch"},
-                    {"message", "Mã bản quyền đã được kích hoạt trên thiết bị phần cứng khác!"}
-                }, 403);
-                return;
+                int matchCnt = 0;
+                if (incomingFactors.size() >= 3 && storedFactors.size() >= 3) {
+                    for (size_t i = 0; i < 3; ++i) {
+                        if (incomingFactors[i].is_string() && storedFactors[i].is_string() && incomingFactors[i] == storedFactors[i]) {
+                            matchCnt++;
+                        }
+                    }
+                }
+                if (matchCnt >= 2) {
+                    // Dung sai 2/3 phần cứng khớp (VD: quán cài lại Windows đổi MachineGuid nhưng giữ Mainboard + Ổ đĩa)
+                    db.execute("UPDATE saas_tenants SET machine_id = :mid, hardware_factors_json = :hf, last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
+                        {{":mid", machineId}, {":hf", incomingFactors.dump()}, {":ip", clientIp}, {":id", tid}});
+                    recordAuditLog(db, 0, "System", "system", "HARDWARE_DRIFT_TOLERATED", std::to_string(tid),
+                        "Quán ID " + std::to_string(tid) + " thay đổi 1/3 yếu tố phần cứng (khớp " + std::to_string(matchCnt) + "/3) -> tự động cập nhật Machine ID: " + machineId,
+                        json({{"old_mid", boundMachine}, {"new_mid", machineId}}).dump(), clientIp);
+                    boundMachine = machineId;
+                } else {
+                    sendJson(res, {
+                        {"success", false},
+                        {"state", "hardware_mismatch"},
+                        {"message", "Mã bản quyền đã được kích hoạt trên thiết bị phần cứng khác!"}
+                    }, 403);
+                    return;
+                }
+            } else if (storedFactors.empty() && incomingFactors.size() >= 3) {
+                // Auto-migrate lưu 3 yếu tố phần cứng cho các quán đã kích hoạt từ trước (SDL001/SDL002)
+                db.execute("UPDATE saas_tenants SET hardware_factors_json = :hf WHERE id = :id",
+                    {{":hf", incomingFactors.dump()}, {":id", tid}});
             }
 
             db.execute("UPDATE saas_tenants SET last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
@@ -3706,12 +3863,24 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
                 }
             } catch (...) {}
 
+            int graceDays = 7;
+            int offlineMaxDays = 14;
+            try {
+                auto grRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'saas_grace_period_days' LIMIT 1");
+                if (!grRow.is_null()) graceDays = std::max(0, std::min(60, std::stoi(grRow.value("setting_value", "7"))));
+                auto omRow = db.queryRow("SELECT setting_value FROM saas_settings WHERE setting_key = 'saas_offline_max_days' LIMIT 1");
+                if (!omRow.is_null()) offlineMaxDays = std::max(1, std::min(90, std::stoi(omRow.value("setting_value", "14"))));
+            } catch (...) {}
+
             std::string licExpDate = getString(tenant, "expire_date", "");
             std::string licModsStr = "[]";
             std::string licBlkStr = "[]";
             try { licModsStr = json(enabledMods).dump(); } catch (...) {}
             try { licBlkStr = json(blockedMods).dump(); } catch (...) {}
-            std::string canonPayload = SaleApp::LicenseCrypto::buildCanonicalPayload(licKey, boundMachine, licExpDate, licModsStr, subStatus, licBlkStr);
+            int64_t issuedAt = static_cast<int64_t>(std::time(nullptr));
+            std::string keyId = SaleApp::LicenseCrypto::getActiveKeyId();
+            std::string canonPayload = SaleApp::LicenseCrypto::buildCanonicalPayloadV2(
+                licKey, boundMachine, licExpDate, licModsStr, subStatus, licBlkStr, graceDays, offlineMaxDays, issuedAt, keyId);
             std::string licSig = SaleApp::LicenseCrypto::signLicensePayload(canonPayload);
 
             sendJson(res, {
@@ -3720,11 +3889,15 @@ void MasterHandlers::handleLicenseVerification(const httplib::Request& req, http
                 {"store_name", getString(tenant, "store_name", "")},
                 {"plan_name", getString(tenant, "plan_name", "")},
                 {"expire_date", licExpDate},
+                {"grace_days", graceDays},
+                {"offline_max_days", offlineMaxDays},
+                {"issued_at", issuedAt},
+                {"key_id", keyId},
                 {"enabled_modules", enabledMods},
                 {"blocked_modules", blockedMods},
                 {"card_fee_percent", cardFeePct},
                 {"license_signature", licSig},
-                {"server_time", std::time(nullptr)}
+                {"server_time", issuedAt}
             });
             return;
         }
@@ -4644,25 +4817,38 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         }
     });
 
-    // Backward-compatible alias for older Control Center builds
+    // Backward-compatible alias for older Control Center builds (OTA-04: fallback to latest published archive if updates/manifest.json is stale)
     svr.Get("/api/updates/manifest", [](const httplib::Request&, httplib::Response& res) {
         fs::path updatesDir = SaleApp::Config::AppConfig::instance().getBaseDir() / "updates";
         fs::path manifestPath = updatesDir / "manifest.json";
-        if (!fs::exists(manifestPath)) {
-            replyTunnelJson(res, {{"version", ""}, {"has_patch", false}, {"auto_publish", false}});
-            return;
-        }
         try {
-            json manifest;
-            std::ifstream mf(manifestPath.string());
-            mf >> manifest;
-            std::string mVer = manifest.value("version", "");
-            std::string mTenant = manifest.value("target_tenant", "");
-            if (!manifest.value("auto_publish", false) || !mTenant.empty() || mVer.find('-') != std::string::npos) {
+            json bestManifest = nullptr;
+            if (fs::exists(manifestPath)) {
+                std::ifstream mf(manifestPath.string());
+                json m;
+                mf >> m;
+                std::string mVer = m.value("version", "");
+                std::string mTenant = m.value("target_tenant", "");
+                if (m.value("auto_publish", false) && mTenant.empty() && mVer.find('-') == std::string::npos) {
+                    bestManifest = m;
+                }
+            }
+            auto pubRow = Database::instance().queryRow("SELECT version FROM ota_releases WHERE release_status = 'published' AND COALESCE(target_tenant, '') = '' ORDER BY updated_at DESC, version DESC LIMIT 1");
+            if (pubRow.is_object()) {
+                std::string dbVer = pubRow.value("version", "");
+                if (!dbVer.empty() && (bestManifest.is_null() || bestManifest.value("version", "") != dbVer)) {
+                    fs::path archMf = updatesDir / "archive" / dbVer / "manifest.json";
+                    if (fs::exists(archMf)) {
+                        std::ifstream af(archMf.string());
+                        af >> bestManifest;
+                    }
+                }
+            }
+            if (bestManifest.is_null()) {
                 replyTunnelJson(res, {{"version", ""}, {"has_patch", false}, {"auto_publish", false}});
                 return;
             }
-            replyTunnelJson(res, manifest);
+            replyTunnelJson(res, bestManifest);
         } catch (const std::exception& e) {
             replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
         }
@@ -4923,8 +5109,205 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
         }
     });
 
-    // Cloud Backup Upload from Slave (SQLite snapshot)
-    svr.Post("/api/slave/backup", [](const httplib::Request& req, httplib::Response& res) {
+    // ==========================================
+    // SYNC-01: ON-DEMAND MYSQL BACKUP & PER-STORE SCHEMA PROVISIONING
+    // ==========================================
+    auto loadMysqlCfg = [](Database& db, std::string& host, std::string& port, std::string& user, std::string& pass) {
+        host = "127.0.0.1";
+        port = "3306";
+        user = "root";
+        pass = "";
+        auto rows = db.query("SELECT setting_key, setting_value FROM saas_settings WHERE setting_key LIKE 'mysql_backup_%'");
+        for (const auto& r : rows) {
+            std::string k = r.value("setting_key", "");
+            std::string v = r.value("setting_value", "");
+            if (k == "mysql_backup_host" && !v.empty()) host = v;
+            else if (k == "mysql_backup_port" && !v.empty()) port = v;
+            else if (k == "mysql_backup_user" && !v.empty()) user = v;
+            else if (k == "mysql_backup_pass_enc" && !v.empty()) {
+                pass = CyberNexus::PinVault::decryptPinForLicense(v, "CYBERNEXUS_MYSQL_MASTER_KEY");
+            }
+        }
+    };
+
+    auto runMysqlWorker = [](const std::vector<std::string>& args) -> json {
+        fs::path baseDir = SaleApp::Config::AppConfig::instance().getBaseDir();
+        std::vector<fs::path> candidates = {
+            baseDir / "tools" / "mysql_backup_sync.py",
+            baseDir.parent_path() / "tools" / "mysql_backup_sync.py",
+            baseDir.parent_path().parent_path() / "tools" / "mysql_backup_sync.py",
+            fs::current_path() / "tools" / "mysql_backup_sync.py"
+        };
+        fs::path scriptPath;
+        std::error_code ec;
+        for (const auto& c : candidates) {
+            if (fs::exists(c, ec)) { scriptPath = c; break; }
+        }
+        if (scriptPath.empty()) {
+            return {{"success", false}, {"message", "Không tìm thấy worker tools/mysql_backup_sync.py trên Master!"}};
+        }
+        auto qArg = [](const std::string& s) {
+            std::string out = "\"";
+            for (char c : s) {
+                if (c == '"') out += "\\\"";
+                else if (c != '\r' && c != '\n') out += c;
+            }
+            out += "\"";
+            return out;
+        };
+        std::string cmd = "python " + qArg(scriptPath.string());
+        for (const auto& a : args) cmd += " " + qArg(a);
+        cmd += " 2>&1";
+#ifdef _WIN32
+        FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+        FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+        if (!pipe) return {{"success", false}, {"message", "Không thể khởi chạy Python worker MySQL!"}};
+        std::string out;
+        char buf[1024];
+        while (fgets(buf, sizeof(buf), pipe)) out += buf;
+#ifdef _WIN32
+        _pclose(pipe);
+#else
+        pclose(pipe);
+#endif
+        size_t jpos = out.rfind('{');
+        if (jpos != std::string::npos) {
+            try { return json::parse(out.substr(jpos)); } catch (...) {}
+        }
+        return {{"success", false}, {"message", out.empty() ? "Worker không trả dữ liệu" : out.substr(0, 300)}};
+    };
+
+    svr.Get("/api/admin/mysql_backup_config", [loadMysqlCfg](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
+        if (su.is_null() || !su.is_object()) { sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập SuperAdmin!"}}, 401); return; }
+        auto& db = Database::instance();
+        std::string host, port, user, pass;
+        loadMysqlCfg(db, host, port, user, pass);
+        sendJson(res, {{"success", true}, {"data", {{"host", host}, {"port", port}, {"user", user}, {"has_password", !pass.empty()}}}});
+    });
+
+    svr.Post("/api/admin/mysql_backup_config", [loadMysqlCfg, runMysqlWorker](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
+        if (su.is_null() || !su.is_object()) { sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập SuperAdmin!"}}, 401); return; }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string action = body.value("action", "save");
+        std::string host = body.value("host", "127.0.0.1");
+        std::string port = body.value("port", "3306");
+        std::string user = body.value("user", "root");
+        std::string pass = body.value("password", "");
+        if (pass.empty()) {
+            std::string oh, op, ou, opass;
+            loadMysqlCfg(db, oh, op, ou, opass);
+            pass = opass;
+        }
+        if (action == "test") {
+            json r = runMysqlWorker({"test", "--host", host, "--port", port, "--user", user, "--password", pass});
+            sendJson(res, r, r.value("success", false) ? 200 : 400);
+            return;
+        }
+        auto upsert = [&](const std::string& k, const std::string& v) {
+            db.execute(
+                "INSERT INTO saas_settings (setting_key, setting_value) VALUES (:k, :v) "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                {{":k", k}, {":v", v}}
+            );
+        };
+        upsert("mysql_backup_host", host);
+        upsert("mysql_backup_port", port);
+        upsert("mysql_backup_user", user);
+        if (!pass.empty()) {
+            upsert("mysql_backup_pass_enc", CyberNexus::PinVault::encryptPinForLicense(pass, "CYBERNEXUS_MYSQL_MASTER_KEY"));
+        }
+        sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình MySQL Backup Server (mật khẩu đã mã hóa AES-256)!"}});
+    });
+
+    svr.Post("/api/admin/tenants/mysql_backup", [loadMysqlCfg, runMysqlWorker](const httplib::Request& req, httplib::Response& res) {
+        json su = getSaSessionUser(req);
+        if (su.is_null() || !su.is_object()) { sendJson(res, {{"success", false}, {"message", "Chưa đăng nhập SuperAdmin!"}}, 401); return; }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        int64_t tid = body.value("tenant_id", int64_t(0));
+        std::string action = body.value("action", "status");
+        if (tid <= 0) { sendJson(res, {{"success", false}, {"message", "Thiếu tenant_id!"}}, 400); return; }
+        auto tRow = db.queryRow("SELECT id, tenant_code, store_name, license_key, default_pin_enc, mysql_backup_enabled, mysql_schema, mysql_user, last_mysql_sync_at, last_mysql_sync_status, last_mysql_sync_summary, last_slave_db_stats FROM saas_tenants WHERE id = :id LIMIT 1", {{":id", tid}});
+        if (tRow.is_null()) { sendJson(res, {{"success", false}, {"message", "Không tìm thấy quán!"}}, 404); return; }
+
+        std::string tCode = (tRow.contains("tenant_code") && tRow["tenant_code"].is_string()) ? tRow["tenant_code"].get<std::string>() : "store";
+        std::string codeLower = tCode;
+        std::transform(codeLower.begin(), codeLower.end(), codeLower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        std::string schemaName = "cn_store_" + codeLower;
+        std::string storeUser = codeLower;
+
+        if (action == "toggle") {
+            int enable = body.value("enabled", 0) ? 1 : 0;
+            if (enable == 1) {
+                std::string host, port, user, pass;
+                loadMysqlCfg(db, host, port, user, pass);
+                std::string lk = (tRow.contains("license_key") && tRow["license_key"].is_string()) ? tRow["license_key"].get<std::string>() : "";
+                std::string pinEnc = (tRow.contains("default_pin_enc") && tRow["default_pin_enc"].is_string()) ? tRow["default_pin_enc"].get<std::string>() : "";
+                std::string pin6 = CyberNexus::PinVault::decryptPinForLicense(pinEnc, lk);
+                if (pin6.empty()) pin6 = "123456";
+                json prov = runMysqlWorker({"provision", "--host", host, "--port", port, "--user", user, "--password", pass, "--schema", schemaName, "--store-user", storeUser, "--store-pass", pin6});
+                if (!prov.value("success", false)) { sendJson(res, prov, 400); return; }
+                db.execute("UPDATE saas_tenants SET mysql_backup_enabled = 1, mysql_schema = :sc, mysql_user = :su WHERE id = :id",
+                    {{":sc", prov.value("schema", schemaName)}, {":su", prov.value("mysql_user", storeUser + "@localhost")}, {":id", tid}});
+                sendJson(res, prov);
+                return;
+            } else {
+                db.execute("UPDATE saas_tenants SET mysql_backup_enabled = 0 WHERE id = :id", {{":id", tid}});
+                sendJson(res, {{"success", true}, {"message", "Đã TẮT chế độ sao lưu MySQL cho quán " + tCode + "!"}});
+                return;
+            }
+        }
+
+        if (action == "sync_now") {
+            if (tRow.value("mysql_backup_enabled", 0) != 1) {
+                sendJson(res, {{"success", false}, {"message", "Vui lòng BẬT chế độ sao lưu MySQL cho quán này trước khi đồng bộ!"}}, 400);
+                return;
+            }
+            StoreTunnelManager::instance().enqueueCommand(tid, "SYNC_DB_BACKUP", {{"schema", schemaName}}, true);
+            db.execute("UPDATE saas_tenants SET last_mysql_sync_status = 'pending' WHERE id = :id", {{":id", tid}});
+            sendJson(res, {{"success", true}, {"message", "Đã gửi lệnh ĐỒNG BỘ CSDL tức thì xuống quán " + tCode + " (chỉ quán này thực thi)."}});
+            return;
+        }
+
+        if (action == "verify") {
+            bool pullFresh = body.value("pull_fresh", true);
+            if (pullFresh) StoreTunnelManager::instance().enqueueCommand(tid, "CHECK_DB_SYNC", json::object(), true);
+            std::string host, port, user, pass;
+            loadMysqlCfg(db, host, port, user, pass);
+            std::string slaveStats = (tRow.contains("last_slave_db_stats") && tRow["last_slave_db_stats"].is_string()) ? tRow["last_slave_db_stats"].get<std::string>() : "";
+            json ver = runMysqlWorker({"verify", "--host", host, "--port", port, "--user", user, "--password", pass, "--schema", schemaName, "--slave-stats", slaveStats});
+            ver["pull_dispatched"] = pullFresh;
+            sendJson(res, ver, ver.value("success", false) ? 200 : 400);
+            return;
+        }
+
+        sendJson(res, {{"success", true}, {"data", tRow}});
+    });
+
+    svr.Post("/api/slave/db_stats", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            std::string lKey = req.has_header("X-License-Key") ? req.get_header_value("X-License-Key") : "";
+            json body = parseBody(req);
+            if (lKey.empty()) lKey = body.value("license_key", "");
+            if (lKey.empty()) { replyTunnelJson(res, {{"success", false}, {"message", "Thiếu license_key"}}, 400); return; }
+            auto& db = Database::instance();
+            auto tenant = db.queryRow("SELECT id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", lKey}});
+            if (tenant.is_null()) { replyTunnelJson(res, {{"success", false}, {"message", "License Key không hợp lệ"}}, 403); return; }
+            int64_t tid = tenant.value("id", int64_t(0));
+            db.execute("UPDATE saas_tenants SET last_slave_db_stats = :s WHERE id = :id", {{":s", body.dump()}, {":id", tid}});
+            replyTunnelJson(res, {{"success", true}});
+        } catch (const std::exception& e) {
+            replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);
+        }
+    });
+
+    // Cloud Backup Upload from Slave (SQLite snapshot + On-Demand MySQL import)
+    svr.Post("/api/slave/backup", [loadMysqlCfg, runMysqlWorker](const httplib::Request& req, httplib::Response& res) {
         try {
             std::string lKey = req.has_header("X-License-Key") ? req.get_header_value("X-License-Key") : "";
             std::string mid = req.has_header("X-Machine-Id") ? req.get_header_value("X-Machine-Id") : "";
@@ -4933,7 +5316,7 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
                 return;
             }
             auto& db = Database::instance();
-            auto tenant = db.queryRow("SELECT id, tenant_code, machine_id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", lKey}});
+            auto tenant = db.queryRow("SELECT id, tenant_code, machine_id, mysql_backup_enabled, mysql_schema FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", lKey}});
             if (tenant.is_null()) {
                 replyTunnelJson(res, {{"success", false}, {"message", "License Key không hợp lệ!"}}, 403);
                 return;
@@ -4965,11 +5348,36 @@ void MasterHandlers::registerRoutes(httplib::Server& svr) {
             }
             ofs.write(req.body.data(), static_cast<std::streamsize>(req.body.size()));
             ofs.close();
+
+            int64_t tid = tenant.value("id", int64_t(0));
+            bool triggerMysql = (tenant.value("mysql_backup_enabled", 0) == 1) && (req.has_header("X-Trigger-Mysql-Sync") && req.get_header_value("X-Trigger-Mysql-Sync") == "1");
+            if (triggerMysql && tid > 0) {
+                std::string codeLower = tCode;
+                std::transform(codeLower.begin(), codeLower.end(), codeLower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+                std::string schemaName = (tenant.contains("mysql_schema") && tenant["mysql_schema"].is_string()) ? tenant["mysql_schema"].get<std::string>() : "";
+                if (schemaName.empty()) schemaName = "cn_store_" + codeLower;
+                std::string host, port, user, pass;
+                loadMysqlCfg(db, host, port, user, pass);
+                std::string dbFileStr = outPath.string();
+                std::thread([tid, schemaName, host, port, user, pass, dbFileStr, runMysqlWorker]() {
+                    json imp = runMysqlWorker({"import", "--host", host, "--port", port, "--user", user, "--password", pass, "--schema", schemaName, "--sqlite", dbFileStr});
+                    std::string st = imp.value("success", false) ? "ok" : "error";
+                    std::string msg = imp.value("message", "");
+                    try {
+                        Database::instance().execute(
+                            "UPDATE saas_tenants SET last_mysql_sync_at = datetime('now','localtime'), last_mysql_sync_status = :st, last_mysql_sync_summary = :sm WHERE id = :id",
+                            {{":st", st}, {":sm", msg}, {":id", tid}}
+                        );
+                    } catch (...) {}
+                }).detach();
+            }
+
             replyTunnelJson(res, {
                 {"success", true},
-                {"message", "Đã sao lưu dữ liệu quán lên Master thành công!"},
+                {"message", triggerMysql ? "Đã nhận snapshot & đang đổ dữ liệu vào MySQL schema quán!" : "Đã sao lưu dữ liệu quán lên Master thành công!"},
                 {"filename", fname},
-                {"size_bytes", req.body.size()}
+                {"size_bytes", req.body.size()},
+                {"mysql_import_started", triggerMysql}
             });
         } catch (const std::exception& e) {
             replyTunnelJson(res, {{"success", false}, {"message", e.what()}}, 500);

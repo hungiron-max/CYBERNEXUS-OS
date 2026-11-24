@@ -23,6 +23,7 @@
         sourceNode: null,
         preampNode: null,
         eqFilters: [],
+        activeEq: null,
         analyser: null,
         freqData: null,
 
@@ -60,6 +61,9 @@
 
             // Background Polling (Every 3.5s across all pages & tabs)
             this.startBackgroundPolling();
+
+            // MED-03: Always load & apply active EQ preset on page boot (Admin <-> POS without opening modal)
+            this.loadActiveEq();
 
             // Check if playback should resume automatically
             const intent = localStorage.getItem('cybernexus_juke_intent');
@@ -117,13 +121,28 @@
             });
 
             this.audio.addEventListener('error', (e) => {
-                console.warn('[JukeboxEngine] Lỗi phát file âm thanh:', e);
-                // If current file has error (e.g. missing 404), advance queue after 2s
+                console.warn('[JukeboxEngine] Lỗi phát file âm thanh (404 / hỏng file):', e);
+                this.isPlaying = false;
+                this._consecutiveErrors = (this._consecutiveErrors || 0) + 1;
+                if (this._consecutiveErrors >= 3) {
+                    localStorage.setItem('cybernexus_juke_intent', 'paused');
+                    this._broadcast({ type: 'PLAY_STATE', isPlaying: false, currentTime: 0, track: this.currentTrack });
+                    this._notifyListeners();
+                    if (window.Admin && typeof window.Admin.showToast === 'function') {
+                        window.Admin.showToast('Không tìm thấy file nhạc trên máy chủ — đã dừng tự động để tránh lặp lỗi!', 'error', 4500);
+                    }
+                    return;
+                }
+                this._notifyListeners();
+                // Try advancing to next valid track once/twice
                 setTimeout(() => {
-                    if (this.isLeader && this.isPlaying) {
+                    if (this.isLeader && localStorage.getItem('cybernexus_juke_intent') === 'playing') {
                         this.skip();
                     }
-                }, 2000);
+                }, 1500);
+            });
+            this.audio.addEventListener('playing', () => {
+                this._consecutiveErrors = 0;
             });
         },
 
@@ -161,9 +180,52 @@
                 });
                 prev.connect(this.analyser);
                 this.analyser.connect(this.audioCtx.destination);
+
+                // MED-03: Apply active EQ immediately once WebAudio nodes are created
+                if (this.activeEq) {
+                    this.applyEqPreset(this.activeEq);
+                } else {
+                    this.loadActiveEq();
+                }
             } catch (err) {
                 console.warn('[JukeboxEngine] Web Audio DSP initialization failed:', err);
             }
+        },
+
+        applyEqPreset(preset) {
+            if (!preset || typeof preset !== 'object') return;
+            this.activeEq = preset;
+            const bands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+            const preampDb = parseFloat(preset.preamp_gain ?? preset.preamp ?? 0) || 0.0;
+            if (this.preampNode) {
+                this.preampNode.gain.value = Math.pow(10, preampDb / 20);
+            }
+            if (Array.isArray(this.eqFilters) && this.eqFilters.length === bands.length) {
+                bands.forEach((b, idx) => {
+                    const g = parseFloat(preset[b] ?? 0) || 0.0;
+                    if (this.eqFilters[idx]) this.eqFilters[idx].gain.value = g;
+                });
+            }
+        },
+
+        async loadActiveEq() {
+            try {
+                const res = await fetch('/api/media/eq/presets');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.success && Array.isArray(data.presets)) {
+                    const active = data.active || data.presets.find(p => p.is_active) || data.presets[0];
+                    if (active) this.applyEqPreset(active);
+                }
+            } catch (err) {
+                (window.CyberSecurity ? CyberSecurity.logSilentError('jukebox-engine.js', err) : console.debug('jukebox-engine.js', err));
+            }
+        },
+
+        broadcastEq(preset) {
+            if (!preset) return;
+            this.applyEqPreset(preset);
+            this._broadcast({ type: 'EQ_UPDATED', preset });
         },
 
         _setupCrossTabChannel() {
@@ -245,6 +307,10 @@
                     this.volume = msg.volume;
                     if (this.audio) this.audio.volume = this.volume;
                     this._notifyListeners();
+                    break;
+
+                case 'EQ_UPDATED':
+                    if (msg.preset) this.applyEqPreset(msg.preset);
                     break;
 
                 case 'COMMAND_LOGOUT':

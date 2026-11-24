@@ -1134,6 +1134,12 @@ async function saveStoreSettings(e) {
         alertBox.innerHTML = '';
     }
 
+    // NET-15: Nếu đang mở sub-tab WiFi Marketing & đã nạp config Router -> đồng bộ lưu luôn cấu hình Router
+    const wifiGroupEl = document.querySelector('#tab-settings [data-settings-group="wifi"]');
+    if (wifiGroupEl && !wifiGroupEl.classList.contains('hidden') && window.Admin && Admin._nocConfigLoaded && typeof Admin.saveRouterQosConfig === 'function') {
+        try { await Admin.saveRouterQosConfig(); } catch (_) {}
+    }
+
     const formData = new FormData(form);
     const payload = {};
     formData.forEach((value, key) => { payload[key] = value; });

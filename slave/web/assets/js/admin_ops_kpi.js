@@ -730,6 +730,9 @@ Object.assign(Admin, {
         if ((group === 'receipt' || group === 'all') && typeof this.initReceiptStudioSettings === 'function') {
             this.initReceiptStudioSettings();
         }
+        if ((group === 'wifi' || group === 'all') && typeof this.loadRouterDevices === 'function') {
+            this.loadRouterDevices();
+        }
     },
 
     // ========================================================
@@ -837,21 +840,24 @@ Object.assign(Admin, {
     realtimeTimer: null,
 
     loadOperationsTab() {
-        this.switchOpsSubtab(this.currentOpsSubtab || 'realtime');
-        // Setup realtime poll if not already running
-        if (!this.realtimeTimer) {
-            this._rtPollInFlight = false;
-            this.realtimeTimer = setInterval(async () => {
-                if (!document.hidden && this.currentTab === 'operations' && this.currentOpsSubtab === 'realtime' && !this._rtPollInFlight) {
-                    this._rtPollInFlight = true;
-                    try { await this.loadRealtimeStaff(); } finally { this._rtPollInFlight = false; }
-                }
-            }, 8000);
-        }
+        this.switchOpsSubtab(this.currentOpsSubtab || 'inventory');
     },
 
     switchOpsSubtab(subtab) {
         this.currentOpsSubtab = subtab;
+        const metaMap = {
+            inventory: { title: 'KHO & CHI PHÍ VẬT LIỆU', sub: 'Quản lý tồn kho, định mức BOM, quy đổi đơn vị & chi phí vật tư F&B', icon: 'fa-boxes-stacked text-sm' },
+            payroll: { title: 'CHẤM CÔNG & TIỀN LƯƠNG', sub: 'Quản lý bảng công, duyệt OT, khóa sổ kỳ lương & chi lương', icon: 'fa-money-check-dollar text-sm' },
+            kpi: { title: 'KPI & THƯỞNG NHÂN VIÊN', sub: 'Đánh giá chỉ tiêu hiệu suất, thưởng doanh số & kỷ luật ca', icon: 'fa-bullseye text-sm' },
+            realtime: { title: 'KHO & CHI PHÍ VẬT LIỆU', sub: 'Quản lý tồn kho, định mức BOM, quy đổi đơn vị & chi phí vật tư F&B', icon: 'fa-boxes-stacked text-sm' }
+        };
+        const m = metaMap[subtab] || metaMap.inventory;
+        const tEl = document.getElementById('ops-dynamic-title');
+        const sEl = document.getElementById('ops-dynamic-subtitle');
+        const iEl = document.getElementById('ops-dynamic-icon');
+        if (tEl) tEl.textContent = m.title;
+        if (sEl) sEl.textContent = m.sub;
+        if (iEl) iEl.className = 'fas ' + m.icon;
 
         // Update sub-tab buttons
         ['realtime', 'inventory', 'payroll', 'kpi'].forEach(s => {
@@ -935,80 +941,290 @@ Object.assign(Admin, {
         }
     },
 
-    async loadRouterDevices() {
+    _nocDevicesCache: [],
+    _nocFilter: 'all',
+    _nocLiveTimer: null,
+    _nocLiveOn: false,
+    _nocTrafficHistory: [],
+
+    setNocFilter(f) {
+        this._nocFilter = f || 'all';
+        document.querySelectorAll('#noc-status-pills [data-noc-filter]').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-noc-filter') === this._nocFilter);
+        });
+        this.renderNocDeviceTable();
+    },
+
+    toggleNocLive() {
+        const btn = document.getElementById('noc-live-toggle');
+        if (this._nocLiveOn) {
+            this._nocLiveOn = false;
+            if (this._nocLiveTimer) { clearInterval(this._nocLiveTimer); this._nocLiveTimer = null; }
+            if (btn) { btn.textContent = '▶ Bật Live'; btn.className = 'px-2 py-0.5 rounded bg-slate-800 border border-white/15 text-slate-300 font-bold text-[10px]'; }
+        } else {
+            this._nocLiveOn = true;
+            if (btn) { btn.textContent = '● Live 5s'; btn.className = 'px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-[10px]'; }
+            this._nocLiveTimer = setInterval(() => {
+                const wifiGrp = document.querySelector('#tab-settings [data-settings-group="wifi"]');
+                if (wifiGrp && !wifiGrp.classList.contains('hidden')) this.loadRouterDevices(false);
+            }, 5000);
+        }
+    },
+
+    drawNocTrafficChart(txMb, rxMb) {
+        this._nocTrafficHistory.push({ tx: txMb, rx: rxMb });
+        if (this._nocTrafficHistory.length > 24) this._nocTrafficHistory.shift();
+        const cv = document.getElementById('noc-traffic-canvas');
+        if (!cv) return;
+        const ctx = cv.getContext('2d');
+        const w = cv.width, h = cv.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(148,163,184,0.12)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 3; i++) { const y = (h / 4) * i; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        const pts = this._nocTrafficHistory;
+        if (pts.length < 1) return;
+        const maxVal = Math.max(10, ...pts.map(p => Math.max(p.tx, p.rx))) * 1.15;
+        const drawLine = (key, color, fill) => {
+            ctx.beginPath();
+            pts.forEach((p, idx) => {
+                const x = pts.length === 1 ? w : (idx / (pts.length - 1)) * w;
+                const y = h - Math.min(h - 4, (p[key] / maxVal) * (h - 10)) - 3;
+                if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+            ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+            ctx.fillStyle = fill; ctx.fill();
+        };
+        drawLine('rx', '#a78bfa', 'rgba(167,139,250,0.14)');
+        drawLine('tx', '#38bdf8', 'rgba(56,189,248,0.16)');
+        const tEl = document.getElementById('noc-chart-time');
+        if (tEl) tEl.textContent = new Date().toLocaleTimeString('vi-VN');
+    },
+
+    renderNocTelemetry(devices) {
+        let txSum = 0, rxSum = 0, cntWl = 0, cntVip = 0, cntFree = 0, cntBlk = 0;
+        const lanList = [], guestList = [];
+        devices.forEach(d => {
+            txSum += Number(d.tx_mb || 0);
+            rxSum += Number(d.rx_mb || 0);
+            const tier = d.whitelisted ? 'whitelist' : (d.tier || 'free');
+            if (tier === 'whitelist') { cntWl++; lanList.push(d); }
+            else if (tier === 'vip' || tier === 'vip_high_speed') { cntVip++; guestList.push(d); }
+            else if (tier === 'blocked') { cntBlk++; guestList.push(d); }
+            else { cntFree++; guestList.push(d); }
+        });
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setTxt('noc-kpi-tx', txSum.toFixed(1) + ' MB');
+        setTxt('noc-kpi-rx', rxSum.toFixed(1) + ' MB');
+        setTxt('noc-cnt-all', devices.length);
+        setTxt('noc-cnt-wl', cntWl);
+        setTxt('noc-cnt-vip', cntVip);
+        setTxt('noc-cnt-free', cntFree);
+        setTxt('noc-cnt-blk', cntBlk);
+        this.drawNocTrafficChart(txSum, rxSum);
+
+        // Donut SVG
+        const total = Math.max(1, devices.length);
+        const circ = 2 * Math.PI * 26;
+        const segs = [
+            { v: cntWl, c: '#38bdf8' }, { v: cntVip, c: '#34d399' },
+            { v: cntFree, c: '#fbbf24' }, { v: cntBlk, c: '#fb7185' }
+        ];
+        let off = 0;
+        const circles = segs.filter(s => s.v > 0).map(s => {
+            const len = (s.v / total) * circ;
+            const out = `<circle cx="36" cy="36" r="26" fill="none" stroke="${s.c}" stroke-width="8" stroke-dasharray="${len.toFixed(1)} ${(circ - len).toFixed(1)}" stroke-dashoffset="${(-off).toFixed(1)}" transform="rotate(-90 36 36)"/>`;
+            off += len;
+            return out;
+        }).join('');
+        const donutEl = document.getElementById('noc-donut-wrap');
+        if (donutEl) {
+            donutEl.innerHTML = `<svg width="74" height="74" viewBox="0 0 72 72"><circle cx="36" cy="36" r="26" fill="none" stroke="#1e293b" stroke-width="8"/>${circles}<text x="36" y="34" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="800">${devices.length}</text><text x="36" y="45" text-anchor="middle" fill="#94a3b8" font-size="7.5">MÁY</text></svg>`;
+        }
+
+        // Top heavy clients
+        const topEl = document.getElementById('noc-top-clients');
+        if (topEl) {
+            const top5 = [...devices].sort((a, b) => Number(b.total_mb || 0) - Number(a.total_mb || 0)).slice(0, 4);
+            topEl.innerHTML = top5.length
+                ? top5.map((d, i) => `<div class="flex items-center justify-between gap-1"><span class="text-slate-300 truncate">[${i + 1}] ${escapeHtml(d.ip)}</span><span class="${Number(d.total_mb || 0) > 500 ? 'text-rose-300 font-bold' : 'text-sky-300'}">${Number(d.total_mb || 0).toFixed(1)}M</span></div>`).join('')
+                : '<div class="text-slate-500">Chưa có lưu lượng</div>';
+        }
+
+        // Real-time live sessions grouped [LAN Nội Bộ] vs [WiFi Khách]
+        const sessEl = document.getElementById('noc-live-sessions');
+        if (sessEl) {
+            const renderGrp = (title, color, arr) => `
+                <div class="${color} font-bold mt-1 mb-0.5">▼ ${title} (${arr.length})</div>
+                ${arr.length ? arr.slice(0, 6).map(d => `<div class="flex items-center justify-between text-slate-300 pl-2"><span>● ${escapeHtml(d.ip)}</span><span class="text-slate-400">${escapeHtml(d.conn_type || 'WiFi')} • ${Number(d.total_mb || 0).toFixed(1)}M</span></div>`).join('') : '<div class="text-slate-600 pl-2">— trống —</div>'}`;
+            sessEl.innerHTML = renderGrp('[LAN Nội Bộ ∞]', 'text-emerald-400', lanList) + renderGrp('[WiFi Khách]', 'text-sky-400', guestList);
+        }
+    },
+
+    renderNocDeviceTable(noticeMsg = '') {
+        const listEl = document.getElementById('router-qos-devices-list');
+        if (!listEl) return;
+        const q = (document.getElementById('noc-search-input')?.value || '').trim().toLowerCase();
+        const f = this._nocFilter || 'all';
+        const filtered = (this._nocDevicesCache || []).filter(d => {
+            const normTier = d.whitelisted ? 'whitelist' : ((d.tier === 'vip' || d.tier === 'vip_high_speed') ? 'vip' : (d.tier === 'blocked' ? 'blocked' : 'free'));
+            if (f !== 'all' && normTier !== f) return false;
+            if (q) {
+                const hay = `${d.name || ''} ${d.ip || ''} ${d.mac || ''} ${d.conn_type || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+        const metaEl = document.getElementById('noc-table-meta');
+        if (metaEl) metaEl.textContent = `${filtered.length}/${(this._nocDevicesCache || []).length} thiết bị`;
+        if (filtered.length === 0) {
+            const msg = noticeMsg || 'Không có thiết bị nào khớp bộ lọc hiện tại.';
+            listEl.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">${escapeHtml(msg)}</div>`;
+            return;
+        }
+        const fmtRem = (sec) => {
+            if (!sec || sec <= 0) return '';
+            const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+            return ' • ' + (h > 0 ? `${h}g ` : '') + `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        };
+        listEl.innerHTML = `<table class="cn-noc-table">
+            <thead><tr>
+                <th>Thiết bị</th><th>IP / MAC</th><th>Kết nối</th><th>Tín hiệu</th><th>Lưu lượng</th><th>Trạng thái</th><th style="text-align:right">Thao tác nhanh</th>
+            </tr></thead>
+            <tbody>${filtered.map(d => {
+                const tier = d.tier || d.qos || 'free';
+                const remTxt = fmtRem(Number(d.remaining_sec || 0));
+                const qBadge = d.whitelisted || tier === 'whitelist'
+                    ? '<span class="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-[10px] font-bold">Nội bộ ∞</span>'
+                    : (tier === 'vip' || tier === 'vip_high_speed'
+                        ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">VIP${escapeHtml(remTxt)}</span>`
+                        : (tier === 'blocked'
+                            ? '<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-bold">Đã chặn</span>'
+                            : `<span class="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-400/30 text-[10px] font-bold">Free${escapeHtml(remTxt)}</span>`));
+                const rssi = Number(d.rssi || 0);
+                const rssiHtml = rssi ? `<span class="font-mono text-[10px] ${rssi >= 25 ? 'text-emerald-300' : 'text-amber-300'}">${rssi} dB</span>` : '<span class="text-slate-600">—</span>';
+                const mb = Number(d.total_mb || 0);
+                return `<tr>
+                    <td><div class="font-bold text-white truncate max-w-[140px]">${escapeHtml(d.name || 'Thiết bị')}</div></td>
+                    <td><div class="font-mono text-sky-300 font-bold">${escapeHtml(d.ip)}</div><div class="font-mono text-[10px] text-slate-500">${escapeHtml(d.mac || '')}</div></td>
+                    <td><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold">${escapeHtml(d.conn_type || 'WiFi')}</span></td>
+                    <td>${rssiHtml}</td>
+                    <td class="font-mono text-[11px] ${mb > 500 ? 'text-rose-300 font-bold' : 'text-slate-300'}">${mb > 0 ? mb.toFixed(1) + ' MB' : '—'}</td>
+                    <td>${qBadge}</td>
+                    <td style="text-align:right;white-space:nowrap">
+                        <div class="inline-flex items-center gap-1">
+                            ${tier === 'blocked'
+                                ? `<button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'unblock', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px]">Mở chặn</button>`
+                                : `<button type="button" onclick="Admin.toggleDeviceWhitelist('${escapeJsAttr(d.ip)}', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded ${d.whitelisted ? 'bg-sky-500 text-slate-950' : 'bg-sky-500/20 hover:bg-sky-500/35 text-sky-300'} font-bold text-[10px]" title="Ghim Nội bộ ∞ không giới hạn">Nội bộ ∞</button>
+                                   <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'vip_high_speed', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold text-[10px]">${(tier === 'vip' || tier === 'vip_high_speed') ? 'Gia hạn VIP' : 'Cấp VIP'}</button>
+                                   <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'kick', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold text-[10px]" title="Đá rớt mềm (không Ban)">Ngắt</button>
+                                   <button type="button" onclick="if(confirm('Chặn (Ban) thiết bị ${escapeJsAttr(d.mac || d.ip)} khỏi WiFi quán?')) Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'ban', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold text-[10px]" title="Ban cứng MAC">Chặn</button>`}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('')}</tbody>
+        </table>`;
+    },
+
+    _nocConfigLoaded: false,
+
+    async loadRouterConfigOnly() {
         try {
-            const [cfgRes, devRes] = await Promise.all([
-                fetch('/api/network/config').then(r => r.json()).catch(() => ({})),
-                fetch('/api/network/devices').then(r => r.json()).catch(() => ({}))
-            ]);
+            const cfgRes = await fetch('/api/network/config', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
             if (cfgRes && cfgRes.config) {
                 const c = cfgRes.config;
                 if (document.getElementById('rq-type')) document.getElementById('rq-type').value = c.router_type || 'simulation';
                 if (document.getElementById('rq-host')) document.getElementById('rq-host').value = c.host || '';
                 if (document.getElementById('rq-port')) document.getElementById('rq-port').value = c.port || 22;
                 if (document.getElementById('rq-user')) document.getElementById('rq-user').value = c.username || '';
+                if (document.getElementById('rq-pass')) {
+                    document.getElementById('rq-pass').value = (c.password === '********') ? '********' : '';
+                    if (c.password === '********') document.getElementById('rq-pass').placeholder = 'Đã lưu mật khẩu (nhập mới để đổi)';
+                }
                 if (document.getElementById('rq-free-min')) document.getElementById('rq-free-min').value = c.free_minutes ?? 10;
                 if (document.getElementById('rq-vip-min')) document.getElementById('rq-vip-min').value = c.vip_minutes ?? 180;
                 if (document.getElementById('rq-max-dev')) document.getElementById('rq-max-dev').value = c.max_devices_per_order ?? 2;
                 if (document.getElementById('rq-peak-windows')) document.getElementById('rq-peak-windows').value = c.peak_windows !== undefined ? c.peak_windows : '08:00-11:30, 18:30-22:00';
                 if (document.getElementById('rq-throttle70')) document.getElementById('rq-throttle70').checked = c.throttle_after_70_pct !== false;
+                const defaultHostIp = (window.location.hostname && window.location.hostname !== 'localhost') ? window.location.hostname : '';
+                if (document.getElementById('rq-pos-ip')) document.getElementById('rq-pos-ip').value = c.pos_server_ip || defaultHostIp;
+                if (document.getElementById('rq-pos-port')) document.getElementById('rq-pos-port').value = c.pos_server_port || Number(window.location.port || 8501);
+                if (document.getElementById('rq-guest-ssid')) document.getElementById('rq-guest-ssid').value = c.guest_ssid_name || '';
+                if (document.getElementById('rq-guest-iso')) document.getElementById('rq-guest-iso').checked = !!c.guest_isolation_enabled;
+                if (document.getElementById('rq-admin-guard')) document.getElementById('rq-admin-guard').checked = !!c.admin_ip_guard_enabled;
+                if (document.getElementById('rq-dns-filter')) document.getElementById('rq-dns-filter').value = c.dns_filter_profile || 'off';
+                if (document.getElementById('rq-pos-qos')) document.getElementById('rq-pos-qos').checked = !!c.pos_priority_qos;
+                if (document.getElementById('rq-hybrid-erx-bar')) document.getElementById('rq-hybrid-erx-bar').classList.toggle('hidden', (c.router_type || '') !== 'hybrid_erx_unifi');
+                if (document.getElementById('rq-erx-host')) document.getElementById('rq-erx-host').value = c.erx_host || '172.16.0.1';
+                if (document.getElementById('rq-erx-port')) document.getElementById('rq-erx-port').value = c.erx_port || 22;
+                if (document.getElementById('rq-erx-user')) document.getElementById('rq-erx-user').value = c.erx_user || 'admin';
+                if (document.getElementById('rq-erx-pass')) document.getElementById('rq-erx-pass').value = (c.erx_pass === '********') ? '********' : '';
                 const qosSimBadge = document.getElementById('qos-sim-mode-badge');
                 if (qosSimBadge) {
                     const isSim = (c.router_type || 'simulation') === 'simulation';
                     qosSimBadge.classList.toggle('hidden', !isSim);
+                    const drawer = document.getElementById('noc-config-drawer');
+                    if (drawer && !this._nocDrawerInitDone) {
+                        this._nocDrawerInitDone = true;
+                        if (!isSim) drawer.classList.add('hidden');
+                    }
                 }
-            }
-            const fmtRem = (sec) => {
-                if (!sec || sec <= 0) return '';
-                const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-                return (window.cnxT?window.cnxT('js.s_ops.8072692e',' • còn '):' • còn ') + (h > 0 ? `${h}g ` : '') + `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            };
-            const listEl = document.getElementById('router-qos-devices-list');
-            if (listEl && devRes && Array.isArray(devRes.devices)) {
-                if (devRes.devices.length === 0) {
-                    const notice = devRes.message || (window.cnxT?window.cnxT('js.s_ops.f49d0039','Chưa phát hiện thiết bị LAN nào từ Router.'):'Chưa phát hiện thiết bị LAN nào từ Router.');
-                    listEl.innerHTML = `<div class="p-2.5 rounded-lg bg-slate-900/60 border border-white/10 text-[11px] text-slate-400">${escapeHtml(notice)}</div>`;
-                } else {
-                    listEl.innerHTML = devRes.devices.map(d => {
-                        const tier = d.tier || d.qos || 'free';
-                        const remTxt = fmtRem(Number(d.remaining_sec || 0));
-                        const stageTxt = Number(d.stage) === 2 ? ' (Giảm >90%)' : (Number(d.stage) === 1 ? ' (Giảm >70%)' : '');
-                        const qBadge = d.whitelisted || tier === 'whitelist'
-                            ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[10px] font-bold">Nội bộ ∞</span>'
-                            : (tier === 'vip' || tier === 'vip_high_speed'
-                                ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">VIP${escapeHtml(remTxt)}${escapeHtml(stageTxt)}</span>`
-                                : (tier === 'blocked'
-                                    ? '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">Đã ngắt</span>'
-                                    : `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px] font-bold">Free${escapeHtml(remTxt)}</span>`));
-                        return `
-                    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/70 border border-white/10 text-[11px]">
-                        <div>
-                            <b class="text-white">${escapeHtml(d.name || (window.cnxT?window.cnxT('js.s_ops.a526a58e','Thiết bị'):'Thiết bị'))}</b>
-                            <span class="font-mono text-sky-300 ml-1.5">${escapeHtml(d.ip)}</span>
-                            <span class="font-mono text-slate-400 ml-1">(${escapeHtml(d.mac || '')})</span>
-                            ${qBadge}
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="Admin.toggleDeviceWhitelist('${escapeJsAttr(d.ip)}')" class="px-2 py-0.5 rounded ${d.whitelisted ? 'bg-sky-500 text-slate-950' : 'bg-sky-500/20 hover:bg-sky-500/35 text-sky-300'} font-bold" title="Ghim thiết bị nội bộ không giới hạn thời gian">${window.cnxT?window.cnxT('js.s_ops.387fa90a','Nội bộ ∞'):'Nội bộ ∞'}</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'vip_high_speed')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold">VIP</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'free_basic')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold">Free</button>
-                            <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'blocked')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold">${window.cnxT?window.cnxT('js.s_ops.9313a4b9','Ngắt'):'Ngắt'}</button>
-                        </div>
-                    </div>`;
-                    }).join('');
-                }
+                this._nocConfigLoaded = true;
             }
         } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin.js', e) : console.debug('admin.js', e)); }
     },
 
+    async loadRouterDevices(alsoNoc = false) {
+        try {
+            // NET-15: Nạp & điền form cấu hình NGAY LẬP TỨC (2ms), tuyệt đối không chờ /api/network/devices
+            await this.loadRouterConfigOnly();
+            const listEl = document.getElementById('router-qos-devices-list');
+            if (listEl && (!this._nocDevicesCache || this._nocDevicesCache.length === 0)) {
+                listEl.innerHTML = '<div class="p-4 text-center text-xs text-sky-300"><i class="fas fa-spinner fa-spin mr-1.5"></i>Đang quét danh sách thiết bị từ Router...</div>';
+            }
+            const devRes = await fetch('/api/network/devices', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+            const devs = (devRes && Array.isArray(devRes.devices)) ? devRes.devices : [];
+            this._nocDevicesCache = devs;
+            this.renderNocTelemetry(devs);
+            this.renderNocDeviceTable(devRes && devRes.message ? devRes.message : '');
+            if (alsoNoc || !this._nocInfraLoaded) {
+                this._nocInfraLoaded = true;
+                this.refreshNocInfraBadges();
+            }
+        } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('admin.js', e) : console.debug('admin.js', e)); }
+    },
+
+    async refreshNocInfraBadges() {
+        const el = document.getElementById('noc-infra-badges');
+        if (!el) return;
+        try {
+            const res = await fetch('/api/network/noc');
+            const d = await res.json();
+            const parts = [];
+            (d.unifi_aps || []).forEach(a => {
+                parts.push(`<span class="px-2 py-0.5 rounded bg-slate-800 border ${a.online ? 'border-emerald-500/40 text-emerald-300' : 'border-rose-500/40 text-rose-300'}"><i class="fas fa-wifi mr-1"></i>${escapeHtml(a.name)} (${a.num_sta})</span>`);
+            });
+            if (d.edgerouter && d.edgerouter.configured) {
+                parts.push(`<span class="px-2 py-0.5 rounded bg-slate-800 border ${d.edgerouter.online ? 'border-indigo-400/40 text-indigo-300' : 'border-rose-500/40 text-rose-300'}" title="${escapeHtml(d.edgerouter.summary || '')}"><i class="fas fa-server mr-1"></i>ER-X: ${d.edgerouter.online ? 'Online' : 'Offline'}</span>`);
+            }
+            el.innerHTML = parts.join('');
+        } catch (_) {}
+    },
+
     async testRouterQosConnection() {
+        if (!this._nocConfigLoaded) await this.loadRouterConfigOnly();
         const resEl = document.getElementById('router-qos-test-result');
         const payload = {
             router_type: document.getElementById('rq-type')?.value || 'simulation',
             host: (document.getElementById('rq-host')?.value || '').trim(),
             port: Number(document.getElementById('rq-port')?.value || 22),
             username: (document.getElementById('rq-user')?.value || '').trim(),
-            password: document.getElementById('rq-pass')?.value || ''
+            password: document.getElementById('rq-pass')?.value || '',
+            erx_host: (document.getElementById('rq-erx-host')?.value || '172.16.0.1').trim(),
+            erx_port: Number(document.getElementById('rq-erx-port')?.value || 22),
+            erx_user: (document.getElementById('rq-erx-user')?.value || 'admin').trim(),
+            erx_pass: document.getElementById('rq-erx-pass')?.value || ''
         };
         if (resEl) {
             resEl.classList.remove('hidden');
@@ -1021,7 +1237,16 @@ Object.assign(Admin, {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
+            const rawText = await res.text();
+            let data = {};
+            try { data = JSON.parse(rawText); } catch (_) {
+                data = {
+                    status: 'error',
+                    message: res.status === 404
+                        ? 'Module WiFi/Router QoS (libmod_network_qos.dll) chưa được nạp trên máy chủ quán (HTTP 404).'
+                        : `Máy chủ trả lỗi HTTP ${res.status}: ${rawText.slice(0, 140)}`
+                };
+            }
             const msg = data.message || (window.cnxT?window.cnxT('js.s_ops.a09faf13','Đã kiểm tra xong'):'Đã kiểm tra xong');
             if (resEl) {
                 if (data.status === 'success') {
@@ -1059,32 +1284,121 @@ Object.assign(Admin, {
                 vip_minutes: Math.max(5, Number(document.getElementById('rq-vip-min')?.value || 180)),
                 max_devices_per_order: Math.max(1, Number(document.getElementById('rq-max-dev')?.value || 2)),
                 peak_windows: (document.getElementById('rq-peak-windows')?.value || '').trim(),
-                throttle_after_70_pct: !!document.getElementById('rq-throttle70')?.checked
+                throttle_after_70_pct: !!document.getElementById('rq-throttle70')?.checked,
+                erx_host: (document.getElementById('rq-erx-host')?.value || '172.16.0.1').trim(),
+                erx_port: Number(document.getElementById('rq-erx-port')?.value || 22),
+                erx_user: (document.getElementById('rq-erx-user')?.value || 'admin').trim(),
+                erx_pass: document.getElementById('rq-erx-pass')?.value || ''
             };
             const res = await fetch('/api/network/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (data.status === 'success') {
+            const rawText = await res.text();
+            let data = {};
+            try { data = JSON.parse(rawText); } catch (_) {
+                data = {
+                    status: 'error',
+                    message: res.status === 404
+                        ? 'Module WiFi/Router QoS (libmod_network_qos.dll) chưa được nạp hoặc bị chặn bản quyền (HTTP 404).'
+                        : `Lỗi lưu cấu hình Router (HTTP ${res.status}): ${rawText.slice(0, 120)}`
+                };
+            }
+            if (res.ok && data.status === 'success') {
                 this.showToast(data.message || (window.cnxT?window.cnxT('js.s_ops.1fb4a397','Đã lưu cấu hình WiFi Marketing!'):'Đã lưu cấu hình WiFi Marketing!'), 'success');
                 this.loadRouterDevices();
+            } else {
+                const errMsg = data.message || `Lỗi lưu cấu hình Router (HTTP ${res.status})`;
+                if (typeof this.showToast === 'function') this.showToast(errMsg, 'error');
+                else alert(errMsg);
             }
-        } catch (e) { alert((window.cnxT?window.cnxT('js.s_ops.30041d77','Lỗi lưu cấu hình Router'):'Lỗi lưu cấu hình Router')); }
+        } catch (e) {
+            const errMsg = (window.cnxT?window.cnxT('js.s_ops.30041d77','Lỗi lưu cấu hình Router'):'Lỗi lưu cấu hình Router') + (e && e.message ? ': ' + e.message : '');
+            if (typeof this.showToast === 'function') this.showToast(errMsg, 'error');
+            else alert(errMsg);
+        }
     },
 
-    async toggleDeviceWhitelist(ip) {
+    async applyGuestLanIsolation() {
+        const resEl = document.getElementById('router-iso-result');
+        const payload = {
+            guest_isolation_enabled: !!document.getElementById('rq-guest-iso')?.checked,
+            pos_server_ip: (document.getElementById('rq-pos-ip')?.value || '').trim(),
+            pos_server_port: Number(document.getElementById('rq-pos-port')?.value || 8501),
+            guest_ssid_name: (document.getElementById('rq-guest-ssid')?.value || '').trim(),
+            admin_ip_guard_enabled: !!document.getElementById('rq-admin-guard')?.checked,
+            dns_filter_profile: document.getElementById('rq-dns-filter')?.value || 'off',
+            pos_priority_qos: !!document.getElementById('rq-pos-qos')?.checked
+        };
+        if (payload.admin_ip_guard_enabled && !confirm('Lưu ý: Khi bật Khóa cổng Admin Lớp 3, chỉ máy chủ (127.0.0.1) và các thiết bị đã ghim "Nội bộ ∞" mới mở được trang Admin/POS. Bạn đã ghim điện thoại chủ quán vào "Nội bộ ∞" chưa?')) {
+            return;
+        }
+        if (resEl) {
+            resEl.classList.remove('hidden');
+            resEl.className = 'text-[11px] font-mono p-2 rounded-lg bg-slate-900 border border-sky-500/30 text-sky-300';
+            resEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i>Đang áp dụng chính sách Cô Lập Mạng Khách lên Router...';
+        }
+        try {
+            const res = await fetch('/api/network/isolation/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            const ok = res.ok && data.status === 'success';
+            const msg = data.message || (ok ? 'Đã áp dụng Cô Lập Mạng Khách thành công!' : `Lỗi áp dụng (HTTP ${res.status})`);
+            if (resEl) {
+                resEl.className = ok
+                    ? 'text-[11px] font-mono p-2 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-300'
+                    : 'text-[11px] font-mono p-2 rounded-lg bg-rose-950/80 border border-rose-500/40 text-rose-300';
+                resEl.innerHTML = `<i class="fas ${ok ? 'fa-shield-check' : 'fa-circle-xmark'} mr-1.5"></i>${escapeHtml(msg)}`;
+            }
+            if (typeof this.showToast === 'function') this.showToast(msg, ok ? 'success' : 'error');
+        } catch (e) {
+            const errMsg = 'Lỗi kết nối khi áp dụng Cô Lập Mạng: ' + (e.message || e);
+            if (resEl) {
+                resEl.className = 'text-[11px] font-mono p-2 rounded-lg bg-rose-950/80 border border-rose-500/40 text-rose-300';
+                resEl.textContent = errMsg;
+            }
+            if (typeof this.showToast === 'function') this.showToast(errMsg, 'error');
+        }
+    },
+
+    async loadNetworkNoc() {
+        const box = document.getElementById('router-noc-box');
+        if (!box) return;
+        box.classList.remove('hidden');
+        box.innerHTML = '<div class="text-sky-300"><i class="fas fa-spinner fa-spin mr-1.5"></i>Đang đọc trạng thái hạ tầng UniFi AP &amp; EdgeRouter X...</div>';
+        try {
+            const res = await fetch('/api/network/noc');
+            const d = await res.json();
+            const apsHtml = (d.unifi_aps || []).length
+                ? d.unifi_aps.map(a => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 border ${a.online ? 'border-emerald-500/40 text-emerald-300' : 'border-rose-500/40 text-rose-300'}">${escapeHtml(a.name)} (${a.num_sta} khách)</span>`).join(' ')
+                : `<span class="text-slate-400">${escapeHtml(d.unifi_note || 'Chưa có AP UniFi nào')}</span>`;
+            const erxHtml = d.edgerouter && d.edgerouter.configured
+                ? (d.edgerouter.online ? `<span class="text-emerald-300 font-bold">Online</span> <span class="text-slate-400 font-mono">${escapeHtml(d.edgerouter.summary || '')}</span>` : '<span class="text-rose-300 font-bold">Chưa kết nối SSH</span>')
+                : '<span class="text-slate-500">Chưa bật Hybrid</span>';
+            box.innerHTML = `
+                <div class="flex flex-wrap items-center gap-2"><b class="text-indigo-300">UniFi APs:</b> ${apsHtml}</div>
+                <div class="flex flex-wrap items-center gap-2"><b class="text-indigo-300">EdgeRouter X:</b> ${erxHtml}</div>
+                <div class="text-[10px] text-slate-400 border-t border-white/10 pt-1"><b>Gợi ý VLAN chuẩn:</b> ${escapeHtml(d.vlan_guide || '')}</div>`;
+        } catch (e) {
+            box.innerHTML = `<div class="text-rose-300">Lỗi tải NOC: ${escapeHtml(e.message || e)}</div>`;
+        }
+    },
+
+    async toggleDeviceWhitelist(ip, mac = '') {
         try {
             const res = await fetch('/api/network/whitelist', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip })
+                body: JSON.stringify({ ip, mac })
             });
-            const data = await res.json();
-            this.showToast(data.message || (window.cnxT?window.cnxT('js.s_ops.9e52f2e4','Đã cập nhật Whitelist'):'Đã cập nhật Whitelist'), data.status === 'success' ? 'success' : 'error');
+            const data = await res.json().catch(() => ({}));
+            this.showToast(data.message || (window.cnxT?window.cnxT('js.s_ops.9e52f2e4','Đã cập nhật Whitelist'):'Đã cập nhật Whitelist'), (res.ok && data.status === 'success') ? 'success' : 'error');
             this.loadRouterDevices();
-        } catch (e) { alert((window.cnxT?window.cnxT('js.s_ops.8a196ac6','Lỗi cập nhật Whitelist'):'Lỗi cập nhật Whitelist')); }
+        } catch (e) { this.showToast((window.cnxT?window.cnxT('js.s_ops.8a196ac6','Lỗi cập nhật Whitelist'):'Lỗi cập nhật Whitelist'), 'error'); }
     },
 
     async exportWifiLeadsCsv() {
@@ -1109,16 +1423,18 @@ Object.assign(Admin, {
         } catch (e) { alert((window.cnxT?window.cnxT('js.s_ops.df8d07c4','Không thể xuất CSV Leads'):'Không thể xuất CSV Leads')); }
     },
 
-    async setDeviceQos(ip, qos) {
+    async setDeviceQos(ip, qos, mac = '') {
         try {
             const res = await fetch('/api/network/qos/set', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip, qos })
+                body: JSON.stringify({ ip, mac, qos })
             });
-            const data = await res.json();
-            this.showToast(data.message || `${window.cnxT?window.cnxT('js.s_ops.7484d768','Đã đặt'):'Đã đặt'} ${qos} cho ${ip}`, data.status === 'success' ? 'success' : 'error');
-        } catch (e) { alert((window.cnxT?window.cnxT('js.s_ops.4549106c','Lỗi cập nhật QoS'):'Lỗi cập nhật QoS')); }
+            const data = await res.json().catch(() => ({}));
+            const ok = res.ok && data.status === 'success';
+            this.showToast(data.message || (ok ? `Đã cập nhật ${qos} cho ${ip}` : `Lỗi cập nhật QoS (HTTP ${res.status})`), ok ? 'success' : 'error');
+            this.loadRouterDevices();
+        } catch (e) { this.showToast((window.cnxT?window.cnxT('js.s_ops.4549106c','Lỗi cập nhật QoS'):'Lỗi cập nhật QoS') + ': ' + (e.message || e), 'error'); }
     },
 
     openBillingModal() {
@@ -1751,6 +2067,8 @@ Object.assign(Admin, {
             name: document.getElementById('modal-mat-name').value.trim(),
             category: document.getElementById('modal-mat-category').value.trim(),
             unit: document.getElementById('modal-mat-unit').value.trim(),
+            cost_class: document.getElementById('modal-mat-cost-class')?.value || 'direct_bom',
+            track_expiry: document.getElementById('modal-mat-track-expiry')?.checked ? 1 : 0,
             quantity: parseFloat(document.getElementById('modal-mat-qty').value) || 0,
             min_quantity: parseFloat(document.getElementById('modal-mat-minqty').value) || 0,
             cost_price: parseFloat(document.getElementById('modal-mat-cost').value) || 0,

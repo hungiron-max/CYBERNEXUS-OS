@@ -121,12 +121,23 @@ Object.assign(Admin, {
         const month = monthInput ? monthInput.value : '';
 
         try {
-            const [repRes, expRes, auditRes, pnlCmpRes] = await Promise.all([
+            const [repRes, expRes, auditRes, pnlCmpRes, taxRes] = await Promise.all([
                 fetch(`api/finance.php?action=get_report&month=${month}`).then(r => r.json()).catch(() => ({})),
                 fetch(`api/finance.php?action=list_expenses&month=${month}`).then(r => r.json()).catch(() => ({})),
                 fetch(`api/finance.php?action=audit_and_shifts`).then(r => r.json()).catch(() => ({})),
-                fetch(`api/finance.php?action=get_pnl_comparison&month=${month}`).then(r => r.json()).catch(() => ({}))
+                fetch(`api/finance.php?action=get_pnl_comparison&month=${month}`).then(r => r.json()).catch(() => ({})),
+                fetch(`api/finance.php?action=get_tax_settings`).then(r => r.json()).catch(() => ({}))
             ]);
+            const tCfg = (taxRes && taxRes.success && taxRes.data) ? taxRes.data : {};
+            this.taxSettings = {
+                pos_vat_mode: tCfg.pos_vat_mode || 'none',
+                pos_vat_rate: parseFloat(tCfg.pos_vat_rate ?? tCfg.finance_vat_rate ?? '8') || 0,
+                tax_method: tCfg.finance_tax_method || 'household',
+                vat_rate: parseFloat(tCfg.finance_vat_rate ?? '8') || 0,
+                pit_rate: parseFloat(tCfg.finance_pit_rate ?? '1.5') || 0,
+                cit_rate: parseFloat(tCfg.finance_cit_rate ?? '20') || 0,
+                fixed_cost: parseFloat(tCfg.finance_fixed_cost ?? '0') || 0
+            };
 
             // Render Audit KPI Cards & Audit Logs Table & Shifts Table
             this._auditKpiData = (auditRes && auditRes.audit_kpi) || { critical_count: 0, void_count: 0, void_amount: 0, discount_count: 0, discount_amount: 0, total_shift_discrepancy: 0 };
@@ -1009,7 +1020,15 @@ Object.assign(Admin, {
     },
 
     async openFinTaxModal() {
-        let cfg = { finance_vat_rate: '8', finance_pit_rate: '1.5', finance_fixed_cost: '0' };
+        let cfg = {
+            pos_vat_mode: 'none',
+            pos_vat_rate: '8',
+            finance_tax_method: 'household',
+            finance_vat_rate: '8',
+            finance_pit_rate: '1.5',
+            finance_cit_rate: '20',
+            finance_fixed_cost: '0'
+        };
         try {
             const res = await fetch('api/finance.php?action=get_tax_settings').then(r => r.json());
             if (res && res.success && res.data) cfg = { ...cfg, ...res.data };
@@ -1023,38 +1042,83 @@ Object.assign(Admin, {
             document.body.appendChild(modal);
         }
         modal.innerHTML = `
-            <div class="liquid-glass rounded-2xl border border-amber-500/30 w-full max-w-sm p-5 space-y-3 bg-slate-900/95">
+            <div class="liquid-glass rounded-2xl border border-amber-500/30 w-full max-w-md p-5 space-y-3 bg-slate-900/95">
                 <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
-                    <h4 class="font-bold text-sm text-amber-300"><i class="fas fa-percent mr-1.5"></i>${window.cnxT?window.cnxT('js.s_fin.1f7af0d7','Cấu hình Thuế &amp; Định phí'):'Cấu hình Thuế &amp; Định phí'}</h4>
+                    <h4 class="font-bold text-sm text-amber-300"><i class="fas fa-percent mr-1.5"></i>Cấu hình Thuế Hóa Đơn (POS) &amp; Tài Chính</h4>
                     <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="space-y-2.5 text-xs">
-                    <div>
-                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.f95f88c1','Thuế suất VAT mặc định (%)'):'Thuế suất VAT mặc định (%)'}</label>
-                        <input id="fin-tax-vat" type="number" step="0.1" value="${cfg.finance_vat_rate}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
+                    <div class="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/25 space-y-2">
+                        <div class="font-bold text-sky-300 text-[11px] uppercase">1. Thuế VAT trên Hóa đơn bán hàng (POS)</div>
+                        <div>
+                            <label class="text-slate-300 block mb-1">Chế độ áp dụng trên hóa đơn</label>
+                            <select id="fin-dyn-vat-mode" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white">
+                                <option value="none" ${cfg.pos_vat_mode === 'none' ? 'selected' : ''}>Không thu VAT (0% — Giá niêm yết không tách thuế)</option>
+                                <option value="exclusive" ${cfg.pos_vat_mode === 'exclusive' ? 'selected' : ''}>Cộng thêm VAT vào hóa đơn (Khách trả = Tiền hàng + VAT)</option>
+                                <option value="inclusive" ${cfg.pos_vat_mode === 'inclusive' ? 'selected' : ''}>Giá bán đã gồm VAT (Tách hiển thị VAT trên bill)</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-slate-300 block mb-1">Thuế suất VAT hóa đơn (%)</label>
+                                <input id="fin-dyn-pos-vat-rate" type="number" min="0" max="20" step="0.5" value="${cfg.pos_vat_rate}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
+                            </div>
+                            <div class="flex items-end gap-1 pb-0.5">
+                                <button type="button" onclick="document.getElementById('fin-dyn-pos-vat-rate').value='0'" class="btn-glass px-2 py-1 text-[10px]">0%</button>
+                                <button type="button" onclick="document.getElementById('fin-dyn-pos-vat-rate').value='5'" class="btn-glass px-2 py-1 text-[10px]">5%</button>
+                                <button type="button" onclick="document.getElementById('fin-dyn-pos-vat-rate').value='8'" class="btn-glass px-2 py-1 text-[10px] text-amber-300">8%</button>
+                                <button type="button" onclick="document.getElementById('fin-dyn-pos-vat-rate').value='10'" class="btn-glass px-2 py-1 text-[10px]">10%</button>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.bbf1fe1e','Thuế TNCN / Hộ KD (%)'):'Thuế TNCN / Hộ KD (%)'}</label>
-                        <input id="fin-tax-pit" type="number" step="0.1" value="${cfg.finance_pit_rate}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
-                    </div>
-                    <div>
-                        <label class="text-slate-400 block mb-1">${window.cnxT?window.cnxT('js.s_fin.1eba80c7','Định phí dự phòng tháng (VNĐ)'):'Định phí dự phòng tháng (VNĐ)'}</label>
-                        <input id="fin-tax-fixed" type="number" step="10000" value="${cfg.finance_fixed_cost}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
+                    <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                        <div class="font-bold text-amber-300 text-[11px] uppercase">2. Thuế dự kiến Báo cáo Tài chính</div>
+                        <div>
+                            <label class="text-slate-300 block mb-1">Mô hình kinh doanh</label>
+                            <select id="fin-dyn-tax-method" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white">
+                                <option value="household" ${cfg.finance_tax_method !== 'enterprise' ? 'selected' : ''}>Hộ kinh doanh (GTGT + TNCN theo doanh thu)</option>
+                                <option value="enterprise" ${cfg.finance_tax_method === 'enterprise' ? 'selected' : ''}>Doanh nghiệp (VAT khấu trừ + TNDN)</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-slate-400 block mb-1">GTGT (%)</label>
+                                <input id="fin-dyn-vat" type="number" min="0" max="20" step="0.1" value="${cfg.finance_vat_rate}" class="liquid-input w-full py-1.5 px-2 bg-slate-950 text-white font-mono" />
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-1">TNCN (%)</label>
+                                <input id="fin-dyn-pit" type="number" min="0" max="20" step="0.1" value="${cfg.finance_pit_rate}" class="liquid-input w-full py-1.5 px-2 bg-slate-950 text-white font-mono" />
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-1">TNDN (%)</label>
+                                <input id="fin-dyn-cit" type="number" min="0" max="50" step="0.5" value="${cfg.finance_cit_rate}" class="liquid-input w-full py-1.5 px-2 bg-slate-950 text-white font-mono" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block mb-1">Định phí dự phòng tháng (VNĐ)</label>
+                            <input id="fin-dyn-fixed" type="number" step="10000" value="${cfg.finance_fixed_cost}" class="liquid-input w-full py-1.5 px-2.5 bg-slate-950 text-white font-mono" />
+                        </div>
                     </div>
                 </div>
                 <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
-                    <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">${window.cnxT?window.cnxT('ui.admin_html.button_d7d5c86c','Hủy'):'Hủy'}</button>
-                    <button type="button" onclick="Admin.submitFinTax()" class="btn-glass text-xs py-1.5 px-4 bg-amber-500/30 text-amber-200 border-amber-400/40 font-bold">${window.cnxT?window.cnxT('js.s_fin.8e3fcce0','Lưu cấu hình'):'Lưu cấu hình'}</button>
+                    <button type="button" onclick="document.getElementById('fin-dynamic-modal').remove()" class="btn-glass text-xs py-1.5 px-3 bg-slate-800 text-slate-300">Hủy</button>
+                    <button type="button" onclick="Admin.submitFinTax()" class="btn-glass text-xs py-1.5 px-4 bg-amber-500/30 text-amber-200 border-amber-400/40 font-bold">Lưu cấu hình</button>
                 </div>
             </div>
         `;
     },
 
     async submitFinTax() {
+        const mode = document.getElementById('fin-dyn-vat-mode')?.value || 'none';
+        const posRate = document.getElementById('fin-dyn-pos-vat-rate')?.value;
         const payload = {
-            finance_vat_rate: document.getElementById('fin-tax-vat')?.value || '8',
-            finance_pit_rate: document.getElementById('fin-tax-pit')?.value || '1.5',
-            finance_fixed_cost: document.getElementById('fin-tax-fixed')?.value || '0'
+            pos_vat_mode: mode,
+            pos_vat_rate: (posRate !== undefined && posRate !== '') ? String(posRate) : '0',
+            finance_tax_method: document.getElementById('fin-dyn-tax-method')?.value || 'household',
+            finance_vat_rate: document.getElementById('fin-dyn-vat')?.value ?? '8',
+            finance_pit_rate: document.getElementById('fin-dyn-pit')?.value ?? '1.5',
+            finance_cit_rate: document.getElementById('fin-dyn-cit')?.value ?? '20',
+            finance_fixed_cost: document.getElementById('fin-dyn-fixed')?.value ?? '0'
         };
         try {
             const res = await fetch('api/finance.php?action=save_tax_settings', {
@@ -1065,12 +1129,13 @@ Object.assign(Admin, {
             const data = await res.json();
             if (data.success) {
                 document.getElementById('fin-dynamic-modal')?.remove();
+                if (typeof this.showToast === 'function') this.showToast(data.message || 'Đã lưu cấu hình thuế!', 'success');
                 this.loadFinance();
             } else {
-                alert(data.message || (window.cnxT?window.cnxT('js.s_fin.328cd47e','Lỗi lưu cấu hình thuế'):'Lỗi lưu cấu hình thuế'));
+                alert(data.message || 'Lỗi lưu cấu hình thuế');
             }
         } catch (e) {
-            alert((window.cnxT?window.cnxT('js.m_sa.5b983751','Lỗi: '):'Lỗi: ') + e.message);
+            alert('Lỗi: ' + e.message);
         }
     },
 

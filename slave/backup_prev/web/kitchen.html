@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="ui.kds_html.title_8422ec94">Màn Hình Bếp / Pha Chế (KDS) - CyberNexus POS</title>
+    <link rel="icon" type="image/png" href="favicon.png?v=20261118">
+    <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
+    
+    <!-- Local Precompiled Tailwind CSS (100% Offline, Instant Rendering) -->
+    <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <!-- Local FontAwesome 6 Icons (Offline) -->
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+    <!-- Liquid Glass Custom Styles -->
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=2">
+    <link rel="stylesheet" href="assets/css/theme.css?v=4">
+    <script src="assets/js/theme.js?v=3"></script>
+    <script src="assets/vendor/qrcode.min.js"></script>
+
+    <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY DÀNH CHO BẾP/BAR -->
+    <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
+    <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            var token = localStorage.getItem('pos_token') || '';
+            if (!u || !u.id) {
+                window.location.replace('login.html?redirect=kitchen.html');
+                throw new Error('Chặn truy cập: Chưa đăng nhập!');
+            }
+            if (u.role === 'customer') {
+                window.location.replace('customer.html');
+                throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+            }
+            if (u.role === 'waiter') {
+                window.location.replace('order.html');
+                throw new Error('Chuyển hướng Phục vụ về màn hình Order!');
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'api/auth.php?action=check&_t=' + Date.now(), false);
+            xhr.withCredentials = true;
+            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            try {
+                xhr.send();
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res && res.authenticated === true && res.user) {
+                        if (res.user.role === 'customer') {
+                            window.location.replace('customer.html');
+                            throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+                        }
+                        if (res.user.role === 'waiter') {
+                            window.location.replace('order.html');
+                            throw new Error('Chuyển hướng Phục vụ về màn hình Order!');
+                        }
+                        localStorage.setItem('pos_user', JSON.stringify(res.user));
+                        window.currentUser = res.user;
+                        function uncloak() {
+                            var el = document.getElementById('auth-cloak');
+                            if (el) el.remove();
+                            document.documentElement.style.removeProperty('display');
+                            document.documentElement.style.removeProperty('visibility');
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', uncloak);
+                        } else {
+                            uncloak();
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi xác thực C++ Native:", e);
+            }
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            sessionStorage.clear();
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            window.location.replace('login.html?redirect=kitchen.html');
+            throw new Error('Chặn truy cập: Phiên không hợp lệ!');
+        })();
+        window.addEventListener('pageshow', function(e) { if (e.persisted) window.location.reload(); });
+
+        // Tự động dọn sạch Service Worker cũ & CacheStorage
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (var r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (var k of keys) caches.delete(k);
+            });
+        }
+    </script>
+    <script src="assets/js/store_brand.js"></script>
+</head>
+<body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100 bg-slate-950">
+
+    <!-- Ambient Floating Orbs -->
+    <div class="liquid-blob-1"></div>
+    <div class="liquid-blob-2"></div>
+
+    <!-- Header -->
+    <!-- Top Header (Liquid Glass Aesthetic - 100% No-Wrap) -->
+    <header class="liquid-header cn-top-nav z-30 shrink-0 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
+        <div class="cn-nav-left">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-orange-600 text-white flex items-center justify-center text-sm sm:text-base shadow-lg shadow-amber-500/25 shrink-0 overflow-hidden">
+                <i class="fas fa-fire-burner"></i>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                    <h1 data-store-name class="font-black text-xs sm:text-sm md:text-base tracking-wide text-amber-300 uppercase whitespace-nowrap shrink-0" data-i18n="ui.kitchen_html.h1_a68c98b0">
+                        CyberNexus POS
+                    </h1>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/35 whitespace-nowrap shrink-0 shadow-sm">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span data-i18n="nav.kds_badge">BẾP &amp; PHA CHẾ (KDS)</span>
+                    </span>
+                </div>
+                <div class="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1.5 whitespace-nowrap mt-0.5">
+                    <span class="hidden sm:inline text-slate-400" data-i18n="ui.kds_html.span_c0b861cc">Đơn chế biến:</span>
+                    <span id="active-tickets-count" class="font-mono font-bold text-sky-400" data-i18n="ui.kds_html.span_14a6b53f">0 đơn chờ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Center: Role Back Links | Kitchen Controls -->
+        <div class="cn-nav-center">
+            <div id="kitchen-nav-back-zone" class="flex items-center gap-1.5 shrink-0">
+                <a href="index.html" class="btn-glass cn-nav-btn text-sky-300 border-sky-500/30" title="Về POS Bán Hàng"><i class="fas fa-cash-register text-xs"></i><span>POS</span></a>
+            </div>
+            <button type="button" id="btn-sound-toggle" onclick="toggleSound()" class="btn-glass cn-nav-btn text-amber-300 border-amber-500/30" title="Bật/Tắt chuông báo đơn mới" data-i18n-title="ui.kds_html.button_title_50c8aeaa">
+                <i id="sound-icon" class="fas fa-volume-up"></i>
+            </button>
+            <button type="button" onclick="openLockedDishesModal()" class="btn-glass cn-nav-btn bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 shadow-md shadow-rose-500/10" title="Quản lý món tạm khóa / hết hàng" data-i18n-title="ui.kds_html.button_title_fb005fac">
+                <i class="fas fa-ban text-rose-400"></i>
+                <span class="hidden md:inline" data-i18n="ui.kds_html.span_da500a39">Món Khóa</span>
+                <span id="count-locked-dishes" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
+            </button>
+            <button type="button" onclick="loadKitchenOrders()" class="btn-glass cn-nav-btn bg-slate-800 text-slate-300" title="Làm mới" data-i18n-title="ui.pos_html.button_771032ac">
+                <i class="fas fa-sync-alt text-xs"></i>
+            </button>
+        </div>
+
+        <!-- 3. Right Fixed: VI/EN -> Theme -> User Pill -> Logout -->
+        <div class="cn-nav-right">
+            <div class="cn-lang-pill" title="Language / Ngôn ngữ" data-i18n-title="ui.sa_html.div_title_c60b3893">
+                <button type="button" data-cnx-lang-btn="vi" onclick="window.CNX_I18N && CNX_I18N.setLang('vi')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">VI</button>
+                <button type="button" data-cnx-lang-btn="en" onclick="window.CNX_I18N && CNX_I18N.setLang('en')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">EN</button>
+            </div>
+            <span id="cn-theme-slot"></span>
+            <div id="kitchen-admin-badge-zone" class="flex items-center shrink-0"></div>
+            <button type="button" onclick="handleLogout()" class="cn-nav-btn cn-nav-btn--danger" title="Đăng xuất" data-i18n-title="common.logout">
+                <i class="fas fa-sign-out-alt text-xs"></i>
+                <span data-i18n="common.logout">Đăng xuất</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Filter Tabs (Uniform 4-column segmented bar) -->
+    <div class="bg-slate-900/95 border-b border-white/10 px-3 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0 z-20 text-xs">
+        <button type="button" id="tab-filter-active" onclick="switchFilter('active')" class="flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+            <i class="fas fa-fire text-amber-400"></i>
+            <span data-i18n="ui.kds_html.span_aa580d86">Chờ Làm</span>
+            <span id="count-tab-active" class="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
+        </button>
+        <button type="button" id="tab-filter-served" onclick="switchFilter('served')" class="flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+            <i class="fas fa-check-circle text-emerald-400"></i>
+            <span data-i18n="ui.kds_html.span_3c8f64d8">Đã Bưng</span>
+            <span id="count-tab-served" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
+        </button>
+        <button type="button" id="tab-filter-history" onclick="switchFilter('history')" class="flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+            <i class="fas fa-history text-purple-400"></i>
+            <span data-i18n="ui.adm_html.span_c4ddfa06">Lịch Sử</span>
+            <span id="count-tab-history" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-purple-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
+        </button>
+        <button type="button" id="tab-filter-all" onclick="switchFilter('all')" class="flex-1 min-w-[135px] py-2 px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+            <i class="fas fa-list text-sky-400"></i>
+            <span data-i18n="ui.kds_html.span_ead835af">Tất Cả Đang Mở</span>
+            <span id="count-tab-all" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-sky-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
+        </button>
+    </div>
+
+    <!-- Orders Grid -->
+    <main class="flex-1 overflow-y-auto p-4 z-10">
+        <div id="kitchen-tickets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- Rendered dynamically -->
+        </div>
+    </main>
+
+    <!-- Modal Quản Lý Món Tạm Khóa / Báo Hết Hàng -->
+    <div id="modal-manage-locked-dishes" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-5 w-[600px] max-w-[95vw] text-slate-100 shadow-2xl border border-sky-500/40 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center pb-2.5 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-sm border border-rose-500/30">
+                        <i class="fas fa-ban"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-extrabold text-sm text-white" data-i18n="ui.kitchen_html.h3_fce3b3c4">QUẢN LÝ MÓN TẠM KHÓA / BÁO HẾT HÀNG</h3>
+                        <p class="text-[11px] text-slate-400" data-i18n="ui.kds_html.p_d17c5f82">Bếp bật/tắt trạng thái hết hàng trên toàn quán</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="closeLockedDishesModal()">&times;</button>
+            </div>
+
+            <!-- Search bar -->
+            <div class="py-2.5 shrink-0">
+                <div class="relative">
+                    <input type="text" id="locked-dishes-search" oninput="filterLockedDishesModal()" placeholder="Tìm kiếm món ăn để tạm khóa hoặc mở lại..." data-i18n-placeholder="ui.kitchen_html.ph_4e3f8563" class="liquid-input w-full pl-9 pr-3 py-2 text-xs text-white" />
+                    <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                </div>
+            </div>
+
+            <!-- Dishes list -->
+            <div id="locked-dishes-list" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[55vh]">
+                <!-- Rendered dynamically -->
+            </div>
+
+            <div class="pt-2.5 border-t border-white/10 flex justify-end shrink-0">
+                <button type="button" class="btn-glass text-xs py-1.5 px-4 text-slate-300" onclick="closeLockedDishesModal()" data-i18n="ui.kitchen_html.button_ec82bcdf">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/i18n.js?v=2"></script>
+    <script src="assets/js/security_utils.js?v=2"></script>
+    <script src="assets/js/kitchen_kds.js?v=20261116"></script>
+
+    <!-- Mã QR Khách Hàng Gọi Món (customer.html) -->
+    <div id="lan-qr-modal" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[430px] max-w-[92vw] text-white shadow-2xl border border-sky-500/40 text-center rounded-2xl">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
+                <h3 class="font-bold text-base text-sky-400 flex items-center gap-2" data-i18n="ui.kitchen_html.h3_e49d9884">
+                    <i class="fas fa-qrcode text-purple-400"></i> Mã QR Khách Hàng Gọi Món
+                </h3>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="closeLanQrModal()">&times;</button>
+            </div>
+            
+            <p class="text-xs text-slate-300 mb-3" data-i18n="ui.pos_html.p_545424ba">Khách dùng máy ảnh điện thoại quét mã bên dưới để xem menu và tự đặt món:</p>
+            
+            <div class="bg-white p-3 rounded-2xl inline-flex items-center justify-center shadow-xl shadow-black/50 mb-3 mx-auto">
+                <div id="kitchen-customer-qr-canvas" class="flex items-center justify-center min-w-[190px] min-h-[190px]"></div>
+            </div>
+
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-sky-500/30 text-xs mb-3 text-left">
+                <div class="text-slate-400 text-[11px] mb-1.5 flex items-center justify-between">
+                    <span data-i18n="ui.pos_html.span_cc6ece42">Đường dẫn gọi món (Customer Menu):</span>
+                    <button type="button" onclick="copyCustomerUrl()" class="text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer" data-i18n="ui.kitchen_html.button_bee0a762">
+                        <i class="fas fa-copy"></i> Sao chép
+                    </button>
+                </div>
+                <div id="kitchen-customer-url-text" class="font-mono font-bold text-emerald-400 text-xs select-all break-all bg-black/40 p-2 rounded border border-white/5"></div>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between gap-2">
+                <a id="kitchen-customer-direct-link" href="customer.html" target="_blank" class="btn-glass text-xs py-2 px-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold flex items-center gap-1.5 rounded-xl" data-i18n="ui.pos_html.a_46900950">
+                    <i class="fas fa-external-link-alt"></i> Mở trang khách
+                </a>
+                <button type="button" class="btn-glass text-xs py-2 px-5 font-bold rounded-xl" onclick="closeLanQrModal()" data-i18n="ui.kitchen_html.button_ec82bcdf">Đóng</button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal Xác Nhận Thao Tác Bếp (Hủy món / Hết món / Yêu cầu hủy đơn) -->
+    <div id="kitchen-action-modal" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-5 w-[440px] max-w-[94vw] text-white shadow-2xl border border-amber-500/40 rounded-2xl space-y-3">
+            <div class="flex justify-between items-center pb-2 border-b border-white/10">
+                <h3 id="kam-title" class="font-bold text-sm text-white" data-i18n="ui.kitchen_html.h3_7b9f3a63">Xác nhận</h3>
+                <button type="button" class="text-slate-400 hover:text-white text-xl" onclick="closeKitchenActionModal()">&times;</button>
+            </div>
+            <p id="kam-desc" class="text-xs text-slate-300 leading-relaxed"></p>
+            <div id="kam-chips" class="flex flex-wrap gap-1.5"></div>
+            <div>
+                <label class="block text-[11px] font-semibold text-slate-300 mb-1" data-i18n="ui.kitchen_html.label_2e53ebe4">Lý do chi tiết (*):</label>
+                <textarea id="kam-reason" rows="2" class="w-full rounded-xl bg-slate-950 border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400" placeholder="Nhập lý do để ghi nhận kiểm toán & báo cho Thu ngân / Phục vụ..." data-i18n-placeholder="ui.kitchen_html.ph_f93b7a06"></textarea>
+            </div>
+            <label id="kam-lock-wrap" class="hidden flex items-center gap-2 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/25 px-3 py-2 rounded-xl cursor-pointer">
+                <input type="checkbox" id="kam-lock-product" checked class="rounded border-white/20" />
+                <span data-i18n="ui.kds_html.span_cb776e47">Tạm khóa món này trên toàn thực đơn (Phục vụ &amp; Thu ngân không gọi thêm được)</span>
+            </label>
+            <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="closeKitchenActionModal()" class="btn-glass text-xs py-2 px-4 rounded-xl text-slate-300" data-i18n="ui.kitchen_html.button_ec82bcdf">Đóng</button>
+                <button type="button" id="kam-submit-btn" onclick="submitKitchenActionModal()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black" data-i18n="ui.kitchen_html.button_8def0d9b">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/vendor/qrcode.min.js"></script>
+    <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
+</body>
+</html>

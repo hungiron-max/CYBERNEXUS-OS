@@ -3173,14 +3173,25 @@ const SuperAdmin = {
         verSelect.innerHTML = filtered.map((p, idx) => {
             const mb = (Number(p.size_bytes || 0) / (1024 * 1024)).toFixed(2);
             const pushedList = Array.isArray(p.pushed_stores) ? p.pushed_stores : [];
-            const isPushed = targetCode === 'ALL'
-                ? (Boolean(p.auto_publish) || pushedList.includes('ALL'))
-                : pushedList.includes(targetCode);
+            const storeOnlyList = pushedList.filter(s => s && s !== 'ALL');
+            const relStatus = String(p.release_status || '').toLowerCase();
+            const isRevoked = relStatus === 'revoked';
+            const isPublished = !isRevoked && (relStatus === 'published' || Boolean(p.auto_publish));
+            const isPilot = !isRevoked && !isPublished && (relStatus === 'pilot' || storeOnlyList.length > 0);
             const tags = [];
-            if (p.target_tenant) tags.push(`${window.cnxT?window.cnxT('js.m_sa_ext.c8abb6ff','RIÊNG:'):'RIÊNG:'} ${p.target_tenant}`);
-            else tags.push(p.auto_publish ? 'ĐẠI TRÀ • TỰ QUÉT' : (window.cnxT?window.cnxT('js.m_sa_ext.62ce31d8','ĐẠI TRÀ • CHỜ DUYỆT'):'ĐẠI TRÀ • CHỜ DUYỆT'));
-            tags.push(isPushed ? 'ĐÃ ĐẨY' : (window.cnxT?window.cnxT('js.m_sa_ext.77775c99','CHƯA ĐẨY'):'CHƯA ĐẨY'));
-            if (idx === 0) tags.push((window.cnxT?window.cnxT('js.m_sa_ext.40d8a349','Mới nhất'):'Mới nhất'));
+            if (p.target_tenant) {
+                tags.push(`${window.cnxT?window.cnxT('js.m_sa_ext.c8abb6ff','RIÊNG:'):'RIÊNG:'} ${p.target_tenant}`);
+                tags.push(pushedList.includes(p.target_tenant) ? 'ĐÃ ĐẨY' : 'CHƯA ĐẨY');
+            } else if (isRevoked) {
+                tags.push('ĐÃ THU HỒI');
+            } else if (isPublished) {
+                tags.push('ĐẠI TRÀ • ĐÃ PHÁT HÀNH');
+            } else if (isPilot) {
+                tags.push(`THỬ NGHIỆM (${storeOnlyList.length || 1} quán)`);
+            } else {
+                tags.push('BẢN NHÁP • CHƯA ĐẨY');
+            }
+            if (idx === 0 && !isRevoked) tags.push((window.cnxT?window.cnxT('js.m_sa_ext.40d8a349','Mới nhất'):'Mới nhất'));
             const tagStr = ` [${tags.join(' • ')}]`;
             return `<option value="${p.version}">v${p.version}${tagStr} — ${mb} MB (${p.title || ''})</option>`;
         }).join('');

@@ -1066,7 +1066,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
                 {"pid", s.pid},
                 {"pin_reset_ready", pinReady},
                 {"work_dir", s.workDir.string()},
-                {"web_url", s.id == "master" ? "http://localhost:8500/super_admin" : "http://localhost:8501/admin.html"}
+                {"web_url", s.id == "master" ? "http://localhost:8500/super_admin" : "http://localhost:8501/admin"}
             };
         };
         json logArr = json::array();
@@ -1365,7 +1365,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
             fs::path rel = fs::relative(entry.path(), stageDir, ecode);
             std::string relStr = rel.generic_string();
             fs::path dest = g_slave.workDir / rel;
-            if (relStr.rfind("modules/", 0) == 0 && !fs::exists(dest)) continue;
+            // Always deploy official signed DLLs + .sig from OTA (LicenseService enforces ON/OFF/BLOCK dynamically)
             if (dest.has_parent_path()) fs::create_directories(dest.parent_path(), ecode);
             if (relStr == "CyberNexus_Control_Center.exe" && fs::exists(dest)) {
                 fs::path oldCc = g_slave.workDir / "CyberNexus_Control_Center.exe.old";

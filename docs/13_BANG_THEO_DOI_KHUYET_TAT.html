@@ -76,10 +76,10 @@
         .seg-part { background: var(--amber); }
         .seg-todo { background: rgba(251, 113, 133, 0.55); }
 
-        .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
         .tab-btn {
-            padding: 9px 16px; border-radius: 11px; font-weight: 700; color: var(--muted);
-            background: var(--panel); border: 1px solid var(--border);
+            padding: 8px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: var(--muted);
+            background: var(--panel); border: 1px solid var(--border); white-space: nowrap;
         }
         .tab-btn.active { color: #f8fafc; background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.55); }
 
@@ -101,7 +101,86 @@
             background: rgba(56, 189, 248, 0.4); border-radius: 10px; border: 2px solid rgba(15, 23, 42, 0.85);
         }
         .table-box::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.7); }
-        table { width: 100%; min-width: 1140px; border-collapse: separate; border-spacing: 0; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+        tbody td { overflow-wrap: anywhere; word-break: break-word; }
+        .sub-pills { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+        .sub-pill {
+            padding: 6px 12px; border-radius: 9px; font-size: 12px; font-weight: 700;
+            background: var(--panel); border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+        }
+        .sub-pill:hover { color: #f8fafc; border-color: rgba(56,189,248,0.45); }
+        .sub-pill.active { background: rgba(56,189,248,0.18); border-color: rgba(56,189,248,0.6); color: #f8fafc; }
+        .arch-scroll { max-height: calc(100vh - 310px); overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.32) transparent; }
+        .arch-scroll::-webkit-scrollbar, .tree-pane::-webkit-scrollbar, .tree-inspector::-webkit-scrollbar { width: 6px; height: 6px; }
+        .arch-scroll::-webkit-scrollbar-track, .tree-pane::-webkit-scrollbar-track, .tree-inspector::-webkit-scrollbar-track { background: transparent; }
+        .arch-scroll::-webkit-scrollbar-thumb, .tree-pane::-webkit-scrollbar-thumb, .tree-inspector::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.28); border-radius: 999px; }
+        .arch-scroll::-webkit-scrollbar-thumb:hover, .tree-pane::-webkit-scrollbar-thumb:hover, .tree-inspector::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.6); }
+        .arch-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+        @media (max-width: 900px) { .arch-grid { grid-template-columns: 1fr; } }
+        .arch-card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px;
+        }
+        .arch-card h3 { margin: 0 0 8px; font-size: 14px; color: #38bdf8; }
+        .arch-card p, .arch-card li { margin: 0 0 5px; font-size: 12.8px; color: var(--text); }
+        .arch-card ul { margin: 0; padding-left: 18px; }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+        .chip {
+            display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            background: rgba(30,41,59,0.85); border: 1px solid var(--border); color: #cbd5e1;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        .chip-sky { border-color: rgba(56,189,248,0.35); color: #7dd3fc; background: rgba(56,189,248,0.1); }
+        .chip-em { border-color: rgba(52,211,153,0.35); color: #6ee7b7; background: rgba(52,211,153,0.1); }
+        .chip-amb { border-color: rgba(251,191,36,0.35); color: #fcd34d; background: rgba(251,191,36,0.1); }
+        .chip-vio { border-color: rgba(167,139,250,0.35); color: #c4b5fd; background: rgba(167,139,250,0.1); }
+        .arch-table { table-layout: auto; width: 100%; }
+        .arch-table th { position: sticky; top: 0; z-index: 4; }
+        .svg-wrap {
+            background: radial-gradient(circle at 50% 0%, rgba(56,189,248,0.08), rgba(7,11,20,0.75));
+            border: 1px solid rgba(56,189,248,0.22);
+            border-radius: 14px; padding: 12px; margin-bottom: 14px; overflow-x: auto;
+        }
+        .svg-wrap svg { width: 100%; height: auto; display: block; min-width: 760px; }
+        .svg-node { cursor: pointer; transition: filter 0.15s ease, opacity 0.15s ease; }
+        .svg-node:hover { filter: brightness(1.18) drop-shadow(0 0 8px rgba(56,189,248,0.45)); }
+        .img-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+        @media (max-width: 960px) { .img-gallery { grid-template-columns: 1fr; } }
+        .img-card { background: rgba(7,11,20,0.75); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: zoom-in; transition: border-color 0.15s, transform 0.15s; }
+        .img-card:hover { border-color: rgba(56,189,248,0.65); transform: translateY(-2px); }
+        .img-card img { width: 100%; height: 165px; object-fit: cover; display: block; }
+        .img-cap { padding: 8px 10px; font-size: 11.5px; font-weight: 700; color: #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .lb-overlay { position: fixed; inset: 0; z-index: 999; background: rgba(2,6,23,0.92); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+        .lb-overlay.open { display: flex; }
+        .lb-overlay img { max-width: 96vw; max-height: 92vh; border-radius: 14px; border: 1px solid rgba(56,189,248,0.45); box-shadow: 0 20px 60px rgba(0,0,0,0.75); }
+        .svg-hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; text-align: right; }
+        .tree-layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+        @media (max-width: 960px) { .tree-layout { grid-template-columns: 1fr; } }
+        .tree-pane {
+            background: rgba(7,11,20,0.72); border: 1px solid var(--border); border-radius: 12px;
+            padding: 10px 10px; max-height: 460px; overflow-y: auto;
+            scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.32) transparent;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+        }
+        .tree-node {
+            display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 7px;
+            cursor: pointer; user-select: none; transition: background 0.12s;
+        }
+        .tree-node:hover { background: rgba(56,189,248,0.10); }
+        .tree-node.selected { background: rgba(56,189,248,0.18); box-shadow: inset 0 0 0 1px rgba(56,189,248,0.45); }
+        .tree-children { margin-left: 15px; padding-left: 10px; border-left: 1px dashed rgba(148,163,184,0.28); }
+        .tree-cnt { margin-left: auto; font-size: 10.5px; color: var(--muted); background: rgba(30,41,59,0.9); padding: 1px 6px; border-radius: 999px; }
+        .tree-ext { font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 4px; margin-left: auto; }
+        .ext-cpp { background: rgba(56,189,248,0.16); color: #7dd3fc; }
+        .ext-h { background: rgba(167,139,250,0.16); color: #c4b5fd; }
+        .ext-js { background: rgba(251,191,36,0.16); color: #fde68a; }
+        .ext-html { background: rgba(251,113,133,0.16); color: #fda4af; }
+        .ext-py { background: rgba(52,211,153,0.16); color: #6ee7b7; }
+        .ext-other { background: rgba(148,163,184,0.16); color: #cbd5e1; }
+        .tree-inspector {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; max-height: 460px; overflow-y: auto;
+            scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.32) transparent;
+        }
         thead th {
             position: sticky; top: 0; z-index: 10;
             text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px;
@@ -194,7 +273,7 @@
         .d-card.blue h4 { color: #7dd3fc; }
         .d-card.orange h4 { color: #fcd34d; }
         .d-card.green h4 { color: #6ee7b7; }
-        .d-card p { margin: 0; font-size: 13px; color: #e2e8f0; }
+        .d-card p { margin: 0; font-size: 13px; color: #e2e8f0; white-space: pre-line; line-height: 1.55; }
 
         .check-item {
             display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; font-size: 12.5px; cursor: pointer;
@@ -227,6 +306,11 @@
             <button type="button" onclick="fetchData(true)" class="btn-primary">Làm mới ngay</button>
             <button type="button" onclick="exportApprovalsJson()" class="btn-primary" title="Xuất danh sách các hạng mục đã chọn Duyệt / Chờ / Hủy thành JSON">Xuất quyết định duyệt (JSON)</button>
             <button type="button" onclick="exportCsv()" class="btn-green">Xuất Excel (CSV)</button>
+            <span style="display:inline-flex;align-items:center;background:rgba(7,11,20,0.85);border:1px solid var(--border);border-radius:10px;padding:2px;gap:2px">
+                <a href="13_BANG_THEO_DOI_KHUYET_TAT.html" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;border-radius:8px;background:rgba(56,189,248,0.18);color:#7dd3fc;box-shadow:inset 0 0 0 1px rgba(56,189,248,0.4);font-size:12px;font-weight:700">📋 Theo dõi</a>
+                <a href="19_SO_TAY_VAN_HANH_SLAVE.html" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;border-radius:8px;color:#94a3b8;font-size:12px;font-weight:700">🏪 SLAVE</a>
+                <a href="20_SO_TAY_VAN_HANH_MASTER.html" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;border-radius:8px;color:#94a3b8;font-size:12px;font-weight:700">🏛️ MASTER</a>
+            </span>
         </div>
     </div>
 
@@ -268,6 +352,8 @@
         <button type="button" class="tab-btn active" id="tab-btn-items" onclick="switchTab('items')">1. Theo Dõi Khuyết Tật &amp; Nâng Cấp (<span id="cnt-items">0</span>)</button>
         <button type="button" class="tab-btn" id="tab-btn-js" onclick="switchTab('js')">2. Kiểm Tra Toàn Bộ File JavaScript (<span id="cnt-js">0</span>)</button>
         <button type="button" class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">3. Nhật Ký Cập Nhật Theo Ngày (<span id="cnt-log">0</span>)</button>
+        <button type="button" class="tab-btn" id="tab-btn-arch" onclick="switchTab('arch')">4. Kiến Trúc, Bảo Mật, SOP &amp; Restore (<span id="cnt-arch">v2.5</span>)</button>
+        <button type="button" class="tab-btn" id="tab-btn-code" onclick="switchTab('code')">5. Cấu trúc Folder, File, Link (<span id="cnt-code">0</span>)</button>
     </div>
 
     <!-- TAB 1: ITEMS -->
@@ -284,6 +370,7 @@
                 <option value="HR">Nhóm VI: Chấm công, Ca, Lương &amp; OT</option>
                 <option value="PAY">Nhóm VII: Thanh toán, Gian lận &amp; Két tiền</option>
                 <option value="ANTISPAM">Nhóm VIII: Chống Mã độc &amp; Spam đơn rác</option>
+                <option value="DOC">Nhóm IX: Rà soát, Cập nhật &amp; Lược bỏ Tài liệu (docs/)</option>
             </select>
             <select id="f-prio" onchange="renderItems()">
                 <option value="ALL">Mọi ưu tiên</option>
@@ -311,14 +398,14 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width:155px">Mã / Nhóm</th>
-                        <th style="width:235px">Hạng mục</th>
-                        <th style="width:74px">Ưu tiên</th>
-                        <th style="width:160px">Trạng thái</th>
-                        <th style="width:128px">Ngày giờ nạp</th>
-                        <th style="width:142px">Ngày giờ xử lý / OTA</th>
-                        <th style="min-width:240px">Tóm tắt thực trạng</th>
-                        <th style="width:210px;text-align:center">Duyệt / Chờ / Hủy</th>
+                        <th style="width:10%">Mã / Nhóm</th>
+                        <th style="width:19%">Hạng mục</th>
+                        <th style="width:6%">Ưu tiên</th>
+                        <th style="width:11%">Trạng thái</th>
+                        <th style="width:9%">Ngày nạp</th>
+                        <th style="width:11%">Xử lý / OTA</th>
+                        <th style="width:20%">Tóm tắt thực trạng</th>
+                        <th style="width:14%;text-align:center">Duyệt / Chờ / Hủy</th>
                     </tr>
                 </thead>
                 <tbody id="tbody-items"></tbody>
@@ -380,9 +467,34 @@
             </table>
         </div>
     </section>
+
+    <!-- TAB 4: ARCHITECTURE, SECURITY, BUSINESS/AI, MEDIA, SOP-09 & RESTORE POINTS -->
+    <section id="pane-arch" class="hidden">
+        <div class="sub-pills" id="arch-sub-pills">
+            <button type="button" class="sub-pill active" data-arch="overview" onclick="switchArchSub('overview')">🏗️ Kiến trúc &amp; 3 DLL</button>
+            <button type="button" class="sub-pill" data-arch="network_hybrid" onclick="switchArchSub('network_hybrid')">🌐 Mạng Hybrid (ER-X + UniFi)</button>
+            <button type="button" class="sub-pill" data-arch="security" onclick="switchArchSub('security')">🔐 Bảo mật ECDSA P-256</button>
+            <button type="button" class="sub-pill" data-arch="business_ai" onclick="switchArchSub('business_ai')">💰 Kinh doanh &amp; AI Vault</button>
+            <button type="button" class="sub-pill" data-arch="media_dsp" onclick="switchArchSub('media_dsp')">🎵 Media &amp; 10-Band EQ</button>
+            <button type="button" class="sub-pill" data-arch="sop09" onclick="switchArchSub('sop09')">📦 SOP-09 &amp; Cài đặt</button>
+            <button type="button" class="sub-pill" data-arch="restore_points" onclick="switchArchSub('restore_points')">♻️ Mốc Khôi Phục (5)</button>
+        </div>
+        <div id="arch-view" class="arch-scroll"></div>
+    </section>
+
+    <!-- TAB 5: CODEBASE MAP (FOLDERS, FILES, FUNCTIONS, DEPENDENCIES, LAYER LINKS) -->
+    <section id="pane-code" class="hidden">
+        <div class="sub-pills" id="code-sub-pills">
+            <button type="button" class="sub-pill active" data-code="tree" onclick="switchCodeSub('tree')">📁 Cây Thư Mục &amp; 9 Build Targets</button>
+            <button type="button" class="sub-pill" data-code="files" onclick="switchCodeSub('files')">📄 Tra Cứu File, Hàm &amp; Phụ Thuộc (<span id="cnt-code-files">0</span>)</button>
+            <button type="button" class="sub-pill" data-code="links" onclick="switchCodeSub('links')">🔗 Mối Liên Kết 5 Tầng &amp; Slave ↔ Master</button>
+        </div>
+        <div id="code-view"></div>
+    </section>
 </div>
 
 <script src="qa_tracker_data.js"></script>
+<script src="qa_arch_codebase_data.js"></script>
 <script>
 const STATE = {
     data: null,
@@ -410,7 +522,8 @@ const GROUP_OPTION_LABELS = {
     ARCH: 'Nhóm V: Kiến trúc & Mạng',
     HR: 'Nhóm VI: Chấm công, Ca, Lương & OT',
     PAY: 'Nhóm VII: Thanh toán, Gian lận & Két tiền',
-    ANTISPAM: 'Nhóm VIII: Chống Mã độc & Spam đơn rác'
+    ANTISPAM: 'Nhóm VIII: Chống Mã độc & Spam đơn rác',
+    DOC: 'Nhóm IX: Rà soát, Cập nhật & Lược bỏ Tài liệu (docs/)'
 };
 
 function nowLocalTs() {
@@ -566,10 +679,14 @@ function quickFilterStatus(st) {
 
 function switchTab(tab) {
     STATE.activeTab = tab;
-    ['items', 'js', 'log'].forEach(t => {
-        document.getElementById(`pane-${t}`).classList.toggle('hidden', t !== tab);
-        document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
+    ['items', 'js', 'log', 'arch', 'code'].forEach(t => {
+        const p = document.getElementById(`pane-${t}`);
+        const b = document.getElementById(`tab-btn-${t}`);
+        if (p) p.classList.toggle('hidden', t !== tab);
+        if (b) b.classList.toggle('active', t === tab);
     });
+    if (tab === 'arch') renderArch();
+    if (tab === 'code') renderCodebase();
 }
 
 function renderScorecard() {
@@ -662,7 +779,7 @@ function renderItems() {
                     <div>${esc(fixedDisp)}</div>
                     ${it.ota_version && it.ota_version !== '—' ? `<div style="color:#7dd3fc;font-size:11px">${esc(it.ota_version)}</div>` : ''}
                 </td>
-                <td style="color:#cbd5e1">${esc(it.summary)}</td>
+                <td style="color:#cbd5e1;white-space:pre-line;line-height:1.55">${esc(it.summary)}</td>
                 <td style="text-align:center" onclick="event.stopPropagation()">${apprCellHtml}</td>
             </tr>
         `;
@@ -814,9 +931,9 @@ function startLiveLoop() {
     }, 3000);
 }
 
-function exportApprovalsJson() {
-    if (!STATE.data) return;
-    const decisions = (STATE.data.items || []).map(it => {
+let _approvalFileHandle = null;
+function buildApprovalsPayload() {
+    const decisions = (STATE.data && STATE.data.items ? STATE.data.items : []).map(it => {
         const ap = getApprovalInfo(it);
         return {
             id: it.id,
@@ -827,16 +944,59 @@ function exportApprovalsJson() {
             approved_at: ap.at || null
         };
     });
-    const payload = {
+    return {
         exported_at: nowLocalTs(),
-        latest_ota: (STATE.data.meta && STATE.data.meta.latest_ota) || '—',
+        latest_ota: (STATE.data && STATE.data.meta && STATE.data.meta.latest_ota) || '—',
         summary: {
+            approved_todo: decisions.filter(d => d.status !== 'done' && d.approval === 'approved').map(d => d.id),
+            pending_todo: decisions.filter(d => d.status !== 'done' && d.approval === 'pending').map(d => d.id),
+            rejected_todo: decisions.filter(d => d.status !== 'done' && d.approval === 'rejected').map(d => d.id),
             approved: decisions.filter(d => d.approval === 'approved').map(d => d.id),
             rejected: decisions.filter(d => d.approval === 'rejected').map(d => d.id),
             pending: decisions.filter(d => d.approval === 'pending').map(d => d.id)
         },
         decisions
     };
+}
+
+async function saveApprovalsToDisk() {
+    if (!STATE.data) return;
+    const payload = buildApprovalsPayload();
+    const jsonText = JSON.stringify(payload, null, 2);
+    const btn = document.getElementById('btn-save-approvals-disk');
+    try {
+        if (window.showSaveFilePicker) {
+            if (!_approvalFileHandle) {
+                _approvalFileHandle = await window.showSaveFilePicker({
+                    suggestedName: 'qa_approvals.json',
+                    types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+                });
+            }
+            const writable = await _approvalFileHandle.createWritable();
+            await writable.write(jsonText);
+            await writable.close();
+            if (btn) {
+                btn.textContent = `✅ Đã lưu (${payload.summary.approved_todo.length} duyệt / ${payload.summary.pending_todo.length} chờ)`;
+                setTimeout(() => { btn.textContent = '💾 Lưu Duyệt → qa_approvals.json'; }, 3500);
+            }
+            return;
+        }
+    } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        _approvalFileHandle = null;
+    }
+    // Fallback download
+    const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'qa_approvals.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function exportApprovalsJson() {
+    if (!STATE.data) return;
+    const payload = buildApprovalsPayload();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -866,6 +1026,861 @@ function exportCsv() {
     URL.revokeObjectURL(a.href);
 }
 
+
+const ARCH_STATE = { sub: 'overview' };
+const CODE_STATE = {
+    sub: 'tree', folder: 'ALL', lang: 'ALL', q: '', expanded: new Set(),
+    openDirs: new Set(['cybernexus-os', 'master', 'master/src', 'slave', 'slave/src', 'shared', 'modules', 'launcher']),
+    selectedNode: null
+};
+function toggleTreeDir(dir) {
+    if (CODE_STATE.openDirs.has(dir)) CODE_STATE.openDirs.delete(dir);
+    else CODE_STATE.openDirs.add(dir);
+    CODE_STATE.selectedNode = { type: 'dir', path: dir };
+    renderCodebase();
+}
+function selectTreeFile(path) {
+    CODE_STATE.selectedNode = { type: 'file', path };
+    renderCodebase();
+}
+function setAllTreeDirs(open) {
+    const C = window.QA_ARCH_CODEBASE && window.QA_ARCH_CODEBASE.codebase;
+    if (!C) return;
+    CODE_STATE.openDirs.clear();
+    if (open) {
+        CODE_STATE.openDirs.add('cybernexus-os');
+        C.files.forEach(f => {
+            const parts = f.path.split('/');
+            let acc = '';
+            for (let i = 0; i < parts.length - 1; i++) {
+                acc = acc ? acc + '/' + parts[i] : parts[i];
+                CODE_STATE.openDirs.add(acc);
+            }
+        });
+    } else {
+        CODE_STATE.openDirs.add('cybernexus-os');
+    }
+    renderCodebase();
+}
+
+function openImgLightbox(src, alt) { const lb=document.getElementById("imgLightbox"), im=document.getElementById("imgLightboxPic"); if(lb&&im){ im.src=src; im.alt=alt||""; lb.classList.add("open"); } }
+function switchArchSub(sub) {
+    ARCH_STATE.sub = sub;
+    document.querySelectorAll('#arch-sub-pills .sub-pill').forEach(b => b.classList.toggle('active', b.getAttribute('data-arch') === sub));
+    renderArch();
+}
+
+function refreshArchCodebase() {
+    const btn = document.getElementById('btn-refresh-arch');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang nạp...'; }
+    const old = document.getElementById('qa-arch-reload-script');
+    if (old) old.remove();
+    const s = document.createElement('script');
+    s.id = 'qa-arch-reload-script';
+    s.src = 'qa_arch_codebase_data.js?v=' + Date.now();
+    s.onload = () => {
+        renderArch();
+        const b = document.getElementById('btn-refresh-arch');
+        if (b) {
+            b.textContent = '✅ Đã cập nhật';
+            setTimeout(() => { b.disabled = false; b.textContent = '🔄 Cập nhật / Refresh'; }, 2000);
+        }
+    };
+    s.onerror = () => {
+        const b = document.getElementById('btn-refresh-arch');
+        if (b) { b.disabled = false; b.textContent = '🔄 Cập nhật / Refresh'; }
+    };
+    document.body.appendChild(s);
+}
+
+function renderArch() {
+    const root = document.getElementById('arch-view');
+    const D = window.QA_ARCH_CODEBASE && window.QA_ARCH_CODEBASE.arch;
+    if (!D) { root.innerHTML = '<div class="arch-card">Không tải được qa_arch_codebase_data.js</div>'; return; }
+    const s = ARCH_STATE.sub;
+    if (s === 'overview') {
+        const o = D.overview;
+        const sysSvg = `
+        <div class="svg-wrap">
+          <svg viewBox="0 0 1120 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+            <defs>
+              <marker id="arrSky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+              </marker>
+              <marker id="arrVio" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#a78bfa"/>
+              </marker>
+              <marker id="arrEm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+              </marker>
+              <linearGradient id="gMaster" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#3b0764" stop-opacity="0.72"/>
+                <stop offset="100%" stop-color="#0f172a" stop-opacity="0.92"/>
+              </linearGradient>
+              <linearGradient id="gSlave" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#0c4a6e" stop-opacity="0.65"/>
+                <stop offset="100%" stop-color="#0f172a" stop-opacity="0.92"/>
+              </linearGradient>
+            </defs>
+
+            <!-- ZONE 1: MASTER CLOUD -->
+            <rect x="14" y="14" width="320" height="402" rx="16" fill="url(#gMaster)" stroke="#a78bfa" stroke-opacity="0.45" stroke-width="1.5"/>
+            <text x="32" y="42" fill="#c4b5fd" font-size="13" font-weight="800">🏛️ MASTER CLOUD SAAS (:8500)</text>
+            <text x="32" y="59" fill="#94a3b8" font-size="11">Điều hành chuỗi • Không đóng gói xuống quán</text>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('master/web')">
+              <rect x="30" y="74" width="288" height="62" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-opacity="0.6"/>
+              <text x="44" y="96" fill="#e0e7ff" font-size="12.5" font-weight="700">Super Admin Web UI (3 HTML)</text>
+              <text x="44" y="114" fill="#a5b4fc" font-size="10.8">10 Tab quản trị · Theme Studio · I18N Studio</text>
+              <text x="44" y="128" fill="#94a3b8" font-size="10">5 vai trò RBAC • Audit Trail • SOP-09 1-Click</text>
+            </g>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('master/src')">
+              <rect x="30" y="152" width="288" height="84" rx="10" fill="#1e293b" stroke="#a78bfa" stroke-width="1.4"/>
+              <text x="44" y="175" fill="#f8fafc" font-size="13" font-weight="800">cybernexus_master.exe (C++17)</text>
+              <text x="44" y="193" fill="#c4b5fd" font-size="10.8">42 API Routes · 79 Actions · --sign-dll ECDSA</text>
+              <text x="44" y="209" fill="#94a3b8" font-size="10.5">AI Vault (Zero-Exposure) • Đại lý 4 hạng</text>
+              <text x="44" y="224" fill="#94a3b8" font-size="10.5">Self-Billing VietQR • Kho OTA Archive</text>
+            </g>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('master/src')">
+              <rect x="30" y="252" width="288" height="58" rx="10" fill="#0f172a" stroke="#34d399" stroke-opacity="0.55"/>
+              <text x="44" y="275" fill="#6ee7b7" font-size="12.5" font-weight="700">🗄️ cybernexus_master.db (SQLite)</text>
+              <text x="44" y="293" fill="#94a3b8" font-size="10.8">38 bảng: saas_tenants, resellers, ai_keys, audit...</text>
+            </g>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('launcher')">
+              <rect x="30" y="326" width="288" height="72" rx="10" fill="#0f172a" stroke="#fbbf24" stroke-opacity="0.5"/>
+              <text x="44" y="349" fill="#fde68a" font-size="12" font-weight="700">🛠️ Launcher &amp; Cứu Hộ Nội Bộ</text>
+              <text x="44" y="366" fill="#cbd5e1" font-size="10.5">• Control Center (Master Tray)</text>
+              <text x="44" y="382" fill="#cbd5e1" font-size="10.5">• Setup Stub (1-Click) · Vault Admin (Cứu hộ)</text>
+            </g>
+
+            <line x1="174" y1="136" x2="174" y2="150" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#arrVio)"/>
+            <line x1="174" y1="236" x2="174" y2="250" stroke="#34d399" stroke-width="1.6" marker-end="url(#arrEm)"/>
+
+            <!-- ZONE 2: WAN BRIDGE -->
+            <g class="svg-node" onclick="switchArchSub('security')">
+              <rect x="364" y="106" width="212" height="196" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-dasharray="5 4" stroke-width="1.5"/>
+              <text x="470" y="132" text-anchor="middle" fill="#38bdf8" font-size="12.5" font-weight="800">🌐 KÊNH WAN &amp; BẢO MẬT</text>
+              <text x="470" y="154" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="700">Reverse Long-Polling Tunnel</text>
+              <text x="470" y="170" text-anchor="middle" fill="#94a3b8" font-size="10">/api/license/poll • /ack • /verify</text>
+              <line x1="382" y1="184" x2="558" y2="184" stroke="#334155"/>
+              <text x="470" y="203" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="700">🔐 ECDSA P-256 (CNG)</text>
+              <text x="470" y="219" text-anchor="middle" fill="#94a3b8" font-size="10">Khóa HW ID • Anti-Tamper 6 trường</text>
+              <line x1="382" y1="232" x2="558" y2="232" stroke="#334155"/>
+              <text x="470" y="251" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="700">🤖 AI Proxy · 🧾 Billing · ☁️ OTA</text>
+              <text x="470" y="267" text-anchor="middle" fill="#94a3b8" font-size="10">/api/ai/proxy • /api/billing/*</text>
+              <text x="470" y="283" text-anchor="middle" fill="#94a3b8" font-size="10">/api/updates/* • /api/slave/backup</text>
+            </g>
+
+            <!-- Bidirectional arrows Master <-> Bridge <-> Slave -->
+            <line x1="334" y1="194" x2="362" y2="194" stroke="#38bdf8" stroke-width="2" marker-start="url(#arrSky)" marker-end="url(#arrSky)"/>
+            <line x1="578" y1="194" x2="606" y2="194" stroke="#38bdf8" stroke-width="2" marker-start="url(#arrSky)" marker-end="url(#arrSky)"/>
+
+            <!-- ZONE 3: SLAVE EDGE NODE -->
+            <rect x="608" y="14" width="498" height="402" rx="16" fill="url(#gSlave)" stroke="#38bdf8" stroke-opacity="0.48" stroke-width="1.5"/>
+            <text x="626" y="42" fill="#7dd3fc" font-size="13" font-weight="800">🏪 SLAVE EDGE NODE TẠI QUÁN (:8501 — 100% OFFLINE)</text>
+            <text x="626" y="59" fill="#94a3b8" font-size="11">Hoạt động độc lập khi mất Internet • Không chứa mã SuperAdmin</text>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('slave/web')">
+              <rect x="624" y="74" width="466" height="68" rx="10" fill="#0f172a" stroke="#38bdf8" stroke-opacity="0.6"/>
+              <text x="638" y="96" fill="#e0f2fe" font-size="12.5" font-weight="700">📱 10 Màn Hình Web LAN (30 Module JS · web_integrity.json)</text>
+              <text x="638" y="114" fill="#7dd3fc" font-size="10.8">POS (/index) · Admin 11 Tab (/admin) · Bếp KDS (/kitchen) · Phục vụ (/order)</text>
+              <text x="638" y="130" fill="#94a3b8" font-size="10.5">Khách QR (/customer) · Online · Chấm công HR-11 · WiFi Portal · Login · I18N Studio</text>
+            </g>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('slave/src')">
+              <rect x="624" y="160" width="266" height="90" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="638" y="182" fill="#f8fafc" font-size="13" font-weight="800">cybernexus_slave.exe</text>
+              <text x="638" y="200" fill="#7dd3fc" font-size="10.8">78 API Routes · 154 C++ Actions</text>
+              <text x="638" y="216" fill="#94a3b8" font-size="10.5">POS/KDS/Kho/Lương/KPI/Hikvision</text>
+              <text x="638" y="232" fill="#94a3b8" font-size="10.5">In ESC/POS • Két tiền • Anti-Spam</text>
+            </g>
+
+            <g class="svg-node" onclick="jumpToCodeFolder('shared')">
+              <rect x="904" y="160" width="186" height="90" rx="10" fill="#0f172a" stroke="#34d399" stroke-opacity="0.6"/>
+              <text x="916" y="182" fill="#6ee7b7" font-size="12" font-weight="800">🗄️ store_local.db</text>
+              <text x="916" y="200" fill="#cbd5e1" font-size="10.5">SQLite 3 WAL Mode</text>
+              <text x="916" y="216" fill="#94a3b8" font-size="10.5">42 bảng dữ liệu cục bộ</text>
+              <text x="916" y="232" fill="#fcd34d" font-size="10">shared/ (25 file lõi)</text>
+            </g>
+
+            <!-- 3 Plugin DLLs -->
+            <g class="svg-node" onclick="jumpToCodeFolder('modules')">
+              <rect x="624" y="268" width="148" height="64" rx="10" fill="#1e1b4b" stroke="#a78bfa" stroke-opacity="0.65"/>
+              <text x="634" y="289" fill="#ddd6fe" font-size="11.5" font-weight="700">🎵 mod_media_stream</text>
+              <text x="634" y="305" fill="#94a3b8" font-size="10">.dll + .sig v2 ECDSA</text>
+              <text x="634" y="320" fill="#7dd3fc" font-size="9.8">10-Band EQ · Jukebox · YT</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('modules')">
+              <rect x="783" y="268" width="148" height="64" rx="10" fill="#1e1b4b" stroke="#a78bfa" stroke-opacity="0.65"/>
+              <text x="793" y="289" fill="#ddd6fe" font-size="11.5" font-weight="700">📶 mod_network_qos</text>
+              <text x="793" y="305" fill="#94a3b8" font-size="10">.dll + .sig v2 ECDSA</text>
+              <text x="793" y="320" fill="#7dd3fc" font-size="9.8">WiFi Portal · Router QoS</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('modules')">
+              <rect x="942" y="268" width="148" height="64" rx="10" fill="#1e1b4b" stroke="#a78bfa" stroke-opacity="0.65"/>
+              <text x="952" y="289" fill="#ddd6fe" font-size="11.5" font-weight="700">💳 mod_card_payment</text>
+              <text x="952" y="305" fill="#94a3b8" font-size="10">.dll + .sig v2 ECDSA</text>
+              <text x="952" y="320" fill="#7dd3fc" font-size="9.8">SmartPOS ECR · Lô thẻ</text>
+            </g>
+
+            <!-- Control Center Slave -->
+            <g class="svg-node" onclick="jumpToCodeFolder('launcher')">
+              <rect x="624" y="346" width="466" height="52" rx="10" fill="#0f172a" stroke="#fbbf24" stroke-opacity="0.55"/>
+              <text x="638" y="368" fill="#fde68a" font-size="12" font-weight="700">🖥️ CyberNexus_Control_Center.exe (System Tray — Không CMD đen)</text>
+              <text x="638" y="385" fill="#94a3b8" font-size="10.5">Kiểm tra Port/3 DLL/Web SHA-256/SQLite · Cập nhật OTA 6 bước an toàn · Mở file PIN 6 số</text>
+            </g>
+
+            <line x1="757" y1="142" x2="757" y2="158" stroke="#38bdf8" stroke-width="1.6" marker-end="url(#arrSky)"/>
+            <line x1="890" y1="205" x2="902" y2="205" stroke="#34d399" stroke-width="1.6" marker-end="url(#arrEm)"/>
+            <line x1="698" y1="250" x2="698" y2="266" stroke="#a78bfa" stroke-width="1.4" marker-end="url(#arrVio)"/>
+            <line x1="857" y1="250" x2="857" y2="266" stroke="#a78bfa" stroke-width="1.4" marker-end="url(#arrVio)"/>
+            <line x1="757" y1="250" x2="1016" y2="266" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrVio)"/>
+          </svg>
+          <div class="svg-hint">💡 Bấm trực tiếp vào bất kỳ khối nào trên sơ đồ để nhảy sang danh sách file &amp; hàm tương ứng ở Tab 5!</div>
+        </div>`;
+        root.innerHTML = `
+            <div class="arch-card" style="margin-bottom:12px">
+                <h3>🚀 Kiến Trúc Tổng Quan CyberNexus OS ${esc(o.version)} (OTA ${esc(o.ota)})</h3>
+                <p>${esc(o.summary)}</p>
+            </div>
+            ${sysSvg}
+            <div class="arch-grid">
+                ${o.pillars.map(p => `<div class="arch-card"><h3>${esc(p.title)}</h3><p>${esc(p.desc)}</p></div>`).join('')}
+            </div>
+            <div class="arch-card" style="margin-top:12px">
+                <h3>🎨 Thư Viện Infographic Minh Họa Hệ Thống (Bấm ảnh để phóng to toàn màn hình)</h3>
+                <div class="img-gallery">
+                    <div class="img-card" onclick="openImgLightbox('images/master_superadmin_overview.png','Master Super Admin SaaS')">
+                        <img src="images/master_superadmin_overview.png" alt="Master Super Admin" loading="lazy">
+                        <div class="img-cap"><span>🏛️ Master Super Admin (:8500)</span><span class="chip chip-vio">🔍 Zoom</span></div>
+                    </div>
+                    <div class="img-card" onclick="openImgLightbox('images/slave_pos_workflow.png','Slave Store Workflow')">
+                        <img src="images/slave_pos_workflow.png" alt="Slave Workflow" loading="lazy">
+                        <div class="img-cap"><span>🏪 Luồng Vận Hành Slave (:8501)</span><span class="chip chip-sky">🔍 Zoom</span></div>
+                    </div>
+                    <div class="img-card" onclick="openImgLightbox('images/sla_kpi_dashboard_guide.png','SLA & KPI Dashboard')">
+                        <img src="images/sla_kpi_dashboard_guide.png" alt="SLA & KPI" loading="lazy">
+                        <div class="img-cap"><span>⭐ Cấu Hình SLA &amp; KPI Sao</span><span class="chip chip-em">🔍 Zoom</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="arch-card">
+                <h3>🔌 Event Bus &amp; Giao Tiếp Liên Phân Hệ Thực Tế</h3>
+                <div class="table-box" style="max-height:none;min-height:0;margin-top:8px">
+                    <table class="arch-table">
+                        <thead><tr><th>Sự kiện</th><th>Bên phát</th><th>Bên nhận</th><th>Ý nghĩa nghiệp vụ</th></tr></thead>
+                        <tbody>
+                            ${o.event_bus.map(e => `<tr class="main-row" style="cursor:default">
+                                <td class="mono" style="color:#7dd3fc"><b>${esc(e.event)}</b></td>
+                                <td>${esc(e.pub)}</td><td>${esc(e.sub)}</td><td>${esc(e.desc)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    } else if (s === 'security') {
+        const sec = D.security;
+        root.innerHTML = `
+            <div class="arch-card" style="margin-bottom:12px">
+                <h3>🔐 Cơ Chế Bảo Mật &amp; Cấp Phép Hiện Hành</h3>
+                <p><b>Thuật toán chuẩn:</b> <span class="chip chip-sky">${esc(sec.algo)}</span></p>
+            </div>
+            <div class="arch-grid">
+                ${sec.points.map(p => `<div class="arch-card"><h3>🛡️ ${esc(p.name)}</h3><p>${esc(p.detail)}</p></div>`).join('')}
+            </div>`;
+    } else if (s === 'business_ai') {
+        const b = D.business_ai;
+        root.innerHTML = `
+            <div class="arch-grid">
+                ${b.pillars.map(p => `<div class="arch-card"><h3>💎 ${esc(p.name)}</h3><p>${esc(p.detail)}</p></div>`).join('')}
+            </div>
+            <div class="arch-grid">
+                <div class="arch-card">
+                    <h3>✅ 5 Năng Lực AI Đang Chạy Thật (v2.5.0)</h3>
+                    <ul>${b.ai_real.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+                </div>
+                <div class="arch-card">
+                    <h3>🧭 Định Hướng Mở Rộng Tương Lai (Chưa triển khai)</h3>
+                    <ul>${b.ai_future.map(x => `<li style="color:var(--muted)">${esc(x)}</li>`).join('')}</ul>
+                </div>
+            </div>`;
+    } else if (s === 'media_dsp') {
+        const m = D.media_dsp;
+        root.innerHTML = `
+            <div class="arch-card" style="margin-bottom:12px">
+                <h3>🎵 Media Server &amp; Smart Jukebox (Đã Hoàn Thiện v2.5.0)</h3>
+                <ul>${m.features_v25.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+            </div>
+            <div class="arch-card">
+                <h3>🎛️ Bảng 10 Dải Tần 10-Band DSP Equalizer</h3>
+                <div class="table-box" style="max-height:none;min-height:0;margin-top:8px">
+                    <table class="arch-table">
+                        <thead><tr><th style="width:110px">Dải tần</th><th style="width:180px">Phân vùng</th><th>Ý nghĩa âm học</th></tr></thead>
+                        <tbody>
+                            ${m.eq_bands.map(r => `<tr class="main-row" style="cursor:default">
+                                <td class="mono" style="color:#7dd3fc"><b>${esc(r[0])}</b></td>
+                                <td><b>${esc(r[1])}</b></td><td>${esc(r[2])}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    } else if (s === 'sop09') {
+        const sp = D.sop09;
+        root.innerHTML = `
+            <div class="arch-grid">
+                ${sp.steps.map(st => `<div class="arch-card"><h3>${esc(st.step)}</h3><p>${esc(st.detail)}</p></div>`).join('')}
+            </div>
+            <div class="arch-card">
+                <h3>🛠️ Sổ Tay Xử Lý Sự Cố Cài Đặt &amp; Nghiệm Thu (v2.5.0)</h3>
+                <div class="table-box" style="max-height:none;min-height:0;margin-top:8px">
+                    <table class="arch-table">
+                        <thead><tr><th style="width:28%">Hiện tượng</th><th style="width:30%">Nguyên nhân</th><th>Cách xử lý chuẩn</th></tr></thead>
+                        <tbody>
+                            ${sp.troubleshoot.map(r => `<tr class="main-row" style="cursor:default">
+                                <td style="color:#fda4af"><b>${esc(r[0])}</b></td>
+                                <td>${esc(r[1])}</td><td style="color:#a7f3d0">${esc(r[2])}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    } else if (s === 'restore_points') {
+        root.innerHTML = `
+            <div class="arch-card">
+                <h3>♻️ Danh Sách 5 Mốc Khôi Phục Chính Thức (Git Tag / Branch / OTA)</h3>
+                <div class="table-box" style="max-height:none;min-height:0;margin-top:8px">
+                    <table class="arch-table">
+                        <thead><tr><th style="width:110px">Phiên bản</th><th style="width:130px">OTA</th><th style="width:150px">Tag / Branch</th><th>Đặc điểm &amp; Lệnh khôi phục</th></tr></thead>
+                        <tbody>
+                            ${D.restore_points.map(rp => `<tr class="main-row" style="cursor:default">
+                                <td><b>${esc(rp.ver)}</b> ${rp.current ? '<span class="badge st-done" style="margin-top:4px">HIỆN TẠI</span>' : ''}</td>
+                                <td class="mono" style="color:#7dd3fc">${esc(rp.ota)}</td>
+                                <td class="mono">${esc(rp.tag)}<br><span style="color:var(--muted)">${esc(rp.branch)}</span></td>
+                                <td><div>${esc(rp.notes)}</div><div class="mono" style="margin-top:4px;font-size:11.5px;color:#fcd34d">git checkout ${esc(rp.tag)}</div></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    } else if (s === 'network_hybrid') {
+        const H = D.hybrid_network;
+        if (!H) { root.innerHTML = '<div class="arch-card">Chưa có dữ liệu kiến trúc mạng Hybrid.</div>'; return; }
+        const hybridSvg = `
+        <div class="svg-wrap">
+          <svg viewBox="0 0 1120 420" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+            <defs>
+              <marker id="hArrSky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/></marker>
+              <marker id="hArrEm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/></marker>
+              <marker id="hArrAm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24"/></marker>
+              <marker id="hArrRo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#fb7185"/></marker>
+            </defs>
+
+            <!-- TOP: INTERNET / DUAL WAN -->
+            <rect x="390" y="10" width="340" height="44" rx="12" fill="#0f172a" stroke="#38bdf8" stroke-width="1.4"/>
+            <text x="560" y="30" text-anchor="middle" fill="#7dd3fc" font-size="12.5" font-weight="800">☁️ INTERNET / DUAL-WAN (FPT + Viettel/4G)</text>
+            <text x="560" y="45" text-anchor="middle" fill="#94a3b8" font-size="10">Safe WiFi DNS (1.1.1.2 / 1.1.1.3 / AdGuard) • Master SaaS Tunnel</text>
+
+            <line x1="560" y1="54" x2="560" y2="74" stroke="#38bdf8" stroke-width="2" marker-end="url(#hArrSky)"/>
+
+            <!-- LAYER L3/L4: EDGEROUTER X -->
+            <rect x="210" y="76" width="700" height="92" rx="14" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.8"/>
+            <text x="230" y="100" fill="#c7d2fe" font-size="13.5" font-weight="800">🛡️ LỚP L3/L4 — EDGEROUTER X (172.16.0.1 • SSH :22) — GATEWAY &amp; FIREWALL TỔNG</text>
+            <text x="230" y="120" fill="#e2e8f0" font-size="11">• Phân 2 VLAN: VLAN 10 (Nội bộ POS) &amp; VLAN 20 (WiFi Khách)  • Dual-WAN Failover (&lt;5s) &amp; DHCP Server</text>
+            <text x="230" y="138" fill="#a5b4fc" font-size="11">• Firewall GUEST_IN: ACCEPT duy nhất TCP POS:8501 — DROP toàn bộ RFC1918 &amp; khóa cổng 3389 / 445 / 11443</text>
+            <text x="230" y="155" fill="#6ee7b7" font-size="11">• Smart Queue (FQ-CoDel): Ưu tiên 25–30% băng thông cho POS/VietQR • Giới hạn 150 phiên TCP/khách</text>
+
+            <!-- SPLIT TO VLAN 10 (LEFT) AND VLAN 20 (RIGHT) -->
+            <line x1="340" y1="168" x2="290" y2="202" stroke="#34d399" stroke-width="2" marker-end="url(#hArrEm)"/>
+            <line x1="780" y1="168" x2="830" y2="202" stroke="#fbbf24" stroke-width="2" marker-end="url(#hArrAm)"/>
+
+            <!-- LEFT ZONE: VLAN 10 TRUSTED (POS + UNIFI OS + INTERNAL) -->
+            <rect x="16" y="204" width="530" height="202" rx="14" fill="#064e3b" fill-opacity="0.28" stroke="#34d399" stroke-width="1.5"/>
+            <text x="34" y="228" fill="#6ee7b7" font-size="12.5" font-weight="800">🟢 VLAN 10 — VÙNG NỘI BỘ TIN CẬY (Nội bộ ∞ • Miễn trừ IPS &amp; Thời lượng)</text>
+
+            <rect x="32" y="242" width="248" height="148" rx="10" fill="#0f172a" stroke="#38bdf8" stroke-width="1.4"/>
+            <text x="46" y="264" fill="#7dd3fc" font-size="12" font-weight="800">🖥️ Máy Chủ POS (172.16.38.119)</text>
+            <text x="46" y="282" fill="#e2e8f0" font-size="10.5">• cybernexus_slave.exe (:8501)</text>
+            <text x="46" y="298" fill="#e2e8f0" font-size="10.5">• libmod_network_qos.dll (Hybrid)</text>
+            <text x="46" y="314" fill="#fca5a5" font-size="10.5">• Smart IPS 3 bậc (Flood/WAF)</text>
+            <text x="46" y="330" fill="#fcd34d" font-size="10.5">• Admin IP Guard Lớp 3</text>
+            <text x="46" y="346" fill="#a5b4fc" font-size="10.5">• UniFi OS Server API (:11443)</text>
+            <text x="46" y="362" fill="#94a3b8" font-size="10">  Cookie Cache 15p • Giám sát NOC</text>
+
+            <rect x="294" y="242" width="236" height="148" rx="10" fill="#0f172a" stroke="#34d399" stroke-opacity="0.6"/>
+            <text x="308" y="264" fill="#6ee7b7" font-size="12" font-weight="800">🖨️ Thiết Bị Nội Bộ Quán</text>
+            <text x="308" y="284" fill="#cbd5e1" font-size="10.8">• Máy in hóa đơn LAN (:9100)</text>
+            <text x="308" y="302" fill="#cbd5e1" font-size="10.8">• Màn hình Bếp KDS / Thu ngân</text>
+            <text x="308" y="320" fill="#cbd5e1" font-size="10.8">• Camera CCTV &amp; Chấm công</text>
+            <text x="308" y="338" fill="#cbd5e1" font-size="10.8">• ĐT Chủ quán &amp; Nhân viên</text>
+            <text x="308" y="362" fill="#6ee7b7" font-size="10">✔ Lưu Whitelist theo cả MAC + IP</text>
+            <text x="308" y="378" fill="#94a3b8" font-size="10">✔ Khách VLAN 20 mù 100% vùng này</text>
+
+            <!-- RIGHT ZONE: VLAN 20 UNTRUSTED GUEST (UNIFI AP + GUEST DEVICES) -->
+            <rect x="574" y="204" width="530" height="202" rx="14" fill="#78350f" fill-opacity="0.22" stroke="#fbbf24" stroke-width="1.5"/>
+            <text x="592" y="228" fill="#fcd34d" font-size="12.5" font-weight="800">🟠 VLAN 20 — VÙNG WIFI KHÁCH (Zero-Trust Isolated • SSID: Goc_pho)</text>
+
+            <rect x="590" y="242" width="238" height="148" rx="10" fill="#0f172a" stroke="#fbbf24" stroke-opacity="0.75"/>
+            <text x="604" y="264" fill="#fde68a" font-size="12" font-weight="800">📡 LỚP L2 — UniFi Access Points</text>
+            <text x="604" y="284" fill="#e2e8f0" font-size="10.5">• L2 Client Isolation (không thấy nhau)</text>
+            <text x="604" y="302" fill="#e2e8f0" font-size="10.5">• Ngắt mềm: kick-sta (không Ban)</text>
+            <text x="604" y="320" fill="#fca5a5" font-size="10.5">• Chặn/Mở MAC: block/unblock-sta</text>
+            <text x="604" y="338" fill="#6ee7b7" font-size="10.5">• VIP 180p / Nội bộ ∞ (525.600p)</text>
+            <text x="604" y="356" fill="#94a3b8" font-size="10">• Báo RSSI, 2.4G/5G, MB về NOC</text>
+
+            <rect x="842" y="242" width="246" height="148" rx="10" fill="#0f172a" stroke="#fb7185" stroke-opacity="0.65"/>
+            <text x="856" y="264" fill="#fda4af" font-size="12" font-weight="800">📱 Thiết Bị Khách Uống Cà Phê</text>
+            <text x="856" y="284" fill="#6ee7b7" font-size="10.5">✔ Gọi món QR (/customer.html :8501)</text>
+            <text x="856" y="302" fill="#6ee7b7" font-size="10.5">✔ WiFi Free (max 2/ngày) / VIP hóa đơn</text>
+            <text x="856" y="320" fill="#6ee7b7" font-size="10.5">✔ Jukebox (cooldown 60s, max 3 bài)</text>
+            <text x="856" y="340" fill="#fda4af" font-size="10.5">✖ Cấm thấy Máy in, Camera, Router</text>
+            <text x="856" y="358" fill="#fda4af" font-size="10.5">✖ Cấm vào /admin, /index, /kitchen</text>
+            <text x="856" y="376" fill="#fda4af" font-size="10.5">✖ Flood/Probe -> IPS tự kick/ban</text>
+
+            <!-- CONTROL PLANE LINK: POS <-> UNIFI APs & POS -> ER-X -->
+            <line x1="280" y1="315" x2="588" y2="315" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1.6" marker-start="url(#hArrSky)" marker-end="url(#hArrSky)"/>
+            <text x="434" y="308" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">API :11443 (L2) + Chỉ mở TCP :8501</text>
+          </svg>
+        </div>`;
+
+        root.innerHTML = `
+            <div class="arch-card">
+                <h3>🌐 ${esc(H.title)} <span class="badge done">${esc(H.ota)}</span></h3>
+                <p style="font-size:13px;color:#cbd5e1;margin-bottom:12px">${esc(H.summary)}</p>
+                ${hybridSvg}
+            </div>
+            <div class="arch-card">
+                <h3>🧩 Vai Trò &amp; Chức Năng Chi Tiết Của Từng Thiết Bị</h3>
+                <div class="arch-grid">
+                    ${H.devices.map(dev => `
+                        <div class="arch-box">
+                            <h4>${esc(dev.name)}</h4>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                                <span class="badge" style="background:rgba(56,189,248,.14);color:#7dd3fc;border:1px solid rgba(56,189,248,.3)">${esc(dev.layer)}</span>
+                                <span class="badge mono" style="background:rgba(167,139,250,.14);color:#c4b5fd;border:1px solid rgba(167,139,250,.3)">${esc(dev.ip_port)}</span>
+                            </div>
+                            <div style="font-size:12.5px;font-weight:700;color:#fcd34d;margin-bottom:6px">Vai trò: ${esc(dev.role)}</div>
+                            <ul style="margin:0;padding-left:18px;font-size:12px;color:#cbd5e1;line-height:1.55">
+                                ${dev.functions.map(fn => `<li style="margin-bottom:4px">${esc(fn)}</li>`).join('')}
+                            </ul>
+                        </div>`).join('')}
+                </div>
+            </div>
+            <div class="arch-card">
+                <h3>🔀 Quy Hoạch 2 VLAN Chuẩn Doanh Nghiệp</h3>
+                <div style="overflow:auto">
+                    <table class="mini-table">
+                        <thead><tr><th>Phân mạng VLAN</th><th>Dải IP (Subnet)</th><th>SSID WiFi</th><th>Chính sách Bảo mật &amp; QoS</th></tr></thead>
+                        <tbody>
+                            ${H.vlans.map(v => `<tr><td style="font-weight:700;color:#7dd3fc">${esc(v.id)}</td><td class="mono">${esc(v.subnet)}</td><td class="mono" style="color:#fcd34d">${esc(v.ssid)}</td><td>${esc(v.policy)}</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="arch-card">
+                <h3>⚡ 4 Luồng Phối Hợp Thông Minh (EdgeRouter X + UniFi + CyberNexus POS)</h3>
+                <div class="arch-grid">
+                    ${H.flows.map(fl => `<div class="arch-box"><h4>${esc(fl.name)}</h4><p>${esc(fl.steps)}</p></div>`).join('')}
+                </div>
+            </div>`;
+    }
+}
+
+function jumpToCodeFolder(folder) {
+    CODE_STATE.folder = folder || 'ALL';
+    CODE_STATE.lang = 'ALL';
+    CODE_STATE.q = '';
+    CODE_STATE.sub = 'files';
+    switchTab('code');
+    document.querySelectorAll('#code-sub-pills .sub-pill').forEach(b => b.classList.toggle('active', b.getAttribute('data-code') === 'files'));
+    renderCodebase();
+}
+
+function switchCodeSub(sub) {
+    CODE_STATE.sub = sub;
+    document.querySelectorAll('#code-sub-pills .sub-pill').forEach(b => b.classList.toggle('active', b.getAttribute('data-code') === sub));
+    renderCodebase();
+}
+
+function toggleCodeFile(path) {
+    if (CODE_STATE.expanded.has(path)) CODE_STATE.expanded.delete(path);
+    else CODE_STATE.expanded.add(path);
+    renderCodebase();
+}
+
+function renderCodebase() {
+    const root = document.getElementById('code-view');
+    const C = window.QA_ARCH_CODEBASE && window.QA_ARCH_CODEBASE.codebase;
+    if (!C) { root.innerHTML = '<div class="arch-card">Không tải được dữ liệu Codebase Map.</div>'; return; }
+    // Save scroll positions before re-rendering
+    const prevScroll = {};
+    ['.table-box', '.tree-pane', '.tree-inspector', '.arch-scroll'].forEach(sel => {
+        const el = root.querySelector(sel);
+        if (el) prevScroll[sel] = { top: el.scrollTop, left: el.scrollLeft };
+    });
+    const restoreScroll = () => {
+        Object.entries(prevScroll).forEach(([sel, pos]) => {
+            const el = root.querySelector(sel);
+            if (el) { el.scrollTop = pos.top; el.scrollLeft = pos.left; }
+        });
+    };
+    document.getElementById('cnt-code').textContent = C.stats.files;
+    const cf = document.getElementById('cnt-code-files');
+    if (cf) cf.textContent = C.stats.files;
+
+    if (CODE_STATE.sub === 'tree') {
+        // Build nested directory tree from real C.files
+        const treeRoot = { name: 'cybernexus-os', path: 'cybernexus-os', dirs: {}, files: [] };
+        C.files.forEach(f => {
+            const parts = f.path.split('/');
+            let cur = treeRoot;
+            let acc = '';
+            for (let i = 0; i < parts.length - 1; i++) {
+                const seg = parts[i];
+                acc = acc ? acc + '/' + seg : seg;
+                if (!cur.dirs[seg]) cur.dirs[seg] = { name: seg, path: acc, dirs: {}, files: [] };
+                cur = cur.dirs[seg];
+            }
+            cur.files.push(f);
+        });
+        const countFilesRec = (n) => n.files.length + Object.values(n.dirs).reduce((s, d) => s + countFilesRec(d), 0);
+        const extBadge = (path) => {
+            const e = (path.split('.').pop() || '').toLowerCase();
+            if (e === 'cpp' || e === 'c') return ['ext-cpp', e.toUpperCase()];
+            if (e === 'hpp' || e === 'h') return ['ext-h', e.toUpperCase()];
+            if (e === 'js') return ['ext-js', 'JS'];
+            if (e === 'html') return ['ext-html', 'HTML'];
+            if (e === 'py') return ['ext-py', 'PY'];
+            return ['ext-other', e === 'txt' ? 'CMAKE' : e.toUpperCase()];
+        };
+        const renderDirHtml = (node) => {
+            const isOpen = CODE_STATE.openDirs.has(node.path);
+            const isSel = CODE_STATE.selectedNode && CODE_STATE.selectedNode.type === 'dir' && CODE_STATE.selectedNode.path === node.path;
+            const total = countFilesRec(node);
+            const dirKeys = Object.keys(node.dirs).sort();
+            const childrenHtml = isOpen ? `<div class="tree-children">
+                ${dirKeys.map(k => renderDirHtml(node.dirs[k])).join('')}
+                ${node.files.map(f => {
+                    const [cls, lbl] = extBadge(f.path);
+                    const fSel = CODE_STATE.selectedNode && CODE_STATE.selectedNode.type === 'file' && CODE_STATE.selectedNode.path === f.path;
+                    const fname = f.path.split('/').pop();
+                    return `<div class="tree-node ${fSel ? 'selected' : ''}" onclick="selectTreeFile('${esc(f.path)}')">
+                        <span style="color:var(--muted)">📄</span>
+                        <span style="color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(fname)}</span>
+                        <span class="tree-ext ${cls}">${lbl}</span>
+                    </div>`;
+                }).join('')}
+            </div>` : '';
+            return `<div>
+                <div class="tree-node ${isSel ? 'selected' : ''}" onclick="toggleTreeDir('${esc(node.path)}')">
+                    <span style="color:#38bdf8;width:12px">${isOpen ? '▾' : '▸'}</span>
+                    <span>${isOpen ? '📂' : '📁'}</span>
+                    <b style="color:${node.path === 'cybernexus-os' ? '#fde68a' : '#7dd3fc'}">${esc(node.name)}/</b>
+                    <span class="tree-cnt">${total}</span>
+                </div>
+                ${childrenHtml}
+            </div>`;
+        };
+
+        // Right-hand Inspector panel
+        let inspHtml = '';
+        const sel = CODE_STATE.selectedNode;
+        if (sel && sel.type === 'file') {
+            const f = C.files.find(x => x.path === sel.path);
+            if (f) {
+                inspHtml = `
+                    <h3 style="margin:0 0 6px;color:#38bdf8;font-size:14px">📄 ${esc(f.path)}</h3>
+                    <div class="chip-list" style="margin-bottom:10px">
+                        <span class="chip chip-vio">${esc(f.lang)}</span>
+                        <span class="chip">${f.lines.toLocaleString('vi-VN')} dòng</span>
+                        <span class="chip">${(f.bytes / 1024).toFixed(1)} KB</span>
+                    </div>
+                    <p style="font-size:13px;color:#e2e8f0;margin:0 0 12px">${esc(f.role)}</p>
+                    <div style="margin-bottom:10px">
+                        <div style="font-size:11.5px;font-weight:800;color:#7dd3fc;margin-bottom:4px">🧩 HÀM / LỚP CHÍNH (${f.symbols.length})</div>
+                        <div class="chip-list">${f.symbols.map(s => `<span class="chip chip-sky">${esc(s)}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">—</span>'}</div>
+                    </div>
+                    <div style="margin-bottom:10px">
+                        <div style="font-size:11.5px;font-weight:800;color:#c4b5fd;margin-bottom:4px">📎 PHỤ THUỘC (#include / &lt;script&gt; / import)</div>
+                        <div class="chip-list">${f.deps.map(d => `<span class="chip chip-vio">${esc(d)}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">—</span>'}</div>
+                    </div>
+                    <div style="margin-bottom:10px">
+                        <div style="font-size:11.5px;font-weight:800;color:#fcd34d;margin-bottom:4px">🔌 API ROUTES (${f.apis.length})</div>
+                        <div class="chip-list">${f.apis.map(a => `<span class="chip chip-amb">${esc(a)}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">—</span>'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11.5px;font-weight:800;color:#6ee7b7;margin-bottom:4px">🗄️ BẢNG SQLITE TÁC ĐỘNG (${f.tables.length})</div>
+                        <div class="chip-list">${f.tables.map(t => `<span class="chip chip-em">${esc(t)}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">—</span>'}</div>
+                    </div>`;
+            }
+        } else {
+            const dPath = (sel && sel.type === 'dir' && sel.path !== 'cybernexus-os') ? sel.path : '';
+            const matchMeta = C.folderTree.find(x => dPath && x.path.toLowerCase().includes(dPath.split('/')[0].toLowerCase()));
+            const dirFiles = dPath ? C.files.filter(f => f.path.startsWith(dPath + '/')) : C.files;
+            inspHtml = `
+                <h3 style="margin:0 0 8px;color:#fde68a;font-size:14px">📂 ${esc(dPath ? dPath + '/' : 'cybernexus-os/ (Toàn dự án)')}</h3>
+                ${matchMeta ? `<div style="margin-bottom:10px">
+                    <span class="chip chip-vio">${esc(matchMeta.scope)}</span>
+                    <p style="margin:8px 0 4px;font-size:13px;color:#e2e8f0">${esc(matchMeta.desc)}</p>
+                    <div style="font-size:12px;color:#6ee7b7"><b>Quy tắc:</b> ${esc(matchMeta.rule)}</div>
+                </div>` : `<p style="font-size:12.8px;color:var(--muted);margin:0 0 10px">Bấm vào bất kỳ thư mục hoặc tệp tin nào bên cây trái để xem ngay vai trò, danh sách hàm, phụ thuộc #include/&lt;script&gt;, API &amp; bảng SQLite.</p>`}
+                <div style="font-size:11.5px;font-weight:800;color:#7dd3fc;margin:10px 0 6px">TỔNG QUAN PHÂN HỆ (${dirFiles.length} file · ${dirFiles.reduce((s,x)=>s+x.lines,0).toLocaleString('vi-VN')} dòng)</div>
+                ${C.folderTree.map(ft => `<div style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;display:flex;gap:8px;align-items:baseline">
+                    <span class="mono" style="color:#7dd3fc;min-width:145px"><b>${esc(ft.path)}</b></span>
+                    <span style="color:var(--text)">${esc(ft.desc)}</span>
+                </div>`).join('')}`;
+        }
+
+        root.innerHTML = `<div class="arch-scroll">
+            <div class="arch-card" style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+                    <h3 style="margin:0">📁 Cây Thư Mục Tương Tác Toàn Dự Án (${C.stats.files} file · ${C.stats.total_lines.toLocaleString('vi-VN')} dòng code)</h3>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <button type="button" id="btn-refresh-arch" class="btn-primary" style="padding:4px 10px;font-size:11.5px;background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);color:#6ee7b7" onclick="refreshArchCodebase()">🔄 Cập nhật / Refresh</button>
+                        <button type="button" class="btn-primary" style="padding:4px 10px;font-size:11.5px" onclick="setAllTreeDirs(true)">▾ Mở hết cây</button>
+                        <button type="button" style="padding:4px 10px;font-size:11.5px" onclick="setAllTreeDirs(false)">▸ Thu gọn</button>
+                    </div>
+                </div>
+                <div class="tree-layout">
+                    <div class="tree-pane">${renderDirHtml(treeRoot)}</div>
+                    <div class="tree-inspector">${inspHtml}</div>
+                </div>
+            </div>
+            <div class="arch-card">
+                <h3>⚙️ 9 Build Targets Trong CMakeLists.txt</h3>
+                <div class="table-box" style="max-height:none;min-height:0;margin-top:8px">
+                    <table class="arch-table">
+                        <thead><tr><th style="width:210px">Target Output</th><th style="width:150px">Loại</th><th style="width:260px">Nguồn biên dịch</th><th style="width:180px">Thư viện / Ký số</th><th>Chức năng</th></tr></thead>
+                        <tbody>
+                            ${C.cmakeTargets.map(t => `<tr class="main-row" style="cursor:default">
+                                <td class="mono" style="color:#7dd3fc"><b>${esc(t.target)}</b></td>
+                                <td><span class="chip chip-em">${esc(t.type)}</span></td>
+                                <td class="mono" style="font-size:11.5px">${esc(t.sources)}</td>
+                                <td class="mono" style="font-size:11.5px;color:#fcd34d">${esc(t.libs)}</td>
+                                <td>${esc(t.role)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    } else if (CODE_STATE.sub === 'files') {
+        const folders = Array.from(new Set(C.files.map(f => f.folder))).sort();
+        const langs = Array.from(new Set(C.files.map(f => f.lang))).sort();
+        const q = CODE_STATE.q.trim().toLowerCase();
+        const filtered = C.files.filter(f => {
+            if (CODE_STATE.folder !== 'ALL' && f.folder !== CODE_STATE.folder) return false;
+            if (CODE_STATE.lang !== 'ALL' && f.lang !== CODE_STATE.lang) return false;
+            if (q) {
+                const hay = [f.path, f.folder, f.lang, f.role, f.symbols.join(' '), f.deps.join(' '), f.apis.join(' '), f.tables.join(' ')].join(' ').toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+        const rowsHtml = filtered.map(f => {
+            const exp = CODE_STATE.expanded.has(f.path);
+            const symsShort = f.symbols.slice(0, 4).map(s => `<span class="chip chip-sky">${esc(s)}</span>`).join('')
+                + (f.symbols.length > 4 ? `<span class="chip">+${f.symbols.length - 4}</span>` : '');
+            const detail = exp ? `<tr class="detail-row"><td colspan="5">
+                <div class="arch-grid" style="margin:6px 0">
+                    <div class="arch-card">
+                        <h3>🧩 Hàm / Lớp / Thành phần chính (${f.symbols.length})</h3>
+                        <div class="chip-list">${f.symbols.map(s => `<span class="chip chip-sky">${esc(s)}</span>`).join('') || '<span style="color:var(--muted)">—</span>'}</div>
+                        <h3 style="margin-top:10px">📎 Phụ thuộc (#include / &lt;script&gt; / import)</h3>
+                        <div class="chip-list">${f.deps.map(d => `<span class="chip chip-vio">${esc(d)}</span>`).join('') || '<span style="color:var(--muted)">—</span>'}</div>
+                    </div>
+                    <div class="arch-card">
+                        <h3>🔌 API Routes liên quan (${f.apis.length})</h3>
+                        <div class="chip-list">${f.apis.map(a => `<span class="chip chip-amb">${esc(a)}</span>`).join('') || '<span style="color:var(--muted)">—</span>'}</div>
+                        <h3 style="margin-top:10px">🗄️ Bảng SQLite tác động (${f.tables.length})</h3>
+                        <div class="chip-list">${f.tables.map(t => `<span class="chip chip-em">${esc(t)}</span>`).join('') || '<span style="color:var(--muted)">—</span>'}</div>
+                    </div>
+                </div>
+            </td></tr>` : '';
+            return `<tr class="main-row ${exp ? 'expanded' : ''}" onclick="toggleCodeFile('${esc(f.path)}')">
+                <td><span class="expand-caret">${exp ? '▾' : '▸'}</span><span class="mono" style="color:#7dd3fc"><b>${esc(f.path)}</b></span></td>
+                <td><span class="chip">${esc(f.lang)}</span></td>
+                <td class="mono">${f.lines.toLocaleString('vi-VN')}</td>
+                <td>${esc(f.role)}</td>
+                <td><div class="chip-list">${symsShort || '<span style="color:var(--muted)">—</span>'}</div></td>
+            </tr>${detail}`;
+        }).join('');
+
+        root.innerHTML = `
+            <div class="filters" style="margin-top:0">
+                <input type="search" id="code-search" value="${esc(CODE_STATE.q)}" placeholder="Tìm tên file, tên hàm/lớp, #include, API route hoặc bảng SQLite..." oninput="CODE_STATE.q=this.value;renderCodebase();const el=document.getElementById('code-search');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}" />
+                <select onchange="CODE_STATE.folder=this.value;renderCodebase()">
+                    <option value="ALL">Mọi thư mục (${folders.length})</option>
+                    ${folders.map(fl => `<option value="${esc(fl)}" ${CODE_STATE.folder === fl ? 'selected' : ''}>${esc(fl)}</option>`).join('')}
+                </select>
+                <select onchange="CODE_STATE.lang=this.value;renderCodebase()">
+                    <option value="ALL">Mọi ngôn ngữ</option>
+                    ${langs.map(lg => `<option value="${esc(lg)}" ${CODE_STATE.lang === lg ? 'selected' : ''}>${esc(lg)}</option>`).join('')}
+                </select>
+                <span style="font-size:12px;color:var(--muted);font-weight:700">${filtered.length} / ${C.files.length} file</span>
+            </div>
+            <div class="table-box" style="max-height:calc(100vh - 370px)">
+                <table>
+                    <thead><tr>
+                        <th style="width:26%">Đường dẫn File</th>
+                        <th style="width:9%">Ngôn ngữ</th>
+                        <th style="width:7%">Dòng</th>
+                        <th style="width:32%">Vai trò nghiệp vụ</th>
+                        <th style="width:26%">Hàm / Lớp chính (bấm mở chi tiết)</th>
+                    </tr></thead>
+                    <tbody>${rowsHtml || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Không tìm thấy file khớp bộ lọc.</td></tr>'}</tbody>
+                </table>
+            </div>`;
+    } else if (CODE_STATE.sub === 'links') {
+        const cntBy = (fl) => C.files.filter(x => x.folder === fl).length;
+        const mapSvg = `
+        <div class="svg-wrap">
+          <svg viewBox="0 0 1120 350" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+            <defs>
+              <marker id="mArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+              </marker>
+            </defs>
+            <!-- Layer labels -->
+            <text x="16" y="24" fill="#94a3b8" font-size="11" font-weight="800">TẦNG 1: BUILD &amp; CI</text>
+            <text x="236" y="24" fill="#94a3b8" font-size="11" font-weight="800">TẦNG 2: GIAO DIỆN WEB</text>
+            <text x="486" y="24" fill="#94a3b8" font-size="11" font-weight="800">TẦNG 3: MÁY CHỦ C++ &amp; DLL</text>
+            <text x="760" y="24" fill="#94a3b8" font-size="11" font-weight="800">TẦNG 4: LÕI DÙNG CHUNG</text>
+            <text x="960" y="24" fill="#94a3b8" font-size="11" font-weight="800">TẦNG 5: DỮ LIỆU</text>
+
+            <!-- Col 1: CMake / CI / Tools -->
+            <g class="svg-node" onclick="jumpToCodeFolder('(root)')">
+              <rect x="16" y="38" width="188" height="62" rx="10" fill="#1e293b" stroke="#fbbf24" stroke-opacity="0.65"/>
+              <text x="28" y="61" fill="#fde68a" font-size="12" font-weight="800">CMakeLists.txt</text>
+              <text x="28" y="79" fill="#94a3b8" font-size="10.5">9 Build Targets (MSVC/MinGW)</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('launcher')">
+              <rect x="16" y="116" width="188" height="68" rx="10" fill="#1e293b" stroke="#fbbf24" stroke-opacity="0.5"/>
+              <text x="28" y="139" fill="#fde68a" font-size="12" font-weight="700">launcher/ (${cntBy('launcher')} file)</text>
+              <text x="28" y="156" fill="#cbd5e1" font-size="10.2">Control Center · Setup Stub</text>
+              <text x="28" y="171" fill="#94a3b8" font-size="10">Vault Admin (Windows GUI)</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('tests')">
+              <rect x="16" y="200" width="188" height="62" rx="10" fill="#0f172a" stroke="#64748b"/>
+              <text x="28" y="223" fill="#e2e8f0" font-size="12" font-weight="700">tests/ &amp; tools/ (${cntBy('tests')+cntBy('tools')} py)</text>
+              <text x="28" y="241" fill="#94a3b8" font-size="10.2">Regression · E2E · sign_modules</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('.github')">
+              <rect x="16" y="276" width="188" height="52" rx="10" fill="#0f172a" stroke="#64748b"/>
+              <text x="28" y="298" fill="#e2e8f0" font-size="12" font-weight="700">.github/workflows (${cntBy('.github')})</text>
+              <text x="28" y="314" fill="#94a3b8" font-size="10">CI Windows + Linux + Release</text>
+            </g>
+
+            <!-- Col 2: Web UI -->
+            <g class="svg-node" onclick="jumpToCodeFolder('master/web')">
+              <rect x="236" y="48" width="214" height="96" rx="10" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1.3"/>
+              <text x="248" y="72" fill="#ddd6fe" font-size="12.5" font-weight="800">master/web/ (${cntBy('master/web')} file)</text>
+              <text x="248" y="91" fill="#c4b5fd" font-size="10.5">super_admin.html (10 tab)</text>
+              <text x="248" y="108" fill="#94a3b8" font-size="10.2">theme_studio · i18n_studio</text>
+              <text x="248" y="125" fill="#94a3b8" font-size="10">super_admin.js + _ext.js</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('slave/web')">
+              <rect x="236" y="176" width="214" height="142" rx="10" fill="#0c4a6e" fill-opacity="0.55" stroke="#38bdf8" stroke-width="1.3"/>
+              <text x="248" y="200" fill="#e0f2fe" font-size="12.5" font-weight="800">slave/web/ (${cntBy('slave/web')} file)</text>
+              <text x="248" y="220" fill="#7dd3fc" font-size="10.5">10 HTML: index, admin, kitchen,</text>
+              <text x="248" y="236" fill="#7dd3fc" font-size="10.5">order, customer, attendance, wifi...</text>
+              <text x="248" y="256" fill="#cbd5e1" font-size="10.2">30 JS: pos, admin_*, jukebox-*,</text>
+              <text x="248" y="272" fill="#cbd5e1" font-size="10.2">attendance_kiosk, customer_app</text>
+              <text x="248" y="294" fill="#6ee7b7" font-size="10">Bảo vệ bằng web_integrity.json</text>
+            </g>
+
+            <!-- Col 3: C++ Servers & DLLs -->
+            <g class="svg-node" onclick="jumpToCodeFolder('master/src')">
+              <rect x="486" y="48" width="236" height="96" rx="10" fill="#1e293b" stroke="#a78bfa" stroke-width="1.4"/>
+              <text x="498" y="72" fill="#f8fafc" font-size="12.5" font-weight="800">master/src/ (${cntBy('master/src')} file C++)</text>
+              <text x="498" y="91" fill="#c4b5fd" font-size="10.5">main_master · master_handlers</text>
+              <text x="498" y="108" fill="#94a3b8" font-size="10.2">master_license · master_tunnel</text>
+              <text x="498" y="126" fill="#fcd34d" font-size="10">42 Routes · 79 Actions · Port 8500</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('slave/src')">
+              <rect x="486" y="162" width="236" height="84" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="1.4"/>
+              <text x="498" y="186" fill="#f8fafc" font-size="12.5" font-weight="800">slave/src/ (${cntBy('slave/src')} file C++)</text>
+              <text x="498" y="205" fill="#7dd3fc" font-size="10.5">main_slave · slave_handlers</text>
+              <text x="498" y="221" fill="#94a3b8" font-size="10.2">dot6_handlers · license · tunnel</text>
+              <text x="498" y="236" fill="#fcd34d" font-size="10">78 Routes · 154 Actions · Port 8501</text>
+            </g>
+            <g class="svg-node" onclick="jumpToCodeFolder('modules')">
+              <rect x="486" y="260" width="236" height="68" rx="10" fill="#1e1b4b" stroke="#34d399" stroke-opacity="0.7"/>
+              <text x="498" y="282" fill="#6ee7b7" font-size="12" font-weight="800">modules/ (3 DLL Active)</text>
+              <text x="498" y="299" fill="#cbd5e1" font-size="10.2">media_stream · network_qos</text>
+              <text x="498" y="314" fill="#cbd5e1" font-size="10.2">card_payment (ký ECDSA .sig v2)</text>
+            </g>
+
+            <!-- Col 4: Shared Core -->
+            <g class="svg-node" onclick="jumpToCodeFolder('shared')">
+              <rect x="756" y="74" width="174" height="222" rx="12" fill="#0f172a" stroke="#34d399" stroke-width="1.4"/>
+              <text x="768" y="100" fill="#6ee7b7" font-size="12.5" font-weight="800">shared/ (${cntBy('shared')} file)</text>
+              <text x="768" y="124" fill="#e2e8f0" font-size="10.8">• db.cpp (SQLite WAL)</text>
+              <text x="768" y="144" fill="#e2e8f0" font-size="10.8">• auth.cpp (bcrypt/Token)</text>
+              <text x="768" y="164" fill="#e2e8f0" font-size="10.8">• license_crypto.hpp</text>
+              <text x="768" y="180" fill="#94a3b8" font-size="9.8">  (ECDSA P-256 CNG)</text>
+              <text x="768" y="200" fill="#e2e8f0" font-size="10.8">• PluginManager.cpp</text>
+              <text x="768" y="220" fill="#e2e8f0" font-size="10.8">• ConfigManager.hpp</text>
+              <text x="768" y="240" fill="#e2e8f0" font-size="10.8">• gemini_client.hpp</text>
+              <text x="768" y="260" fill="#e2e8f0" font-size="10.8">• httplib.h · body_parser</text>
+            </g>
+
+            <!-- Col 5: Databases -->
+            <rect x="960" y="74" width="146" height="96" rx="12" fill="#1e1b4b" stroke="#a78bfa" stroke-opacity="0.7"/>
+            <text x="972" y="100" fill="#ddd6fe" font-size="12" font-weight="800">🗄️ Master DB</text>
+            <text x="972" y="120" fill="#cbd5e1" font-size="10.5">cybernexus_master.db</text>
+            <text x="972" y="138" fill="#7dd3fc" font-size="11" font-weight="700">38 bảng SQLite</text>
+            <text x="972" y="155" fill="#94a3b8" font-size="9.8">Tenants · AI · Audit</text>
+
+            <rect x="960" y="198" width="146" height="98" rx="12" fill="#0c4a6e" fill-opacity="0.55" stroke="#38bdf8" stroke-opacity="0.7"/>
+            <text x="972" y="224" fill="#e0f2fe" font-size="12" font-weight="800">🗄️ Slave DB</text>
+            <text x="972" y="244" fill="#cbd5e1" font-size="10.5">store_local.db</text>
+            <text x="972" y="262" fill="#6ee7b7" font-size="11" font-weight="700">42 bảng SQLite</text>
+            <text x="972" y="279" fill="#94a3b8" font-size="9.8">POS · Kho · HR · Media</text>
+
+            <!-- Connecting Arrows -->
+            <line x1="450" y1="96" x2="484" y2="96" stroke="#a78bfa" stroke-width="1.8" marker-end="url(#mArr)"/>
+            <line x1="450" y1="205" x2="484" y2="205" stroke="#38bdf8" stroke-width="1.8" marker-end="url(#mArr)"/>
+            <line x1="604" y1="144" x2="604" y2="160" stroke="#38bdf8" stroke-width="1.6" stroke-dasharray="4 3" marker-start="url(#mArr)" marker-end="url(#mArr)"/>
+            <line x1="604" y1="246" x2="604" y2="258" stroke="#34d399" stroke-width="1.6" marker-end="url(#mArr)"/>
+            <line x1="722" y1="108" x2="754" y2="128" stroke="#34d399" stroke-width="1.6" marker-end="url(#mArr)"/>
+            <line x1="722" y1="205" x2="754" y2="205" stroke="#34d399" stroke-width="1.6" marker-end="url(#mArr)"/>
+            <line x1="722" y1="292" x2="754" y2="262" stroke="#34d399" stroke-width="1.4" marker-end="url(#mArr)"/>
+            <line x1="930" y1="122" x2="958" y2="122" stroke="#a78bfa" stroke-width="1.8" marker-end="url(#mArr)"/>
+            <line x1="930" y1="246" x2="958" y2="246" stroke="#38bdf8" stroke-width="1.8" marker-end="url(#mArr)"/>
+          </svg>
+          <div class="svg-hint">💡 Bấm vào bất kỳ ô thư mục nào trên bản đồ để mở ngay danh sách file &amp; hàm của thư mục đó!</div>
+        </div>`;
+        root.innerHTML = `<div class="arch-scroll">
+            ${mapSvg}
+            <div class="arch-card">
+                <h3>🔗 Bản Đồ Mối Liên Kết 5 Tầng &amp; Giao Tiếp Slave (:8501) ↔ Master (:8500)</h3>
+                <div class="table-box" style="max-height:none;min-height:0;margin-top:8px">
+                    <table class="arch-table">
+                        <thead><tr><th style="width:210px">Tầng nguồn</th><th style="width:210px">Tầng đích</th><th style="width:200px">Giao thức / Cơ chế</th><th>Chi tiết liên kết thực tế trong mã nguồn</th></tr></thead>
+                        <tbody>
+                            ${C.layerLinks.map(l => `<tr class="main-row" style="cursor:default">
+                                <td><b style="color:#7dd3fc">${esc(l.from)}</b></td>
+                                <td><b style="color:#a7f3d0">${esc(l.to)}</b></td>
+                                <td class="mono" style="font-size:11.5px;color:#fcd34d">${esc(l.proto)}</td>
+                                <td>${esc(l.detail)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    }
+    restoreScroll();
+}
+
+if (window.QA_ARCH_CODEBASE && window.QA_ARCH_CODEBASE.codebase) {
+    document.getElementById('cnt-code').textContent = window.QA_ARCH_CODEBASE.codebase.stats.files;
+}
+
 fetchData(true);
 startLiveLoop();
 setInterval(() => {
@@ -875,5 +1890,6 @@ setInterval(() => {
     }
 }, 30000);
 </script>
+<div class="lb-overlay" id="imgLightbox" onclick="this.classList.remove('open')"><img id="imgLightboxPic" src="" alt=""></div>
 </body>
 </html>

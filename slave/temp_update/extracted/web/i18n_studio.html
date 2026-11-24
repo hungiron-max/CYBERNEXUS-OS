@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CyberNexus OS — Quản Trị Ngôn Ngữ &amp; AI Translation Studio (i18n)</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --muted:#334155; --text:#f1f5f9; --sub:#94a3b8; --accent:#38bdf8; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --purple:#a855f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Segoe UI',system-ui,-apple-system,"Microsoft YaHei","Meiryo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--text); line-height:1.45; }
+  .wrap { max-width:1680px; margin:0 auto; padding:18px 20px; }
+  header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding-bottom:14px; border-bottom:1px solid var(--muted); }
+  h1 { margin:0; font-size:20px; color:#38bdf8; }
+  .sub { font-size:12px; color:var(--sub); margin-top:4px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0; }
+  .kpi { background:var(--card); border:1px solid var(--muted); border-radius:10px; padding:11px 14px; }
+  .kpi .num { font-size:23px; font-weight:800; }
+  .kpi .lbl { font-size:11px; color:var(--sub); text-transform:uppercase; }
+  .panel { background:var(--card); border:1px solid var(--muted); border-radius:10px; padding:11px 14px; margin-bottom:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  select, input[type=text], input[type=password], textarea { background:#0b1220; color:var(--text); border:1px solid var(--muted); border-radius:6px; padding:6px 10px; font-size:12.5px; font-family:inherit; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color:var(--accent); }
+  textarea { width:100%; min-height:52px; resize:vertical; line-height:1.4; }
+  textarea.src-box { border-color:#1e3a5f; background:#091326; }
+  textarea.src-box.modified { border-color:#f59e0b; background:rgba(245,158,11,0.07); }
+  .btn { border:1px solid var(--muted); background:#0b1220; color:var(--text); padding:6px 11px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; transition:.15s; display:inline-flex; align-items:center; gap:5px; }
+  .btn:hover { border-color:var(--accent); color:var(--accent); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn.primary { background:#0284c7; border-color:#0284c7; color:#fff; }
+  .btn.success { background:#16a34a; border-color:#16a34a; color:#fff; }
+  .btn.warn { background:#d97706; border-color:#d97706; color:#fff; }
+  .btn.purple { background:#7e22ce; border-color:#9333ea; color:#fff; }
+  .btn.danger { background:#dc2626; border-color:#ef4444; color:#fff; }
+  .table-box { background:var(--card); border:1px solid var(--muted); border-radius:10px; max-height:66vh; overflow:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { padding:9px 10px; border-bottom:1px solid #263348; text-align:left; vertical-align:top; }
+  th { position:sticky; top:0; background:#141e30; z-index:2; font-size:11px; color:var(--sub); text-transform:uppercase; }
+  tr.row-item:hover { background:rgba(56,189,248,0.05); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700; }
+  .b-ok { background:rgba(34,197,94,.16); color:#4ade80; border:1px solid rgba(34,197,94,.4); }
+  .b-warn { background:rgba(245,158,11,.16); color:#fbbf24; border:1px solid rgba(245,158,11,.4); }
+  .b-bad { background:rgba(239,68,68,.16); color:#f87171; border:1px solid rgba(239,68,68,.4); }
+  .b-info { background:rgba(56,189,248,.15); color:#38bdf8; border:1px solid rgba(56,189,248,.35); }
+  .b-purp { background:rgba(168,85,247,.16); color:#c084fc; border:1px solid rgba(168,85,247,.35); }
+  .act-grp { display:inline-flex; gap:4px; flex-wrap:wrap; }
+  .act-btn { padding:4px 8px; font-size:11px; border-radius:5px; border:1px solid var(--muted); background:#0b1220; color:var(--sub); cursor:pointer; font-weight:700; }
+  .act-btn:hover { border-color:var(--accent); color:var(--text); }
+  .act-btn.on-app { background:rgba(34,197,94,.22); border-color:#22c55e; color:#4ade80; }
+  .act-btn.on-pend { background:rgba(245,158,11,.22); border-color:#f59e0b; color:#fbbf24; }
+  .act-btn.on-rej { background:rgba(239,68,68,.22); border-color:#ef4444; color:#f87171; }
+  .mini-link { background:none; border:none; color:#38bdf8; font-size:11px; cursor:pointer; padding:2px 0; text-decoration:underline; }
+  .mini-link.warn { color:#fbbf24; }
+  .prog-wrap { width:100%; display:none; align-items:center; gap:10px; padding-top:6px; border-top:1px dashed var(--muted); margin-top:4px; }
+  .prog-wrap.active { display:flex; }
+  .prog-track { flex:1; height:8px; background:#0b1220; border-radius:999px; overflow:hidden; border:1px solid var(--muted); }
+  .prog-bar { height:100%; width:0%; background:linear-gradient(90deg,#0284c7,#22c55e); transition:width .2s; }
+  .modal-bg { position:fixed; inset:0; background:rgba(2,6,23,.78); display:none; align-items:center; justify-content:center; z-index:50; }
+  .modal-bg.open { display:flex; }
+  .modal-card { background:#1e293b; border:1px solid var(--accent); border-radius:12px; width:540px; max-width:94vw; padding:18px; }
+  #toast { position:fixed; bottom:18px; right:18px; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; display:none; z-index:60; box-shadow:0 10px 25px rgba(0,0,0,.45); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🌐 CyberNexus OS — Studio Quản Trị Đa Ngôn Ngữ &amp; AI Dịch Hàng Loạt (i18n)</h1>
+      <div class="sub">Chỉnh sửa trực tiếp <b>Ngôn ngữ gốc</b> &amp; <b>Bản dịch đích</b> • AI Dịch tự động <b>Từng câu / Từng nhóm / Toàn bộ danh mục</b> • Hiển thị <b>Tên Trường / Cột / Thành phần UI</b> • Duyệt / Chờ / Hủy</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="btn primary" onclick="I18nStudio.openAddModal()">+ Thêm câu / trường mới</button>
+      <button type="button" class="btn warn" id="btn-ai-group" onclick="I18nStudio.batchAiTranslate('group')">✨ AI Dịch Nhóm Đang Chọn</button>
+      <button type="button" class="btn purple" id="btn-ai-all" onclick="I18nStudio.batchAiTranslate('all')">🚀 AI Dịch Toàn Bộ Danh Mục</button>
+      <button type="button" class="btn danger" id="btn-ai-stop" style="display:none;" onclick="I18nStudio.stopBatchAi()">⏹ Dừng Dịch</button>
+      <button type="button" class="btn success" onclick="I18nStudio.publishToServer()" title="Lưu trực tiếp vào SQLite Backend, xuất locales/<lang>.json và cập nhật chữ ký SHA-256 web_integrity.json">🚀 Xuất Bản Lên Server (Publish Live)</button>
+      <button type="button" class="btn" onclick="I18nStudio.syncFromServer()" title="Đồng bộ danh mục ngôn ngữ + món ăn/nhóm hàng/bàn trực tiếp từ C++ Backend">🔄 Đồng Bộ Từ Server</button>
+      <button type="button" class="btn" onclick="I18nStudio.exportCsv()">📥 Xuất CSV</button>
+      <button type="button" class="btn" onclick="I18nStudio.exportJson()">📥 Xuất JSON (Đích)</button>
+      <button type="button" class="btn" onclick="I18nStudio.resetSeed()">↺ Nạp lại Seed gốc</button>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="kpi-total">0</div><div class="lbl">Tổng số Trường / Câu</div></div>
+    <div class="kpi"><div class="num" style="color:#4ade80" id="kpi-approved">0</div><div class="lbl">Đã Duyệt</div></div>
+    <div class="kpi"><div class="num" style="color:#fbbf24" id="kpi-pending">0</div><div class="lbl">Chờ Duyệt</div></div>
+    <div class="kpi"><div class="num" style="color:#f87171" id="kpi-rejected">0</div><div class="lbl">Đã Hủy</div></div>
+    <div class="kpi"><div class="num" style="color:#38bdf8" id="kpi-missing">0</div><div class="lbl">Chưa Dịch Đích</div></div>
+    <div class="kpi"><div class="num" style="color:#c084fc" id="kpi-src-edited">0</div><div class="lbl">Đã Sửa Ngôn Ngữ Gốc</div></div>
+  </div>
+
+  <div class="panel">
+    <label>Ngôn ngữ gốc (Nguồn - Cho phép sửa):
+      <select id="sel-src" onchange="I18nStudio.render()"></select>
+    </label>
+    <label>Ngôn ngữ đích (Bản dịch):
+      <select id="sel-tgt" onchange="I18nStudio.render()"></select>
+    </label>
+    <button type="button" class="btn" onclick="I18nStudio.addLanguageModal()">+ Thêm ngôn ngữ mới</button>
+    <label>Nhóm / Phân hệ:
+      <select id="sel-group" onchange="I18nStudio.onGroupChange()"><option value="ALL">Tất cả nhóm</option></select>
+    </label>
+    <label>Loại Trường / Cột:
+      <select id="sel-comp" onchange="I18nStudio.render()">
+        <option value="ALL">Tất cả loại thành phần</option>
+        <option value="table_col">📊 Cột bảng (Table Column)</option>
+        <option value="form_label">🏷️ Nhãn trường / Form Label</option>
+        <option value="button">🔘 Nút bấm / Thao tác</option>
+        <option value="modal_title">🪟 Tiêu đề Modal / Khối</option>
+        <option value="receipt_tpl">🧾 Mẫu In Hóa Đơn / Báo Cáo</option>
+        <option value="api_msg">⚡ Thông báo API / Toast</option>
+        <option value="db_entity">🗄️ Dữ liệu Danh mục DB</option>
+      </select>
+    </label>
+    <label>Trạng thái:
+      <select id="sel-status" onchange="I18nStudio.render()">
+        <option value="ALL">Tất cả trạng thái</option>
+        <option value="approved">Đã duyệt</option>
+        <option value="pending">Chờ duyệt</option>
+        <option value="rejected">Đã hủy</option>
+        <option value="untranslated">Chưa dịch đích</option>
+        <option value="src_modified">Đã sửa ngôn ngữ gốc</option>
+        <option value="ph_mismatch">Lỗi biến {placeholder}</option>
+      </select>
+    </label>
+    <input type="text" id="txt-search" placeholder="Tìm theo tên trường/cột, key, nội dung gốc hoặc đích..." oninput="I18nStudio.render()" style="flex:1;min-width:210px;" />
+  </div>
+
+  <div class="panel">
+    <span style="font-size:12px;color:var(--sub);font-weight:700;">Cấu hình AI Dịch Hàng Loạt:</span>
+    <label style="font-size:12px;">Chế độ dịch hàng loạt:
+      <select id="ai-batch-mode">
+        <option value="missing_or_modified">Chỉ câu chưa dịch + câu vừa sửa ngôn ngữ gốc (Khuyên dùng)</option>
+        <option value="missing_only">Chỉ các câu còn trống ở ngôn ngữ đích</option>
+        <option value="overwrite_all">Dịch đè lại toàn bộ theo ngôn ngữ gốc hiện tại</option>
+      </select>
+    </label>
+    <input type="text" id="ai-endpoint" value="http://127.0.0.1:8501/api/i18n/ai-translate" style="width:265px;" title="Slave / Master /api/i18n/ai-translate URL" />
+    <input type="password" id="ai-token" placeholder="Bearer token (tự lấy nếu đã login)" style="width:190px;" />
+    <input type="password" id="ai-gemini-key" placeholder="Gemini API Key (tuỳ chọn trực tiếp)" style="width:190px;" />
+    <button type="button" class="btn success" onclick="I18nStudio.approveAllFiltered()" title="Duyệt nhanh toàn bộ các câu hợp lệ trong nhóm/bộ lọc đang xem">✓ Duyệt Nhóm Đang Xem</button>
+
+    <div class="prog-wrap" id="ai-progress-wrap">
+      <span id="ai-progress-text" style="font-size:12px;color:#38bdf8;font-weight:700;min-width:290px;">Đang chuẩn bị...</span>
+      <div class="prog-track"><div class="prog-bar" id="ai-progress-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="table-box">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:220px;">Nhóm / Tên Trường • Cột • Vị Trí</th>
+          <th style="width:29%;">Ngôn Ngữ Gốc / Nguồn (<span id="hdr-src">vi</span>) — <i>Sửa trực tiếp</i></th>
+          <th style="width:29%;">Bản Dịch Đích (<span id="hdr-tgt">en</span>) — <i>Sửa / AI Dịch</i></th>
+          <th style="width:115px;">Kiểm Tra</th>
+          <th style="width:225px;">Duyệt / Chờ / Hủy &amp; AI</th>
+        </tr>
+      </thead>
+      <tbody id="studio-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Add Row / Add Language / Pick Group -->
+<div class="modal-bg" id="studio-modal">
+  <div class="modal-card">
+    <h3 id="modal-title" style="margin:0 0 12px;color:#38bdf8;">Thêm chuỗi mới</h3>
+    <div id="modal-body" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+      <button type="button" class="btn" onclick="I18nStudio.closeModal()">Đóng</button>
+      <button type="button" class="btn primary" id="modal-save-btn" onclick="I18nStudio.saveModal()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="i18n_studio_data.js"></script>
+<script>
+(function () {
+  'use strict';
+  const STORE_KEY = 'cbnx_i18n_studio_v2';
+  const BATCH_CHUNK_SIZE = 20;
+  const LANG_LABELS = {
+    vi: 'Tiếng Việt (vi)', en: 'English (en)', zh: '中文 - Tiếng Trung (zh)',
+    ja: '日本語 - Tiếng Nhật (ja)', ko: '한국어 - Tiếng Hàn (ko)',
+    fr: 'Français - Tiếng Pháp (fr)', th: 'ไทย - Tiếng Thái (th)'
+  };
+  const COMP_LABELS = {
+    table_col: '📊 Cột bảng (<th>)',
+    form_label: '🏷️ Nhãn trường (<label>)',
+    button: '🔘 Nút bấm / Action',
+    modal_title: '🪟 Tiêu đề Modal / Khối',
+    receipt_tpl: '🧾 Mẫu In Hóa Đơn',
+    api_msg: '⚡ Thông báo API / Toast',
+    db_entity: '🗄️ Danh mục Database'
+  };
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function extractPlaceholders(str) {
+    const m = String(str || '').match(/\{[^{}]+\}|%[sd]/g);
+    return m ? m.slice().sort().join('|') : '';
+  }
+
+  function inferMeta(r) {
+    if (r.comp_type && r.field_name) return { comp_type: r.comp_type, field_name: r.field_name };
+    const k = String(r.key || '').toLowerCase();
+    const g = String(r.group || '').toLowerCase();
+    const txt = String((r.raw && r.raw.vi) || r.origin || '');
+    let comp = 'api_msg';
+    if (k.includes('.col_') || k.includes('_col') || k.includes('th_')) comp = 'table_col';
+    else if (k.includes('.lbl_') || k.includes('label') || k.includes('field_') || k.includes('placeholder')) comp = 'form_label';
+    else if (k.includes('.btn_') || k.includes('button') || txt.length <= 22 && /^(thêm|xóa|lưu|hủy|đóng|mở|in |xuất|duyệt|chốt|tạo|cập nhật)/i.test(txt)) comp = 'button';
+    else if (k.includes('receipt') || k.includes('print') || g.includes('receipt')) comp = 'receipt_tpl';
+    else if (k.includes('modal') || k.includes('title') || k.includes('header')) comp = 'modal_title';
+    else if (k.includes('db.') || g.includes('database')) comp = 'db_entity';
+
+    const srcFile = r.source_file ? r.source_file.split(/[\\/]/).pop() : g;
+    const shortText = txt.length > 38 ? txt.slice(0, 38) + '…' : txt;
+    const fieldName = r.field_name || `${srcFile} • ${shortText || k}`;
+    return { comp_type: comp, field_name: fieldName };
+  }
+
+  const I18nStudio = {
+    state: { languages: ['vi', 'en'], rows: [] },
+    modalKind: '',
+    batchRunning: false,
+    batchAbort: false,
+
+    async init() {
+      const saved = localStorage.getItem(STORE_KEY) || localStorage.getItem('cbnx_i18n_studio_v1');
+      if (saved) {
+        try { this.state = JSON.parse(saved); } catch (e) { this.loadSeed(); }
+      } else {
+        this.loadSeed();
+      }
+      if (!Array.isArray(this.state.languages)) this.state.languages = ['vi', 'en'];
+      if (!Array.isArray(this.state.rows) || !this.state.rows.length) this.loadSeed();
+      this.normalizeAllRows();
+      this.populateDropdowns();
+      this.onGroupChange();
+      if (window.location && /^https?:$/i.test(window.location.protocol)) {
+        const epInput = document.getElementById('ai-endpoint');
+        if (epInput) epInput.value = window.location.origin + '/api/i18n/ai-translate';
+        await this.syncFromServer(true);
+      }
+    },
+
+    normalizeAllRows() {
+      this.state.rows.forEach(r => {
+        if (!r.raw) r.raw = {};
+        if (!r.raw.vi && r.origin) r.raw.vi = r.origin;
+        const m = inferMeta(r);
+        if (!r.comp_type) r.comp_type = m.comp_type;
+        if (!r.field_name) r.field_name = m.field_name;
+      });
+    },
+
+    getBackendOrigin() {
+      if (window.location && /^https?:$/i.test(window.location.protocol)) {
+        return window.location.origin;
+      }
+      const ep = (document.getElementById('ai-endpoint')?.value || 'http://127.0.0.1:8501/api/i18n/ai-translate').trim();
+      try { return new URL(ep).origin; } catch (_) { return 'http://127.0.0.1:8501'; }
+    },
+
+    getAuthHeaders() {
+      const tok = (document.getElementById('ai-token')?.value || '').trim()
+        || localStorage.getItem('pos_token')
+        || localStorage.getItem('sa_token')
+        || '';
+      const h = { 'Content-Type': 'application/json' };
+      if (tok) h['Authorization'] = 'Bearer ' + tok;
+      return h;
+    },
+
+    async syncFromServer(silent = false) {
+      try {
+        const base = this.getBackendOrigin();
+        const res = await fetch(base + '/api/i18n/catalog', { headers: this.getAuthHeaders(), credentials: 'same-origin' });
+        const data = await res.json();
+        if (!res.ok || !data || !data.success) {
+          if (!silent) this.toast((data && data.message) || 'Không thể tải danh mục từ Backend', false);
+          return;
+        }
+        const byKey = {};
+        this.state.rows.forEach(r => { byKey[r.key] = r; });
+        const serverList = []
+          .concat(Array.isArray(data.rows) ? data.rows : [])
+          .concat(Array.isArray(data.db_entities) ? data.db_entities : []);
+        serverList.forEach(sr => {
+          if (!sr || !sr.key) return;
+          const raw = Object.assign({}, (byKey[sr.key] && byKey[sr.key].raw) || {}, sr.raw || {});
+          if (!raw.vi && sr.origin) raw.vi = sr.origin;
+          if (byKey[sr.key]) {
+            Object.assign(byKey[sr.key], {
+              group: sr.group || byKey[sr.key].group,
+              comp_type: sr.comp_type || byKey[sr.key].comp_type,
+              field_name: sr.field_name || byKey[sr.key].field_name,
+              source_file: sr.source_file || byKey[sr.key].source_file,
+              origin: sr.origin || byKey[sr.key].origin,
+              raw: raw,
+              status: sr.status || byKey[sr.key].status
+            });
+          } else {
+            const item = {
+              group: sr.group || '99_database_entities',
+              key: sr.key,
+              comp_type: sr.comp_type || 'db_entity',
+              field_name: sr.field_name || sr.key,
+              source_file: sr.source_file || 'store_local.db',
+              origin: sr.origin || raw.vi || '',
+              raw: raw,
+              status: sr.status || 'approved',
+              source_modified: !!sr.source_modified
+            };
+            this.state.rows.push(item);
+            byKey[sr.key] = item;
+          }
+        });
+        this.normalizeAllRows();
+        this.saveState();
+        this.populateDropdowns();
+        this.onGroupChange();
+        if (!silent) this.toast(`Đã đồng bộ ${serverList.length} mục từ C++ Backend!`);
+      } catch (e) {
+        if (!silent) this.toast('Lỗi kết nối Backend: ' + e.message, false);
+      }
+    },
+
+    async publishToServer() {
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      try {
+        const base = this.getBackendOrigin();
+        const headers = this.getAuthHeaders();
+        this.toast('Đang lưu danh mục và xuất bản trực tiếp lên C++ Backend...');
+        const saveRes = await fetch(base + '/api/i18n/save', {
+          method: 'POST',
+          headers: headers,
+          credentials: 'same-origin',
+          body: JSON.stringify({ rows: this.state.rows })
+        });
+        const saveData = await saveRes.json();
+        if (!saveRes.ok || !saveData.success) {
+          throw new Error((saveData && saveData.message) || ('HTTP ' + saveRes.status));
+        }
+        const pubRes = await fetch(base + '/api/i18n/publish', {
+          method: 'POST',
+          headers: headers,
+          credentials: 'same-origin',
+          body: JSON.stringify({ lang: tgt })
+        });
+        const pubData = await pubRes.json();
+        if (!pubRes.ok || !pubData.success) {
+          throw new Error((pubData && pubData.message) || ('HTTP ' + pubRes.status));
+        }
+        this.toast(pubData.message || `Đã xuất bản locales/${tgt}.json và cập nhật SHA-256 thành công!`);
+      } catch (e) {
+        this.toast('Lỗi xuất bản lên Server: ' + e.message, false);
+      }
+    },
+
+    loadSeed() {
+      const seed = window.I18N_STUDIO_SEED || { languages: ['vi', 'en'], rows: [] };
+      const langs = Array.from(new Set([].concat(seed.languages || ['vi', 'en'], ['zh', 'ja', 'ko'])));
+      this.state = {
+        languages: langs,
+        rows: (seed.rows || []).map(r => {
+          const raw = Object.assign({}, r.raw || r.translations || {});
+          if (!raw.vi && r.origin) raw.vi = r.origin;
+          const item = {
+            group: r.group || 'custom',
+            key: r.key || '',
+            source_file: r.source_file || '',
+            origin: r.origin || raw.vi || '',
+            raw: raw,
+            status: r.status || 'approved',
+            source_modified: false
+          };
+          const m = inferMeta(item);
+          item.comp_type = r.comp_type || m.comp_type;
+          item.field_name = r.field_name || m.field_name;
+          return item;
+        })
+      };
+      this.saveState();
+    },
+
+    saveState() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
+    },
+
+    toast(msg, ok = true) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.style.background = ok ? '#166534' : '#991b1b';
+      t.style.color = '#fff';
+      t.style.display = 'block';
+      clearTimeout(this._toastTimer);
+      this._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3600);
+    },
+
+    populateDropdowns() {
+      const srcSel = document.getElementById('sel-src');
+      const tgtSel = document.getElementById('sel-tgt');
+      const grpSel = document.getElementById('sel-group');
+      const curSrc = srcSel.value || 'vi';
+      const curTgt = tgtSel.value || 'en';
+      const curGrp = grpSel.value || 'ALL';
+      const opts = this.state.languages.map(l => `<option value="${esc(l)}">${esc(LANG_LABELS[l] || l)}</option>`).join('');
+      srcSel.innerHTML = opts;
+      tgtSel.innerHTML = opts;
+      srcSel.value = this.state.languages.includes(curSrc) ? curSrc : 'vi';
+      tgtSel.value = this.state.languages.includes(curTgt) ? curTgt : (this.state.languages[1] || 'en');
+
+      const grpCounts = {};
+      this.state.rows.forEach(r => { grpCounts[r.group] = (grpCounts[r.group] || 0) + 1; });
+      const groups = Object.keys(grpCounts).sort();
+      grpSel.innerHTML = `<option value="ALL">Tất cả nhóm (${groups.length} nhóm • ${this.state.rows.length} câu)</option>` +
+        groups.map(g => `<option value="${esc(g)}">${esc(g)} (${grpCounts[g]} câu)</option>`).join('');
+      if (groups.includes(curGrp)) grpSel.value = curGrp;
+    },
+
+    onGroupChange() {
+      const grp = document.getElementById('sel-group').value || 'ALL';
+      const btnGrp = document.getElementById('btn-ai-group');
+      if (btnGrp) {
+        btnGrp.textContent = grp === 'ALL'
+          ? '✨ AI Dịch Theo Nhóm...'
+          : `✨ AI Dịch Nhóm [${grp}]`;
+      }
+      this.render();
+    },
+
+    render() {
+      const src = document.getElementById('sel-src').value || 'vi';
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      document.getElementById('hdr-src').textContent = src;
+      document.getElementById('hdr-tgt').textContent = tgt;
+
+      const grpFilter = document.getElementById('sel-group').value || 'ALL';
+      const compFilter = document.getElementById('sel-comp').value || 'ALL';
+      const stFilter = document.getElementById('sel-status').value || 'ALL';
+      const q = (document.getElementById('txt-search').value || '').toLowerCase();
+
+      let total = this.state.rows.length, app = 0, pend = 0, rej = 0, miss = 0, srcEd = 0;
+      const filtered = [];
+      for (let i = 0; i < this.state.rows.length; i++) {
+        const r = this.state.rows[i];
+        if (r.status === 'approved') app++;
+        else if (r.status === 'rejected') rej++;
+        else pend++;
+        const sVal = (r.raw[src] != null ? r.raw[src] : (src === 'vi' ? r.origin : '')).trim();
+        const tVal = (r.raw[tgt] || '').trim();
+        const isSrcMod = !!(r.source_modified || (src === 'vi' && r.origin && sVal && sVal !== r.origin.trim()));
+        if (isSrcMod) srcEd++;
+        if (!tVal) miss++;
+        const phBad = sVal && tVal && extractPlaceholders(sVal) !== extractPlaceholders(tVal);
+
+        if (grpFilter !== 'ALL' && r.group !== grpFilter) continue;
+        if (compFilter !== 'ALL' && (r.comp_type || 'api_msg') !== compFilter) continue;
+        if (stFilter === 'untranslated' && tVal) continue;
+        else if (stFilter === 'src_modified' && !isSrcMod) continue;
+        else if (stFilter === 'ph_mismatch' && !phBad) continue;
+        else if (['approved', 'pending', 'rejected'].includes(stFilter) && r.status !== stFilter) continue;
+        if (q) {
+          const hay = `${r.group} ${r.key} ${r.field_name || ''} ${r.source_file || ''} ${sVal} ${tVal}`.toLowerCase();
+          if (!hay.includes(q)) continue;
+        }
+        filtered.push({ idx: i, r, sVal, tVal, phBad, isSrcMod });
+      }
+      document.getElementById('kpi-total').textContent = total;
+      document.getElementById('kpi-approved').textContent = app;
+      document.getElementById('kpi-pending').textContent = pend;
+      document.getElementById('kpi-rejected').textContent = rej;
+      document.getElementById('kpi-missing').textContent = miss;
+      document.getElementById('kpi-src-edited').textContent = srcEd;
+
+      const tbody = document.getElementById('studio-tbody');
+      const slice = filtered.slice(0, 350);
+      tbody.innerHTML = slice.map(({ idx, r, sVal, tVal, phBad, isSrcMod }) => {
+        const checkBadge = phBad
+          ? '<span class="badge b-bad">Sai biến {var}</span>'
+          : (!tVal ? '<span class="badge b-warn">Chưa dịch</span>' : '<span class="badge b-ok">Hợp lệ</span>');
+        const srcModBadge = isSrcMod
+          ? `<div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+               <span class="badge b-purp">✎ Đã sửa câu gốc</span>
+               <button type="button" class="mini-link warn" onclick="I18nStudio.restoreOrigin(${idx}, '${esc(src)}')">↺ Khôi phục gốc ban đầu</button>
+             </div>`
+          : '';
+        const compLbl = COMP_LABELS[r.comp_type || 'api_msg'] || COMP_LABELS.api_msg;
+        return `<tr class="row-item">
+          <td>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
+              <span style="font-size:10px;color:#38bdf8;font-weight:700;">${esc(r.group)}</span>
+              <span class="badge b-info">${esc(compLbl)}</span>
+            </div>
+            <div style="font-weight:700;font-size:12px;color:#e2e8f0;margin:3px 0;" title="Tên trường / cột / ngữ cảnh">${esc(r.field_name || r.key)}</div>
+            <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;word-break:break-all;">${esc(r.key)}${r.source_file ? ' • ' + esc(r.source_file) : ''}</div>
+          </td>
+          <td>
+            <textarea class="src-box ${isSrcMod ? 'modified' : ''}" onchange="I18nStudio.updateSourceText(${idx}, '${esc(src)}', this.value)" title="Chỉnh sửa trực tiếp câu ngôn ngữ gốc (${esc(src)})">${esc(sVal)}</textarea>
+            ${srcModBadge}
+          </td>
+          <td>
+            <textarea onchange="I18nStudio.updateText(${idx}, '${esc(tgt)}', this.value)" placeholder="Nhập bản dịch (${esc(tgt)}) hoặc bấm ✨ AI Dịch...">${esc(tVal)}</textarea>
+          </td>
+          <td>${checkBadge}</td>
+          <td>
+            <div class="act-grp">
+              <button type="button" class="act-btn ${r.status === 'approved' ? 'on-app' : ''}" onclick="I18nStudio.setStatus(${idx}, 'approved')">Duyệt</button>
+              <button type="button" class="act-btn ${r.status === 'pending' ? 'on-pend' : ''}" onclick="I18nStudio.setStatus(${idx}, 'pending')">Chờ</button>
+              <button type="button" class="act-btn ${r.status === 'rejected' ? 'on-rej' : ''}" onclick="I18nStudio.setStatus(${idx}, 'rejected')">Hủy</button>
+              <button type="button" class="act-btn" onclick="I18nStudio.aiTranslateSingle(${idx})" title="AI dịch câu này từ ngôn ngữ gốc (${esc(src)}) sang (${esc(tgt)})">✨ Dịch</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    },
+
+    updateSourceText(idx, srcLang, val) {
+      const r = this.state.rows[idx];
+      if (!r) return;
+      const trimmed = String(val || '').trim();
+      if (!trimmed) {
+        this.toast('Câu ngôn ngữ gốc không được để trống!', false);
+        this.render();
+        return;
+      }
+      r.raw[srcLang] = val;
+      r.source_modified = (srcLang === 'vi' && r.origin) ? (trimmed !== r.origin.trim()) : true;
+      r.status = 'pending';
+      this.saveState();
+      this.render();
+      this.toast(`Đã cập nhật câu ngôn ngữ gốc (${srcLang}) cho [${r.key}]. Bấm ✨ hoặc AI Dịch Nhóm để dịch lại bản đích!`);
+    },
+
+    restoreOrigin(idx, srcLang) {
+      const r = this.state.rows[idx];
+      if (!r || !r.origin) return;
+      r.raw[srcLang] = r.origin;
+      r.source_modified = false;
+      this.saveState();
+      this.render();
+      this.toast(`Đã khôi phục câu gốc ban đầu cho [${r.key}]`);
+    },
+
+    updateText(idx, lang, val) {
+      if (!this.state.rows[idx]) return;
+      this.state.rows[idx].raw[lang] = val;
+      this.state.rows[idx].status = val.trim() ? 'pending' : this.state.rows[idx].status;
+      this.saveState();
+      this.render();
+    },
+
+    setStatus(idx, st) {
+      if (!this.state.rows[idx]) return;
+      this.state.rows[idx].status = st;
+      this.saveState();
+      this.render();
+    },
+
+    approveAllFiltered() {
+      const grp = document.getElementById('sel-group').value || 'ALL';
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      const src = document.getElementById('sel-src').value || 'vi';
+      let count = 0;
+      this.state.rows.forEach(r => {
+        if (grp !== 'ALL' && r.group !== grp) return;
+        const sVal = (r.raw[src] || '').trim();
+        const tVal = (r.raw[tgt] || '').trim();
+        if (tVal && extractPlaceholders(sVal) === extractPlaceholders(tVal) && r.status !== 'approved') {
+          r.status = 'approved';
+          r.source_modified = false;
+          count++;
+        }
+      });
+      this.saveState();
+      this.render();
+      this.toast(`Đã duyệt ${count} câu hợp lệ trong ${grp === 'ALL' ? 'toàn bộ danh mục' : ('nhóm ' + grp)}!`);
+    },
+
+    offlineLocalTranslate(text, src, tgt) {
+      if (!text || src === tgt) return '';
+      if (window.I18N_STUDIO_SEED && Array.isArray(window.I18N_STUDIO_SEED.rows)) {
+        const found = window.I18N_STUDIO_SEED.rows.find(r =>
+          (r.origin === text || (r.raw && r.raw[src] === text)) &&
+          r.translations && r.translations[tgt] && r.translations[tgt] !== text &&
+          !/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(r.translations[tgt])
+        );
+        if (found) return found.translations[tgt];
+      }
+      return '';
+    },
+
+    async callAiTranslate(items, src, tgt) {
+      let endpoint = document.getElementById('ai-endpoint').value.trim();
+      if (window.location && /^https?:$/i.test(window.location.protocol)) {
+        endpoint = window.location.origin + '/api/i18n/ai-translate';
+      }
+      const token = document.getElementById('ai-token').value.trim()
+        || localStorage.getItem('pos_token')
+        || localStorage.getItem('sa_token')
+        || '';
+      const geminiKey = document.getElementById('ai-gemini-key').value.trim();
+
+      if (geminiKey && (!endpoint || endpoint.startsWith('direct'))) {
+        return await this.callDirectGemini(items, src, tgt, geminiKey);
+      }
+
+      const body = { source_lang: src, target_lang: tgt, target_lang_name: LANG_LABELS[tgt] || tgt, items };
+      if (geminiKey) body.gemini_api_key = geminiKey;
+
+      const endpointsToTry = [
+        endpoint,
+        'http://127.0.0.1:8501/api/i18n/ai-translate',
+        'http://127.0.0.1:8500/api/i18n/ai-translate'
+      ].filter((v, idx, a) => v && a.indexOf(v) === idx);
+
+      let lastErr = '';
+      for (const ep of endpointsToTry) {
+        try {
+          const res = await fetch(ep, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json().catch(() => null);
+          if (res.ok && data && data.success && Array.isArray(data.translations)) {
+            return data.translations;
+          }
+          if (data && data.message) lastErr = data.message;
+        } catch (e) {
+          lastErr = e.message || 'Không kết nối được Backend';
+        }
+      }
+
+      if (geminiKey) {
+        try {
+          return await this.callDirectGemini(items, src, tgt, geminiKey);
+        } catch (directErr) {
+          const directMsg = directErr && directErr.message ? directErr.message : 'Lỗi gọi trực tiếp Gemini API';
+          throw new Error((lastErr ? lastErr + ' | ' : '') + directMsg);
+        }
+      }
+
+      // Chỉ dùng bản dịch chính xác có sẵn trong Seed nếu không có mạng/API, tuyệt đối không dịch ghép từ nửa Việt nửa Anh
+      const exactOut = [];
+      let allMatched = true;
+      for (const it of items) {
+        const tr = this.offlineLocalTranslate(it.text, src, tgt);
+        if (!tr) { allMatched = false; break; }
+        exactOut.push({ key: it.key, translated: tr });
+      }
+      if (allMatched && exactOut.length === items.length) {
+        return exactOut;
+      }
+
+      throw new Error(
+        (lastErr ? lastErr + ' — ' : '') +
+        'Vui lòng mở trang qua http://127.0.0.1:8501/i18n_studio.html (đã đăng nhập Admin) hoặc nhập Gemini API Key vào ô cấu hình!'
+      );
+    },
+
+    async callDirectGemini(items, src, tgt, apiKey) {
+      const prompt = `You are a professional software localization translator for an F&B POS & Restaurant OS (CyberNexus POS).\n` +
+        `Translate each UI string from '${src}' to '${tgt}' (${LANG_LABELS[tgt] || tgt}).\n` +
+        `Preserve ALL placeholders like {name}, {count}, {table}, %s, %d and HTML tags verbatim.\n` +
+        `Return strictly a JSON object: {"translations": [{"key": "...", "translated": "..."}]}.\n\nInput:\n` +
+        JSON.stringify(items);
+      const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      let lastDirectErr = '';
+      for (const mdl of models) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
+          })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.error)) {
+          lastDirectErr = data?.error?.message || `Gemini API HTTP ${res.status}`;
+          continue;
+        }
+        const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!txt) {
+          lastDirectErr = 'Gemini API không trả về nội dung dịch';
+          continue;
+        }
+        const parsed = JSON.parse(txt);
+        return parsed.translations || [];
+      }
+      throw new Error(lastDirectErr || 'Không thể kết nối Gemini API');
+    },
+
+    async aiTranslateSingle(idx) {
+      const r = this.state.rows[idx];
+      if (!r) return;
+      const src = document.getElementById('sel-src').value || 'vi';
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      const text = (r.raw[src] || '').trim();
+      if (!text) { this.toast('Câu ngôn ngữ gốc đang trống!', false); return; }
+      try {
+        const res = await this.callAiTranslate([{ key: r.key, text }], src, tgt);
+        if (res[0] && res[0].translated) {
+          r.raw[tgt] = res[0].translated;
+          r.status = 'pending';
+          r.source_modified = false;
+          this.saveState();
+          this.render();
+          this.toast('Đã dịch xong key ' + r.key + ' (Chờ duyệt)');
+        }
+      } catch (e) { this.toast(e.message, false); }
+    },
+
+    stopBatchAi() {
+      this.batchAbort = true;
+      this.toast('Đang dừng tiến trình dịch hàng loạt sau lô hiện tại...', false);
+    },
+
+    async batchAiTranslate(scope = 'group', explicitGroup = '') {
+      if (this.batchRunning) {
+        this.toast('Đang có tiến trình AI dịch hàng loạt đang chạy!', false);
+        return;
+      }
+      const src = document.getElementById('sel-src').value || 'vi';
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      if (src === tgt) {
+        this.toast('Ngôn ngữ đích phải khác ngôn ngữ gốc!', false);
+        return;
+      }
+      const grpSel = document.getElementById('sel-group').value || 'ALL';
+      const targetGroup = explicitGroup || (scope === 'group' ? grpSel : 'ALL');
+
+      // Nếu người dùng bấm "AI Dịch Theo Nhóm" khi thanh xổ đang ở ALL -> mở modal chọn nhóm cần dịch
+      if (scope === 'group' && targetGroup === 'ALL') {
+        this.openPickGroupModal();
+        return;
+      }
+
+      const mode = document.getElementById('ai-batch-mode').value || 'missing_or_modified';
+      const viDiacriticRe = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+      const candidates = this.state.rows.filter(r => {
+        if (r.status === 'rejected') return false;
+        if (targetGroup !== 'ALL' && r.group !== targetGroup) return false;
+        const sVal = (r.raw[src] || '').trim();
+        if (!sVal) return false;
+        const tVal = (r.raw[tgt] || '').trim();
+        const isUntranslated = !tVal || (tgt !== src && tgt !== 'vi' && viDiacriticRe.test(tVal));
+        if (mode === 'overwrite_all') return true;
+        if (mode === 'missing_only') return isUntranslated;
+        return isUntranslated || !!r.source_modified;
+      });
+
+      if (!candidates.length) {
+        this.toast(
+          targetGroup === 'ALL'
+            ? `Không có câu nào cần dịch sang [${tgt}] ở chế độ hiện tại (hãy chọn "Dịch đè lại toàn bộ" nếu muốn dịch lại 100%).`
+            : `Nhóm [${targetGroup}] không có câu nào cần dịch sang [${tgt}] ở chế độ hiện tại.`
+        );
+        return;
+      }
+
+      this.batchRunning = true;
+      this.batchAbort = false;
+      const wrap = document.getElementById('ai-progress-wrap');
+      const pTxt = document.getElementById('ai-progress-text');
+      const pBar = document.getElementById('ai-progress-bar');
+      const btnStop = document.getElementById('btn-ai-stop');
+      const btnGrp = document.getElementById('btn-ai-group');
+      const btnAll = document.getElementById('btn-ai-all');
+      wrap.classList.add('active');
+      btnStop.style.display = 'inline-flex';
+      btnGrp.disabled = true;
+      btnAll.disabled = true;
+
+      const total = candidates.length;
+      const totalChunks = Math.ceil(total / BATCH_CHUNK_SIZE);
+      let translatedTotal = 0;
+
+      try {
+        for (let c = 0; c < totalChunks; c++) {
+          if (this.batchAbort) break;
+          const chunk = candidates.slice(c * BATCH_CHUNK_SIZE, (c + 1) * BATCH_CHUNK_SIZE);
+          const pct = Math.round((c * BATCH_CHUNK_SIZE * 100) / total);
+          pBar.style.width = pct + '%';
+          pTxt.textContent = `Đang dịch Lô ${c + 1}/${totalChunks} (${c * BATCH_CHUNK_SIZE}/${total} câu • ${pct}%) — ${targetGroup === 'ALL' ? 'Toàn bộ danh mục' : ('Nhóm ' + targetGroup)} (${src} → ${tgt})...`;
+
+          const out = await this.callAiTranslate(
+            chunk.map(r => ({ key: r.key, text: (r.raw[src] || '').trim() })),
+            src,
+            tgt
+          );
+          const map = {};
+          out.forEach(x => { if (x && x.key && x.translated) map[x.key] = x.translated; });
+          chunk.forEach(r => {
+            if (map[r.key]) {
+              r.raw[tgt] = map[r.key];
+              r.status = 'pending';
+              r.source_modified = false;
+              translatedTotal++;
+            }
+          });
+          this.saveState();
+          this.render();
+        }
+        pBar.style.width = '100%';
+        const scopeLabel = targetGroup === 'ALL' ? 'toàn bộ danh mục' : `nhóm [${targetGroup}]`;
+        if (this.batchAbort) {
+          this.toast(`Đã dừng dịch. Đã lưu ${translatedTotal}/${total} câu của ${scopeLabel} sang [${tgt}].`, false);
+        } else {
+          this.toast(`Hoàn tất AI Dịch Hàng Loạt: ${translatedTotal}/${total} câu của ${scopeLabel} sang [${tgt}] (Trạng thái: Chờ duyệt)!`);
+        }
+      } catch (e) {
+        this.toast(`Lỗi khi dịch hàng loạt (đã lưu ${translatedTotal}/${total} câu): ${e.message}`, false);
+      } finally {
+        this.batchRunning = false;
+        this.batchAbort = false;
+        btnStop.style.display = 'none';
+        btnGrp.disabled = false;
+        btnAll.disabled = false;
+        setTimeout(() => { wrap.classList.remove('active'); pBar.style.width = '0%'; }, 2500);
+      }
+    },
+
+    openPickGroupModal() {
+      this.modalKind = 'pick_group';
+      const src = document.getElementById('sel-src').value || 'vi';
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      const stats = {};
+      this.state.rows.forEach(r => {
+        if (!stats[r.group]) stats[r.group] = { total: 0, missing: 0, modified: 0 };
+        stats[r.group].total++;
+        if (!(r.raw[tgt] || '').trim()) stats[r.group].missing++;
+        if (r.source_modified) stats[r.group].modified++;
+      });
+      const opts = Object.keys(stats).sort().map(g => {
+        const s = stats[g];
+        return `<option value="${esc(g)}">${esc(g)} — Tổng ${s.total} câu (Chưa dịch: ${s.missing}, Đã sửa gốc: ${s.modified})</option>`;
+      }).join('');
+      document.getElementById('modal-title').textContent = `Chọn Nhóm để AI Dịch Hàng Loạt (${src} → ${tgt})`;
+      document.getElementById('modal-save-btn').textContent = '✨ Bắt Đầu Dịch Nhóm Này';
+      document.getElementById('modal-body').innerHTML = `
+        <label style="font-size:12px;color:var(--sub);">Chọn nhóm / phân hệ cần dịch tự động:</label>
+        <select id="m-pick-group" style="width:100%;">${opts}</select>
+        <div style="font-size:11.5px;color:var(--sub);margin-top:4px;">Mẹo: Bạn cũng có thể chọn nhóm trực tiếp ở thanh xổ <b>Nhóm / Phân hệ</b> trên thanh công cụ rồi bấm <b>AI Dịch Nhóm</b>, hoặc bấm <b>🚀 AI Dịch Toàn Bộ Danh Mục</b> để dịch tất cả các nhóm.</div>
+      `;
+      document.getElementById('studio-modal').classList.add('open');
+    },
+
+    openAddModal() {
+      this.modalKind = 'row';
+      document.getElementById('modal-title').textContent = 'Thêm câu / trường ngôn ngữ mới';
+      document.getElementById('modal-save-btn').textContent = 'Lưu';
+      document.getElementById('modal-body').innerHTML = `
+        <input type="text" id="m-group" placeholder="Nhóm / Phân hệ (VD: 05_slave_web_admin)" />
+        <select id="m-comp">
+          <option value="table_col">📊 Cột bảng (Table Column &lt;th&gt;)</option>
+          <option value="form_label">🏷️ Nhãn trường (Form Label / Placeholder)</option>
+          <option value="button">🔘 Nút bấm (Button)</option>
+          <option value="modal_title">🪟 Tiêu đề Modal / Khối</option>
+          <option value="receipt_tpl">🧾 Nhãn Mẫu In Hóa Đơn</option>
+          <option value="api_msg">⚡ Thông báo API / Toast</option>
+          <option value="db_entity">🗄️ Dữ liệu Danh mục Database</option>
+        </select>
+        <input type="text" id="m-field" placeholder="Tên Trường / Cột / Bảng cụ thể (VD: Bảng Hóa Đơn -> Cột Thành Tiền)" />
+        <input type="text" id="m-key" placeholder="Mã Key i18n (VD: admin.tbl_orders.col_total_amount)" />
+        <textarea id="m-vi" placeholder="Nội dung Ngôn ngữ gốc (Tiếng Việt)"></textarea>
+        <textarea id="m-en" placeholder="Bản dịch English (tuỳ chọn - có thể dùng AI dịch sau)"></textarea>
+      `;
+      document.getElementById('studio-modal').classList.add('open');
+    },
+
+    addLanguageModal() {
+      this.modalKind = 'lang';
+      document.getElementById('modal-title').textContent = 'Thêm cột ngôn ngữ đích mới';
+      document.getElementById('modal-save-btn').textContent = 'Thêm ngôn ngữ';
+      document.getElementById('modal-body').innerHTML = `
+        <input type="text" id="m-lang-code" placeholder="Mã ISO ngôn ngữ (VD: zh, ja, ko, th, fr, de, ru)" />
+      `;
+      document.getElementById('studio-modal').classList.add('open');
+    },
+
+    closeModal() {
+      document.getElementById('studio-modal').classList.remove('open');
+    },
+
+    saveModal() {
+      if (this.modalKind === 'pick_group') {
+        const g = document.getElementById('m-pick-group')?.value || '';
+        this.closeModal();
+        if (g) {
+          document.getElementById('sel-group').value = g;
+          this.onGroupChange();
+          this.batchAiTranslate('group', g);
+        }
+        return;
+      }
+      if (this.modalKind === 'lang') {
+        const code = (document.getElementById('m-lang-code').value || '').trim().toLowerCase();
+        if (!/^[a-z]{2,5}(_[a-zA-Z]{2})?$/.test(code)) { this.toast('Mã ngôn ngữ không hợp lệ', false); return; }
+        if (!this.state.languages.includes(code)) this.state.languages.push(code);
+        this.saveState();
+        this.populateDropdowns();
+        document.getElementById('sel-tgt').value = code;
+        this.closeModal();
+        this.render();
+        return;
+      }
+      const grp = (document.getElementById('m-group').value || 'custom').trim();
+      const comp = (document.getElementById('m-comp').value || 'form_label').trim();
+      const field = (document.getElementById('m-field').value || '').trim();
+      const key = (document.getElementById('m-key').value || '').trim();
+      const vi = (document.getElementById('m-vi').value || '').trim();
+      const en = (document.getElementById('m-en').value || '').trim();
+      if (!key || !vi) { this.toast('Key và nội dung Tiếng Việt gốc là bắt buộc', false); return; }
+      this.state.rows.unshift({
+        group: grp,
+        key,
+        comp_type: comp,
+        field_name: field || key,
+        source_file: 'custom',
+        origin: vi,
+        raw: { vi, en },
+        status: 'pending',
+        source_modified: false
+      });
+      this.saveState();
+      this.populateDropdowns();
+      this.closeModal();
+      this.onGroupChange();
+      this.toast(`Đã thêm trường/câu mới [${key}]`);
+    },
+
+    resetSeed() {
+      localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem('cbnx_i18n_studio_v1');
+      this.loadSeed();
+      this.populateDropdowns();
+      this.onGroupChange();
+      this.toast('Đã nạp lại dữ liệu gốc từ i18n_studio_data.js');
+    },
+
+    exportCsv() {
+      const langCols = this.state.languages.map(l => l === 'vi' ? 'edited' : l);
+      const header = ['group', 'key', 'source_file', 'origin'].concat(langCols);
+      const qCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const lines = [header.join(',')];
+      this.state.rows.forEach(r => {
+        if (r.status === 'rejected') return;
+        const row = [r.group, r.key, r.source_file, r.raw.vi || r.origin || ''];
+        this.state.languages.forEach(l => row.push(r.raw[l] || ''));
+        lines.push(row.map(qCsv).join(','));
+      });
+      const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'SYSTEM_MESSAGES_I18N.csv';
+      a.click();
+    },
+
+    exportJson() {
+      const tgt = document.getElementById('sel-tgt').value || 'en';
+      const tree = { _meta: { lang: tgt, exported_at: new Date().toISOString() }, csv_messages: {} };
+      this.state.rows.forEach(r => {
+        if (r.status === 'rejected') return;
+        const val = (r.raw[tgt] || r.raw.en || r.raw.vi || '').trim();
+        tree.csv_messages[r.key] = val;
+        const parts = r.key.split('.');
+        let cur = tree;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!cur[parts[i]] || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+          cur = cur[parts[i]];
+        }
+        cur[parts[parts.length - 1]] = val;
+      });
+      const blob = new Blob([JSON.stringify(tree, null, 2)], { type: 'application/json;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = tgt + '.json';
+      a.click();
+    }
+  };
+
+  window.I18nStudio = I18nStudio;
+  document.addEventListener('DOMContentLoaded', () => I18nStudio.init());
+})();
+</script>
+</body>
+</html>

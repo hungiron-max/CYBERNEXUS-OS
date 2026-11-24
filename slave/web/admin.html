@@ -6,6 +6,7 @@
     <title data-i18n="ui.adm_html.title_dd3ab007">CyberNexus POS - Quản Trị Hệ Thống</title>
     <link rel="icon" type="image/png" href="favicon.png?v=20261118">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
+    <link rel="manifest" href="/manifest.webmanifest">
     
     <!-- Local Precompiled Tailwind CSS (100% Offline, Instant Rendering) -->
     <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
@@ -143,26 +144,7 @@
                 </div>
             </div>
             <span class="cn-nav-divider"></span>
-            <a href="index.html" class="btn-glass cn-nav-btn bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40" title="Màn hình bán hàng POS Thu Ngân" data-i18n-title="ui.adm_html.a_title_d225fcf9">
-                <i class="fas fa-cash-register text-xs"></i>
-                <span class="hidden sm:inline" data-i18n="ui.adm_html.span_da8b01de">POS Bán Hàng</span>
-            </a>
-            <a href="kitchen.html" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40" title="Màn hình Bếp & Pha Chế" data-i18n-title="ui.adm_html.a_title_e6977819">
-                <i class="fas fa-fire-burner text-xs"></i>
-                <span class="hidden sm:inline" data-i18n="ui.adm_html.span_590a5f5b">Bếp</span>
-            </a>
-            <a href="order.html" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40" title="Màn hình Phục Vụ" data-i18n-title="ui.adm_html.a_title_3f2e12be">
-                <i class="fas fa-clipboard-list text-xs"></i>
-                <span class="hidden sm:inline" data-i18n="ui.adm_html.span_2b11c9eb">Phục Vụ</span>
-            </a>
-            <a href="online_orders.html" class="btn-glass cn-nav-btn bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border-indigo-500/40" title="Xử lý Đơn Đặt Online" data-i18n-title="ui.adm_html.a_title_6e6a103d">
-                <i class="fas fa-bag-shopping text-xs"></i>
-                <span class="hidden sm:inline" data-i18n="ui.adm_html.span_61048c54">Đơn Online</span>
-            </a>
-            <a href="attendance.html" class="btn-glass cn-nav-btn bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40" title="Bảng Theo Dõi Ca Làm Việc Real-Time Toàn Quán">
-                <i class="fas fa-signal text-xs"></i>
-                <span class="hidden sm:inline">Theo Dõi Ca</span>
-            </a>
+            <div id="admin-station-nav-zone" class="flex items-center gap-1.5 shrink-0"></div>
             <span class="cn-nav-divider"></span>
             <button type="button" onclick="handleAdminShutdownHost()" class="btn-glass cn-nav-btn bg-red-600/20 hover:bg-red-600/40 text-red-300 border-red-500/40" title="Dừng / Tắt Máy Chủ C++ (Safe Shutdown)" data-i18n-title="ui.adm_html.button_title_01c0ba48">
                 <i class="fas fa-power-off text-xs"></i>
@@ -216,7 +198,7 @@
 
         <!-- Tier 2: Sub-item Segment Strip (Tự động đổi theo Nhóm nghiệp vụ) -->
         <div class="mt-2 pt-1.5 border-t border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-none" id="subnav-container">
-            <!-- Group 1 Sub-items (Vận Hành) -->
+            <!-- Group 1 Sub-items (Kinh Doanh & Vận Hành) -->
             <div id="subnav-ops" class="subnav-group flex items-center gap-1.5">
                 <button type="button" onclick="Admin.switchTab('dashboard')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="dashboard" data-i18n="ui.admin_html.button_1d1d071c">
                     <i class="fas fa-chart-line text-sky-400"></i> <span data-i18n="ui.admin_html.button_1d1d071c">Tổng Quan Doanh Số</span>
@@ -226,6 +208,9 @@
                 </button>
                 <button type="button" onclick="Admin.switchTab('orders')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="orders" data-i18n="ui.admin_html.button_a0445595">
                     <i class="fas fa-receipt text-amber-400"></i> <span data-i18n="ui.admin_html.button_a0445595">Lịch Sử Hóa Đơn</span>
+                </button>
+                <button type="button" onclick="Admin.switchTab('finance')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="finance" data-i18n="ui.admin_html.button_0c0bf554">
+                    <i class="fas fa-shield-halved text-teal-400"></i> <span>Tài Chính &amp; Kiểm Toán Ca</span>
                 </button>
             </div>
 
@@ -260,9 +245,6 @@
 
             <!-- Group 4 Sub-items (Hệ Thống & Quán) -->
             <div id="subnav-sys" class="subnav-group hidden flex items-center gap-1.5">
-                <button type="button" onclick="Admin.switchTab('finance')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="finance" data-i18n="ui.admin_html.button_0c0bf554">
-                    <i class="fas fa-shield-halved text-teal-400"></i> <span data-i18n="ui.adm_html.span_88454f03">Kế Toán Ca &amp; Kiểm Toán (Audit)</span>
-                </button>
                 <button type="button" onclick="Admin.switchTab('media')" class="admin-sub-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white border border-white/5 flex items-center gap-1.5 transition shrink-0" data-tab="media" data-i18n="ui.admin_html.button_44a3df46">
                     <i class="fas fa-compact-disc text-fuchsia-400"></i> <span data-i18n="ui.adm_html.span_8b909cd5">Âm Nhạc &amp; Jukebox</span>
                 </button>
@@ -879,46 +861,20 @@
         <!-- TAB: KHO, CHI PHÍ VẬT LIỆU, TIỀN LƯƠNG & CHẤM CÔNG REALTIME -->
         <!-- ========================================== -->
         <section id="tab-operations" class="admin-section hidden flex-1 flex flex-col liquid-glass rounded-2xl overflow-hidden border border-white/10">
-            <!-- Operations Sub-Navigation Header -->
+            <!-- Operations Dynamic Header (UI-04: Removed redundant 4-subtab bar & duplicate Trực Ca Realtime) -->
             <div class="p-3 border-b border-white/10 bg-slate-900/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
-                        <i class="fas fa-boxes-stacked text-sm"></i>
+                        <i id="ops-dynamic-icon" class="fas fa-boxes-stacked text-sm"></i>
                     </div>
                     <div>
-                        <h2 class="font-extrabold text-sm sm:text-base text-white" data-i18n="ui.admin_html.h2_1068c78a">VẬN HÀNH, KHO & TIỀN LƯƠNG</h2>
-                        <p class="text-[11px] text-slate-400" data-i18n="ui.adm_html.p_56ece800">Quản lý kho hàng, chi phí vật liệu, chấm công tự động & theo dõi nhân sự realtime</p>
+                        <h2 id="ops-dynamic-title" class="font-extrabold text-sm sm:text-base text-white">KHO &amp; CHI PHÍ VẬT LIỆU</h2>
+                        <p id="ops-dynamic-subtitle" class="text-[11px] text-slate-400">Quản lý tồn kho, định mức BOM, quy đổi đơn vị &amp; chi phí vật tư F&amp;B</p>
                     </div>
                 </div>
-
-                <!-- Sub-tab Switchers (Realtime, Inventory, Payroll) -->
-                <div class="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-white/10 text-xs">
-                    
-                    <button type="button" id="ops-subtab-realtime" onclick="Admin.switchOpsSubtab('realtime')" class="ops-subtab-btn px-3 py-1.5 rounded-lg font-bold transition-all bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span data-i18n="ui.adm_html.span_d22ec2d6">Trực Ca Realtime</span>
-                        <span id="badge-online-count" class="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 text-[10px]">0</span>
-                    </button>
-                    
-                    
-                    <button type="button" id="ops-subtab-inventory" onclick="Admin.switchOpsSubtab('inventory')" class="ops-subtab-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5" data-i18n="ui.admin_html.button_f4c93777">
-                        <i class="fas fa-warehouse text-xs text-amber-400"></i>
-                        <span>Kho & Chi Phí Vật Liệu</span>
-                    </button>
-                    
-                    
-                    <button type="button" id="ops-subtab-payroll" onclick="Admin.switchOpsSubtab('payroll')" class="ops-subtab-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5" data-i18n="ui.admin_html.button_30526d63">
-                        <i class="fas fa-money-check-dollar text-xs text-emerald-400"></i>
-                        <span data-i18n="ui.adm_html.span_23791709">Chấm Công & Tiền Lương</span>
-                    </button>
-                    
-                    
-                    <button type="button" id="ops-subtab-kpi" onclick="Admin.switchOpsSubtab('kpi')" class="ops-subtab-btn px-3 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white flex items-center gap-1.5" data-i18n="ui.admin_html.button_a03621f1">
-                        <i class="fas fa-bullseye text-xs text-fuchsia-400"></i>
-                        <span>KPI & Thưởng</span>
-                    </button>
-                    
-                </div>
+                <a href="attendance.html" class="btn-glass text-xs py-1.5 px-3 bg-teal-500/15 hover:bg-teal-500/30 text-teal-300 border-teal-500/35 font-bold flex items-center gap-1.5">
+                    <i class="fas fa-signal text-[11px]"></i> Mở Theo Dõi Ca Real-Time
+                </a>
             </div>
 
             <!-- Content Container -->
@@ -1068,6 +1024,18 @@
                             <button type="button" onclick="Admin.openStockTransactionModal('export')" class="btn-glass text-xs py-1.5 px-3 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 font-bold flex items-center gap-1.5 shadow-sm" data-i18n="ui.admin_html.button_7b75817b">
                                 <i class="fas fa-minus-circle text-xs"></i>
                                 <span data-i18n="ui.admin_html.button_7b75817b">- Xuất Kho Sử Dụng</span>
+                            </button>
+                            <button type="button" onclick="Admin.openBomStudio()" class="btn-glass text-xs py-1.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40 font-bold flex items-center gap-1.5 shadow-sm">
+                                <i class="fas fa-flask text-xs"></i>
+                                <span>Định Mức &amp; Giá Vốn (BOM)</span>
+                            </button>
+                            <button type="button" onclick="Admin.openSmartUomImportModal()" class="btn-glass text-xs py-1.5 px-3 bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border-cyan-500/40 font-bold flex items-center gap-1.5 shadow-sm">
+                                <i class="fas fa-scale-balanced text-xs"></i>
+                                <span>Nhập Quy Đổi</span>
+                            </button>
+                            <button type="button" onclick="Admin.openWasteStocktakeModal(0, 'waste')" class="btn-glass text-xs py-1.5 px-3 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border-rose-500/40 font-bold flex items-center gap-1.5 shadow-sm">
+                                <i class="fas fa-trash-can-arrow-up text-xs"></i>
+                                <span>Xuất Hủy / Kiểm Kê</span>
                             </button>
                             <button type="button" onclick="Admin.openMaterialModal()" class="btn-glass text-xs py-1.5 px-3 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40 font-bold flex items-center gap-1.5 shadow-sm" data-i18n="ui.admin_html.button_ba180db6">
                                 <i class="fas fa-tag text-xs"></i>
@@ -2632,35 +2600,49 @@
                                         ⚠️ CHẾ ĐỘ MÔ PHỎNG — CHƯA NỐI THIẾT BỊ THẬT
                                     </span>
                                 </div>
-                                <div class="flex items-center gap-1.5">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <button type="button" id="noc-cfg-toggle-btn" onclick="document.getElementById('noc-config-drawer')?.classList.toggle('hidden')" class="btn-glass text-[11px] py-1 px-2.5 bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 border-indigo-400/40 font-bold">
+                                        <i class="fas fa-sliders mr-1"></i> Cấu Hình Router &amp; Bảo Mật
+                                    </button>
                                     <button type="button" onclick="Admin.exportWifiLeadsCsv()" class="btn-glass text-[11px] py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border-white/10 font-bold" data-i18n="ui.admin_html.button_5fbdcd2d">
                                         <i class="fas fa-file-csv mr-1"></i> Xuất Leads CSV
                                     </button>
                                     <button type="button" onclick="Admin.testRouterQosConnection()" class="btn-glass text-[11px] py-1 px-2.5 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-400/30 font-bold" data-i18n="ui.admin_html.button_ee995fe9">
                                         <i class="fas fa-plug-circle-check mr-1"></i> Test Router
                                     </button>
-                                    <button type="button" onclick="Admin.loadRouterDevices()" class="btn-glass text-[11px] py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border-white/10 font-bold" data-i18n="ui.admin_html.button_cee154ba">
-                                        <i class="fas fa-sync-alt mr-1"></i> Quét Thiết Bị LAN
+                                    <button type="button" onclick="Admin.loadRouterDevices(true)" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border-sky-400/30 font-bold" data-i18n="ui.admin_html.button_cee154ba">
+                                        <i class="fas fa-sync-alt mr-1"></i> Làm mới NOC
                                     </button>
                                 </div>
                             </div>
                             <div id="router-qos-test-result" class="hidden text-[11px] font-mono p-2 rounded-lg"></div>
-                            <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
-                                <select id="rq-type" class="liquid-input py-1.5 px-2 text-xs bg-slate-900">
+                            <!-- Collapsible Router & Security Config Drawer (UI-02) -->
+                            <div id="noc-config-drawer" class="space-y-2.5 p-3 rounded-xl bg-slate-950/60 border border-indigo-500/25">
+                            <div class="cn-router-grid-6 text-xs">
+                                <select id="rq-type" class="liquid-input py-1.5 px-2 text-xs bg-slate-900" onchange="const p=document.getElementById('rq-port');const hb=document.getElementById('rq-hybrid-erx-bar');if(hb)hb.classList.toggle('hidden',this.value!=='hybrid_erx_unifi');if(p){if(this.value==='edgerouter'&&(!p.value||p.value==='8443'||p.value==='11443'||p.value==='443'||p.value==='80'))p.value='22';else if((this.value==='unifi'||this.value==='hybrid_erx_unifi')&&(!p.value||p.value==='22'||p.value==='80'))p.value='11443';else if(this.value==='mikrotik'&&(!p.value||p.value==='22'||p.value==='8443'||p.value==='11443'))p.value='80';}">
                                     <option value="simulation" data-i18n="ui.admin_html.option_2519353f">Mô phỏng</option>
-                                    <option value="edgerouter" data-i18n="ui.admin_html.option_735fc3a4">EdgeRouter SSH</option>
+                                    <option value="hybrid_erx_unifi">Hybrid: EdgeRouter X + UniFi (Khuyên dùng)</option>
                                     <option value="unifi" data-i18n="ui.admin_html.option_563de20c">UniFi Controller</option>
+                                    <option value="edgerouter" data-i18n="ui.admin_html.option_735fc3a4">EdgeRouter SSH</option>
                                     <option value="mikrotik" data-i18n="ui.admin_html.option_98b0751c">MikroTik REST</option>
                                 </select>
-                                <input type="text" id="rq-host" placeholder="IP Router / Controller" data-i18n-placeholder="ui.admin_html.ph_c9092c3a" class="liquid-input py-1.5 px-2 text-xs font-mono" />
-                                <input type="number" id="rq-port" placeholder="Port (22/443/80)" data-i18n-placeholder="ui.admin_html.ph_0fa6d443" class="liquid-input py-1.5 px-2 text-xs font-mono" />
-                                <input type="text" id="rq-user" placeholder="User (admin)" data-i18n-placeholder="ui.admin_html.ph_d5d530d5" class="liquid-input py-1.5 px-2 text-xs font-mono" />
-                                <input type="password" id="rq-pass" placeholder="Mật khẩu Router" data-i18n-placeholder="ui.admin_html.ph_51b7e023" class="liquid-input py-1.5 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="text" id="rq-host" placeholder="IP Router / Controller" data-i18n-placeholder="ui.admin_html.ph_c9092c3a" class="liquid-input py-1.5 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="number" id="rq-port" placeholder="Port (22/8443/443)" data-i18n-placeholder="ui.admin_html.ph_0fa6d443" class="liquid-input py-1.5 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="text" id="rq-user" placeholder="User (admin)" data-i18n-placeholder="ui.admin_html.ph_d5d530d5" class="liquid-input py-1.5 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="password" id="rq-pass" placeholder="Mật khẩu Router" data-i18n-placeholder="ui.admin_html.ph_51b7e023" class="liquid-input py-1.5 px-2 text-xs font-mono" autocomplete="new-password" />
                                 <button type="button" onclick="Admin.saveRouterQosConfig()" class="btn-glass text-xs py-1.5 px-2.5 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-400/40 font-bold" data-i18n="ui.admin_html.button_1a6daa08">
                                     <i class="fas fa-save mr-1"></i> Lưu Router
                                 </button>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs items-center bg-slate-900/50 p-2.5 rounded-xl border border-white/10">
+                            <!-- NET-10: Thanh cấu hình EdgeRouter X Gateway song song khi chọn chế độ Hybrid Dual-Plane -->
+                            <div id="rq-hybrid-erx-bar" class="hidden cn-router-grid-5 text-xs bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/30">
+                                <div class="flex items-center gap-1.5 text-[11px] font-bold text-indigo-300"><i class="fas fa-server"></i><span>EdgeRouter X (Gateway L3):</span></div>
+                                <input type="text" id="rq-erx-host" placeholder="IP EdgeRouter (172.16.0.1)" class="liquid-input py-1 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="number" id="rq-erx-port" placeholder="Port SSH (22)" value="22" class="liquid-input py-1 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="text" id="rq-erx-user" placeholder="User SSH (admin)" value="admin" class="liquid-input py-1 px-2 text-xs font-mono" autocomplete="off" />
+                                <input type="password" id="rq-erx-pass" placeholder="Mật khẩu SSH EdgeRouter" class="liquid-input py-1 px-2 text-xs font-mono" autocomplete="new-password" />
+                            </div>
+                            <div class="cn-router-grid-5 text-xs bg-slate-900/50 p-2.5 rounded-xl border border-white/10">
                                 <div>
                                     <label class="block text-[10px] text-slate-400 mb-1" data-i18n="ui.admin_html.label_bd1f064b">Dùng thử Free (phút)</label>
                                     <input type="number" id="rq-free-min" min="1" max="1440" value="10" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
@@ -2682,7 +2664,129 @@
                                     <span data-i18n="ui.adm_html.span_3768d444">Giảm tốc sau 70% giờ VIP</span>
                                 </label>
                             </div>
-                            <div id="router-qos-devices-list" class="space-y-1.5" style="max-height: 240px; overflow-y: auto; padding-right: 4px;"></div>
+                            <!-- NET-08..14: Cô Lập Mạng Khách Zero-Trust, Safe WiFi DNS Filter, FQ-CoDel & NOC -->
+                            <div class="p-3 rounded-xl bg-slate-950/70 border border-sky-500/25 space-y-2.5 text-xs">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div class="font-bold text-sky-300 flex items-center gap-1.5">
+                                        <i class="fas fa-shield-halved"></i>
+                                        <span>Cô Lập Mạng Khách Zero-Trust, Safe WiFi &amp; Giám Sát Hạ Tầng (NOC)</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button" onclick="Admin.loadNetworkNoc()" class="btn-glass text-[11px] py-1 px-2.5 bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 border-indigo-400/40 font-bold">
+                                            <i class="fas fa-heart-pulse mr-1"></i> Giám Sát NOC
+                                        </button>
+                                        <button type="button" onclick="Admin.applyGuestLanIsolation()" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 border-sky-400/40 font-bold">
+                                            <i class="fas fa-shield-check mr-1"></i> Áp dụng lên Router
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="cn-router-grid-5 text-xs">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">IP Máy Chủ POS (ngoại lệ duy nhất)</label>
+                                        <input type="text" id="rq-pos-ip" placeholder="VD: 172.16.38.119" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Port POS</label>
+                                        <input type="number" id="rq-pos-port" value="8501" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Tên WiFi Khách (trống = tự nhận)</label>
+                                        <input type="text" id="rq-guest-ssid" placeholder="VD: Goc_pho" class="liquid-input w-full py-1 px-2 text-xs" />
+                                    </div>
+                                    <label class="flex items-center gap-2 cursor-pointer text-[11px] text-sky-200 font-semibold pt-3 sm:pt-4" title="Chặn khách thấy máy in LAN, camera, router & điện thoại khách khác">
+                                        <input type="checkbox" id="rq-guest-iso" class="rounded border-white/20 bg-slate-800 text-sky-500" />
+                                        <span>Chặn thấy thiết bị LAN</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer text-[11px] text-rose-200 font-semibold pt-3 sm:pt-4" title="Chỉ máy chủ 127.0.0.1 và thiết bị ghim Nội bộ ∞ mới mở được trang Admin/POS">
+                                        <input type="checkbox" id="rq-admin-guard" class="rounded border-white/20 bg-slate-800 text-rose-500" />
+                                        <span>Khóa cổng Admin (Lớp 3)</span>
+                                    </label>
+                                </div>
+                                <div class="cn-router-grid-5 text-xs pt-1 border-t border-white/5">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 mb-1">Lọc Nội Dung DNS (Safe WiFi)</label>
+                                        <select id="rq-dns-filter" class="liquid-input w-full py-1 px-2 text-xs bg-slate-900">
+                                            <option value="off">Tắt (DNS nhà mạng)</option>
+                                            <option value="malware">Chặn Mã độc &amp; Lừa đảo (1.1.1.2)</option>
+                                            <option value="family">Safe WiFi: Chặn Mã độc &amp; Web đen (1.1.1.3)</option>
+                                            <option value="adguard">AdGuard: Chặn Quảng cáo &amp; Lừa đảo</option>
+                                        </select>
+                                    </div>
+                                    <label class="flex items-center gap-2 cursor-pointer text-[11px] text-emerald-200 font-semibold pt-3 sm:pt-4" title="Ưu tiên băng thông tối cao cho POS & VietQR trên EdgeRouter X (FQ-CoDel)">
+                                        <input type="checkbox" id="rq-pos-qos" class="rounded border-white/20 bg-slate-800 text-emerald-500" />
+                                        <span>Ưu tiên POS (FQ-CoDel)</span>
+                                    </label>
+                                </div>
+                                <div id="router-iso-result" class="hidden text-[11px] font-mono p-2 rounded-lg"></div>
+                                <div id="router-noc-box" class="hidden text-[11px] p-2.5 rounded-lg bg-slate-900/90 border border-indigo-500/30 space-y-1.5"></div>
+                            </div>
+                            </div> <!-- End #noc-config-drawer -->
+
+                            <!-- UI-02: NOC CONTROL ROOM 2-COLUMN DASHBOARD -->
+                            <div class="cn-noc-shell">
+                                <!-- LEFT SIDEBAR: LIVE TELEMETRY -->
+                                <div class="cn-noc-sidebar">
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="font-bold text-emerald-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Network Status: Active</span>
+                                        <button type="button" id="noc-live-toggle" onclick="Admin.toggleNocLive()" class="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-[10px]">● Live 5s</button>
+                                    </div>
+                                    <div class="cn-noc-kpi-2">
+                                        <div class="cn-noc-kpi-card">
+                                            <div class="text-[10px] text-slate-400">↑ Tổng Tải Lên (TX)</div>
+                                            <div id="noc-kpi-tx" class="text-base font-black font-mono text-sky-300 mt-0.5">0.0 MB</div>
+                                            <div class="h-1 rounded-full bg-slate-800 mt-1.5 overflow-hidden"><div class="h-full bg-sky-400" style="width:65%"></div></div>
+                                        </div>
+                                        <div class="cn-noc-kpi-card">
+                                            <div class="text-[10px] text-slate-400">↓ Tổng Tải Xuống (RX)</div>
+                                            <div id="noc-kpi-rx" class="text-base font-black font-mono text-purple-300 mt-0.5">0.0 MB</div>
+                                            <div class="h-1 rounded-full bg-slate-800 mt-1.5 overflow-hidden"><div class="h-full bg-purple-400" style="width:78%"></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-slate-950/80 border border-white/10 rounded-xl p-2.5">
+                                        <div class="flex items-center justify-between text-[10px] text-slate-300 font-bold mb-1.5">
+                                            <span><i class="fas fa-chart-line text-sky-400 mr-1"></i> Traffic Overview (Real-Time)</span>
+                                            <span id="noc-chart-time" class="font-mono text-slate-500">--:--:--</span>
+                                        </div>
+                                        <canvas id="noc-traffic-canvas" width="290" height="96" style="width:100%;height:96px;display:block"></canvas>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div class="bg-slate-950/80 border border-white/10 rounded-xl p-2 text-center">
+                                            <div class="text-[10px] font-bold text-slate-300 mb-1">Phân Bổ Thiết Bị</div>
+                                            <div id="noc-donut-wrap" class="flex items-center justify-center"></div>
+                                        </div>
+                                        <div class="bg-slate-950/80 border border-white/10 rounded-xl p-2">
+                                            <div class="text-[10px] font-bold text-slate-300 mb-1">Top Tiêu Thụ (MB)</div>
+                                            <div id="noc-top-clients" class="space-y-1 text-[10px] font-mono"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-slate-950/80 border border-white/10 rounded-xl p-2.5">
+                                        <div class="text-[10px] font-bold text-slate-300 mb-1.5"><i class="fas fa-tower-broadcast text-sky-400 mr-1"></i> Phiên Hoạt Động Real-Time</div>
+                                        <div id="noc-live-sessions" class="space-y-1 text-[10px] font-mono" style="max-height:140px;overflow-y:auto"></div>
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT MAIN: STATUS PILLS + SEARCH + MULTI-COLUMN DEVICE TABLE -->
+                                <div class="cn-noc-main">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
+                                        <div class="flex flex-wrap items-center gap-1.5" id="noc-status-pills">
+                                            <button type="button" onclick="Admin.setNocFilter('all')" data-noc-filter="all" class="cn-noc-pill active text-slate-200"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Tất cả: <b id="noc-cnt-all">0</b></button>
+                                            <button type="button" onclick="Admin.setNocFilter('whitelist')" data-noc-filter="whitelist" class="cn-noc-pill text-sky-300"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Nội bộ ∞: <b id="noc-cnt-wl">0</b></button>
+                                            <button type="button" onclick="Admin.setNocFilter('vip')" data-noc-filter="vip" class="cn-noc-pill text-emerald-300"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> VIP: <b id="noc-cnt-vip">0</b></button>
+                                            <button type="button" onclick="Admin.setNocFilter('free')" data-noc-filter="free" class="cn-noc-pill text-amber-300"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Free: <b id="noc-cnt-free">0</b></button>
+                                            <button type="button" onclick="Admin.setNocFilter('blocked')" data-noc-filter="blocked" class="cn-noc-pill text-rose-300"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Đã chặn: <b id="noc-cnt-blk">0</b></button>
+                                        </div>
+                                        <div id="noc-infra-badges" class="flex flex-wrap items-center gap-1.5 text-[10px] font-mono"></div>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <div class="relative flex-1 min-w-[200px]">
+                                            <i class="fas fa-search absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+                                            <input type="text" id="noc-search-input" oninput="Admin.renderNocDeviceTable()" placeholder="Tìm theo Tên máy, IP, MAC, WiFi 5G/2.4G..." class="liquid-input w-full py-1.5 pl-8 pr-3 text-xs" />
+                                        </div>
+                                        <span class="text-[10px] text-slate-400 font-mono" id="noc-table-meta">0 thiết bị</span>
+                                    </div>
+                                    <div id="router-qos-devices-list" class="cn-noc-table-wrap"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Setup Form In Hóa Đơn & Kết Nối Máy In / Két Tiền (PAY-01 / PAY-05) -->
@@ -2700,7 +2804,7 @@
                                 </button>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs">
+                            <div class="cn-printer-grid text-xs">
                                 <div>
                                     <label class="block text-[10px] text-slate-400 mb-1" data-i18n="ui.admin_html.label_aad0aa30">Kiểu kết nối máy in:</label>
                                     <select name="printer_type" id="cfg-printer-type" class="liquid-input w-full py-1.5 px-2 bg-slate-900">
@@ -2731,7 +2835,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+                            <div class="cn-receipt-split pt-2">
                                 <div class="space-y-2.5 text-xs bg-slate-950/60 p-3 rounded-xl border border-white/10">
                                     <div class="grid grid-cols-3 gap-2">
                                         <div>
@@ -2796,7 +2900,7 @@
                                     <input type="text" id="tpl-custom-footer" placeholder="Lời cảm ơn cuối bill tuỳ chỉnh..." data-i18n-placeholder="ui.admin_html.ph_23b055ab" oninput="Admin.previewReceiptStudio()" class="liquid-input w-full py-1 px-2 text-xs" />
                                 </div>
 
-                                <div class="bg-slate-950/90 p-3 rounded-xl border border-white/10 flex flex-col items-center">
+                                <div class="cn-receipt-preview-box bg-slate-950/90 p-3 rounded-xl border border-white/10 flex flex-col items-center">
                                     <div class="text-[11px] font-bold text-slate-400 uppercase mb-2" data-i18n="ui.adm_html.div_11db5ed8">Live Preview Hóa Đơn Real-Time</div>
                                     <div id="receipt-studio-preview" class="rounded-lg shadow-xl overflow-auto max-h-[380px] border border-slate-700 bg-white"></div>
                                 </div>
@@ -2904,8 +3008,8 @@
             <!-- Main Layout: 2 Columns Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
 
-                <!-- Left Column (lg:col-span-7): 10-Band DSP Equalizer Studio -->
-                <div class="lg:col-span-7 flex flex-col space-y-4">
+                <!-- Left Column (lg:col-span-5): 10-Band DSP Equalizer Studio -->
+                <div class="lg:col-span-5 flex flex-col space-y-4">
                     <div class="eq-studio-rack p-4 rounded-2xl flex-1 flex flex-col">
                         <!-- EQ Header & Presets Selector -->
                         <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10 mb-3">
@@ -3200,8 +3304,8 @@
                     </div>
                 </div>
 
-                <!-- Right Column (lg:col-span-5): Now Playing & Jukebox Queue -->
-                <div class="lg:col-span-5 flex flex-col space-y-4 media-right-col">
+                <!-- Right Column (lg:col-span-7): Now Playing & 2 Vertical Cards (Queue 4 : Catalog 6) -->
+                <div class="lg:col-span-7 flex flex-col space-y-3 media-right-col">
                     <!-- Now Playing Card with Spinning Vinyl & Dancing Bars -->
                     <div class="liquid-glass p-4 rounded-2xl border border-sky-500/30 relative overflow-hidden shadow-xl shadow-black/40 shrink-0">
                         <div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-sky-500/15 blur-2xl pointer-events-none"></div>
@@ -3266,105 +3370,126 @@
                                 </button>
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <i class="fas fa-volume-up text-slate-400 text-xs"></i>
-                                <input type="range" min="0" max="100" value="100" oninput="Admin.mediaPlayer.setVolume(this.value)" class="w-16 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400" title="Âm lượng Master" data-i18n-title="ui.adm_html.input_title_23117e08">
+                                <button type="button" onclick="Admin.mediaPlayer.toggleMute()" title="Bật / Tắt tiếng (Mute)" class="cursor-pointer text-slate-400 hover:text-sky-300 transition">
+                                    <i id="admin-media-volume-icon" class="fas fa-volume-up text-xs"></i>
+                                </button>
+                                <input id="admin-media-volume-slider" type="range" min="0" max="100" value="100" oninput="Admin.mediaPlayer.setVolume(this.value)" class="w-16 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400" title="Âm lượng Master" data-i18n-title="ui.adm_html.input_title_23117e08">
+                                <span id="admin-media-volume-text" class="text-[10px] font-mono font-bold text-slate-300 w-7 text-right">100%</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Queue Card -->
-                    <div style="height: 160px;" class="liquid-glass p-4 rounded-2xl border border-white/10 shrink-0 flex flex-col overflow-hidden">
-                        <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-2 shrink-0">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-list-ol text-fuchsia-400 text-xs"></i>
-                                <span class="text-xs font-black uppercase tracking-wider text-slate-200" data-i18n="ui.adm_html.span_1d43f8cd">Hàng Đợi Yêu Cầu (Jukebox Queue)</span>
+                    <!-- 2 Side-by-Side Vertical Cards below Now Playing: Left = Queue (4fr), Right = Catalog (6fr) -->
+                    <div class="flex-1 min-h-0 grid grid-cols-1 gap-3 items-stretch" style="grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);">
+                        <!-- Queue Card (Left Vertical Card) -->
+                        <div class="liquid-glass p-3.5 rounded-2xl border border-white/10 flex flex-col overflow-hidden min-h-[260px]">
+                            <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-2 gap-1.5 shrink-0">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <i class="fas fa-list-ol text-fuchsia-400 text-xs shrink-0"></i>
+                                    <span class="text-[11px] font-black uppercase tracking-wider text-slate-200 truncate" data-i18n="ui.adm_html.span_1d43f8cd">Hàng Đợi Yêu Cầu</span>
+                                </div>
+                                <span id="media-queue-count" class="text-[10px] font-extrabold text-sky-400 whitespace-nowrap shrink-0" data-i18n="ui.adm_html.span_af8c65bc">2 bài trong hàng đợi</span>
                             </div>
-                            <span id="media-queue-count" class="text-[11px] font-extrabold text-sky-400" data-i18n="ui.adm_html.span_af8c65bc">2 bài trong hàng đợi</span>
+
+                            <!-- Queue List Container -->
+                            <div id="media-queue-list" style="min-height: 0; overflow-y: auto;" class="space-y-2 flex-1 pr-1">
+                                <!-- Populated dynamically via Admin.renderMediaQueue() -->
+                            </div>
                         </div>
 
-                        <!-- Queue List Container -->
-                        <div id="media-queue-list" style="min-height: 0; overflow-y: auto;" class="space-y-2 flex-1 pr-1">
-                            <!-- Populated dynamically via Admin.renderMediaQueue() -->
-                        </div>
-                    </div>
-
-                    <!-- Offline Tracks Catalog (Add to Queue & Manager) -->
-                    <div class="liquid-glass p-4 rounded-2xl border border-white/10 flex flex-col overflow-hidden media-catalog-card">
-                        <div class="flex items-center justify-between pb-2.5 border-b border-white/10 mb-2.5 gap-1.5 shrink-0">
-                            <div class="flex items-center gap-1.5 shrink-0">
-                                <span class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-xs shrink-0">
-                                    <i class="fas fa-database"></i>
-                                </span>
-                                <span class="text-xs font-black uppercase tracking-wider text-slate-200 whitespace-nowrap" data-i18n="ui.adm_html.span_8c9ffe5e">Kho Nhạc</span>
-                                <span id="media-catalog-count-badge" class="hidden"></span>
+                        <!-- Offline Tracks Catalog (Right Vertical Card) -->
+                        <div class="liquid-glass p-3.5 rounded-2xl border border-white/10 flex flex-col overflow-hidden min-h-[260px] media-catalog-card">
+                            <div class="flex flex-col pb-2 border-b border-white/10 mb-2 gap-1.5 shrink-0">
+                                <div class="flex flex-wrap items-center justify-between gap-1.5">
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <span class="w-5 h-5 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-[10px] shrink-0">
+                                            <i class="fas fa-database"></i>
+                                        </span>
+                                        <span class="text-[11px] font-black uppercase tracking-wider text-slate-200 whitespace-nowrap" data-i18n="ui.adm_html.span_8c9ffe5e">Kho Nhạc</span>
+                                        <span id="media-catalog-count-badge" class="hidden"></span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <button type="button" onclick="Admin.openUploadMediaModal()" style="padding: 3px 6px !important;" class="btn-glass text-[10px] text-teal-300 hover:text-white border-teal-500/40 hover:bg-teal-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap" title="Tải file nhạc MP3/WAV/FLAC lên server" data-i18n="ui.admin_html.button_6a22cd9e" data-i18n-title="ui.adm_html.button_title_2c87d9e2">
+                                            <i class="fas fa-upload text-[9px]"></i> Tải
+                                        </button>
+                                        <button type="button" onclick="Admin.openYoutubeImportModal()" style="padding: 3px 6px !important;" class="btn-glass text-[10px] text-rose-300 hover:text-white border-rose-500/40 hover:bg-rose-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap" title="Thêm nhạc từ link YouTube (chỉ lấy Audio)" data-i18n="ui.admin_html.button_bb16d0df" data-i18n-title="ui.adm_html.button_title_061d06f7">
+                                            <i class="fab fa-youtube text-[10px]"></i> YT
+                                        </button>
+                                        <button type="button" onclick="Admin.openMediaManagerModal()" style="padding: 3px 6px !important;" class="btn-glass text-[10px] text-sky-300 hover:text-white border-sky-500/40 hover:bg-sky-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap" title="Quản lý toàn bộ kho nhạc" data-i18n="ui.admin_html.button_5b258876" data-i18n-title="ui.adm_html.button_title_1fe687c7">
+                                            <i class="fas fa-sliders-h text-[9px]"></i> QL
+                                        </button>
+                                        <button type="button" onclick="Admin.rescanMediaTracks()" style="padding: 3px 6px !important;" class="btn-glass text-[10px] text-purple-300 hover:text-white border-purple-500/40 hover:bg-purple-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap" title="Quét thư mục assets/media" data-i18n="ui.admin_html.button_a9d7481a" data-i18n-title="ui.adm_html.button_title_57bdc5d8">
+                                            <i class="fas fa-sync-alt text-[9px]"></i> Quét
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1.5 w-full">
+                                    <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." data-i18n-placeholder="ui.admin_html.ph_367b9970" style="min-width: 0 !important; padding: 3px 8px !important;" class="liquid-input flex-1 text-[10px] rounded-lg bg-slate-900 border border-white/10" />
+                                    <select id="media-catalog-genre-filter" onchange="Admin.filterMediaCatalog()" style="width: 132px !important; min-width: 0 !important; padding: 3px 6px !important;" class="liquid-input text-[10px] rounded-lg bg-slate-900 border border-sky-500/30 text-sky-200 font-semibold shrink-0" title="Lọc theo thể loại nhạc">
+                                        <option value="ALL">Tất cả thể loại</option>
+                                        <option value="__MATCH_SLOT__">⭐ Hợp khung giờ</option>
+                                        <option value="Sôi động / EDM">Sôi động / EDM</option>
+                                        <option value="Êm dịu / Acoustic">Êm dịu / Acoustic</option>
+                                        <option value="Ballad">Ballad</option>
+                                        <option value="Pop">Pop</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-1 flex-nowrap shrink-0">
-                                <input type="text" id="media-catalog-search" oninput="Admin.filterMediaCatalog(this.value)" placeholder="Tìm bài hát..." data-i18n-placeholder="ui.admin_html.ph_367b9970" style="width: 115px !important; min-width: 0 !important; padding: 4px 8px !important;" class="liquid-input text-[11px] rounded-lg bg-slate-900 border border-white/10 shrink-0" />
-                                <button type="button" onclick="Admin.openUploadMediaModal()" style="padding: 4px 7px !important;" class="btn-glass text-[10px] text-teal-300 hover:text-white border-teal-500/40 hover:bg-teal-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0" title="Tải file nhạc MP3/WAV/FLAC lên server" data-i18n="ui.admin_html.button_6a22cd9e" data-i18n-title="ui.adm_html.button_title_2c87d9e2">
-                                    <i class="fas fa-upload text-[9px]"></i> Tải Nhạc
-                                </button>
-                                <button type="button" onclick="Admin.openYoutubeImportModal()" style="padding: 4px 7px !important;" class="btn-glass text-[10px] text-rose-300 hover:text-white border-rose-500/40 hover:bg-rose-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0" title="Thêm nhạc từ link YouTube (chỉ lấy Audio)" data-i18n="ui.admin_html.button_bb16d0df" data-i18n-title="ui.adm_html.button_title_061d06f7">
-                                    <i class="fab fa-youtube text-[10px]"></i> YouTube
-                                </button>
-                                <button type="button" onclick="Admin.openMediaManagerModal()" style="padding: 4px 7px !important;" class="btn-glass text-[10px] text-sky-300 hover:text-white border-sky-500/40 hover:bg-sky-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0" title="Quản lý toàn bộ kho nhạc" data-i18n="ui.admin_html.button_5b258876" data-i18n-title="ui.adm_html.button_title_1fe687c7">
-                                    <i class="fas fa-sliders-h text-[9px]"></i> Quản Lý
-                                </button>
-                                <button type="button" onclick="Admin.rescanMediaTracks()" style="padding: 4px 7px !important;" class="btn-glass text-[10px] text-purple-300 hover:text-white border-purple-500/40 hover:bg-purple-500/20 font-bold flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0" title="Quét thư mục assets/media" data-i18n="ui.admin_html.button_a9d7481a" data-i18n-title="ui.adm_html.button_title_57bdc5d8">
-                                    <i class="fas fa-sync-alt text-[9px]"></i> Quét
-                                </button>
+                            <div id="media-catalog-list" style="min-height: 0; overflow-y: auto;" class="space-y-1.5 flex-1 pr-1 text-xs media-custom-scroll">
+                                <!-- Populated dynamically via Admin.renderMediaCatalog() -->
                             </div>
-                        </div>
-                        <div id="media-catalog-list" style="min-height: 0; overflow-y: auto;" class="space-y-1.5 flex-1 pr-1 text-xs media-custom-scroll">
-                            <!-- Populated dynamically via Admin.renderMediaCatalog() -->
                         </div>
                     </div>
                 </div>
 
             </div>
 
-            <!-- Lịch Phát Nhạc Thông Minh Theo Khung Giờ & Thể Loại -->
-            <div class="liquid-glass p-4 rounded-2xl border border-fuchsia-500/30 space-y-3 shrink-0">
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+            <!-- Lịch Phát Nhạc Thông Minh Theo Khung Giờ & Thể Loại (UI-03 #2 Compact + MED-02 Master Switch) -->
+            <div class="liquid-glass p-3 rounded-2xl border border-fuchsia-500/30 space-y-2 shrink-0">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="w-8 h-8 rounded-lg bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 flex items-center justify-center"><i class="fas fa-calendar-clock"></i></span>
-                        <div>
-                            <h4 class="text-xs font-black uppercase text-fuchsia-300" data-i18n="ui.admin_html.h4_197e5178">Phân Loại Thể Loại &amp; Lịch Phát Nhạc Theo Khung Giờ</h4>
-                            <p class="text-[11px] text-slate-400" data-i18n="ui.adm_html.p_3b746d32">Tự động phân loại nhạc (Êm dịu / Acoustic, Ballad, Pop, Sôi động / EDM) và chọn thể loại phù hợp từng khung giờ</p>
-                        </div>
-                        <span id="media-active-schedule-badge" class="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[11px] font-bold" data-i18n="ui.sa_html.td_b9b2a982">Đang tải...</span>
+                        <span class="w-7 h-7 rounded-lg bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 flex items-center justify-center"><i class="fas fa-clock text-xs"></i></span>
+                        <h4 class="text-xs font-black uppercase text-fuchsia-300">Lịch Phát Nhạc Theo Khung Giờ</h4>
+                        <span id="media-active-schedule-badge" class="px-2 py-0.5 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[11px] font-bold">Đang tải...</span>
                     </div>
-                    <button type="button" onclick="Admin.autoClassifyMediaTracks()" class="btn-glass text-xs py-1.5 px-3 bg-fuchsia-500/20 hover:bg-fuchsia-500/35 text-fuchsia-200 border-fuchsia-500/40 font-bold flex items-center gap-1.5" data-i18n="ui.admin_html.button_1b86f93e">
-                        <i class="fas fa-wand-magic-sparkles"></i> Tự Phân Loại Kho Nhạc
-                    </button>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" id="media-schedule-master-btn" onclick="Admin.toggleMasterMediaSchedule()" class="btn-glass text-[11px] py-1 px-2.5 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-500/40 font-bold flex items-center gap-1">
+                            <i class="fas fa-toggle-on text-emerald-400"></i> Khung giờ: BẬT
+                        </button>
+                        <button type="button" onclick="document.getElementById('media-schedule-add-form')?.classList.toggle('hidden')" class="btn-glass text-[11px] py-1 px-2.5 bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border-sky-500/35 font-bold flex items-center gap-1">
+                            <i class="fas fa-plus text-[10px]"></i> Thêm khung
+                        </button>
+                        <button type="button" onclick="Admin.autoClassifyMediaTracks()" class="btn-glass text-[11px] py-1 px-2.5 bg-fuchsia-500/20 hover:bg-fuchsia-500/35 text-fuchsia-200 border-fuchsia-500/40 font-bold flex items-center gap-1">
+                            <i class="fas fa-wand-magic-sparkles text-[10px]"></i> Tự Phân Loại
+                        </button>
+                    </div>
                 </div>
 
-                <div id="media-schedules-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+                <div id="media-schedules-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1.5"></div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-2 border-t border-white/10 items-end text-xs">
-                    <div class="sm:col-span-2">
-                        <label class="block text-[10px] text-slate-400 mb-1" data-i18n="ui.admin_html.label_36b960fe">Tên khung giờ</label>
-                        <input type="text" id="ms-name" placeholder="VD: Chiều Trà Chiều" data-i18n-placeholder="ui.admin_html.ph_4dc587de" class="liquid-input w-full py-1.5 px-2.5 text-xs" />
+                <div id="media-schedule-add-form" class="hidden flex flex-wrap items-end gap-2 pt-2 border-t border-white/10 text-xs">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Tên khung giờ</label>
+                        <input type="text" id="ms-name" placeholder="VD: Chiều Trà Chiều" class="liquid-input w-full py-1 px-2.5 text-xs" />
                     </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-400 mb-1" data-i18n="ui.admin_html.label_0a85a9ae">Từ giờ</label>
-                        <input type="time" id="ms-start" value="14:00" class="liquid-input w-full py-1.5 px-2 text-xs font-mono" />
+                    <div class="w-28">
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Từ giờ</label>
+                        <input type="time" id="ms-start" value="14:00" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
                     </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-400 mb-1" data-i18n="ui.admin_html.label_9f5a0c77">Đến giờ</label>
-                        <input type="time" id="ms-end" value="17:30" class="liquid-input w-full py-1.5 px-2 text-xs font-mono" />
+                    <div class="w-28">
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Đến giờ</label>
+                        <input type="time" id="ms-end" value="17:30" class="liquid-input w-full py-1 px-2 text-xs font-mono" />
                     </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-400 mb-1" data-i18n="ui.admin_html.label_767ce644">Thể loại nhạc</label>
-                        <select id="ms-genre" class="liquid-input w-full py-1.5 px-2 text-xs bg-slate-900">
-                            <option value="Êm dịu / Acoustic" data-i18n="ui.admin_html.option_1a6ff91d">Êm dịu / Acoustic</option>
-                            <option value="Ballad" data-i18n="ui.admin_html.option_f4600df2">Ballad</option>
-                            <option value="Pop" data-i18n="ui.admin_html.option_cfc89724">Pop</option>
-                            <option value="Sôi động / EDM" data-i18n="ui.admin_html.option_c5e13f38">Sôi động / EDM</option>
+                    <div class="w-40">
+                        <label class="block text-[10px] text-slate-400 mb-0.5">Thể loại nhạc</label>
+                        <select id="ms-genre" class="liquid-input w-full py-1 px-2 text-xs bg-slate-900">
+                            <option value="Êm dịu / Acoustic">Êm dịu / Acoustic</option>
+                            <option value="Ballad">Ballad</option>
+                            <option value="Pop">Pop</option>
+                            <option value="Sôi động / EDM">Sôi động / EDM</option>
                         </select>
                     </div>
-                    <div>
-                        <button type="button" onclick="Admin.addMediaSchedule()" class="btn-glass w-full text-xs py-1.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-500/30 font-bold" data-i18n="ui.admin_html.button_b4db9d9c"><i class="fas fa-plus mr-1"></i> Thêm Khung Giờ</button>
-                    </div>
+                    <button type="button" onclick="Admin.addMediaSchedule()" class="btn-glass text-xs py-1 px-3 bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border-emerald-500/30 font-bold"><i class="fas fa-plus mr-1"></i> Lưu Khung</button>
                 </div>
             </div>
         </section>
@@ -3746,45 +3871,35 @@
             <div id="cloud-sync-alert" class="hidden mb-4 p-3.5 rounded-xl border text-xs leading-relaxed transition-all duration-300">
                 <!-- Injected via JS -->
             </div>
-            <p class="mb-4 text-xs text-amber-300" data-i18n="ui.adm_html.p_0628e66c">Bản sao đầy đủ được lưu riêng; các bảng đồng bộ cũ không phải bản sao đầy đủ. Ảnh và video cần sao lưu riêng. Chuyển năm và khôi phục chưa khả dụng.</p>
-            <div class="mb-4 flex flex-wrap items-center gap-2">
-                <button type="button" onclick="Admin.createLocalBackup()" id="btn-local-backup" class="btn-glass text-xs py-2 px-3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold" data-i18n="ui.admin_html.button_a80975c6">Sao lưu local</button>
-                <span class="text-xs text-slate-300" data-i18n="ui.adm_html.span_d20a9eab">Lưu CSDL trong thư mục backup theo năm trên máy chủ quán.</span>
-            </div>
-            <div class="mb-4 space-y-2 border-t border-white/10 pt-3">
-                <p class="text-xs font-bold text-cyan-300" data-i18n="ui.adm_html.p_c5bd8244">Sao lưu tự động theo quý</p>
-                <p id="backup-schedule-status" class="text-xs text-slate-300" data-i18n="ui.adm_html.p_449a0719">Đang kiểm tra lịch sao lưu...</p>
-                <button type="button" onclick="Admin.activateBackupSchedule()" id="btn-backup-schedule" class="btn-glass text-xs py-2 px-3" data-i18n="ui.admin_html.button_aea6578d">Tạo mốc đầu và bật lịch</button>
-                <p class="text-xs text-amber-300" data-i18n="ui.adm_html.p_beaff283">Quán mới chỉ bật sau khi hoàn tất setup. Lịch chạy khi máy chủ POS được khởi động bằng bộ chạy mới; nếu máy tắt, sao lưu bù khi chạy lại.</p>
-            </div>
+            <p class="mb-4 text-xs text-amber-300">Sao lưu &amp; đồng bộ MySQL theo quán được điều phối từ Master Control Console (SYNC-01).</p>
 
             <!-- Parameters Form -->
             <form id="cloud-sync-form" onsubmit="event.preventDefault();" class="space-y-3 text-xs">
                 <div class="grid grid-cols-3 gap-2.5">
                     <div class="col-span-2">
                         <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_7fd075ed">Máy chủ MySQL (Host / IP) (*):</label>
-                        <input type="text" id="sync-host" oninput="Admin.invalidateCloudSnapshots()" value="127.0.0.1" placeholder="Ví dụ: 127.0.0.1 hoặc db.example.com" data-i18n-placeholder="ui.admin_html.ph_1edd8d92" class="liquid-input w-full font-mono text-slate-100 font-bold" required />
+                        <input type="text" id="sync-host" value="127.0.0.1" placeholder="Ví dụ: 127.0.0.1 hoặc db.example.com" data-i18n-placeholder="ui.admin_html.ph_1edd8d92" class="liquid-input w-full font-mono text-slate-100 font-bold" required />
                     </div>
                     <div>
                         <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_2a2aa31c">Cổng (Port) (*):</label>
-                        <input type="number" id="sync-port" oninput="Admin.invalidateCloudSnapshots()" value="3306" placeholder="3306" class="liquid-input w-full font-mono text-slate-100" required />
+                        <input type="number" id="sync-port" value="3306" placeholder="3306" class="liquid-input w-full font-mono text-slate-100" required />
                     </div>
                 </div>
 
                 <div>
                     <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_4cf695eb">Tên Cơ Sở Dữ Liệu (Database Name) (*):</label>
-                    <input type="text" id="sync-database" oninput="Admin.invalidateCloudSnapshots()" value="pos_sale_app" placeholder="pos_sale_app" data-i18n-placeholder="ui.admin_html.ph_32d014d1" class="liquid-input w-full font-mono text-cyan-300 font-bold" required />
+                    <input type="text" id="sync-database" value="pos_sale_app" placeholder="pos_sale_app" data-i18n-placeholder="ui.admin_html.ph_32d014d1" class="liquid-input w-full font-mono text-cyan-300 font-bold" required />
                 </div>
 
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
                         <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_59498d6c">Tên Người Dùng (Username) (*):</label>
-                        <input type="text" id="sync-user" oninput="Admin.invalidateCloudSnapshots()" value="root" placeholder="root" data-i18n-placeholder="ui.admin_html.ph_de0d600a" class="liquid-input w-full font-mono text-slate-100" required />
+                        <input type="text" id="sync-user" value="root" placeholder="root" data-i18n-placeholder="ui.admin_html.ph_de0d600a" class="liquid-input w-full font-mono text-slate-100" required />
                     </div>
                     <div>
                         <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_b6fcb9c4">Mật Khẩu (Password):</label>
                         <div class="relative">
-                            <input type="password" id="sync-password" oninput="Admin.invalidateCloudSnapshots()" placeholder="Nhập mật khẩu (nếu có)" data-i18n-placeholder="ui.admin_html.ph_bb05d98c" class="liquid-input w-full font-mono pr-8 text-slate-100" />
+                            <input type="password" id="sync-password" placeholder="Nhập mật khẩu (nếu có)" data-i18n-placeholder="ui.admin_html.ph_bb05d98c" class="liquid-input w-full font-mono pr-8 text-slate-100" />
                             <button type="button" onclick="Admin.toggleSyncPasswordVisibility()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white" tabindex="-1">
                                 <i id="sync-pass-eye" class="far fa-eye"></i>
                             </button>
@@ -3799,22 +3914,6 @@
                         <span data-i18n="ui.adm_html.span_599d39e9">Tự động tạo Database trên MySQL nếu chưa tồn tại</span>
                     </label>
                     <p class="text-slate-300" data-i18n="ui.adm_html.p_32fe9e1f">Thông số mặc định được cấu hình bằng biến môi trường; mật khẩu không được lưu vào mã nguồn.</p>
-                </div>
-
-                <div class="pt-3 space-y-2 border-t border-white/10">
-                    <p class="font-bold text-cyan-300" data-i18n="ui.adm_html.p_d4cd4fdc">Snapshot đầy đủ trên MySQL</p>
-                    <p class="text-slate-300" data-i18n="ui.adm_html.p_5923b735">Tải về thư mục backup theo năm; không tự khôi phục và không xác thực được nguồn chỉ bằng SHA-256.</p>
-                    <button type="button" id="btn-cloud-list" onclick="Admin.listCloudSnapshots(1)" class="btn-glass py-2 px-3 text-xs" data-i18n="ui.admin_html.button_c695b3c5">Xem snapshot cloud</button>
-                    <label class="block text-slate-300" for="cloud-snapshot-select" data-i18n="ui.admin_html.label_7d008441">Chọn snapshot:</label>
-                    <select id="cloud-snapshot-select" class="liquid-input w-full" disabled onchange="Admin.updateCloudSnapshotButtons()">
-                        <option value="" data-i18n="ui.admin_html.option_aa90bcaf">Chưa tải danh sách</option>
-                    </select>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" id="btn-cloud-prev" onclick="Admin.listCloudSnapshots(Admin.cloudSnapshotPage - 1)" class="btn-glass py-1 px-2 text-xs" disabled data-i18n="ui.admin_html.button_b517c4b3">Mới hơn</button>
-                        <span id="cloud-snapshot-page" class="text-slate-300" data-i18n="ui.admin_html.option_aa90bcaf">Chưa tải danh sách</span>
-                        <button type="button" id="btn-cloud-next" onclick="Admin.listCloudSnapshots(Admin.cloudSnapshotPage + 1)" class="btn-glass py-1 px-2 text-xs" disabled data-i18n="ui.admin_html.button_a1656d81">Cũ hơn</button>
-                        <button type="button" id="btn-cloud-download" onclick="Admin.downloadCloudSnapshot()" class="btn-glass py-2 px-3 text-xs bg-cyan-700 text-white" disabled data-i18n="ui.admin_html.button_070bfa0c">Tải vào backup local</button>
-                    </div>
                 </div>
 
                 <!-- Sync Statistics Summary (after sync) -->
@@ -3921,8 +4020,8 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                            <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_96cd84b3">Đơn vị tính:</label>
-                            <input type="text" id="modal-mat-unit" placeholder="kg, lít, hộp, gói..." data-i18n-placeholder="ui.admin_html.ph_fa96d3eb" value="kg" class="liquid-input w-full" required />
+                            <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_96cd84b3">Đơn vị gốc (ml / g / cái):</label>
+                            <input type="text" id="modal-mat-unit" placeholder="ml, g, cái..." data-i18n-placeholder="ui.admin_html.ph_fa96d3eb" value="ml" class="liquid-input w-full" required />
                         </div>
                         <div>
                             <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_7d5fcdda">Số lượng ban đầu:</label>
@@ -3931,6 +4030,21 @@
                         <div>
                             <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_e6386fcf">Định mức tối thiểu:</label>
                             <input type="number" step="0.1" id="modal-mat-minqty" value="5" class="liquid-input w-full font-mono text-rose-300" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-slate-300 mb-1">Phân loại chi phí F&amp;B:</label>
+                            <select id="modal-mat-cost-class" class="liquid-input w-full">
+                                <option value="direct_bom">1. Nguyên liệu pha chế / chế biến (COGS - BOM)</option>
+                                <option value="packaging_consumable">2. Bao bì &amp; Tiêu hao bán hàng (Ly, Ống hút, Đá)</option>
+                                <option value="operating_supply">3. Vật tư vận hành &amp; Vệ sinh (Nước rửa chén, Lau sàn, Giẻ lau → OPEX)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end gap-2 pb-1">
+                            <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="modal-mat-track-expiry" /> Theo dõi Hạn sử dụng (Bánh mì, Sữa tươi...)
+                            </label>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
@@ -4650,111 +4764,7 @@
         </div>
     </div>
 
-    <!-- Modal: Đánh giá KPI, phụ cấp, thưởng/phạt -->
-    <div id="modal-kpi" class="liquid-modal-overlay" onclick="if(event.target===this) Admin.closeKpiModal()">
-        <form class="liquid-glass liquid-modal-content p-5 w-[520px] max-w-full text-white shadow-2xl border border-fuchsia-500/40 rounded-2xl" onsubmit="Admin.saveKpi(event)">
-            <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
-                <div>
-                    <h3 class="font-bold text-base text-fuchsia-300 flex items-center gap-2" data-i18n="ui.admin_html.h3_39a97079"><i class="fas fa-bullseye"></i> Đánh giá KPI & lương thưởng</h3>
-                    <div id="kpi-modal-who" class="text-[11px] text-slate-400 mt-0.5"></div>
-                </div>
-                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="Admin.closeKpiModal()">&times;</button>
-            </div>
-            <input type="hidden" id="kpi-user-id" />
-            <div class="space-y-3 text-xs">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_e2a65b86">Thái độ phục vụ (0-100)</label>
-                        <input type="number" id="kpi-attitude" min="0" max="100" step="1" class="liquid-input w-full font-mono" placeholder="Bỏ trống = chưa chấm" data-i18n-placeholder="ui.admin_html.ph_5563d3b3" />
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_f36aa235">Phối hợp đồng đội (0-100)</label>
-                        <input type="number" id="kpi-teamwork" min="0" max="100" step="1" class="liquid-input w-full font-mono" placeholder="Bỏ trống = chưa chấm" data-i18n-placeholder="ui.admin_html.ph_5563d3b3" />
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-emerald-300 mb-1" data-i18n="ui.admin_html.label_1a680e9b">Thưởng thêm (đ)</label>
-                        <input type="number" id="kpi-manual-bonus" min="0" step="1000" class="liquid-input w-full font-mono" value="0" />
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-rose-300 mb-1" data-i18n="ui.admin_html.label_9db63653">Phạt thêm (đ)</label>
-                        <input type="number" id="kpi-manual-deduction" min="0" step="1000" class="liquid-input w-full font-mono" value="0" />
-                    </div>
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_742e9f14">Nhận xét</label>
-                    <textarea id="kpi-note" rows="2" maxlength="500" class="liquid-input w-full"></textarea>
-                </div>
-                <div class="pt-2 border-t border-white/10">
-                    <div class="font-bold text-amber-300 mb-2" data-i18n="ui.adm_html.div_aea2ba0a">Lương & phụ cấp cố định (áp dụng mọi tháng)</div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_81853e27">Lương theo giờ (đ/h)</label><input type="number" id="kpi-hourly-rate" min="0" step="500" class="liquid-input w-full font-mono" /></div>
-                        <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_c7daf56e">Phụ cấp ăn / ca (đ)</label><input type="number" id="kpi-meal" min="0" step="1000" class="liquid-input w-full font-mono" /></div>
-                        <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_175e27e3">Phụ cấp chức vụ / tháng (đ)</label><input type="number" id="kpi-position" min="0" step="10000" class="liquid-input w-full font-mono" /></div>
-                        <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_1e04153e">Phụ cấp đi lại / tháng (đ)</label><input type="number" id="kpi-transport" min="0" step="10000" class="liquid-input w-full font-mono" /></div>
-                        <div class="col-span-2"><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_e927d48c">Phụ cấp khác / tháng (đ)</label><input type="number" id="kpi-other" min="0" step="10000" class="liquid-input w-full font-mono" /></div>
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-white/10">
-                <button type="button" class="btn-glass text-xs py-2 px-4" onclick="Admin.closeKpiModal()" data-i18n="ui.admin_html.button_d7d5c86c">Hủy</button>
-                <button type="submit" class="btn-glass-success text-xs py-2 px-5 font-bold" data-i18n="ui.admin_html.button_737d070e">Lưu</button>
-            </div>
-        </form>
-    </div>
-
-    
-    <!-- Modal: Thêm / sửa khoản chi -->
-    <div id="modal-fin-expense" class="liquid-modal-overlay" onclick="if(event.target===this) Admin.closeFinModals()">
-        <form class="liquid-glass liquid-modal-content p-5 w-[480px] max-w-full text-white shadow-2xl border border-teal-500/40 rounded-2xl" onsubmit="Admin.saveFinExpense(event)">
-            <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
-                <h3 class="font-bold text-base text-teal-300 flex items-center gap-2" data-i18n="ui.admin_html.h3_e47ec7a0"><i class="fas fa-receipt"></i> Khoản chi phí</h3>
-                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="Admin.closeFinModals()">&times;</button>
-            </div>
-            <input type="hidden" id="fin-exp-id" />
-            <div class="grid grid-cols-2 gap-3 text-xs">
-                <div><label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_390e7530">Ngày chi</label><input type="date" id="fin-exp-date" required class="liquid-input w-full font-mono" /></div>
-                <div><label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_6792211e">Loại chi phí</label><select id="fin-exp-category" class="liquid-input w-full"></select></div>
-                <div class="col-span-2"><label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_b60de472">Nội dung</label><input type="text" id="fin-exp-desc" maxlength="200" class="liquid-input w-full" /></div>
-                <div class="col-span-2"><label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_559b86f7">Nhà cung cấp</label><input type="text" id="fin-exp-supplier" maxlength="150" class="liquid-input w-full" /></div>
-                <div><label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_4f8674e6">Số tiền (đ, đã gồm VAT)</label><input type="number" id="fin-exp-amount" required min="1" step="1000" class="liquid-input w-full font-mono" /></div>
-                <div><label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_152f92d9">Trong đó VAT đầu vào (đ)</label><input type="number" id="fin-exp-vat" min="0" step="1" value="0" class="liquid-input w-full font-mono" /></div>
-            </div>
-            <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-white/10">
-                <button type="button" class="btn-glass text-xs py-2 px-4" onclick="Admin.closeFinModals()" data-i18n="ui.admin_html.button_d7d5c86c">Hủy</button>
-                <button type="submit" class="btn-glass-success text-xs py-2 px-5 font-bold" data-i18n="ui.admin_html.button_737d070e">Lưu</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Modal: Cấu hình thuế -->
-    <div id="modal-fin-tax" class="liquid-modal-overlay" onclick="if(event.target===this) Admin.closeFinModals()">
-        <form class="liquid-glass liquid-modal-content p-5 w-[480px] max-w-full text-white shadow-2xl border border-amber-500/40 rounded-2xl" onsubmit="Admin.saveFinTax(event)">
-            <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
-                <h3 class="font-bold text-base text-amber-300 flex items-center gap-2" data-i18n="ui.admin_html.h3_6ba968b2"><i class="fas fa-percent"></i> Cấu hình thuế</h3>
-                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="Admin.closeFinModals()">&times;</button>
-            </div>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block font-semibold text-slate-300 mb-1" data-i18n="ui.admin_html.label_05ff0588">Phương pháp tính thuế</label>
-                    <select id="fin-tax-method" class="liquid-input w-full">
-                        <option value="deduction" data-i18n="ui.admin_html.option_67ae67ac">Doanh nghiệp: GTGT khấu trừ + TNDN trên lợi nhuận</option>
-                        <option value="revenue" data-i18n="ui.admin_html.option_374002d4">Hộ kinh doanh: GTGT + TNCN tính trên doanh thu</option>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_93d954c2">Thuế suất GTGT (%)</label><input type="number" id="fin-tax-vat" min="0" max="20" step="0.1" class="liquid-input w-full font-mono" /></div>
-                    <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_a17c2e1e">Thuế TNDN (%)</label><input type="number" id="fin-tax-cit" min="0" max="50" step="0.1" class="liquid-input w-full font-mono" /></div>
-                    <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_72d9f3a2">GTGT theo doanh thu (%)</label><input type="number" id="fin-tax-rev-vat" min="0" max="20" step="0.1" class="liquid-input w-full font-mono" /></div>
-                    <div><label class="block text-slate-300 mb-1" data-i18n="ui.admin_html.label_2d2c93b6">TNCN theo doanh thu (%)</label><input type="number" id="fin-tax-rev-pit" min="0" max="20" step="0.1" class="liquid-input w-full font-mono" /></div>
-                </div>
-                <p class="text-[11px] text-slate-400" data-i18n="ui.adm_html.p_590b9aaf">Giá bán được coi là đã gồm VAT. Hãy nhập thuế suất theo quy định hiện hành hoặc theo tư vấn của kế toán.</p>
-            </div>
-            <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-white/10">
-                <button type="button" class="btn-glass text-xs py-2 px-4" onclick="Admin.closeFinModals()" data-i18n="ui.admin_html.button_d7d5c86c">Hủy</button>
-                <button type="submit" class="btn-glass-success text-xs py-2 px-5 font-bold" data-i18n="ui.admin_html.button_737d070e">Lưu</button>
-            </div>
-        </form>
-    </div>
+    <!-- JS-01 & ARCH-07: Removed orphaned static #modal-kpi, #modal-fin-expense, #modal-fin-tax (dynamic modals in admin_ops_kpi.js & admin_finance_ecr.js) -->
     
 
     <div id="admin-table-modal" class="liquid-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-table-form-title" onclick="if(event.target===this) Admin.closeAddTableModal()">
@@ -5280,6 +5290,8 @@
     <script src="assets/js/admin.js?v=43"></script>
     <script src="assets/js/admin_ops_kpi.js?v=1"></script>
     <script src="assets/js/admin_inventory.js?v=1"></script>
+    <script src="assets/js/admin_bom_studio.js?v=1"></script>
+    <script src="assets/js/cn_station_nav.js?v=1"></script>
     <script src="assets/js/admin_media_dsp.js?v=1"></script>
     <script src="assets/js/admin_finance_ecr.js?v=1"></script>
     
@@ -5290,21 +5302,25 @@
             <i class="fas fa-border-all text-base text-emerald-400"></i>
             <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_589376f4">Bàn QR</span>
         </button>
-        <button type="button" onclick="Admin.switchTab('products')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="products" data-i18n="ui.admin_html.button_ce1089cc">
-            <i class="fas fa-utensils text-base text-amber-400"></i>
-            <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_ce1089cc">Món (F4)</span>
-        </button>
         <button type="button" onclick="Admin.switchTab('dashboard')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="dashboard" data-i18n="ui.admin_html.button_05d92bbe">
             <i class="fas fa-chart-line text-base text-sky-400"></i>
             <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_05d92bbe">Doanh Số</span>
+        </button>
+        <button type="button" onclick="Admin.switchTab('finance')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="finance" data-i18n="ui.admin_html.button_4dfe8402">
+            <i class="fas fa-file-invoice-dollar text-base text-teal-400"></i>
+            <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_4dfe8402">Tài Chính</span>
+        </button>
+        <button type="button" onclick="Admin.switchTab('products')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="products" data-i18n="ui.admin_html.button_ce1089cc">
+            <i class="fas fa-utensils text-base text-amber-400"></i>
+            <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_ce1089cc">Món (F4)</span>
         </button>
         <button type="button" onclick="Admin.switchTab('users')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="users" data-i18n="ui.admin_html.button_da3eaaeb">
             <i class="fas fa-users-gear text-base text-indigo-400"></i>
             <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_da3eaaeb">Nhân Sự</span>
         </button>
-        <button type="button" onclick="Admin.switchTab('finance')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="finance" data-i18n="ui.admin_html.button_4dfe8402">
-            <i class="fas fa-file-invoice-dollar text-base text-teal-400"></i>
-            <span class="text-[10px] font-bold mt-0.5" data-i18n="ui.admin_html.button_4dfe8402">Tài Chính</span>
+        <button type="button" onclick="Admin.switchTab('settings')" class="mobile-nav-btn flex flex-col items-center justify-center p-1 rounded-xl text-slate-400 hover:text-white transition w-16" data-mobile-tab="settings">
+            <i class="fas fa-cog text-base text-purple-400"></i>
+            <span class="text-[10px] font-bold mt-0.5">Cài Đặt</span>
         </button>
     </nav>
     <!-- Modal: Gia hạn Gói & Nạp AI Credit qua VietQR -->

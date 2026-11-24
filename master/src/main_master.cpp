@@ -177,7 +177,14 @@ int main(int argc, char* argv[]) {
                 {"warranty_until", "TEXT DEFAULT ''"},
                 {"workflow_override", "INTEGER DEFAULT 0"},
                 {"deleted_at", "TEXT DEFAULT ''"},
-                {"deleted_reason", "TEXT DEFAULT ''"}
+                {"deleted_reason", "TEXT DEFAULT ''"},
+                {"mysql_backup_enabled", "INTEGER DEFAULT 0"},
+                {"mysql_schema", "TEXT DEFAULT ''"},
+                {"mysql_user", "TEXT DEFAULT ''"},
+                {"last_mysql_sync_at", "TEXT DEFAULT ''"},
+                {"last_mysql_sync_status", "TEXT DEFAULT ''"},
+                {"last_mysql_sync_summary", "TEXT DEFAULT ''"},
+                {"last_slave_db_stats", "TEXT DEFAULT ''"}
             };
             for (const auto& [col, def] : extraCols) {
                 if (!hasCol(col)) {
@@ -324,10 +331,10 @@ int main(int argc, char* argv[]) {
     svr.Get("/favicon.png", serveFavicon("favicon.png", "image/png"));
     svr.Get("/", serveMasterView);
     svr.Get("/super_admin", serveMasterView);
-    svr.Get("/super_admin.html", serveMasterView);
-    svr.Get("/super_admin.php", serveMasterView);
+    svr.Get("/super_admin.html", [](const httplib::Request&, httplib::Response& res) { res.set_redirect("/super_admin"); });
+    svr.Get("/super_admin.php", [](const httplib::Request&, httplib::Response& res) { res.set_redirect("/super_admin"); });
     svr.Get("/master", serveMasterView);
-    svr.Get("/master.html", serveMasterView);
+    svr.Get("/master.html", [](const httplib::Request&, httplib::Response& res) { res.set_redirect("/super_admin"); });
     svr.Get("/licensing", serveMasterView);
     svr.Get("/platform", serveMasterView);
 

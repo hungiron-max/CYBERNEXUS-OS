@@ -7,6 +7,7 @@
 #include "rate_limiter.hpp"
 #include "upload_guard.hpp"
 #include "license.hpp"
+#include "PluginManager.hpp"
 #include "printer_bridge.hpp"
 #include "hikvision_isapi.hpp"
 #include "vietqr_emvco.hpp"
@@ -957,7 +958,16 @@ bool Dot6Handlers::handleDot6Orders(const std::string& action, const httplib::Re
             db.execute("UPDATE tables_areas SET status = 'free', active_order_id = NULL WHERE active_order_id = :oid", {{":oid", orderId}});
         }
         db.commit();
-        ApiHandlers::sendJson(res, {{"success", true}, {"message", "Đã chặn thiết bị/SĐT QR trong 24 giờ & hủy đơn rác!"}});
+        // ANTISPAM-07: Liên thông chặn Spammer QR sang mod_network_qos để đá rớt phiên WiFi tức thì
+        if (!clientIp.empty()) {
+            CyberNexus::PluginManager::instance().dispatchEvent("IPS_ABNORMAL_TRAFFIC", {
+                {"ip", clientIp},
+                {"tier", 2},
+                {"action", "kick"},
+                {"reason", "POS Block Spammer: " + reason}
+            });
+        }
+        ApiHandlers::sendJson(res, {{"success", true}, {"message", "Đã chặn thiết bị/SĐT QR trong 24 giờ, hủy đơn rác & đá rớt phiên WiFi!"}});
         return true;
     }
 

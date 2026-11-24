@@ -1,0 +1,156 @@
+body {
+    background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
+    min-height: 100vh;
+    color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.liquid-glass {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.liquid-card {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.liquid-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.15);
+}
+
+.btn-glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+.btn-glass:hover {
+    background: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+}
+
+.btn-glass-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border: 1px solid rgba(52, 211, 153, 0.6) !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-glass-success:hover {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%) !important;
+    box-shadow: 0 6px 22px rgba(16, 185, 129, 0.65) !important;
+    transform: translateY(-1px);
+}
+.btn-glass-success:active {
+    transform: scale(0.96) !important;
+}
+
+.liquid-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Slide & Carousel Styling - Cinematic Liquid Glass */
+.customer-ad-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .7s cubic-bezier(0.4, 0, 0.2, 1), transform .7s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: scale(1.02);
+}
+.customer-ad-slide.is-active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+/* Bỏ background (trong suốt) đè lên hình nền theo yêu cầu - Giữ hình ảnh món ăn sắc nét 100% */
+.customer-store-backdrop,
+.customer-store-glow {
+    display: none !important;
+}
+
+/* Hiệu ứng chữ màu Gradient đa sắc rực rỡ (Vàng - Cam - Hồng - Tím - Xanh) như mẫu hình Góc Phố */
+.goc-pho-gradient-text,
+.slide-title-rainbow {
+    background: linear-gradient(90deg, #fbbf24 0%, #fb923c 20%, #f87171 40%, #f43f5e 58%, #c084fc 78%, #38bdf8 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    color: transparent !important;
+    font-weight: 900 !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.85)) !important;
+    display: inline-block;
+}
+
+.slide-desc-crisp {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 2px 8px rgba(0, 0, 0, 0.9), 0 4px 14px rgba(0, 0, 0, 0.85) !important;
+}
+.customer-ad-dot {
+    transition: all 0.25s ease;
+}
+
+/* Banner Hero Standard 16:9 Aspect Ratio (Tỷ lệ tiêu chuẩn video & banner) */
+#customer-ad-carousel {
+    width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: none !important;
+}
+.customer-banner-hero-box {
+    min-height: unset !important;
+}
+
+/* Header Responsive Action Buttons (Zero Overflow, No Tailwind w-auto dependency) */
+.nav-action-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    height: 34px !important;
+    width: auto !important;
+    padding: 0 12px !important;
+    border-radius: 12px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+}
+@media (max-width: 639px) {
+    .nav-action-btn {
+        width: 34px !important;
+        height: 34px !important;
+        padding: 0 !important;
+    }
+    .nav-action-btn .nav-btn-label {
+        display: none !important;
+    }
+}
+
+/* Strict anti-overflow protection across all viewports */
+html, body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#category-filter-pills {
+    -webkit-overflow-scrolling: touch;
+}

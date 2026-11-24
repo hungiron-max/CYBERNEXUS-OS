@@ -360,9 +360,53 @@ const Admin = {
         `;
     },
 
+    togglePasswordView(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (!inp) return;
+        const isPwd = inp.type === 'password';
+        inp.type = isPwd ? 'text' : 'password';
+        if (btn) {
+            const ic = btn.querySelector('i');
+            if (ic) ic.className = isPwd ? 'fas fa-eye-slash' : 'fas fa-eye';
+        }
+    },
+
+    toggleGeminiKeyEdit() {
+        const inp = document.getElementById('set-gemini-key');
+        if (!inp) return;
+        inp.readOnly = !inp.readOnly;
+        inp.type = inp.readOnly ? 'password' : 'text';
+        if (!inp.readOnly) inp.focus();
+    },
+
+    openDeviceCamera() {
+        const inp = document.getElementById('import-invoice-file') || document.querySelector('input[type="file"][accept*="image"]');
+        if (inp) {
+            inp.setAttribute('capture', 'environment');
+            inp.click();
+        }
+    },
+
     async init() {
         this.bindNavigation();
-        this.switchTab('dashboard');
+        const rawHash = (window.location.hash || '').replace(/^#/, '').trim();
+        let savedTab = '';
+        try { savedTab = sessionStorage.getItem('cn_admin_active_tab') || ''; } catch (e) {}
+        const initHash = rawHash || savedTab;
+        if (initHash === 'payroll' || initHash === 'kpi') {
+            this.openHrSubtab(initHash);
+        } else if (initHash === 'inventory') {
+            this.switchTab('operations');
+        } else if (['dashboard', 'tables', 'orders', 'finance', 'products', 'categories', 'users', 'analytics', 'media', 'settings'].includes(initHash)) {
+            this.switchTab(initHash);
+        } else {
+            this.switchTab('dashboard');
+        }
+        try {
+            if (window.location.hash || window.location.pathname.endsWith('.html')) {
+                history.replaceState(null, '', '/admin');
+            }
+        } catch (e) {}
         await this.loadCategories();
         await this.loadDashboard();
         await this.loadProducts();
@@ -565,6 +609,7 @@ const Admin = {
     },
 
     openHrSubtab(subtab) {
+        this._fromHrSubtab = true;
         this.currentOpsSubtab = subtab;
         this.switchTab('operations');
         this.currentGroup = 'hr';
@@ -606,7 +651,7 @@ const Admin = {
 
     switchTab(tab) {
         const tabModMap = { media: 'mod_media_stream', users: 'staff_shifts', analytics: 'advanced_reports', finance: 'finance_reports' };
-        if (tabModMap[tab] && typeof this.isModuleAllowed === 'function' && !this.isModuleAllowed(tabModMap[tab])) {
+        if (tabModMap[tab] && Array.isArray(this._licensedModules) && typeof this.isModuleAllowed === 'function' && !this.isModuleAllowed(tabModMap[tab])) {
             const fallbackGroup = (tab === 'finance' || tab === 'media') ? 'sys' : 'hr';
             const subnav = document.getElementById(`subnav-${fallbackGroup}`);
             const visBtn = subnav ? Array.from(subnav.querySelectorAll('.admin-sub-btn')).find(b => b.style.display !== 'none' && b.dataset.tab !== tab) : null;
@@ -628,7 +673,7 @@ const Admin = {
             operations: { title: (window.cnxT?window.cnxT('ui.admin_html.button_f4c93777','Kho & Chi Phí Vật Liệu'):'Kho & Chi Phí Vật Liệu'), group: 'menu', icon: 'fa-boxes-stacked text-emerald-400' },
             users: { title: (window.cnxT?window.cnxT('ui.admin_html.button_bc446524','Nhân Viên & Phân Quyền'):'Nhân Viên & Phân Quyền'), group: 'hr', icon: 'fa-users-gear text-indigo-400' },
             analytics: { title: (window.cnxT?window.cnxT('ui.admin_html.button_ee04a70c','Hiệu Suất Bếp & Phục Vụ'):'Hiệu Suất Bếp & Phục Vụ'), group: 'hr', icon: 'fa-chart-pie text-amber-400' },
-            finance: { title: (window.cnxT?window.cnxT('js.s_adm.4e8e8333','Báo Cáo Tài Chính'):'Báo Cáo Tài Chính'), group: 'sys', icon: 'fa-file-invoice-dollar text-teal-400' },
+            finance: { title: 'Tài Chính & Kiểm Toán Ca', group: 'ops', icon: 'fa-shield-halved text-teal-400' },
             media: { title: (window.cnxT?window.cnxT('ui.admin_html.button_44a3df46','Âm Nhạc & Jukebox'):'Âm Nhạc & Jukebox'), group: 'sys', icon: 'fa-compact-disc text-fuchsia-400' },
             settings: { title: (window.cnxT?window.cnxT('ui.admin_html.button_dc2cd84b','Cài Đặt Quán & VietQR'):'Cài Đặt Quán & VietQR'), group: 'sys', icon: 'fa-cog text-sky-400' }
         };
@@ -683,12 +728,24 @@ const Admin = {
         if (tab === 'users') this.loadUsers();
         if (tab === 'orders') this.loadOrderHistory();
         if (tab === 'analytics') this.loadAnalyticsData();
-        if (tab === 'operations') this.loadOperationsTab();
+        if (tab === 'operations') {
+            if (!this._fromHrSubtab) this.currentOpsSubtab = 'inventory';
+            this._fromHrSubtab = false;
+            this.loadOperationsTab();
+        }
+        try {
+            const hashKey = (tab === 'operations' && this.currentOpsSubtab) ? this.currentOpsSubtab : tab;
+            sessionStorage.setItem('cn_admin_active_tab', hashKey);
+            if (window.location.hash) {
+                history.replaceState(null, '', '/admin');
+            }
+        } catch (e) {}
         if (tab === 'finance') this.loadFinance();
         if (tab === 'settings') {
             if (typeof loadStoreSettings === 'function') loadStoreSettings();
             this.loadCardTerminalAdmin();
             this.loadWanTunnelStatus();
+            if (typeof this.loadRouterDevices === 'function') this.loadRouterDevices();
         }
         if (tab === 'media') {
             this.loadMediaTab();

@@ -165,71 +165,11 @@
                         </button>
                     </div>
 
-                    <!-- Modal Body: 2-Column Responsive Studio Layout -->
-                    <div class="p-4 sm:p-5 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <!-- Modal Body: 2-Column Pro Console Layout (Synced with Admin Jukebox Console) -->
+                    <div class="p-4 sm:p-5 overflow-y-auto flex-1 jukebox-console-grid">
                         
-                        <!-- LEFT COLUMN (5 cols): Player & 10-Band DSP Studio Console -->
-                        <div class="lg:col-span-5 space-y-3.5 flex flex-col">
-                            
-                            <!-- Now Playing Console Card -->
-                            <div class="p-4 rounded-2xl bg-gradient-to-br from-slate-900/90 via-slate-950/90 to-fuchsia-950/30 border border-fuchsia-500/25 shadow-lg relative overflow-hidden">
-                                <div class="flex items-center gap-3.5">
-                                    <!-- Animated Vinyl Disc Visual -->
-                                    <div class="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
-                                        <div id="pos-modal-disc" class="w-full h-full rounded-full border-4 border-slate-800 shadow-xl flex items-center justify-center relative overflow-hidden" style="background: radial-gradient(circle, #0f172a 25%, #020617 26%, #1e293b 28%, #020617 40%, #1e293b 42%, #020617 56%, #1e293b 58%, #020617 72%, #1e293b 74%, #020617 100%);">
-                                            <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-fuchsia-500 to-pink-500 flex items-center justify-center text-white border-2 border-slate-950 shadow-inner">
-                                                <i id="pos-modal-disc-icon" class="fas fa-music text-[10px]"></i>
-                                            </div>
-                                        </div>
-                                        <span id="pos-modal-disc-dot" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950 shadow-sm animate-pulse"></span>
-                                    </div>
-
-                                    <!-- Track Details -->
-                                    <div class="flex-1 min-w-0">
-                                        <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-fuchsia-500/15 text-fuchsia-300 text-[10px] font-bold border border-fuchsia-500/30 mb-1">
-                                            <i class="fas fa-tower-broadcast animate-pulse"></i>
-                                            <span id="pos-modal-source">${window.cnxT?window.cnxT('js.s_med.7862df57','Hệ Thống Quán'):'Hệ Thống Quán'}</span>
-                                        </div>
-                                        <h4 id="pos-modal-track-title" class="text-sm sm:text-base font-black text-white truncate leading-tight">${window.cnxT?window.cnxT('js.s_pjuke.511aa2f5','Chưa có bài hát đang phát'):'Chưa có bài hát đang phát'}</h4>
-                                        <p id="pos-modal-track-artist" class="text-xs text-slate-400 truncate mt-0.5">${window.cnxT?window.cnxT('ui.adm_html.div_5db208a0','Hệ thống sẵn sàng'):'Hệ thống sẵn sàng'}</p>
-                                    </div>
-                                </div>
-
-                                <!-- Progress Bar & Seek -->
-                                <div class="mt-3 flex items-center gap-2">
-                                    <span id="pos-modal-cur-time" class="text-[10px] font-mono text-slate-400 w-9 text-right shrink-0">00:00</span>
-                                    <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden cursor-pointer relative group" onclick="POSJukebox.onSeek(event)">
-                                        <div id="pos-modal-progress-bar" class="h-full bg-gradient-to-r from-fuchsia-500 to-pink-400 rounded-full transition-all relative" style="width: 0%;">
-                                            <span class="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                                        </div>
-                                    </div>
-                                    <span id="pos-modal-dur-time" class="text-[10px] font-mono text-slate-400 w-9 shrink-0">00:00</span>
-                                </div>
-
-                                <!-- Controls & Master Volume -->
-                                <div class="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
-                                    <div class="flex items-center gap-2">
-                                        <!-- Play / Pause Button -->
-                                        <button id="pos-modal-play-btn" type="button" onclick="POSJukebox.togglePlay()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-fuchsia-600/30 cursor-pointer transition active:scale-95">
-                                            <i id="pos-modal-play-btn-icon" class="fas fa-play text-xs"></i>
-                                            <span id="pos-modal-play-btn-text">${window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát'}</span>
-                                        </button>
-                                        <!-- Skip Button -->
-                                        <button type="button" onclick="POSJukebox.skipTrack()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-white/10 shadow-sm cursor-pointer transition active:scale-95" title="Chuyển sang bài tiếp theo">
-                                            <i class="fas fa-forward-step text-xs text-sky-400"></i>
-                                            <span>${window.cnxT?window.cnxT('js.s_pjuke.4c250d66','Bài Sau'):'Bài Sau'}</span>
-                                        </button>
-                                    </div>
-
-                                    <!-- Volume Slider -->
-                                    <div class="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1 rounded-xl border border-white/10 shrink-0">
-                                        <i class="fas fa-volume-high text-xs text-slate-400"></i>
-                                        <input type="range" id="pos-modal-volume-slider" min="0" max="100" value="80" oninput="POSJukebox.setVolume(this.value)" class="w-16 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-fuchsia-500">
-                                        <span id="pos-modal-volume-text" class="text-[10px] font-mono font-bold text-slate-300 w-6 text-right">80%</span>
-                                    </div>
-                                </div>
-                            </div>
-
+                        <!-- LEFT COLUMN: Full-Height 10-Band DSP Studio Console + VU Meter -->
+                        <div class="flex flex-col min-w-0">
                             <!-- 10-Band DSP Studio Console Card (Hardware Studio Mixer UI) -->
                             <div class="eq-studio-rack p-3.5 rounded-2xl flex flex-col space-y-2.5 shadow-xl flex-1">
                                 <!-- Top Bar: Title, Presets & Flat 0dB -->
@@ -261,7 +201,7 @@
                                 </div>
 
                                 <!-- Spectrum Wave Display Screen (Hi-Fi Screen with dB markings) -->
-                                <div class="dsp-spectrum-screen relative w-full rounded-xl border border-sky-500/30 p-2 overflow-hidden shadow-inner" style="height: 110px; min-height: 110px; background: radial-gradient(ellipse at 50% 50%, #08172e 0%, #020713 100%);">
+                                <div class="dsp-spectrum-screen relative w-full rounded-xl border border-sky-500/30 p-2 overflow-hidden shadow-inner" style="height: 118px; min-height: 118px; background: radial-gradient(ellipse at 50% 50%, #08172e 0%, #020713 100%);">
                                     <!-- Background Grid Lines -->
                                     <div class="absolute inset-x-10 inset-y-2 pointer-events-none opacity-20">
                                         <div class="w-full h-full border-b border-t border-slate-400 grid grid-rows-4">
@@ -272,21 +212,18 @@
                                         </div>
                                     </div>
 
-                                    <!-- Decibel Scale on Left -->
                                     <div class="dsp-db-label left p12">+12 dB</div>
                                     <div class="dsp-db-label left p6">+6 dB</div>
                                     <div class="dsp-db-label left zero">0 dB</div>
                                     <div class="dsp-db-label left m6">-6 dB</div>
                                     <div class="dsp-db-label left m12">-12 dB</div>
 
-                                    <!-- Decibel Scale on Right -->
                                     <div class="dsp-db-label right p12">+12 dB</div>
                                     <div class="dsp-db-label right p6">+6 dB</div>
                                     <div class="dsp-db-label right zero">0 dB</div>
                                     <div class="dsp-db-label right m6">-6 dB</div>
                                     <div class="dsp-db-label right m12">-12 dB</div>
 
-                                    <!-- Realtime Waveform SVG -->
                                     <svg id="pos-eq-curve-svg" class="w-full h-full relative z-1 pointer-events-none" viewBox="0 0 600 120" preserveAspectRatio="none">
                                         <defs>
                                             <linearGradient id="posEqGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -315,8 +252,8 @@
                                     </svg>
                                 </div>
 
-                                <!-- 10 Vertical Faders Hardware Rack (Side-by-Side 10 Columns) -->
-                                <div class="eq-faders-grid flex-1 items-stretch pb-2" style="display: grid !important; grid-template-columns: repeat(10, minmax(0, 1fr)) !important; gap: 4px !important;">
+                                <!-- 10 Vertical Faders Hardware Rack -->
+                                <div class="eq-faders-grid flex-1 items-stretch pb-1" style="display: grid !important; grid-template-columns: repeat(10, minmax(0, 1fr)) !important; gap: 4px !important;">
                                     ${[
                                         { key: 'band_31hz', label: '31Hz', role: 'SUB' },
                                         { key: 'band_62hz', label: '62Hz', role: 'BASS' },
@@ -329,12 +266,12 @@
                                         { key: 'band_8khz', label: '8kHz', role: 'AIR' },
                                         { key: 'band_16khz', label: '16kHz', role: 'SHINE' }
                                     ].map((b, idx) => `
-                                        <div class="eq-channel-strip" style="height: 195px; padding: 6px 2px;">
+                                        <div class="eq-channel-strip" style="height: 205px; padding: 6px 2px;">
                                             <span id="pos-eq-val-${b.key}" class="eq-val-badge eq-val-flat">0.0</span>
-                                            <div class="eq-fader-slot" style="height: 115px;">
-                                                <div class="eq-slot-groove" style="height: 105px;"></div>
+                                            <div class="eq-fader-slot" style="height: 126px;">
+                                                <div class="eq-slot-groove" style="height: 116px;"></div>
                                                 <div class="eq-zero-line"></div>
-                                                <input type="range" min="-12" max="12" step="0.5" value="0" id="pos-eq-slider-${b.key}" data-band="${b.key}" oninput="POSJukebox.onEqSliderInput('${b.key}', this.value, ${idx})" class="eq-slider-input" style="width: 105px;" />
+                                                <input type="range" min="-12" max="12" step="0.5" value="0" id="pos-eq-slider-${b.key}" data-band="${b.key}" oninput="POSJukebox.onEqSliderInput('${b.key}', this.value, ${idx})" class="eq-slider-input" style="width: 116px;" />
                                             </div>
                                             <div class="flex flex-col items-center">
                                                 <span class="eq-freq-badge">${b.label}</span>
@@ -344,47 +281,113 @@
                                     `).join('')}
                                 </div>
 
+                                <!-- VU Meter OUT L/R & Quick Tone Boosts (Synced with Admin Console) -->
+                                <div class="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                                    <div class="flex items-center gap-2 flex-1 min-w-[180px]">
+                                        <span class="font-mono font-bold text-slate-400 shrink-0">OUT L/R</span>
+                                        <div class="flex-1 space-y-1">
+                                            <div class="h-1.5 rounded-full bg-slate-900 overflow-hidden border border-white/5"><div class="h-full bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 rounded-full" style="width:74%"></div></div>
+                                            <div class="h-1.5 rounded-full bg-slate-900 overflow-hidden border border-white/5"><div class="h-full bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 rounded-full" style="width:68%"></div></div>
+                                        </div>
+                                        <span class="font-mono text-slate-400 shrink-0">-3.2 dBFS</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <button type="button" onclick="POSJukebox.applyQuickTone('bass')" class="px-2 py-0.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 font-bold cursor-pointer">Bass +</button>
+                                        <button type="button" onclick="POSJukebox.applyQuickTone('vocal')" class="px-2 py-0.5 rounded-lg bg-fuchsia-500/15 hover:bg-fuchsia-500/30 text-fuchsia-300 border border-fuchsia-500/30 font-bold cursor-pointer">Vocal +</button>
+                                        <button type="button" onclick="POSJukebox.applyQuickTone('air')" class="px-2 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold cursor-pointer">Air +</button>
+                                    </div>
+                                </div>
+
                                 <!-- Preamp & Apply Button -->
                                 <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
                                     <div class="flex items-center gap-1.5">
-                                        <span class="text-[10px] font-bold text-slate-400">Preamp:</span>
-                                        <input type="range" min="-6" max="6" step="0.5" value="0" id="pos-eq-preamp-slider" oninput="POSJukebox.onEqPreampInput(this.value)" class="w-16 h-1 bg-slate-700 rounded appearance-none cursor-pointer accent-sky-400">
-                                        <span id="pos-eq-preamp-val" class="text-[10px] font-mono text-slate-300">0.0 dB</span>
+                                        <span class="text-[10px] font-bold text-slate-400">Master Preamp:</span>
+                                        <input type="range" min="-6" max="6" step="0.5" value="0" id="pos-eq-preamp-slider" oninput="POSJukebox.onEqPreampInput(this.value)" class="w-20 h-1 bg-slate-700 rounded appearance-none cursor-pointer accent-sky-400">
+                                        <span id="pos-eq-preamp-val" class="text-[10px] font-mono text-amber-300 font-bold">0.0 dB</span>
                                     </div>
-                                    <button type="button" onclick="POSJukebox.saveEqSettings()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer">
-                                        <i class="fas fa-save text-[9px]"></i> ${window.cnxT?window.cnxT('js.s_pjuke.96e68a9c','Lưu EQ'):'Lưu EQ'}
+                                    <button type="button" onclick="POSJukebox.saveEqSettings()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 font-black text-[11px] transition flex items-center gap-1.5 shadow-md shadow-sky-500/25 cursor-pointer">
+                                        <i class="fas fa-check text-[10px]"></i> Áp Dụng Cấu Hình EQ
                                     </button>
                                 </div>
                             </div>
-
                         </div>
 
-                        <!-- RIGHT COLUMN (7 cols): Queue Management & Song Catalog -->
-                        <div class="lg:col-span-7 flex flex-col space-y-3 min-w-0">
-                            
-                            <!-- Segment Tabs Switcher -->
-                            <div class="flex items-center justify-between border-b border-white/10 pb-2.5 shrink-0">
-                                <div class="flex items-center gap-2 p-1 bg-slate-900/80 rounded-xl border border-white/10">
-                                    <button type="button" onclick="POSJukebox.switchTab('queue')" id="pos-juke-tab-queue" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-fuchsia-500/25 text-fuchsia-300 border border-fuchsia-500/40 shadow-sm cursor-pointer">
-                                        <i class="fas fa-list-ol"></i>
-                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.71b9e93f','Hàng Đợi Chờ Phát'):'Hàng Đợi Chờ Phát'}</span>
-                                        <span id="pos-juke-queue-badge" class="px-1.5 py-0.2 rounded-full text-[9px] bg-fuchsia-500/30 text-white font-mono">0</span>
-                                    </button>
-                                    <button type="button" onclick="POSJukebox.switchTab('catalog')" id="pos-juke-tab-catalog" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white cursor-pointer">
-                                        <i class="fas fa-compact-disc"></i>
-                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.40df0a7d','Kho Bài Hát Quán'):'Kho Bài Hát Quán'}</span>
-                                        <span id="pos-juke-catalog-badge" class="px-1.5 py-0.2 rounded-full text-[9px] bg-white/10 text-slate-300 font-mono">0</span>
-                                    </button>
+                        <!-- RIGHT COLUMN: Now Playing Player + Queue / Catalog + History -->
+                        <div class="flex flex-col space-y-3 min-w-0">
+
+                            <!-- Now Playing Console Card -->
+                            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900/90 via-slate-950/90 to-fuchsia-950/30 border border-fuchsia-500/25 shadow-lg relative overflow-hidden shrink-0">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-14 h-14 shrink-0 flex items-center justify-center">
+                                        <div id="pos-modal-disc" class="w-full h-full rounded-full border-4 border-slate-800 shadow-xl flex items-center justify-center relative overflow-hidden" style="background: radial-gradient(circle, #0f172a 25%, #020617 26%, #1e293b 28%, #020617 40%, #1e293b 42%, #020617 56%, #1e293b 58%, #020617 72%, #1e293b 74%, #020617 100%);">
+                                            <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-fuchsia-500 to-pink-500 flex items-center justify-center text-white border border-slate-950 shadow-inner">
+                                                <i id="pos-modal-disc-icon" class="fas fa-music text-[9px]"></i>
+                                            </div>
+                                        </div>
+                                        <span id="pos-modal-disc-dot" class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-950 shadow-sm animate-pulse"></span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-fuchsia-500/15 text-fuchsia-300 text-[10px] font-bold border border-fuchsia-500/30 mb-0.5">
+                                            <i class="fas fa-tower-broadcast animate-pulse"></i>
+                                            <span id="pos-modal-source">${window.cnxT?window.cnxT('js.s_med.7862df57','Hệ Thống Quán'):'Hệ Thống Quán'}</span>
+                                        </div>
+                                        <h4 id="pos-modal-track-title" class="text-sm font-black text-white truncate leading-tight">${window.cnxT?window.cnxT('js.s_pjuke.511aa2f5','Chưa có bài hát đang phát'):'Chưa có bài hát đang phát'}</h4>
+                                        <p id="pos-modal-track-artist" class="text-xs text-slate-400 truncate">${window.cnxT?window.cnxT('ui.adm_html.div_5db208a0','Hệ thống sẵn sàng'):'Hệ thống sẵn sàng'}</p>
+                                    </div>
                                 </div>
 
-                                <!-- Direct Action Buttons on Catalog / Queue -->
+                                <div class="mt-2.5 flex items-center gap-2">
+                                    <span id="pos-modal-cur-time" class="text-[10px] font-mono text-slate-400 w-9 text-right shrink-0">00:00</span>
+                                    <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden cursor-pointer relative group" onclick="POSJukebox.onSeek(event)">
+                                        <div id="pos-modal-progress-bar" class="h-full bg-gradient-to-r from-fuchsia-500 to-pink-400 rounded-full transition-all relative" style="width: 0%;">
+                                            <span class="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                                        </div>
+                                    </div>
+                                    <span id="pos-modal-dur-time" class="text-[10px] font-mono text-slate-400 w-9 shrink-0">00:00</span>
+                                </div>
+
+                                <div class="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <button id="pos-modal-play-btn" type="button" onclick="POSJukebox.togglePlay()" class="px-3.5 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 font-bold text-xs flex items-center gap-1.5 border border-sky-400/40 shadow-sm cursor-pointer transition active:scale-95">
+                                            <i id="pos-modal-play-btn-icon" class="fas fa-play text-xs"></i>
+                                            <span id="pos-modal-play-btn-text">${window.cnxT?window.cnxT('ui.adm_html.span_5f57eb43','Phát'):'Phát'}</span>
+                                        </button>
+                                        <button type="button" onclick="POSJukebox.skipTrack()" class="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-200 font-bold text-xs flex items-center gap-1.5 border border-rose-500/35 shadow-sm cursor-pointer transition active:scale-95" title="Chuyển sang bài tiếp theo">
+                                            <i class="fas fa-forward-step text-xs text-rose-300"></i>
+                                            <span>Chuyển Bài</span>
+                                        </button>
+                                    </div>
+                                    <div class="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1 rounded-xl border border-white/10 shrink-0">
+                                        <button type="button" onclick="POSJukebox.toggleMute()" title="Bật / Tắt tiếng (Mute)" class="cursor-pointer text-slate-400 hover:text-sky-300 transition">
+                                            <i id="pos-modal-volume-icon" class="fas fa-volume-high text-xs"></i>
+                                        </button>
+                                        <input type="range" id="pos-modal-volume-slider" min="0" max="100" value="80" oninput="POSJukebox.setVolume(this.value)" class="w-16 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-400">
+                                        <span id="pos-modal-volume-text" class="text-[10px] font-mono font-bold text-slate-300 w-7 text-right">80%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Segment Tabs Switcher -->
+                            <div class="flex items-center justify-between border-b border-white/10 pb-2 shrink-0">
+                                <div class="flex items-center gap-2 p-1 bg-slate-900/80 rounded-xl border border-white/10">
+                                    <button type="button" onclick="POSJukebox.switchTab('queue')" id="pos-juke-tab-queue" class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-fuchsia-500/25 text-fuchsia-300 border border-fuchsia-500/40 shadow-sm cursor-pointer">
+                                        <i class="fas fa-list-ol"></i>
+                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.71b9e93f','Hàng Đợi Chờ Phát'):'Hàng Đợi Chờ Phát'}</span>
+                                        <span id="pos-juke-queue-badge" class="px-1.5 py-0.5 rounded-full text-[9px] bg-fuchsia-500/30 text-white font-mono">0</span>
+                                    </button>
+                                    <button type="button" onclick="POSJukebox.switchTab('catalog')" id="pos-juke-tab-catalog" class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white cursor-pointer">
+                                        <i class="fas fa-compact-disc"></i>
+                                        <span>${window.cnxT?window.cnxT('js.s_pjuke.40df0a7d','Kho Bài Hát Quán'):'Kho Bài Hát Quán'}</span>
+                                        <span id="pos-juke-catalog-badge" class="px-1.5 py-0.5 rounded-full text-[9px] bg-white/10 text-slate-300 font-mono">0</span>
+                                    </button>
+                                </div>
                                 <div class="flex items-center gap-1.5">
-                                    <label class="px-2.5 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-sm" title="Tải file nhạc lên máy chủ">
+                                    <label class="px-2.5 py-1 rounded-xl bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-sm" title="Tải file nhạc lên máy chủ">
                                         <i class="fas fa-upload text-[11px]"></i>
                                         <span class="hidden sm:inline">${window.cnxT?window.cnxT('ui.admin_html.button_6a22cd9e','Tải Nhạc'):'Tải Nhạc'}</span>
                                         <input type="file" id="pos-juke-upload-input" accept=".mp3,.wav,.flac" class="hidden" onchange="POSJukebox.handleFileUpload(this)">
                                     </label>
-                                    <button type="button" onclick="POSJukebox.rescanTracks()" class="px-2.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/35 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-sm" title="Quét lại thư mục file nhạc">
+                                    <button type="button" onclick="POSJukebox.rescanTracks()" class="px-2.5 py-1 rounded-xl bg-purple-500/20 hover:bg-purple-500/35 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-sm" title="Quét lại thư mục file nhạc">
                                         <i class="fas fa-sync-alt text-[11px]"></i>
                                         <span class="hidden sm:inline">${window.cnxT?window.cnxT('js.s_pjuke.b880c0d0','Quét Lại'):'Quét Lại'}</span>
                                     </button>
@@ -393,7 +396,7 @@
 
                             <!-- TAB 1: Live Queue Panel -->
                             <div id="pos-juke-panel-queue" class="space-y-3 flex-1 flex flex-col min-h-0">
-                                <div id="pos-juke-queue-list" class="space-y-2 overflow-y-auto max-h-[380px] pr-1 flex-1">
+                                <div id="pos-juke-queue-list" class="space-y-2 overflow-y-auto pr-1.5 flex-1" style="max-height: 300px; overflow-y: auto;">
                                     <div class="p-6 rounded-2xl bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
                                         <i class="fas fa-compact-disc text-slate-600 text-2xl mb-1.5 block"></i>
                                         ${window.cnxT?window.cnxT('js.s_pjuke.b5294ed7','Hàng đợi trống. Chọn bài từ Kho Bài Hát hoặc đợi khách gọi từ bàn.'):'Hàng đợi trống. Chọn bài từ Kho Bài Hát hoặc đợi khách gọi từ bàn.'}
@@ -422,7 +425,7 @@
                                 </div>
 
                                 <!-- Catalog Track List (Scrollable) -->
-                                <div id="pos-juke-catalog-list" class="space-y-1.5 overflow-y-auto max-h-[420px] pr-1 flex-1 text-xs"></div>
+                                <div id="pos-juke-catalog-list" class="space-y-1.5 overflow-y-auto pr-1.5 flex-1 text-xs" style="max-height: 360px; overflow-y: auto;"></div>
                             </div>
 
                         </div>
@@ -724,7 +727,10 @@
                             <i class="fas fa-music text-[10px]"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="text-xs font-bold text-white truncate">${track.title}</div>
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="text-xs font-bold text-white truncate">${track.title}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[9px] font-bold shrink-0">${track.genre || 'Pop'}</span>
+                            </div>
                             <div class="text-[10px] text-slate-400 truncate flex items-center gap-1.5">
                                 <span>${track.artist || (window.cnxT?window.cnxT('js.s_pjuke.50b74a0f','Nghệ sĩ'):'Nghệ sĩ')}</span>
                                 <span>•</span>
@@ -1010,6 +1016,9 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    if (window.JukeboxEngine && typeof window.JukeboxEngine.broadcastEq === 'function') {
+                        window.JukeboxEngine.broadcastEq(body);
+                    }
                     this.showToast((window.cnxT?window.cnxT('js.s_pjuke.a0784729','✅ Đã lưu cấu hình EQ thành công!'):'✅ Đã lưu cấu hình EQ thành công!'), 'success');
                 } else {
                     this.showToast(data.message || (window.cnxT?window.cnxT('js.s_pjuke.b1097a36','Lỗi lưu cấu hình EQ'):'Lỗi lưu cấu hình EQ'), 'error');
@@ -1188,8 +1197,29 @@
         },
 
         setVolume(val) {
+            const pct = Math.max(0, Math.min(100, Math.round(Number(val) || 0)));
+            if (pct > 0) this._lastVolume = pct;
+            const slider = document.getElementById('pos-modal-volume-slider');
+            if (slider && Number(slider.value) !== pct) slider.value = pct;
+            const txt = document.getElementById('pos-modal-volume-text');
+            if (txt) txt.textContent = `${pct}%`;
+            const icon = document.getElementById('pos-modal-volume-icon');
+            if (icon) {
+                icon.className = pct === 0 ? 'fas fa-volume-xmark text-rose-400 text-xs' : 'fas fa-volume-high text-xs';
+            }
             if (window.JukeboxEngine) {
-                window.JukeboxEngine.setVolume(val);
+                window.JukeboxEngine.setVolume(pct);
+            }
+        },
+
+        toggleMute() {
+            const slider = document.getElementById('pos-modal-volume-slider');
+            const cur = slider ? Number(slider.value) : (window.JukeboxEngine ? Math.round((window.JukeboxEngine.volume || 0) * 100) : 80);
+            if (cur > 0) {
+                this._lastVolume = cur;
+                this.setVolume(0);
+            } else {
+                this.setVolume(this._lastVolume || 80);
             }
         },
 
@@ -1201,6 +1231,28 @@
             if (window.JukeboxEngine) {
                 window.JukeboxEngine.seek(ratio);
             }
+        },
+
+        applyQuickTone(mode) {
+            const allBands = ['band_31hz', 'band_62hz', 'band_125hz', 'band_250hz', 'band_500hz', 'band_1khz', 'band_2khz', 'band_4khz', 'band_8khz', 'band_16khz'];
+            const boostMap = {
+                bass: { band_31hz: 2.0, band_62hz: 2.0, band_125hz: 1.5 },
+                vocal: { band_1khz: 1.5, band_2khz: 2.0, band_4khz: 1.5 },
+                air: { band_8khz: 1.5, band_16khz: 2.5 }
+            };
+            const boosts = boostMap[mode];
+            if (!boosts) return;
+            Object.entries(boosts).forEach(([bandKey, delta]) => {
+                const idx = allBands.indexOf(bandKey);
+                if (idx === -1) return;
+                const cur = parseFloat(this.eqBands[bandKey] || 0);
+                const next = Math.max(-12, Math.min(12, Math.round((cur + delta) * 2) / 2));
+                const slider = document.getElementById(`pos-eq-slider-${bandKey}`);
+                if (slider) slider.value = next;
+                this.onEqSliderInput(bandKey, next, idx);
+            });
+            const label = mode === 'bass' ? 'Bass +' : (mode === 'vocal' ? 'Vocal +' : 'Air +');
+            this.showToast(`Đã tăng ${label}`, 'info');
         },
 
         showToast(message, type = 'info') {

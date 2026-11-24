@@ -3438,8 +3438,29 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 std::string qrAccessToken = isCustomerQr ? SaleApp::Security::UploadGuard::makeRandomUuidName("q", "").substr(2) : "";
 
                 double afterDiscount = std::max(0.0, subtotal - discountAmount);
-                double vatAmount = (afterDiscount * std::max(0.0, vatPercent)) / 100.0;
-                double totalAmount = afterDiscount + vatAmount;
+                std::string vatMode = "none";
+                double cfgVatRate = 0.0;
+                {
+                    auto mRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'pos_vat_mode' LIMIT 1");
+                    if (!mRow.is_null()) vatMode = getString(mRow, "setting_value", "none");
+                    auto rRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'pos_vat_rate' LIMIT 1");
+                    if (!rRow.is_null()) { try { cfgVatRate = std::stod(getString(rRow, "setting_value", "0")); } catch (...) {} }
+                    std::string reqMode = BodyParser::getParam(req, body, "vat_mode", "");
+                    if (reqMode == "none" || reqMode == "exclusive" || reqMode == "inclusive") vatMode = reqMode;
+                    if (vatPercent <= 0.0 && (vatMode == "exclusive" || vatMode == "inclusive") && cfgVatRate > 0.0) {
+                        vatPercent = cfgVatRate;
+                    }
+                    if (vatMode == "none" && vatPercent > 0.0) vatMode = "exclusive";
+                }
+                double vatAmount = 0.0;
+                double totalAmount = afterDiscount;
+                if (vatMode == "inclusive" && vatPercent > 0.0) {
+                    vatAmount = std::round(afterDiscount - (afterDiscount / (1.0 + vatPercent / 100.0)));
+                    totalAmount = afterDiscount;
+                } else if (vatPercent > 0.0) {
+                    vatAmount = std::round((afterDiscount * vatPercent) / 100.0);
+                    totalAmount = afterDiscount + vatAmount;
+                }
 
                 std::string nowStr = getCurrentTimestamp();
                 std::string orderCode;
@@ -4020,8 +4041,29 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 }
 
                 double afterDiscount = std::max(0.0, subtotal - discountAmount);
-                double vatAmount = (afterDiscount * std::max(0.0, vatPercent)) / 100.0;
-                double totalAmount = afterDiscount + vatAmount;
+                std::string vatMode = "none";
+                double cfgVatRate = 0.0;
+                {
+                    auto mRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'pos_vat_mode' LIMIT 1");
+                    if (!mRow.is_null()) vatMode = getString(mRow, "setting_value", "none");
+                    auto rRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'pos_vat_rate' LIMIT 1");
+                    if (!rRow.is_null()) { try { cfgVatRate = std::stod(getString(rRow, "setting_value", "0")); } catch (...) {} }
+                    std::string reqMode = BodyParser::getParam(req, body, "vat_mode", "");
+                    if (reqMode == "none" || reqMode == "exclusive" || reqMode == "inclusive") vatMode = reqMode;
+                    if (vatPercent <= 0.0 && (vatMode == "exclusive" || vatMode == "inclusive") && cfgVatRate > 0.0) {
+                        vatPercent = cfgVatRate;
+                    }
+                    if (vatMode == "none" && vatPercent > 0.0) vatMode = "exclusive";
+                }
+                double vatAmount = 0.0;
+                double totalAmount = afterDiscount;
+                if (vatMode == "inclusive" && vatPercent > 0.0) {
+                    vatAmount = std::round(afterDiscount - (afterDiscount / (1.0 + vatPercent / 100.0)));
+                    totalAmount = afterDiscount;
+                } else if (vatPercent > 0.0) {
+                    vatAmount = std::round((afterDiscount * vatPercent) / 100.0);
+                    totalAmount = afterDiscount + vatAmount;
+                }
 
                 double cashReceived = totalAmount;
                 try {
@@ -5379,15 +5421,19 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
             }
 
             if (action == "get_tax_settings") {
-                if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
-                json rows = db.query("SELECT setting_key, setting_value FROM store_settings WHERE setting_key LIKE 'finance_%'");
+                json rows = db.query("SELECT setting_key, setting_value FROM store_settings WHERE setting_key LIKE 'finance_%' OR setting_key LIKE 'pos_vat_%'");
                 json cfg = {
+                    {"pos_vat_mode", "none"},
+                    {"pos_vat_rate", "8"},
+                    {"finance_tax_method", "household"},
                     {"finance_vat_rate", "8"},
                     {"finance_pit_rate", "1.5"},
+                    {"finance_cit_rate", "20"},
                     {"finance_fixed_cost", "0"}
                 };
                 for (const auto& r : rows) {
-                    cfg[r.value("setting_key", "")] = r.value("setting_value", "");
+                    std::string k = r.value("setting_key", "");
+                    if (!k.empty()) cfg[k] = r.value("setting_value", "");
                 }
                 sendJson(res, {{"success", true}, {"data", cfg}});
                 return;
@@ -6004,6 +6050,11 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
         if (req.method == "POST") {
             if (action == "save_expense") {
                 if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                auto userOpt = AuthService::instance().authenticate(req);
+                if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                    sendError(res, "Chỉ Chủ quán (Admin) mới được ghi nhận/sửa khoản chi!", userOpt ? 403 : 401);
+                    return;
+                }
                 int64_t id = getInt(body, "id");
                 std::string date = getString(body, "expense_date");
                 std::string category = getString(body, "category", "Khác");
@@ -6044,6 +6095,11 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
             if (action == "mark_expense_paid") {
                 if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                auto userOpt = AuthService::instance().authenticate(req);
+                if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                    sendError(res, "Chỉ Chủ quán (Admin) mới được xác nhận thanh toán công nợ!", userOpt ? 403 : 401);
+                    return;
+                }
                 int64_t id = getInt(body, "id");
                 db.execute("UPDATE finance_expenses SET payment_status = 'paid' WHERE id = :id", {{":id", id}});
                 sendJson(res, {{"success", true}, {"message", "Đã xác nhận thanh toán công nợ."}});
@@ -6052,6 +6108,11 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
 
             if (action == "delete_expense") {
                 if (!requireModule(res, "finance_reports", "Báo Cáo Tài Chính & Thuế")) return;
+                auto userOpt = AuthService::instance().authenticate(req);
+                if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                    sendError(res, "Chỉ Chủ quán (Admin) mới được xóa khoản chi!", userOpt ? 403 : 401);
+                    return;
+                }
                 int64_t id = getInt(body, "id");
                 db.execute("DELETE FROM finance_expenses WHERE id = :id", {{":id", id}});
                 sendJson(res, {{"success", true}, {"message", "Đã xóa khoản chi."}});
@@ -6059,9 +6120,14 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
             }
 
             if (action == "save_tax_settings") {
+                auto userOpt = AuthService::instance().authenticate(req);
+                if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                    sendError(res, "Chỉ Chủ quán (Admin) mới được cấu hình thuế!", userOpt ? 403 : 401);
+                    return;
+                }
                 for (auto it = body.begin(); it != body.end(); ++it) {
                     std::string k = it.key();
-                    if (k.rfind("finance_", 0) == 0) {
+                    if (k.rfind("finance_", 0) == 0 || k.rfind("pos_vat_", 0) == 0) {
                         std::string v = it.value().is_string() ? it.value().get<std::string>() : it.value().dump();
                         db.execute(
                             "INSERT INTO store_settings (setting_key, setting_value) VALUES (:k, :v) "
@@ -6070,7 +6136,7 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                         );
                     }
                 }
-                sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình thuế."}});
+                sendJson(res, {{"success", true}, {"message", "Đã lưu cấu hình thuế thành công!"}});
                 return;
             }
 
@@ -6777,6 +6843,40 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
     std::string action = getAction(req, body);
     if (Dot6Handlers::handleDot6Operations(action, req, res, db, body)) return;
 
+    // INV-02: Read-only BOM & recipe queries work on both GET and POST
+    if (action == "get_bom_matrix") {
+        if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
+        ensureInventoryRecipeSchema(db);
+        json prods = db.query("SELECT p.id, p.name, p.price, COALESCE(c.name, 'Khác') as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.status = 'active' ORDER BY c.name ASC, p.name ASC");
+        json recs = db.query("SELECT pr.product_id, pr.material_id, pr.quantity_per_unit, m.name as material_name, m.unit, COALESCE(m.cost_price, 0) as cost_price, COALESCE(m.cost_class, 'direct_bom') as cost_class FROM product_recipes pr JOIN materials m ON m.id = pr.material_id ORDER BY m.name ASC");
+        std::map<int64_t, json> recMap;
+        for (const auto& r : recs) {
+            int64_t pid = r.value("product_id", int64_t(0));
+            if (!recMap.count(pid)) recMap[pid] = json::array();
+            recMap[pid].push_back(r);
+        }
+        json out = json::array();
+        for (auto& p : prods) {
+            int64_t pid = p.value("id", int64_t(0));
+            double price = getDouble(p, "price", 0.0);
+            json rList = recMap.count(pid) ? recMap[pid] : json::array();
+            double bomCost = 0.0;
+            for (const auto& r : rList) {
+                bomCost += getDouble(r, "quantity_per_unit", 0.0) * getDouble(r, "cost_price", 0.0);
+            }
+            double marginVnd = price - bomCost;
+            double marginPct = (price > 0.0 && !rList.empty()) ? std::round(((marginVnd / price) * 1000.0)) / 10.0 : -1.0;
+            p["recipes"] = rList;
+            p["recipe_count"] = rList.size();
+            p["bom_cost"] = std::round(bomCost);
+            p["margin_vnd"] = std::round(marginVnd);
+            p["margin_pct"] = marginPct;
+            out.push_back(p);
+        }
+        sendJson(res, {{"success", true}, {"data", out}});
+        return;
+    }
+
     if (req.method == "GET") {
         if (action == "materials" || action.empty()) {
             if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
@@ -7186,6 +7286,37 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             sendJson(res, {{"success", true}, {"message", "Ghi nhận phiếu kho thành công!"}, {"new_quantity", newQty}});
             return;
         }
+        if (action == "clone_recipes") {
+            if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được nhân bản định mức!", userOpt ? 403 : 401);
+                return;
+            }
+            ensureInventoryRecipeSchema(db);
+            int64_t fromId = body.value("from_product_id", int64_t(0));
+            int64_t toId = body.value("to_product_id", int64_t(0));
+            double scale = getDouble(body, "scale", 1.0);
+            if (scale <= 0.0 || scale > 10.0) scale = 1.0;
+            if (fromId <= 0 || toId <= 0 || fromId == toId) {
+                sendError(res, "Vui lòng chọn 2 món khác nhau để nhân bản công thức!", 400);
+                return;
+            }
+            auto srcRows = db.query("SELECT material_id, quantity_per_unit FROM product_recipes WHERE product_id = :fid", {{":fid", fromId}});
+            db.beginTransaction();
+            db.execute("DELETE FROM product_recipes WHERE product_id = :tid", {{":tid", toId}});
+            for (const auto& sr : srcRows) {
+                int64_t mid = sr.value("material_id", int64_t(0));
+                double q = getDouble(sr, "quantity_per_unit", 0.0) * scale;
+                if (mid > 0 && q > 0.0) {
+                    db.execute("INSERT INTO product_recipes (product_id, material_id, quantity_per_unit) VALUES (:pid, :mid, :q)",
+                               {{":pid", toId}, {":mid", mid}, {":q", q}});
+                }
+            }
+            db.commit();
+            sendJson(res, {{"success", true}, {"copied_count", srcRows.size()}, {"message", "Đã nhân bản " + std::to_string(srcRows.size()) + " dòng nguyên liệu thành công!"}});
+            return;
+        }
         if (action == "get_recipes") {
             ensureInventoryRecipeSchema(db);
             int64_t prodId = 0;
@@ -7201,6 +7332,11 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         }
         if (action == "save_recipes") {
             if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
+            auto userOpt = AuthService::instance().authenticate(req);
+            if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+                sendError(res, "Chỉ Chủ quán (Admin) mới được thiết lập định mức nguyên liệu!", userOpt ? 403 : 401);
+                return;
+            }
             ensureInventoryRecipeSchema(db);
             int64_t prodId = body.value("product_id", int64_t(0));
             if (prodId <= 0) { sendError(res, "Thiếu product_id!"); return; }
@@ -8200,13 +8336,65 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         return;
     }
 
+    // Ensure INV-01 extended F&B columns (base_unit, cost_class, expiry, waste, UOM presets)
+    static std::atomic<bool> s_inv01Migrated{false};
+    if (!s_inv01Migrated.exchange(true)) {
+        auto addColSafe = [&](const std::string& tbl, const std::string& colDef) {
+            try { db.execute("ALTER TABLE " + tbl + " ADD COLUMN " + colDef); } catch (...) {}
+        };
+        addColSafe("materials", "cost_class TEXT DEFAULT 'direct_bom'");
+        addColSafe("materials", "track_expiry INTEGER DEFAULT 0");
+        addColSafe("materials", "default_shelf_days INTEGER DEFAULT 0");
+        addColSafe("materials", "waste_pct REAL DEFAULT 0.0");
+        addColSafe("material_transactions", "purchase_unit TEXT DEFAULT ''");
+        addColSafe("material_transactions", "purchase_qty REAL DEFAULT 0.0");
+        addColSafe("material_transactions", "conversion_factor REAL DEFAULT 1.0");
+        addColSafe("material_transactions", "expiry_date TEXT DEFAULT ''");
+        addColSafe("material_transactions", "waste_reason TEXT DEFAULT ''");
+        try {
+            db.execute(R"(
+                CREATE TABLE IF NOT EXISTS material_uom_presets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    material_id INTEGER NOT NULL,
+                    unit_name TEXT NOT NULL,
+                    factor_to_base REAL NOT NULL,
+                    UNIQUE(material_id, unit_name)
+                )
+            )");
+        } catch (...) {}
+    }
+
+    if (action == "get_uom_presets") {
+        int64_t mid = jInt(body, "material_id", 0);
+        if (mid <= 0 && req.has_param("material_id")) {
+            try { mid = std::stoll(req.get_param_value("material_id")); } catch (...) {}
+        }
+        json rows = (mid > 0)
+            ? db.query("SELECT * FROM material_uom_presets WHERE material_id = :mid ORDER BY unit_name ASC", {{":mid", mid}})
+            : db.query("SELECT * FROM material_uom_presets ORDER BY material_id ASC, unit_name ASC");
+        sendJson(res, {{"success", true}, {"presets", rows}});
+        return;
+    }
+
     if (action == "save_material") {
         if (!requireModule(res, "inventory_recipes", "Kho Nguyên Vật Liệu")) return;
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được thêm/sửa nguyên vật liệu!", userOpt ? 403 : 401);
+            return;
+        }
         int64_t id = jInt(body, "id", 0);
         std::string code = jStr(body, "code");
         std::string name = jStr(body, "name");
         std::string category = jStr(body, "category", "Nguyên liệu");
-        std::string unit = jStr(body, "unit", "kg");
+        std::string unit = jStr(body, "unit", "ml");
+        std::string costClass = jStr(body, "cost_class", "direct_bom");
+        if (costClass != "direct_bom" && costClass != "packaging_consumable" && costClass != "operating_supply") {
+            costClass = "direct_bom";
+        }
+        int trackExpiry = static_cast<int>(jInt(body, "track_expiry", 0)) != 0 ? 1 : 0;
+        int shelfDays = std::max(0, static_cast<int>(jInt(body, "default_shelf_days", 0)));
+        double wastePct = std::max(0.0, std::min(95.0, jNum(body, "waste_pct", 0.0)));
         double qty = jNum(body, "quantity", 0.0);
         double minQty = jNum(body, "min_quantity", 5.0);
         double costPrice = jNum(body, "cost_price", 0.0);
@@ -8219,8 +8407,10 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         if (id > 0) {
             db.execute(
                 "UPDATE materials SET code = CASE WHEN :c != '' THEN :c ELSE code END, name = :n, category = :cat, unit = :u, "
+                "cost_class = :cc, track_expiry = :te, default_shelf_days = :sd, waste_pct = :wp, "
                 "min_quantity = :mq, cost_price = :cp, supplier = :s, note = :nt, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
-                {{":c", code}, {":n", name}, {":cat", category}, {":u", unit}, {":mq", minQty}, {":cp", costPrice}, {":s", supplier}, {":nt", note}, {":id", id}}
+                {{":c", code}, {":n", name}, {":cat", category}, {":u", unit}, {":cc", costClass}, {":te", trackExpiry},
+                 {":sd", shelfDays}, {":wp", wastePct}, {":mq", minQty}, {":cp", costPrice}, {":s", supplier}, {":nt", note}, {":id", id}}
             );
             sendJson(res, {{"success", true}, {"message", "Đã cập nhật nguyên vật liệu!"}});
         } else {
@@ -8231,9 +8421,10 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
                 code = buf;
             }
             db.execute(
-                "INSERT INTO materials (code, name, category, unit, quantity, min_quantity, cost_price, supplier, note) "
-                "VALUES (:c, :n, :cat, :u, :q, :mq, :cp, :s, :nt)",
-                {{":c", code}, {":n", name}, {":cat", category}, {":u", unit}, {":q", qty}, {":mq", minQty}, {":cp", costPrice}, {":s", supplier}, {":nt", note}}
+                "INSERT INTO materials (code, name, category, unit, cost_class, track_expiry, default_shelf_days, waste_pct, quantity, min_quantity, cost_price, supplier, note) "
+                "VALUES (:c, :n, :cat, :u, :cc, :te, :sd, :wp, :q, :mq, :cp, :s, :nt)",
+                {{":c", code}, {":n", name}, {":cat", category}, {":u", unit}, {":cc", costClass}, {":te", trackExpiry},
+                 {":sd", shelfDays}, {":wp", wastePct}, {":q", qty}, {":mq", minQty}, {":cp", costPrice}, {":s", supplier}, {":nt", note}}
             );
             sendJson(res, {{"success", true}, {"message", "Đã thêm nguyên vật liệu mới!"}});
         }
@@ -8257,7 +8448,13 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
 
         int64_t matId = jInt(body, "material_id", 0);
         std::string transType = jStr(body, "trans_type", "import");
-        double qty = jNum(body, "quantity", 0.0);
+        double rawQty = jNum(body, "quantity", 0.0);
+        double purchaseQty = jNum(body, "purchase_qty", 0.0);
+        double convFactor = jNum(body, "conversion_factor", 1.0);
+        if (convFactor <= 0.0) convFactor = 1.0;
+        std::string purchaseUnit = jStr(body, "purchase_unit");
+        std::string expiryDate = jStr(body, "expiry_date");
+        std::string wasteReason = jStr(body, "waste_reason");
         double unitPrice = jNum(body, "unit_price", 0.0);
         std::string supplier = jStr(body, "supplier");
         std::string note = jStr(body, "note");
@@ -8266,8 +8463,23 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         std::string dueDate = jStr(body, "due_date");
         std::string payMethod = jStr(body, "payment_method", "cash");
 
-        if (matId <= 0 || qty <= 0.0) {
-            sendError(res, "Vui lòng chọn vật liệu và số lượng hợp lệ (> 0)!", 400);
+        // Dynamic UOM conversion on import (e.g., 2 x Chai 1.5L (1500ml) -> +3000 ml, unitPrice per chai -> per ml)
+        double qty = rawQty;
+        double baseUnitPrice = unitPrice;
+        double totalCost = 0.0;
+        if (transType == "import") {
+            if (purchaseQty > 0.0 && convFactor > 0.0) {
+                qty = purchaseQty * convFactor;
+                totalCost = std::round(purchaseQty * unitPrice);
+                baseUnitPrice = (qty > 0.0) ? (totalCost / qty) : unitPrice;
+            } else {
+                totalCost = std::round(qty * unitPrice);
+                baseUnitPrice = unitPrice;
+            }
+        }
+
+        if (matId <= 0 || (transType != "stocktake" && qty <= 0.0) || (transType == "stocktake" && qty < 0.0)) {
+            sendError(res, "Vui lòng chọn vật liệu và số lượng hợp lệ!", 400);
             return;
         }
         auto mat = db.queryRow("SELECT * FROM materials WHERE id = :id LIMIT 1", {{":id", matId}});
@@ -8276,47 +8488,91 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             return;
         }
         double curStock = jNum(mat, "quantity", 0.0);
+        double oldCost = jNum(mat, "cost_price", 0.0);
+        std::string costClass = jStr(mat, "cost_class", "direct_bom");
         double newStock = curStock;
+        double newAvgCost = oldCost;
         std::string matName = jStr(mat, "name");
-        std::string matUnit = jStr(mat, "unit", "kg");
+        std::string matUnit = jStr(mat, "unit", "ml");
         if (supplier.empty()) supplier = jStr(mat, "supplier");
 
+        double wasteLossVnd = 0.0;
         if (transType == "import") {
             newStock = curStock + qty;
-        } else if (transType == "export") {
+            // Moving Average Cost (MAC) per base_unit
+            if (baseUnitPrice > 0.0 && newStock > 0.0) {
+                double oldVal = std::max(0.0, curStock) * std::max(0.0, oldCost);
+                newAvgCost = (oldVal + totalCost) / newStock;
+            }
+        } else if (transType == "export" || transType == "waste") {
             if (curStock < qty) {
                 sendError(res, "Số lượng xuất vượt quá tồn kho hiện tại (" + std::to_string(curStock) + " " + matUnit + ")!", 400);
                 return;
             }
             newStock = curStock - qty;
+            if (transType == "waste") {
+                wasteLossVnd = std::round(qty * std::max(0.0, oldCost));
+            }
+        } else if (transType == "stocktake") {
+            newStock = qty;
+            if (qty < curStock) {
+                wasteLossVnd = std::round((curStock - qty) * std::max(0.0, oldCost));
+            }
         } else {
             newStock = qty;
         }
 
-        double totalCost = (transType == "import") ? std::round(qty * unitPrice) : 0.0;
         if (transType == "import" && paidAmount > totalCost) {
             sendError(res, "Số tiền đã thanh toán không được vượt quá tổng tiền phiếu nhập!", 400);
             return;
         }
 
         auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        std::string prefix = (transType == "import") ? "PNK" : ((transType == "export") ? "PXK" : "PDC");
+        std::string prefix = (transType == "import") ? "PNK" : ((transType == "waste") ? "PHH" : ((transType == "stocktake") ? "PKK" : ((transType == "export") ? "PXK" : "PDC")));
         std::string transCode = prefix + "-" + std::to_string(nowSec);
 
         try {
             db.execute("BEGIN TRANSACTION");
             db.execute(
-                "INSERT INTO material_transactions (trans_code, material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, supplier, user_id, user_name, note) "
-                "VALUES (:tc, :mid, :mn, :tt, :q, :u, :p, :cost, :sup, :uid, :uname, :nt)",
+                "INSERT INTO material_transactions (trans_code, material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, supplier, user_id, user_name, note, purchase_unit, purchase_qty, conversion_factor, expiry_date, waste_reason) "
+                "VALUES (:tc, :mid, :mn, :tt, :q, :u, :p, :cost, :sup, :uid, :uname, :nt, :pu, :pq, :cf, :exp, :wr)",
                 {{":tc", transCode}, {":mid", matId}, {":mn", matName}, {":tt", transType}, {":q", qty}, {":u", matUnit},
-                 {":p", unitPrice}, {":cost", totalCost}, {":sup", supplier}, {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":nt", note}}
+                 {":p", baseUnitPrice}, {":cost", (transType == "waste" || transType == "stocktake") ? wasteLossVnd : totalCost},
+                 {":sup", supplier}, {":uid", userOpt->id}, {":uname", userOpt->fullname}, {":nt", note},
+                 {":pu", purchaseUnit}, {":pq", purchaseQty}, {":cf", convFactor}, {":exp", expiryDate}, {":wr", wasteReason}}
             );
             int64_t txId = db.queryScalar("SELECT last_insert_rowid()").get<int64_t>();
             db.execute(
                 "UPDATE materials SET quantity = :nq, cost_price = CASE WHEN :tt = 'import' AND :p > 0 THEN :p ELSE cost_price END, "
                 "supplier = CASE WHEN :tt = 'import' AND :sup != '' THEN :sup ELSE supplier END, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
-                {{":nq", newStock}, {":tt", transType}, {":p", unitPrice}, {":sup", supplier}, {":id", matId}}
+                {{":nq", newStock}, {":tt", transType}, {":p", newAvgCost}, {":sup", supplier}, {":id", matId}}
             );
+            if (transType == "import" && !purchaseUnit.empty() && convFactor > 0.0) {
+                db.execute(
+                    "INSERT INTO material_uom_presets (material_id, unit_name, factor_to_base) VALUES (:mid, :un, :cf) "
+                    "ON CONFLICT(material_id, unit_name) DO UPDATE SET factor_to_base = :cf",
+                    {{":mid", matId}, {":un", purchaseUnit}, {":cf", convFactor}}
+                );
+            }
+            // Auto-record waste/spoilage or stocktake shortage into finance_expenses (separate from COGS)
+            if ((transType == "waste" || transType == "stocktake") && wasteLossVnd > 0.0) {
+                std::string expCat = (transType == "waste") ? "Hao hụt & Hủy hàng" : "Hao hụt kiểm kê";
+                std::string expDesc = "[" + transCode + "] " + matName + " (" + (wasteReason.empty() ? note : wasteReason) + ")";
+                db.execute(
+                    "INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, payment_status, source, created_by, created_at) "
+                    "VALUES (date('now','localtime'), :c, :d, :s, :a, 0, 'paid', 'inventory_waste', :u, datetime('now'))",
+                    {{":c", expCat}, {":d", expDesc}, {":s", supplier}, {":a", wasteLossVnd}, {":u", userOpt->fullname}}
+                );
+            }
+            // Auto-record operating_supply (nước rửa chén, lau sàn, giẻ lau...) into OPEX finance_expenses
+            if (transType == "import" && costClass == "operating_supply" && totalCost > 0.0) {
+                std::string expDesc = "[" + transCode + "] Vật tư vận hành: " + matName;
+                db.execute(
+                    "INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, payment_status, source, created_by, created_at) "
+                    "VALUES (date('now','localtime'), 'Vật tư vận hành (OPEX)', :d, :s, :a, 0, 'paid', 'operating_supply', :u, datetime('now'))",
+                    {{":d", expDesc}, {":s", supplier}, {":a", totalCost}, {":u", userOpt->fullname}}
+                );
+            }
             if (transType == "import" && totalCost > 0.0) {
                 int64_t supId = findOrCreateSupplier(db, supplier);
                 std::string invCode = "MHD-" + std::to_string(nowSec);
@@ -8959,7 +9215,7 @@ static std::string classifyMusicGenre(const std::string& title, const std::strin
         return false;
     };
 
-    if (hasAny({"edm", "remix", "vinahouse", "club", "dance", "house", "bass", "dj", "party", "nonstop", "trap", "hiphop", "rap", "rock", "soi dong", "sôi động", "night"})) {
+    if (hasAny({"edm", "remix", "vinahouse", "club", "dance", "house", "bass", "dj", "party", "nonstop", "trap", "hiphop", "rap", "rock", "soi dong", "sôi động", "night", "tiktok", "mashup", "kuduro", "empyre", "bad boys"})) {
         return "Sôi động / EDM";
     }
     if (hasAny({"lofi", "chill", "acoustic", "piano", "guitar", "jazz", "relax", "cafe", "morning", "instrumental", "ambient", "smooth", "em diu", "êm dịu", "nhe nhang", "nhẹ nhàng"})) {
@@ -9074,9 +9330,19 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
                 } catch (...) {}
 
                 std::string relPath = "assets/media/" + saveFile;
-                std::string title = req.has_param("title") ? req.get_param_value("title") : cleanName;
-                std::string artist = req.has_param("artist") ? req.get_param_value("artist") : "Various Artists";
-                std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "Lossless";
+                std::string parsedArtist = "Various Artists";
+                std::string parsedTitle = cleanName;
+                size_t dashPos = cleanName.find(" - ");
+                if (dashPos != std::string::npos && dashPos > 1 && dashPos + 3 < cleanName.size()) {
+                    parsedArtist = cleanName.substr(0, dashPos);
+                    parsedTitle = cleanName.substr(dashPos + 3);
+                }
+                std::string title = req.has_param("title") && !req.get_param_value("title").empty() ? req.get_param_value("title") : parsedTitle;
+                std::string artist = req.has_param("artist") && !req.get_param_value("artist").empty() ? req.get_param_value("artist") : parsedArtist;
+                std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "";
+                if (genre.empty() || genre == "Lossless" || genre == "auto") {
+                    genre = classifyMusicGenre(title, artist, cleanName);
+                }
                 int64_t duration = 210;
 
                 // Check if already in DB
@@ -9201,10 +9467,31 @@ void ApiHandlers::handleMediaTracks(const httplib::Request& req, httplib::Respon
                     }
                 }
             }
+            // MED-01: Prune ghost local tracks whose files no longer exist on disk
+            int countRemoved = 0;
+            json existingLocal = db.query("SELECT id, file_path, COALESCE(source_type, 'local') as source_type FROM media_tracks");
+            for (const auto& et : existingLocal) {
+                if (et.value("source_type", "local") == "youtube") continue;
+                std::string fp = et.value("file_path", "");
+                if (fp.rfind("http://", 0) == 0 || fp.rfind("https://", 0) == 0) continue;
+                while (!fp.empty() && fp[0] == '/') fp.erase(fp.begin());
+                fs::path pBase = SaleApp::Config::AppConfig::instance().getBaseDir() / fp;
+                fs::path pWeb = SaleApp::Config::AppConfig::instance().getWebDir() / fp;
+                std::error_code ec1, ec2;
+                if (fp.empty() || (!fs::exists(pBase, ec1) && !fs::exists(pWeb, ec2))) {
+                    int64_t tid = et.value("id", int64_t(0));
+                    if (tid > 0) {
+                        db.execute("DELETE FROM media_jukebox_queue WHERE track_id = :id", {{":id", tid}});
+                        db.execute("DELETE FROM media_tracks WHERE id = :id", {{":id", tid}});
+                        countRemoved++;
+                    }
+                }
+            }
             sendJson(res, {
                 {"success", true},
-                {"message", "Đã quét xong thư mục nhạc! Đã nạp thêm " + std::to_string(countAdded) + " bài hát."},
-                {"added_count", countAdded}
+                {"message", "Đã quét xong thư mục nhạc! Nạp thêm " + std::to_string(countAdded) + " bài, dọn " + std::to_string(countRemoved) + " bài mất file."},
+                {"added_count", countAdded},
+                {"removed_count", countRemoved}
             });
             return;
         }
@@ -9287,12 +9574,37 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             }
         }
         std::string activeGenre = (!activeSlot.is_null()) ? activeSlot.value("genre", "Pop") : "Pop";
+        auto mRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'jukebox_schedule_enabled' LIMIT 1");
+        bool masterEnabled = (mRow.is_null() || getString(mRow, "setting_value", "1") != "0");
         sendJson(res, {
             {"success", true},
+            {"master_enabled", masterEnabled},
             {"current_time", hhmm},
-            {"active_genre", activeGenre},
-            {"active_schedule", activeSlot},
+            {"active_genre", masterEnabled ? activeGenre : "Tự do"},
+            {"active_schedule", masterEnabled ? activeSlot : json(nullptr)},
             {"schedules", schedules}
+        });
+    });
+
+    svr.Post("/api/media/schedules/toggle_master", [](const httplib::Request& req, httplib::Response& res) {
+        if (!requireModule(res, "mod_media_stream", "Máy Chủ Media Streaming & Smart Jukebox")) return;
+        auto userOpt = AuthService::instance().authenticate(req);
+        if (!userOpt || (userOpt->role != "admin" && !userOpt->is_super_admin)) {
+            sendError(res, "Chỉ Chủ quán (Admin) mới được bật/tắt công tắc tổng lịch phát nhạc!", userOpt ? 403 : 401);
+            return;
+        }
+        auto& db = Database::instance();
+        json body = parseBody(req);
+        std::string en = (BodyParser::getParam(req, body, "enabled", "1") == "0") ? "0" : "1";
+        db.execute(
+            "INSERT INTO store_settings (setting_key, setting_value) VALUES ('jukebox_schedule_enabled', :v) "
+            "ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+            {{":v", en}}
+        );
+        sendJson(res, {
+            {"success", true},
+            {"master_enabled", en == "1"},
+            {"message", en == "1" ? "Đã BẬT chế độ phát & khóa thể loại theo khung giờ!" : "Đã TẮT lịch khung giờ — chuyển sang chế độ chọn nhạc tự do!"}
         });
     });
 
@@ -10006,6 +10318,13 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
         std::string orderCode = getString(body, "order_code", "");
         std::string mac = getString(body, "mac", "");
         std::string clientIp = req.remote_addr.empty() ? getString(body, "client_ip", "127.0.0.1") : req.remote_addr;
+        // ANTISPAM-07: Rate limit chống spam mở WiFi & chống dò mã hóa đơn VIP (tối đa 5 lần / 5 phút / IP)
+        int retryWifi = 0;
+        if (!SaleApp::Security::RateLimiter::instance().allow("wifi_unlock", clientIp, 5, 300, retryWifi)) {
+            res.status = 429;
+            sendJson(res, {{"success", false}, {"message", "Bạn thao tác quá nhanh! Vui lòng đợi " + std::to_string(std::max(1, retryWifi)) + " giây rồi thử lại."}}, 429);
+            return;
+        }
         json pol = readWifiPolicy();
         int freeMins = pol.value("free_minutes", 10);
         int vipMins = pol.value("vip_minutes", 180);
@@ -10017,11 +10336,11 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
                 return;
             }
             auto ord = db.queryRow(
-                "SELECT id, order_code, payment_status, status FROM orders WHERE UPPER(order_code) = UPPER(:oc) LIMIT 1",
+                "SELECT id, order_code, payment_status, status FROM orders WHERE UPPER(order_code) = UPPER(:oc) AND date(created_at) = date('now', 'localtime') LIMIT 1",
                 {{":oc", orderCode}}
             );
             if (ord.is_null() || (ord.value("payment_status", "") != "paid" && ord.value("status", "") != "completed")) {
-                sendError(res, "Mã hóa đơn chưa tồn tại hoặc chưa thanh toán!", 400);
+                sendError(res, "Mã hóa đơn không tồn tại trong hôm nay hoặc chưa thanh toán!", 400);
                 return;
             }
             std::string realCode = ord.value("order_code", orderCode);
@@ -10057,6 +10376,15 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             return;
         }
 
+        // ANTISPAM-07: Giới hạn WiFi dùng thử Free tối đa 2 lượt / thiết bị / ngày (chống bấm mở Free vô hạn & xả rác DB)
+        auto freeCntRow = db.queryRow(
+            "SELECT COUNT(*) AS c FROM wifi_marketing_leads WHERE client_ip = :ip AND unlock_type = 'free_basic' AND date(created_at) = date('now', 'localtime')",
+            {{":ip", clientIp}}
+        );
+        if (!freeCntRow.is_null() && freeCntRow.value("c", 0) >= 2) {
+            sendError(res, "Thiết bị của bạn đã hết 2 lượt dùng thử WiFi miễn phí hôm nay. Vui lòng nhập mã hóa đơn để kích hoạt WiFi VIP!", 429);
+            return;
+        }
         db.execute(
             "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'free_basic', '')",
             {{":cn", cname}, {":ph", phone}, {":ip", clientIp}}

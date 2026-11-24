@@ -85,7 +85,11 @@ int64_t Database::execute(const std::string& sql, const std::vector<std::pair<st
     int rc = sqlite3_prepare_v2(m_db, sql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         m_lastError = sqlite3_errmsg(m_db);
-        std::cerr << "[DB Error] Prepare failed: " << m_lastError << " | SQL: " << sql << std::endl;
+        bool isDupColAlter = (m_lastError.find("duplicate column name") != std::string::npos) &&
+                             (sql.find("ALTER TABLE") != std::string::npos || sql.find("alter table") != std::string::npos);
+        if (!isDupColAlter) {
+            std::cerr << "[DB Error] Prepare failed: " << m_lastError << " | SQL: " << sql << std::endl;
+        }
         return -1;
     }
 

@@ -214,12 +214,121 @@ int main(int argc, char* argv[]) {
         res.status = 204;
     });
 
-    // BẢO MẬT HARDWARE NODE-LOCK, TRẠNG THÁI THUÊ BAO (ARCH-04) & KHO NHẠC:
-    // 1. Chặn vận hành nếu thư mục Slave bị copy sang máy khác Hardware ID, chữ ký bị sửa, đồng hồ bị vặn lùi, hoặc thuê bao bị SuperAdmin đình chỉ/hết hạn.
-    // 2. Mọi API Media/Jukebox và file nhạc tĩnh chỉ dành cho người dùng ĐÃ ĐĂNG NHẬP.
+    // BẢO MẬT HARDWARE NODE-LOCK, TRẠNG THÁI THUÊ BAO (ARCH-04), SMART IPS 3 BẬC (NET-13) & KHO NHẠC:
+    svr.set_payload_max_length(15 * 1024 * 1024); // ANTISPAM-07: Trần cứng 15MB cho upload nhạc Admin, API thường chặn > 2MB bên trong
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         const std::string& p = req.path;
         if (req.method == "OPTIONS") return httplib::Server::HandlerResponse::Unhandled;
+
+        // ANTISPAM-07: Chống Payload Flood (> 2MB cho mọi API không phải upload media)
+        bool isUploadPath = (p.find("/upload") != std::string::npos);
+        if (!isUploadPath && req.body.size() > 2 * 1024 * 1024) {
+            res.status = 413;
+            res.set_content("{\"success\":false,\"code\":\"PAYLOAD_TOO_LARGE\",\"message\":\"Dữ liệu gửi lên vượt quá giới hạn an toàn (2MB)!\"}", "application/json; charset=utf-8");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+
+        // NET-13: Smart IPS & Auto-Ban 3 bậc (chỉ áp dụng cho IP không phải localhost / Nội bộ ∞)
+        {
+            const std::string& rip = req.remote_addr;
+            bool isLocal = (rip.empty() || rip == "127.0.0.1" || rip == "::1" || rip == "localhost" || rip == "::ffff:127.0.0.1");
+            if (!isLocal && p.rfind("/api/health", 0) != 0) {
+                struct IpsState {
+                    std::time_t winStart{0};
+                    int winCount{0};
+                    int strikes{0};
+                    std::time_t quarantineUntil{0};
+                };
+                static std::mutex s_ipsMtx;
+                static std::unordered_map<std::string, IpsState> s_ipsMap;
+                static std::time_t s_wlRefresh{0};
+                static std::vector<std::string> s_ipsWl;
+                static std::string s_ipsPosIp;
+
+                std::time_t nowIps = std::time(nullptr);
+                bool isWhitelistedClient = false;
+                {
+                    std::lock_guard<std::mutex> lk(s_ipsMtx);
+                    if (nowIps - s_wlRefresh >= 10) {
+                        s_wlRefresh = nowIps;
+                        s_ipsWl.clear();
+                        s_ipsPosIp.clear();
+                        try {
+                            fs::path qCfg = SaleApp::Config::AppConfig::instance().getBaseDir() / "config" / "router_qos.json";
+                            if (!fs::exists(qCfg)) qCfg = fs::path("config/router_qos.json");
+                            if (fs::exists(qCfg)) {
+                                std::ifstream qf(qCfg);
+                                nlohmann::json qj = nlohmann::json::parse(qf, nullptr, false);
+                                if (qj.is_object()) {
+                                    s_ipsPosIp = qj.value("pos_server_ip", "");
+                                    if (qj.contains("whitelist_ips") && qj["whitelist_ips"].is_array()) {
+                                        for (const auto& w : qj["whitelist_ips"]) {
+                                            if (w.is_string()) s_ipsWl.push_back(w.get<std::string>());
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (...) {}
+                    }
+                    if (!s_ipsPosIp.empty() && rip == s_ipsPosIp) isWhitelistedClient = true;
+                    for (const auto& w : s_ipsWl) { if (w == rip) { isWhitelistedClient = true; break; } }
+
+                    if (!isWhitelistedClient) {
+                        auto& st = s_ipsMap[rip];
+                        if (st.quarantineUntil > nowIps) {
+                            res.status = 403;
+                            res.set_content("{\"success\":false,\"code\":\"IPS_QUARANTINED\",\"message\":\"Thiết bị tạm thời bị cách ly do phát hiện lưu lượng bất thường tới Máy Chủ POS!\"}", "application/json; charset=utf-8");
+                            return httplib::Server::HandlerResponse::Handled;
+                        }
+                        if (nowIps - st.winStart >= 10) {
+                            st.winStart = nowIps;
+                            st.winCount = 0;
+                        }
+                        st.winCount++;
+
+                        // WAF Signature probe detection
+                        std::string lowP = p;
+                        std::transform(lowP.begin(), lowP.end(), lowP.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                        bool isProbe = (lowP.find("/.env") != std::string::npos || lowP.find("/wp-admin") != std::string::npos ||
+                                        lowP.find("/wp-login") != std::string::npos || lowP.find("/phpmyadmin") != std::string::npos ||
+                                        lowP.find("..") != std::string::npos || lowP.find("<script") != std::string::npos ||
+                                        lowP.find("union%20select") != std::string::npos);
+                        bool isFlood = (st.winCount > 80);
+                        if (isProbe || isFlood) {
+                            st.strikes++;
+                            std::string reason = isProbe ? ("WAF Probe: " + p.substr(0, 64)) : ("HTTP Flood (" + std::to_string(st.winCount) + " req/10s)");
+                            int curStrikes = st.strikes;
+                            if (curStrikes >= 2) {
+                                st.quarantineUntil = nowIps + (curStrikes >= 3 ? 3600 : 900);
+                            }
+                            // Record incident & escalate to mod_network_qos outside lock via flag
+                            try {
+                                auto& db = Database::instance();
+                                db.execute("CREATE TABLE IF NOT EXISTS security_incidents (id INTEGER PRIMARY KEY AUTOINCREMENT, client_ip TEXT, tier INTEGER, reason TEXT, created_at TEXT DEFAULT (datetime('now','localtime')))");
+                                db.execute("INSERT INTO security_incidents (client_ip, tier, reason) VALUES (:ip, :t, :r)",
+                                           {{":ip", rip}, {":t", std::min(3, curStrikes)}, {":r", reason}});
+                            } catch (...) {}
+                            if (curStrikes >= 2) {
+                                CyberNexus::PluginManager::instance().dispatchEvent("IPS_ABNORMAL_TRAFFIC", {
+                                    {"ip", rip},
+                                    {"tier", std::min(3, curStrikes)},
+                                    {"action", curStrikes >= 3 ? "ban" : "kick"},
+                                    {"reason", reason}
+                                });
+                            }
+                            res.status = (curStrikes == 1) ? 429 : 403;
+                            res.set_content(nlohmann::json({
+                                {"success", false},
+                                {"code", curStrikes == 1 ? "IPS_RATE_LIMITED" : "IPS_BLOCKED"},
+                                {"tier", std::min(3, curStrikes)},
+                                {"message", "Phát hiện lưu lượng bất thường (" + reason + "). Hệ thống bảo vệ đã kích hoạt bậc " + std::to_string(std::min(3, curStrikes)) + "!"}
+                            }).dump(), "application/json; charset=utf-8");
+                            return httplib::Server::HandlerResponse::Handled;
+                        }
+                    }
+                }
+            }
+        }
 
         std::string licCode, licReason;
         if (p.rfind("/api/", 0) == 0 &&
@@ -230,29 +339,130 @@ int main(int argc, char* argv[]) {
             p.rfind("/api/system/integrity", 0) != 0 &&
             p.rfind("/api/system/updates", 0) != 0 &&
             !LicenseService::instance().isSystemActive(&licCode, &licReason)) {
-            std::string boundMid, curMid;
-            LicenseService::instance().isMachineMismatch(&boundMid, &curMid);
-            res.status = 403;
-            res.set_header("Cache-Control", "no-store");
-            res.set_content(nlohmann::json({
-                {"success", false},
-                {"code", licCode.empty() ? "LICENSE_INACTIVE" : licCode},
-                {"error", licCode.empty() ? "LICENSE_INACTIVE" : licCode},
-                {"machine_id", curMid},
-                {"bound_machine_id", boundMid},
-                {"message", licReason.empty() ? "Bản quyền cửa hàng không hợp lệ hoặc đã bị tạm khóa!" : licReason}
-            }).dump(), "application/json; charset=utf-8");
-            return httplib::Server::HandlerResponse::Handled;
+            // LIC-04: Read-Only Lock cho trường hợp Hết hạn / Quá hạn Offline Lease (vẫn cho xem báo cáo, xuất dữ liệu)
+            bool isReadOnlyEligible = (licCode == "LICENSE_EXPIRED" || licCode == "LICENSE_OFFLINE_LEASE_EXCEEDED");
+            bool isSafeReadGet = (req.method == "GET") && (
+                p.rfind("/api/orders", 0) == 0 || p.rfind("/api/shifts", 0) == 0 ||
+                p.rfind("/api/reports", 0) == 0 || p.rfind("/api/settings", 0) == 0 ||
+                p.rfind("/api/products", 0) == 0 || p.rfind("/api/categories", 0) == 0 ||
+                p.rfind("/api/tables", 0) == 0 || p.rfind("/api/finance", 0) == 0
+            );
+            if (!(isReadOnlyEligible && isSafeReadGet)) {
+                std::string boundMid, curMid;
+                LicenseService::instance().isMachineMismatch(&boundMid, &curMid);
+                res.status = 403;
+                res.set_header("Cache-Control", "no-store");
+                res.set_content(nlohmann::json({
+                    {"success", false},
+                    {"code", licCode.empty() ? "LICENSE_INACTIVE" : licCode},
+                    {"error", licCode.empty() ? "LICENSE_INACTIVE" : licCode},
+                    {"read_only_mode", isReadOnlyEligible},
+                    {"machine_id", curMid},
+                    {"bound_machine_id", boundMid},
+                    {"message", licReason.empty() ? "Bản quyền cửa hàng không hợp lệ hoặc đã bị tạm khóa!" : licReason}
+                }).dump(), "application/json; charset=utf-8");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+        }
+
+        // LIC-02: Pre-Routing Module Guard tập trung cho cả 3 Plugin DLL (Defense-in-Depth Lớp 1)
+        auto guardPluginPrefix = [&](const char* prefix, const char* modCode, const char* modLabel) -> bool {
+            if (p.rfind(prefix, 0) == 0 && !LicenseService::instance().isModuleEnabled(modCode)) {
+                res.status = 403;
+                res.set_header("Cache-Control", "no-store");
+                res.set_content(nlohmann::json({
+                    {"success", false},
+                    {"status", "error"},
+                    {"code", "MODULE_DISABLED"},
+                    {"module", modCode},
+                    {"message", std::string("Module ") + modLabel + " (" + modCode + ") đang bị TẮT hoặc KHÓA từ Master!"}
+                }).dump(), "application/json; charset=utf-8");
+                return true;
+            }
+            return false;
+        };
+        if (guardPluginPrefix("/api/network/", "mod_network_qos", "Quản Trị Mạng & WiFi Marketing")) return httplib::Server::HandlerResponse::Handled;
+        if (guardPluginPrefix("/api/media/", "mod_media_stream", "Âm Nhạc & Smart Jukebox")) return httplib::Server::HandlerResponse::Handled;
+        if (guardPluginPrefix("/api/card_payment/", "mod_card_payment", "Thanh Toán Thẻ SmartPOS (ECR)")) return httplib::Server::HandlerResponse::Handled;
+
+        // NET-09: Lớp 3 Admin/Staff IP Guard — khi bật, thiết bị Khách WiFi chỉ được truy cập trang QR Gọi Món (/customer.html) & WiFi Portal (/wifi.html)
+        if (p == "/" || p == "/admin.html" || p == "/index.html" || p == "/kitchen.html" ||
+            p == "/order.html" || p == "/online_orders.html" || p == "/attendance.html" || p == "/i18n_studio.html") {
+            std::string rip = req.remote_addr;
+            if (rip != "127.0.0.1" && rip != "::1" && rip != "localhost" && rip != "::ffff:127.0.0.1") {
+                static std::mutex s_guardMtx;
+                static std::time_t s_lastCheck = 0;
+                static bool s_guardOn = false;
+                static std::string s_posIp;
+                static std::vector<std::string> s_wlIps;
+                std::time_t nowG = std::time(nullptr);
+                bool guardOn = false;
+                std::string posIpCopy;
+                std::vector<std::string> wlCopy;
+                {
+                    std::lock_guard<std::mutex> lk(s_guardMtx);
+                    if (nowG - s_lastCheck >= 5) {
+                        s_lastCheck = nowG;
+                        s_guardOn = false;
+                        s_posIp.clear();
+                        s_wlIps.clear();
+                        try {
+                            fs::path qCfg = SaleApp::Config::AppConfig::instance().getBaseDir() / "config" / "router_qos.json";
+                            if (!fs::exists(qCfg)) qCfg = fs::path("config/router_qos.json");
+                            if (fs::exists(qCfg)) {
+                                std::ifstream qf(qCfg);
+                                nlohmann::json qj = nlohmann::json::parse(qf, nullptr, false);
+                                if (qj.is_object()) {
+                                    s_guardOn = qj.value("admin_ip_guard_enabled", false);
+                                    s_posIp = qj.value("pos_server_ip", "");
+                                    if (qj.contains("whitelist_ips") && qj["whitelist_ips"].is_array()) {
+                                        for (const auto& w : qj["whitelist_ips"]) {
+                                            if (w.is_string()) s_wlIps.push_back(w.get<std::string>());
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (...) {}
+                    }
+                    guardOn = s_guardOn;
+                    posIpCopy = s_posIp;
+                    wlCopy = s_wlIps;
+                }
+                if (guardOn) {
+                    bool isAllowed = (!posIpCopy.empty() && rip == posIpCopy);
+                    if (!isAllowed) {
+                        for (const auto& w : wlCopy) { if (w == rip) { isAllowed = true; break; } }
+                    }
+                    if (!isAllowed) {
+                        res.status = 302;
+                        res.set_header("Location", "/customer.html");
+                        res.set_content("Redirecting to Guest Order Portal...", "text/plain; charset=utf-8");
+                        return httplib::Server::HandlerResponse::Handled;
+                    }
+                }
+            }
         }
 
         bool isMediaPath = (p.rfind("/api/media", 0) == 0) || (p.rfind("/assets/media", 0) == 0);
         if (!isMediaPath) return httplib::Server::HandlerResponse::Unhandled;
         auto userOpt = AuthService::instance().authenticate(req);
-        if (userOpt.has_value()) return httplib::Server::HandlerResponse::Unhandled;
-        res.status = 401;
-        res.set_header("Cache-Control", "no-store");
-        res.set_content("{\"success\":false,\"authenticated\":false,\"message\":\"Vui lòng đăng nhập để truy cập kho nhạc Jukebox.\"}", "application/json; charset=utf-8");
-        return httplib::Server::HandlerResponse::Handled;
+        if (!userOpt.has_value()) {
+            res.status = 401;
+            res.set_header("Cache-Control", "no-store");
+            res.set_content("{\"success\":false,\"authenticated\":false,\"message\":\"Vui lòng đăng nhập để truy cập kho nhạc Jukebox.\"}", "application/json; charset=utf-8");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+        // ANTISPAM-06: Chỉ Admin / Thu ngân mới được Skip, Xóa bài, Chỉnh EQ hoặc Ducking
+        if (p == "/api/media/jukebox/skip" || p == "/api/media/jukebox/remove" || p == "/api/media/eq/apply" || p == "/api/media/ducking") {
+            if (userOpt->role != "admin" && userOpt->role != "cashier" && !userOpt->is_super_admin) {
+                res.status = 403;
+                res.set_content("{\"success\":false,\"message\":\"Chỉ Chủ quán hoặc Thu ngân mới có quyền điều khiển Jukebox/EQ!\"}", "application/json; charset=utf-8");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+        }
+        const_cast<httplib::Request&>(req).headers.erase("X-CN-Staff-Role");
+        const_cast<httplib::Request&>(req).set_header("X-CN-Staff-Role", userOpt->role);
+        return httplib::Server::HandlerResponse::Unhandled;
     });
 
     // Static files mount
@@ -342,7 +552,8 @@ int main(int argc, char* argv[]) {
 
             auto userOpt = AuthService::instance().authenticate(req);
             if (!userOpt.has_value()) {
-                std::string target = "/login.html?redirect=" + viewName + ".html";
+                std::string cleanPath = (viewName == "index") ? "/pos" : ((viewName == "online_orders") ? "/online" : ((viewName == "customer") ? "/menu" : ("/" + viewName)));
+                std::string target = "/login?redirect=" + cleanPath;
                 res.status = 302;
                 res.set_header("Location", target);
                 res.set_header("Set-Cookie", AuthService::formatClearCookie("pos_token"));
@@ -361,11 +572,11 @@ int main(int argc, char* argv[]) {
 
             const auto& user = userOpt.value();
             if (requiredRole != "all_authenticated" && !AuthService::instance().hasRole(user, requiredRole)) {
-                std::string roleHome = "/customer.html";
-                if (user.role == "admin" || user.is_super_admin) roleHome = "/admin.html";
-                else if (user.role == "cashier") roleHome = "/index.html";
-                else if (user.role == "waiter") roleHome = "/order.html";
-                else if (user.role == "kitchen") roleHome = "/kitchen.html";
+                std::string roleHome = "/menu";
+                if (user.role == "admin" || user.is_super_admin) roleHome = "/admin";
+                else if (user.role == "cashier") roleHome = "/pos";
+                else if (user.role == "waiter") roleHome = "/order";
+                else if (user.role == "kitchen") roleHome = "/kitchen";
                 res.status = 302;
                 res.set_header("Location", roleHome);
                 return;
@@ -374,6 +585,31 @@ int main(int argc, char* argv[]) {
             serveView(viewName)(req, res);
         };
     };
+
+    // UI-07: Helper chuyển hướng từ .html cũ sang Clean URL (giữ nguyên query string như ?table=...)
+    auto redirectClean = [](const std::string& cleanPath) {
+        return [cleanPath](const httplib::Request& req, httplib::Response& res) {
+            std::string dest = cleanPath;
+            auto qPos = req.target.find('?');
+            if (qPos != std::string::npos) {
+                dest += req.target.substr(qPos);
+            }
+            res.status = 302;
+            res.set_header("Location", dest);
+        };
+    };
+
+    svr.Get("/manifest.webmanifest", [webDir](const httplib::Request&, httplib::Response& res) {
+        fs::path mf = webDir / "manifest.webmanifest";
+        if (fs::exists(mf)) {
+            std::ifstream f(mf, std::ios::binary);
+            std::stringstream buf;
+            buf << f.rdbuf();
+            res.set_content(buf.str(), "application/manifest+json; charset=utf-8");
+            return;
+        }
+        res.status = 404;
+    });
 
     // Client Store Views (100% Bắt buộc có phiên đăng nhập hợp lệ & Đúng phân quyền bộ phận)
     svr.Get("/", [serveView](const httplib::Request& req, httplib::Response& res) {
@@ -388,55 +624,58 @@ int main(int argc, char* argv[]) {
             return;
         }
         const auto& u = userOpt.value();
-        std::string target = "/index.html";
-        if (u.role == "admin" || u.is_super_admin) target = "/admin.html";
-        else if (u.role == "waiter") target = "/order.html";
-        else if (u.role == "kitchen") target = "/kitchen.html";
-        else if (u.role == "customer") target = "/customer.html";
+        std::string target = "/pos";
+        if (u.role == "admin" || u.is_super_admin) target = "/admin";
+        else if (u.role == "waiter") target = "/order";
+        else if (u.role == "kitchen") target = "/kitchen";
+        else if (u.role == "customer") target = "/menu";
         res.status = 302;
         res.set_header("Location", target);
     });
     // POS Thu Ngân: Chỉ Admin và Thu ngân (cashier)
-    svr.Get("/index", serveProtectedView("index", "cashier"));
-    svr.Get("/index.html", serveProtectedView("index", "cashier"));
-    svr.Get("/index.php", serveProtectedView("index", "cashier"));
+    svr.Get("/pos", serveProtectedView("index", "cashier"));
+    svr.Get("/index", redirectClean("/pos"));
+    svr.Get("/index.html", redirectClean("/pos"));
+    svr.Get("/index.php", redirectClean("/pos"));
 
     // Quản Trị: Chỉ Admin
     svr.Get("/admin", serveProtectedView("admin", "admin"));
-    svr.Get("/admin.html", serveProtectedView("admin", "admin"));
-    svr.Get("/admin.php", serveProtectedView("admin", "admin"));
+    svr.Get("/admin.html", redirectClean("/admin"));
+    svr.Get("/admin.php", redirectClean("/admin"));
 
     // Bếp & Pha chế: Chỉ Admin, Thu ngân, Bếp (kitchen)
     svr.Get("/kitchen", serveProtectedView("kitchen", "kitchen"));
-    svr.Get("/kitchen.html", serveProtectedView("kitchen", "kitchen"));
-    svr.Get("/kitchen.php", serveProtectedView("kitchen", "kitchen"));
+    svr.Get("/kitchen.html", redirectClean("/kitchen"));
+    svr.Get("/kitchen.php", redirectClean("/kitchen"));
 
     // Phục vụ: Chỉ Admin, Thu ngân, Phục vụ (waiter)
     svr.Get("/order", serveProtectedView("order", "waiter"));
-    svr.Get("/order.html", serveProtectedView("order", "waiter"));
-    svr.Get("/order.php", serveProtectedView("order", "waiter"));
+    svr.Get("/order.html", redirectClean("/order"));
+    svr.Get("/order.php", redirectClean("/order"));
 
-    // Menu Khách Hàng Gọi Món (Customer Menu - Quét QR xem menu tự do)
-    svr.Get("/customer", serveView("customer"));
-    svr.Get("/customer.html", serveView("customer"));
-    svr.Get("/customer.php", serveView("customer"));
+    // Menu Khách Hàng Gọi Món (Customer Menu - Quét QR xem menu tự do, giữ tương thích QR cũ)
+    svr.Get("/menu", serveView("customer"));
+    svr.Get("/customer", redirectClean("/menu"));
+    svr.Get("/customer.html", redirectClean("/menu"));
+    svr.Get("/customer.php", redirectClean("/menu"));
 
     // Trang WiFi Marketing (Captive Portal)
     svr.Get("/wifi", serveView("wifi"));
-    svr.Get("/wifi.html", serveView("wifi"));
+    svr.Get("/wifi.html", redirectClean("/wifi"));
 
     // Trang Chấm Công Web & Kiosk Nhân Sự (Personal + PIN 6 + Webcam Selfie)
     svr.Get("/attendance", serveView("attendance"));
-    svr.Get("/attendance.html", serveView("attendance"));
+    svr.Get("/attendance.html", redirectClean("/attendance"));
 
     svr.Get("/login", serveView("login"));
-    svr.Get("/login.html", serveView("login"));
-    svr.Get("/login.php", serveView("login"));
+    svr.Get("/login.html", redirectClean("/login"));
+    svr.Get("/login.php", redirectClean("/login"));
 
     // Đơn Online: Chỉ Admin và Thu ngân (cashier)
-    svr.Get("/online_orders", serveProtectedView("online_orders", "cashier"));
-    svr.Get("/online_orders.html", serveProtectedView("online_orders", "cashier"));
-    svr.Get("/online_orders.php", serveProtectedView("online_orders", "cashier"));
+    svr.Get("/online", serveProtectedView("online_orders", "cashier"));
+    svr.Get("/online_orders", redirectClean("/online"));
+    svr.Get("/online_orders.html", redirectClean("/online"));
+    svr.Get("/online_orders.php", redirectClean("/online"));
 
     // Catch-all .php alias
     svr.Get(R"(/([\w-]+)\.php)", [serveProtectedView, serveView](const httplib::Request& req, httplib::Response& res) {
@@ -676,6 +915,65 @@ int main(int argc, char* argv[]) {
                                     sendAckAfter = true;
                                 } else if (cmdType == "SYNC_LICENSE") {
                                     LicenseService::instance().verifyLicenseOnline(key, mid);
+                                    sendAckAfter = !cmdId.empty();
+                                } else if (cmdType == "SYNC_DB_BACKUP") {
+                                    // SYNC-01: On-demand SQLite snapshot -> upload to Master (only when Master commands)
+                                    try {
+                                        namespace fs = std::filesystem;
+                                        fs::path backupDir = AppConfig::instance().getBaseDir() / "backups";
+                                        std::error_code ec;
+                                        fs::create_directories(backupDir, ec);
+                                        fs::path snapPath = backupDir / "master_sync_tmp.db";
+                                        fs::remove(snapPath, ec);
+                                        std::string escapedPath = snapPath.string();
+                                        size_t pos = 0;
+                                        while ((pos = escapedPath.find("'", pos)) != std::string::npos) { escapedPath.replace(pos, 1, "''"); pos += 2; }
+                                        Database::instance().execute("VACUUM INTO '" + escapedPath + "'");
+                                        std::ifstream ifs(snapPath, std::ios::binary);
+                                        if (ifs.is_open()) {
+                                            std::string payload((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+                                            ifs.close();
+                                            httplib::Client bcli(masterUrl);
+                                            bcli.set_connection_timeout(10);
+                                            bcli.set_read_timeout(60);
+                                            httplib::Headers bhdrs = {
+                                                {"X-License-Key", key},
+                                                {"X-Machine-Id", mid},
+                                                {"X-Trigger-Mysql-Sync", "1"}
+                                            };
+                                            auto bres = bcli.Post("/api/slave/backup", bhdrs, payload, "application/octet-stream");
+                                            cmdOk = (bres && bres->status == 200);
+                                        } else {
+                                            cmdOk = false;
+                                        }
+                                        fs::remove(snapPath, ec);
+                                    } catch (...) {
+                                        cmdOk = false;
+                                    }
+                                    sendAckAfter = !cmdId.empty();
+                                } else if (cmdType == "CHECK_DB_SYNC") {
+                                    // SYNC-01: On-demand lightweight table row-count check -> report to Master
+                                    try {
+                                        json tables = json::object();
+                                        auto tblRows = Database::instance().query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+                                        for (const auto& tr : tblRows) {
+                                            std::string tn = tr.value("name", "");
+                                            if (tn.empty()) continue;
+                                            try {
+                                                auto cnt = Database::instance().queryScalar("SELECT COUNT(*) FROM \"" + tn + "\"");
+                                                tables[tn] = cnt.is_number() ? cnt.get<int64_t>() : 0;
+                                            } catch (...) {}
+                                        }
+                                        json statsBody = {{"license_key", key}, {"machine_id", mid}, {"tables", tables}};
+                                        httplib::Client scli(masterUrl);
+                                        scli.set_connection_timeout(8);
+                                        scli.set_read_timeout(15);
+                                        httplib::Headers shdrs = {{"X-License-Key", key}, {"X-Machine-Id", mid}};
+                                        auto sres = scli.Post("/api/slave/db_stats", shdrs, statsBody.dump(), "application/json");
+                                        cmdOk = (sres && sres->status == 200);
+                                    } catch (...) {
+                                        cmdOk = false;
+                                    }
                                     sendAckAfter = !cmdId.empty();
                                 } else if (cmdType == "UPDATE_MASTER_URL") {
                                     json payload = cmd.contains("payload") && cmd["payload"].is_object() ? cmd["payload"] : json::object();

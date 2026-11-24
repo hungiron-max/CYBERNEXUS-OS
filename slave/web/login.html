@@ -422,6 +422,11 @@
                     }
                 }).catch(() => {});
             }
+            try {
+                if (window.location.search || window.location.pathname.endsWith('.html')) {
+                    history.replaceState(null, '', '/login');
+                }
+            } catch (e) {}
         })();
 
         // Bắt phím số vật lý trên bàn phím

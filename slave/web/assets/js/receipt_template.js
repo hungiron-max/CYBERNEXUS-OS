@@ -293,7 +293,7 @@
                         <span>${esc(getLabel(cfg, 'subtotal'))}:</span><span>${fmtMoney(subAmt)} đ</span>
                     </div>
                     ${(cfg.show_discount_vat && discAmt > 0) ? `<div style="display:flex;justify-content:space-between;"><span>${esc(getLabel(cfg, 'discount'))}:</span><span>-${fmtMoney(discAmt)} đ</span></div>` : ''}
-                    ${(cfg.show_discount_vat && vatAmt > 0) ? `<div style="display:flex;justify-content:space-between;"><span>${esc(getLabel(cfg, 'vat'))} (${Number(o.vat_percent || 0)}%):</span><span>${fmtMoney(vatAmt)} đ</span></div>` : ''}
+                    ${(cfg.show_discount_vat && vatAmt > 0) ? `<div style="display:flex;justify-content:space-between;"><span>${(totAmt <= Math.max(0, subAmt - discAmt) + 1) ? ('Đã gồm ' + esc(getLabel(cfg, 'vat'))) : esc(getLabel(cfg, 'vat'))} (${Number(o.vat_percent || 0)}%):</span><span>${fmtMoney(vatAmt)} đ</span></div>` : ''}
                     <div style="display:flex;justify-content:space-between;font-size:${cfg.font_total_px}px;font-weight:900;margin-top:3px;padding-top:3px;border-top:1px solid #0f172a;">
                         <span>${esc(getLabel(cfg, 'total'))}:</span><span>${fmtMoney(totAmt)} đ</span>
                     </div>

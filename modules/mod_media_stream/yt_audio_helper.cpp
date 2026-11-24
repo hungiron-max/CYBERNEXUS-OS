@@ -900,6 +900,23 @@ void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db) {
                 }
             }
             if (artist.empty()) artist = "YouTube";
+            if (genre.empty() || genre == "YouTube" || genre == "Lossless") {
+                std::string comb = title + " " + artist;
+                std::transform(comb.begin(), comb.end(), comb.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+                auto hasAny = [&](const std::vector<std::string>& kws) {
+                    for (const auto& k : kws) { if (comb.find(k) != std::string::npos) return true; }
+                    return false;
+                };
+                if (hasAny({"edm", "remix", "vinahouse", "club", "dance", "house", "dj", "nonstop", "trap", "rap", "rock", "sôi động", "soi dong"})) {
+                    genre = "Sôi động / EDM";
+                } else if (hasAny({"lofi", "chill", "acoustic", "piano", "guitar", "jazz", "relax", "cafe", "coffee", "morning", "instrumental", "êm dịu", "em diu", "nhẹ nhàng"})) {
+                    genre = "Êm dịu / Acoustic";
+                } else if (hasAny({"ballad", "bolero", "trữ tình", "tru tinh", "buồn", "buon", "tình", "mưa", "trịnh", "mỹ tâm", "hà anh tuấn"})) {
+                    genre = "Ballad";
+                } else {
+                    genre = "Pop";
+                }
+            }
 
             std::string canonicalUrl = "https://www.youtube.com/watch?v=" + videoId;
 
@@ -1173,6 +1190,7 @@ void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db) {
             int trackId = body.value("track_id", 0);
             std::string newTitle = sanitizeText(body.value("title", ""));
             std::string newArtist = sanitizeText(body.value("artist", ""));
+            std::string newGenre = sanitizeText(body.value("genre", ""));
             if (trackId <= 0 || newTitle.empty()) {
                 res.status = 400;
                 res.set_content("{\"success\":false,\"message\":\"Thiếu track_id hoặc tên bài hát\"}", "application/json; charset=utf-8");
@@ -1217,12 +1235,13 @@ void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db) {
             {
                 std::lock_guard<std::mutex> lk(s_dbMtx);
                 sqlite3_stmt* stmt = nullptr;
-                const char* sql = "UPDATE media_tracks SET title = ?, artist = COALESCE(NULLIF(?, ''), artist), file_path = ? WHERE id = ?;";
+                const char* sql = "UPDATE media_tracks SET title = ?, artist = COALESCE(NULLIF(?, ''), artist), genre = COALESCE(NULLIF(?, ''), genre), file_path = ? WHERE id = ?;";
                 if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
                     sqlite3_bind_text(stmt, 1, newTitle.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_text(stmt, 2, newArtist.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 3, finalFilePath.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_int(stmt, 4, trackId);
+                    sqlite3_bind_text(stmt, 3, newGenre.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 4, finalFilePath.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_int(stmt, 5, trackId);
                     sqlite3_step(stmt);
                 }
                 sqlite3_finalize(stmt);
@@ -1233,8 +1252,9 @@ void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db) {
                 {"track_id", trackId},
                 {"title", newTitle},
                 {"artist", newArtist},
+                {"genre", newGenre},
                 {"file_path", finalFilePath},
-                {"message", "Đã cập nhật tên bài hát & đồng bộ tên file MP3!"}
+                {"message", "Đã cập nhật bài hát & đồng bộ tên file MP3!"}
             }).dump(), "application/json; charset=utf-8");
         } catch (...) {
             res.status = 400;

@@ -310,9 +310,7 @@ public:
                 std::string ext = entry.path().extension().string();
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                 fs::path dest = baseDir / rel;
-                if (relStr.rfind("modules/", 0) == 0 && !fs::exists(dest)) {
-                    continue; // Do not install unlicensed module DLLs via OTA patch
-                }
+                // Always deploy official signed DLLs + .sig from OTA (LicenseService gates access dynamically)
                 if (dest.has_parent_path()) fs::create_directories(dest.parent_path(), ecClean);
 
                 fs::path bkp = backupDir / rel;

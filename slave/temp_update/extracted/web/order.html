@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title data-i18n="ui.ord_html.title_10e377af">Nhận Order Bàn - CyberNexus POS</title>
+    <link rel="icon" type="image/png" href="favicon.png?v=20261118">
+    <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261118">
+    
+    <!-- Local Precompiled Tailwind CSS (100% Offline, Instant Rendering) -->
+    <link rel="stylesheet" href="assets/css/app-tailwind.min.css">
+    <!-- Local FontAwesome 6 Icons (Offline) -->
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+    <!-- Liquid Glass Custom Styles -->
+    <link rel="stylesheet" href="assets/css/liquid-glass.css?v=3">
+    <link rel="stylesheet" href="assets/css/theme.css?v=4">
+    <script src="assets/js/theme.js?v=3"></script>
+    <script src="assets/vendor/qrcode.min.js"></script>
+
+    <!-- CHẾ ĐỘ CHỐNG BYPASS & XÁC THỰC C++ NATIVE GATEWAY DÀNH CHO PHỤC VỤ -->
+    <style id="auth-cloak">html, body { display: none !important; visibility: hidden !important; }</style>
+    <script>
+        (function() {
+            var u = null;
+            try { u = JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch(e) {}
+            var token = localStorage.getItem('pos_token') || '';
+            if (!u || !u.id) {
+                window.location.replace('login.html?redirect=order.html');
+                throw new Error('Chặn truy cập: Chưa đăng nhập!');
+            }
+            if (u.role === 'customer') {
+                window.location.replace('customer.html');
+                throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+            }
+            if (u.role === 'kitchen') {
+                window.location.replace('kitchen.html');
+                throw new Error('Chuyển hướng Tổ Bếp về màn hình Bếp!');
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'api/auth.php?action=check&_t=' + Date.now(), false);
+            xhr.withCredentials = true;
+            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            try {
+                xhr.send();
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res && res.authenticated === true && res.user) {
+                        if (res.user.role === 'customer') {
+                            window.location.replace('customer.html');
+                            throw new Error('Chặn khách hàng truy cập trang nội bộ!');
+                        }
+                        if (res.user.role === 'kitchen') {
+                            window.location.replace('kitchen.html');
+                            throw new Error('Chuyển hướng Tổ Bếp về màn hình Bếp!');
+                        }
+                        localStorage.setItem('pos_user', JSON.stringify(res.user));
+                        window.currentUser = res.user;
+                        function uncloak() {
+                            var el = document.getElementById('auth-cloak');
+                            if (el) el.remove();
+                            document.documentElement.style.removeProperty('display');
+                            document.documentElement.style.removeProperty('visibility');
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', uncloak);
+                        } else {
+                            uncloak();
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi xác thực C++ Native:", e);
+            }
+            localStorage.removeItem('pos_user');
+            localStorage.removeItem('pos_token');
+            sessionStorage.clear();
+            document.cookie = "pos_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "PHPSESSID=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            window.location.replace('login.html?redirect=order.html');
+            throw new Error('Chặn truy cập: Phiên không hợp lệ!');
+        })();
+        window.addEventListener('pageshow', function(e) { if (e.persisted) window.location.reload(); });
+
+        // Tự động dọn sạch Service Worker cũ & CacheStorage
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (var r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (var k of keys) caches.delete(k);
+            });
+        }
+    </script>
+    <script src="assets/js/store_brand.js"></script>
+</head>
+<body class="antialiased flex flex-col h-screen overflow-hidden text-slate-100 bg-slate-950">
+
+    <!-- Ambient Floating Orbs -->
+    <div class="liquid-blob-1"></div>
+    <div class="liquid-blob-2"></div>
+
+    <!-- Top Mobile Header -->
+    <header class="liquid-header cn-top-nav z-30 shrink-0 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
+        <div class="cn-nav-left">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 text-white shadow-md shadow-sky-500/20 border border-white/10 flex items-center justify-center shrink-0">
+                <i class="fas fa-clipboard-list text-sm"></i>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-nowrap min-w-0">
+                    <h1 class="font-black text-xs sm:text-sm tracking-wide text-white uppercase whitespace-nowrap" data-i18n="ui.order_html.h1_ea931439"><span data-store-name>CyberNexus POS</span></h1>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/35 whitespace-nowrap shrink-0 shadow-sm">
+                        <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                        <span data-i18n="nav.order_badge">ORDER PHỤC VỤ</span>
+                    </span>
+                </div>
+                <div class="text-[10px] text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
+                    <span data-i18n="nav.staff_prefix">NV:</span> <b class="text-sky-300 font-semibold" id="order-staff-name" data-i18n="ui.ord_html.b_c7307f33">Phục vụ</b>
+                    <span class="text-slate-600">•</span>
+                    <span class="text-slate-400" data-i18n="ui.ord_html.span_de72259c">Gọi món tại bàn</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Center: Role Back Links | Waiter Controls -->
+        <div class="cn-nav-center">
+            <div id="order-nav-back-zone" class="flex items-center gap-1.5 shrink-0"></div>
+            <button type="button" id="btn-sound-toggle" onclick="testAndToggleSound()" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30" title="Bật/Tắt chuông và rung (Nhấp để thử chuông)" data-i18n-title="ui.ord_html.button_title_d9a12fca">
+                <i id="sound-toggle-icon" class="fas fa-volume-high text-xs"></i>
+            </button>
+            <button type="button" id="nav-bell-btn" class="hidden relative cn-nav-btn bg-amber-500/20 text-amber-300 border border-amber-500/40" onclick="scrollToReadyTable()">
+                <i class="fas fa-bell animate-bounce text-sm"></i>
+                <span id="nav-bell-count" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-black">1</span>
+            </button>
+            <button type="button" onclick="showLanQrModal()" class="btn-glass cn-nav-btn bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/30" title="Mã QR Khách Hàng Gọi Món (customer.html)" data-i18n-title="ui.ord_html.button_title_0559cf29">
+                <i class="fas fa-qrcode text-xs"></i>
+            </button>
+        </div>
+
+        <!-- 3. Right Fixed: VI/EN -> Theme -> User Pill -> Logout -->
+        <div class="cn-nav-right">
+            <div class="cn-lang-pill" title="Language / Ngôn ngữ" data-i18n-title="ui.sa_html.div_title_c60b3893">
+                <button type="button" data-cnx-lang-btn="vi" onclick="window.CNX_I18N && CNX_I18N.setLang('vi')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">VI</button>
+                <button type="button" data-cnx-lang-btn="en" onclick="window.CNX_I18N && CNX_I18N.setLang('en')" class="px-1.5 py-0.5 rounded transition cursor-pointer text-[10px] font-black">EN</button>
+            </div>
+            <span id="cn-theme-slot"></span>
+            <div id="order-admin-badge-zone" class="flex items-center shrink-0"></div>
+            <button type="button" onclick="handleLogout()" class="cn-nav-btn cn-nav-btn--danger" title="Đăng xuất" data-i18n-title="common.logout">
+                <i class="fas fa-sign-out-alt text-xs"></i>
+                <span data-i18n="common.logout">Đăng xuất</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Audio element for mobile sound chime with static source -->
+    <audio id="waiter-sound-chime" src="assets/sounds/dingdong.wav" preload="auto" playsinline></audio>
+
+    <!-- Banner kích hoạt chuông trên điện thoại (đặc biệt cho Safari iOS & Chrome Android) -->
+    <div id="audio-activate-banner" onclick="activateMobileAudio(true)" class="mx-3 mt-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-xs flex items-center justify-between cursor-pointer shadow-lg active:scale-98 transition-all z-40">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-volume-high text-base text-slate-900 animate-pulse"></i>
+            <span data-i18n="ui.ord_html.span_6badaf83">Chạm để BẬT chuông & rung thông báo</span>
+        </div>
+        <span class="px-2.5 py-1 rounded-lg bg-slate-950 text-amber-300 text-[10px] uppercase font-black tracking-wider" data-i18n="ui.login_html.button_f4847618">Kích hoạt</span>
+    </div>
+
+    <!-- Sound Enabled Toast Notification -->
+    <div id="sound-toast" class="hidden shrink-0 mx-3 mt-2 p-2.5 rounded-xl bg-slate-900/95 text-amber-300 border border-amber-500/40 text-xs flex items-center justify-between z-40 shadow-xl transition-all">
+        <span id="sound-toast-text" class="flex items-center gap-2" data-i18n="ui.ord_html.span_289371d5"><i class="fas fa-bell"></i> Chuông & rung đã sẵn sàng!</span>
+    </div>
+
+    <!-- Real-time Kitchen Notification Toast Banner -->
+    <div id="kitchen-alert-banner" class="hidden shrink-0 mx-3 mt-2 p-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-xl border border-amber-300 flex items-center justify-between z-40">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-white text-amber-600 flex items-center justify-center text-lg shadow shrink-0">
+                <i class="fas fa-bell animate-bounce"></i>
+            </div>
+            <div>
+                <div class="text-[11px] uppercase tracking-wider font-black text-slate-900" data-i18n="ui.ord_html.div_153d4aba">🔔 BẾP BÁO XONG MÓN!</div>
+                <div id="kitchen-alert-text" class="text-xs font-extrabold text-slate-950" data-i18n="ui.ord_html.div_d17d6048">Bàn MV1 đã sẵn sàng</div>
+            </div>
+        </div>
+        <button type="button" id="btn-alert-serve" class="px-3 py-1.5 rounded-xl bg-slate-950 text-amber-300 text-xs font-black shadow-md active:scale-95 shrink-0" data-i18n="ui.order_html.button_ceb3900f">
+            ĐÃ BƯNG RA
+        </button>
+    </div>
+
+    <div id="online-kitchen-ready-banner" class="hidden shrink-0 mx-3 mt-2 rounded-2xl border border-cyan-300/50 bg-gradient-to-r from-cyan-500/20 via-sky-500/15 to-indigo-500/20 p-3 text-white shadow-xl shadow-cyan-950/30 ring-1 ring-cyan-300/20">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2.5">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-200/30 bg-cyan-300/15 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,.18)]">
+                    <i class="fas fa-bell animate-bounce"></i>
+                </span>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-cyan-200">
+                        <span data-i18n="ui.ord_html.span_63a01e53">Bếp đã hoàn thành đơn online</span>
+                        <span id="online-kitchen-ready-count" class="rounded-full border border-cyan-200/25 bg-cyan-300/15 px-1.5 py-0.5 font-mono">0</span>
+                    </div>
+                    <div id="online-kitchen-ready-text" class="mt-0.5 truncate text-xs font-bold text-white" data-i18n="ui.ord_html.div_9826ba11">Đơn đã sẵn sàng bàn giao</div>
+                </div>
+            </div>
+            <a href="online_orders.html" class="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-cyan-200/35 bg-slate-950/75 px-3 text-[11px] font-black text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,.12)] transition hover:border-cyan-100/60 hover:text-white">
+                <i class="fas fa-box-open"></i><span data-i18n="ui.ord_html.span_13315bde">Xử lý đơn</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Real-time Kitchen Cancel/Reject Item Toast Banner -->
+    <div id="kitchen-cancel-banner" class="hidden shrink-0 mx-3 mt-2 p-3 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-xl shadow-rose-950/40 border border-rose-400 flex items-center justify-between z-40 animate-pulse">
+        <div class="flex items-center gap-2.5 min-w-0 pr-2">
+            <div id="kitchen-cancel-icon-bg" class="w-9 h-9 rounded-xl bg-white text-rose-600 flex items-center justify-center text-lg shadow shrink-0">
+                <i id="kitchen-cancel-icon" class="fas fa-triangle-exclamation"></i>
+            </div>
+            <div class="min-w-0">
+                <div id="kitchen-cancel-title" class="text-[11px] uppercase tracking-wider font-black text-rose-100 flex items-center gap-1" data-i18n="ui.ord_html.div_e66f6e93">
+                    ⚠️ BẾP HỦY MÓN TRÊN HÓA ĐƠN
+                </div>
+                <div id="kitchen-cancel-text" class="text-xs font-bold text-white leading-snug line-clamp-2" data-i18n="ui.ord_html.div_62e927ef">Bàn MV1: Mì Gói Bò đã hủy</div>
+            </div>
+        </div>
+        <button type="button" id="btn-cancel-ack" onclick="ackKitchenCancellation()" class="px-3 py-1.5 rounded-xl bg-slate-950 text-amber-300 text-xs font-black shadow-md active:scale-95 shrink-0" data-i18n="ui.order_html.button_3b7c254c">
+            ĐÃ HIỂU
+        </button>
+    </div>
+
+    <!-- Waiter Action Center: Theo dõi biến động đơn (Hết món / Hủy món / Thu thêm / Hoàn tiền) -->
+    <div id="waiter-action-center" class="hidden shrink-0 mx-3 mt-2 p-2.5 rounded-2xl bg-slate-900/95 border border-amber-500/40 shadow-lg space-y-1.5 z-40">
+        <div class="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-300">
+            <span data-i18n="ui.ord_html.span_7768934f"><i class="fas fa-bell-concierge mr-1"></i> Biến Động Đơn Cần Theo Dõi (<span id="waiter-alert-count">0</span>)</span>
+        </div>
+        <div id="waiter-alert-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1"></div>
+    </div>
+
+    <!-- STEP 1: Sơ Đồ Bàn (Table Selector View) -->
+    <section id="view-tables" class="flex-1 flex flex-col p-3 overflow-y-auto space-y-3 z-10">
+        <!-- Area Filter Tabs -->
+        <div class="flex rounded-xl bg-slate-900/80 p-1 border border-white/10 shrink-0">
+            <button type="button" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-white bg-sky-500 shadow-md transition-all" id="btn-tab-all" onclick="filterTablesArea('all')" data-i18n="ui.adm_html.span_db389122">
+                Tất Cả (<span id="count-all-tables">0</span>)
+            </button>
+            <button type="button" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all" id="btn-tab-tq" onclick="filterTablesArea('TAI_QUAN')" data-i18n="ui.adm_html.span_f8b031c2">
+                Tại Quán (<span id="count-tq-tables">0</span>)
+            </button>
+            <button type="button" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all" id="btn-tab-mv" onclick="filterTablesArea('MANG_VE')" data-i18n="ui.adm_html.span_e8aad450">
+                Mang Về (<span id="count-mv-tables">0</span>)
+            </button>
+        </div>
+
+        <!-- Legend / Notes -->
+        <div class="flex items-center justify-between text-[11px] px-1 text-slate-400">
+            <div class="flex items-center gap-3">
+                <span class="flex items-center gap-1.5" data-i18n="ui.ord_html.span_52f415fe"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Bàn trống</span>
+                <span class="flex items-center gap-1.5" data-i18n="ui.ord_html.span_057faffd"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Có khách</span>
+            </div>
+            <button type="button" onclick="loadTablesData()" class="text-sky-400 hover:underline" data-i18n="ui.order_html.button_fc731468">
+                <i class="fas fa-sync-alt mr-1"></i> Làm mới
+            </button>
+        </div>
+
+        <!-- Tables Grid -->
+        <div id="waiter-tables-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pb-6">
+            <!-- Loaded dynamically -->
+        </div>
+    </section>
+
+    <!-- STEP 2: Màn Hình Chọn Món Cho Bàn Đã Chọn (Order Taking View) -->
+    <section id="view-order" class="hidden flex-1 flex flex-col overflow-hidden z-10">
+        
+        <!-- Active Table Info Subheader -->
+        <div class="p-2.5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="backToTablesView()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-xs">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div>
+                    <h2 id="active-table-title" class="font-extrabold text-sm text-sky-400" data-i18n="ui.order_html.h2_97935c43">BÀN: TQ1</h2>
+                    <span id="active-table-status" class="text-[11px] text-slate-400" data-i18n="ui.ord_html.span_43d783ad">Khách mới</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-lg border border-white/10 text-xs">
+                    <span class="text-slate-400" data-i18n="ui.ord_html.span_8e4788ce">Số khách:</span>
+                    <button type="button" class="w-5 h-5 bg-slate-700 rounded text-xs" onclick="adjustGuestCount(-1)">-</button>
+                    <span id="order-guest-count" class="font-bold text-sky-400 w-5 text-center">1</span>
+                    <button type="button" class="w-5 h-5 bg-slate-700 rounded text-xs" onclick="adjustGuestCount(1)">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search & Categories Pills Carousel -->
+        <div class="p-2 bg-slate-950/70 border-b border-white/10 space-y-2 shrink-0">
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input type="text" id="order-search" oninput="renderOrderProducts()" placeholder="Tìm món nhanh (trà sữa, cafe, bánh mì...)" data-i18n-placeholder="ui.order_html.ph_95309032" class="liquid-input w-full pl-8 text-xs py-1.5" />
+            </div>
+            <div id="order-categories-list" class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <!-- Categories rendered dynamically -->
+            </div>
+        </div>
+
+        <!-- Products Grid (Tap to Add) -->
+        <div class="flex-1 overflow-y-auto p-2 pb-24">
+            <div id="order-products-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                <!-- Products rendered dynamically -->
+            </div>
+        </div>
+
+        <!-- Floating Cart Bar (Bottom sticky) -->
+        <div class="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/95 backdrop-blur-md border-t border-white/10 z-40">
+            <div class="max-w-2xl mx-auto flex items-center justify-between gap-2">
+                <button type="button" onclick="openCartBottomSheet()" class="flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-900 border border-sky-500/30 hover:border-sky-400">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-bold font-mono">
+                            <span id="cart-badge-count">0</span>
+                        </div>
+                        <div class="text-left">
+                            <div class="text-xs font-bold text-slate-200" data-i18n="ui.ord_html.div_293e7587">Chi tiết giỏ món</div>
+                            <div id="cart-items-status-text" class="text-[10px] text-slate-400 font-mono" data-i18n="ui.ord_html.div_0360ad66">Chưa chọn món mới</div>
+                        </div>
+                    </div>
+                    <span id="cart-bottom-total" class="font-black text-sm text-emerald-400 font-mono" data-i18n="ui.sa_html.div_e995e897">0 đ</span>
+                </button>
+
+                <!-- VietQR Quick Button -->
+                <button type="button" onclick="showWaiterVietQr()" id="btn-float-vietqr" class="btn-glass py-2.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border-purple-500/40 font-bold text-xs flex items-center gap-1 shadow-md shadow-purple-600/10" title="Mã VietQR thanh toán cho bàn này" data-i18n="ui.order_html.button_08d6414a" data-i18n-title="ui.ord_html.button_title_6fbe67d7">
+                    <i class="fas fa-qrcode text-sm"></i>
+                    <span>VietQR</span>
+                </button>
+
+                <!-- Send to kitchen button (Only visible when there are new items!) -->
+                <button type="button" id="btn-float-send-kitchen" onclick="sendOrderToKitchen()" class="hidden btn-glass-success py-2.5 px-4 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-500/30">
+                    <i class="fas fa-paper-plane"></i>
+                    <span id="btn-float-send-text" data-i18n="ui.ord_html.span_ca235647">Gửi Bếp</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom Sheet: Cart Details & Notes Modal -->
+    <div id="cart-sheet-overlay" class="liquid-modal-overlay">
+        <div class="liquid-glass bottom-sheet w-full max-w-2xl mx-auto rounded-t-3xl max-h-[88vh] flex flex-col p-4 border-t border-sky-500/40 shadow-2xl">
+            <div class="flex justify-between items-center pb-2 border-b border-white/10">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-1 rounded-full bg-slate-600 block"></span>
+                    <h3 class="font-bold text-sm text-sky-400" data-i18n="ui.order_html.h3_e21d5a3e">Danh Sách Món Tại Bàn</h3>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl p-1" onclick="closeCartBottomSheet()">&times;</button>
+            </div>
+
+            <!-- Items list -->
+            <div id="cart-sheet-items" class="flex-1 overflow-y-auto py-3 space-y-3">
+                <!-- Cart items divided into Confirmed (locked/faded) and New (editable) -->
+            </div>
+
+            <!-- Cart Footer -->
+            <div class="pt-3 border-t border-white/10 space-y-3">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400 font-medium" data-i18n="ui.ord_html.span_d9d58537">TỔNG CỘNG HÓA ĐƠN:</span>
+                    <span id="cart-sheet-total" class="font-black text-lg text-emerald-400 font-mono" data-i18n="ui.sa_html.div_e995e897">0 đ</span>
+                </div>
+                <div class="flex items-center gap-2" id="cart-sheet-action-grid">
+                    <!-- Ô "SL: " kế bên ô "Thêm món" -->
+                    <div class="px-3 py-2.5 rounded-xl bg-slate-900 border border-sky-500/40 text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-md">
+                        <span class="text-slate-400 font-normal mr-1">SL:</span>
+                        <span id="cart-sheet-total-qty" class="text-sky-400 font-black text-sm">0</span>
+                    </div>
+                    <button type="button" class="flex-1 btn-glass text-xs py-2.5 text-slate-300 font-bold" onclick="closeCartBottomSheet()" data-i18n="ui.order_html.button_f95b5391">Thêm món</button>
+                    <button type="button" onclick="showWaiterVietQr()" class="btn-glass text-xs py-2.5 px-3 bg-purple-600/20 text-purple-300 border-purple-500/40 font-bold flex items-center justify-center gap-1 shrink-0" data-i18n="ui.order_html.button_08d6414a">
+                        <i class="fas fa-qrcode"></i> VietQR
+                    </button>
+                    <!-- Confirm button: hidden if no new items added -->
+                    <button type="button" id="btn-sheet-submit" class="hidden flex-1 btn-glass-success text-xs py-2.5 font-bold flex items-center justify-center gap-1.5" onclick="sendOrderToKitchen()">
+                        <i class="fas fa-check-circle"></i> <span id="btn-sheet-submit-text" data-i18n="ui.ord_html.span_ca235647">Gửi Bếp</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: VietQR Popup -->
+    <div id="waiter-vietqr-modal" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-5 w-96 max-w-full text-white shadow-2xl border border-purple-500/40 rounded-2xl relative">
+            <div class="flex justify-between items-center pb-2 border-b border-white/10 mb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center">
+                        <i class="fas fa-qrcode text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-purple-300" data-i18n="ui.order_html.h3_249d7379">VIETQR THANH TOÁN</h3>
+                        <p id="vqr-table-code" class="text-[10px] text-slate-400 font-mono" data-i18n="ui.ord_html.p_0677d97e">Bàn MV1</p>
+                    </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="closeWaiterVietQr()">&times;</button>
+            </div>
+
+            <!-- QR Image & Bank details -->
+            <div class="flex flex-col items-center">
+                <div class="bg-white p-2.5 rounded-xl shadow-lg border border-purple-500/30 flex items-center justify-center mb-3">
+                    <img id="vqr-image" src="" alt="VietQR" class="w-56 h-56 object-contain" />
+                </div>
+
+                <div class="w-full space-y-1.5 text-xs bg-slate-900/80 p-3 rounded-xl border border-white/10 font-mono">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 font-sans" data-i18n="ui.adm_html.div_aba5d527">Số tiền:</span>
+                        <span id="vqr-amount" class="text-emerald-400 font-black text-base font-mono" data-i18n="ui.sa_html.div_e995e897">0 đ</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 font-sans" data-i18n="ui.ord_html.span_416b5fb0">Chủ TK:</span>
+                        <span id="vqr-acc-name" class="text-slate-200 font-bold"></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 font-sans">STK (<span id="vqr-bank"></span>):</span>
+                        <span id="vqr-acc-no" class="text-amber-300 font-bold"></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 font-sans" data-i18n="ui.adm_html.div_52e4a600">Nội dung CK:</span>
+                        <span id="vqr-note" class="text-sky-300 font-bold" data-i18n="ui.ord_html.span_69722b54">TT Bàn</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4 pt-2 border-t border-white/10">
+                <button type="button" class="btn-glass text-xs py-2 px-4 w-full" onclick="closeWaiterVietQr()" data-i18n="ui.order_html.button_4af9b80b">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/i18n.js?v=2"></script>
+    <script src="assets/js/security_utils.js?v=2"></script>
+    <script src="assets/js/order_waiter.js?v=20261116"></script>
+
+    <!-- Mã QR Khách Hàng Gọi Món (customer.html) -->
+    <div id="lan-qr-modal" class="liquid-modal-overlay">
+        <div class="liquid-glass liquid-modal-content p-6 w-[430px] max-w-[92vw] text-white shadow-2xl border border-sky-500/40 text-center rounded-2xl">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-white/10">
+                <h3 class="font-bold text-base text-sky-400 flex items-center gap-2" data-i18n="ui.order_html.h3_c8ba884c">
+                    <i class="fas fa-qrcode text-purple-400"></i> Mã QR Khách Hàng Gọi Món
+                </h3>
+                <button type="button" class="text-slate-400 hover:text-white text-2xl" onclick="closeLanQrModal()">&times;</button>
+            </div>
+            
+            <p class="text-xs text-slate-300 mb-3" data-i18n="ui.pos_html.p_545424ba">Khách dùng máy ảnh điện thoại quét mã bên dưới để xem menu và tự đặt món:</p>
+            
+            <div class="bg-white p-3 rounded-2xl inline-flex items-center justify-center shadow-xl shadow-black/50 mb-3 mx-auto">
+                <div id="order-customer-qr-canvas" class="flex items-center justify-center min-w-[190px] min-h-[190px]"></div>
+            </div>
+
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-sky-500/30 text-xs mb-3 text-left">
+                <div class="text-slate-400 text-[11px] mb-1.5 flex items-center justify-between">
+                    <span data-i18n="ui.pos_html.span_cc6ece42">Đường dẫn gọi món (Customer Menu):</span>
+                    <button type="button" onclick="copyCustomerUrl()" class="text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer" data-i18n="ui.order_html.button_997063f2">
+                        <i class="fas fa-copy"></i> Sao chép
+                    </button>
+                </div>
+                <div id="order-customer-url-text" class="font-mono font-bold text-emerald-400 text-xs select-all break-all bg-black/40 p-2 rounded border border-white/5"></div>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between gap-2">
+                <a id="order-customer-direct-link" href="customer.html" target="_blank" class="btn-glass text-xs py-2 px-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold flex items-center gap-1.5 rounded-xl" data-i18n="ui.pos_html.a_46900950">
+                    <i class="fas fa-external-link-alt"></i> Mở trang khách
+                </a>
+                <button type="button" class="btn-glass text-xs py-2 px-5 font-bold rounded-xl" onclick="closeLanQrModal()" data-i18n="ui.order_html.button_4af9b80b">Đóng</button>
+            </div>
+        </div>
+    </div>
+    <script src="assets/vendor/qrcode.min.js"></script>
+    <!-- Modal Xin Hủy Món (Phục vụ gửi Bếp duyệt) -->
+    <div id="waiter-cancel-item-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="liquid-glass rounded-2xl p-5 w-[400px] max-w-[94vw] border border-rose-500/40 text-white space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <h3 class="text-sm font-black text-rose-300" data-i18n="ui.ord_html.h3_7bc19f1d"><i class="fas fa-ban mr-1.5"></i> Xin Hủy Món: <span id="wcim-item-name" class="text-white"></span></h3>
+                <button type="button" onclick="closeWaiterCancelModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <p class="text-[11px] text-slate-300" data-i18n="ui.ord_html.p_0142c49d">Yêu cầu sẽ gửi xuống <b data-i18n="ui.adm_html.span_590a5f5b">Bếp</b> duyệt và thông báo cho <b data-i18n="ui.ord_html.b_6951ffd8">Thu ngân</b>. Món chỉ trừ tiền sau khi Bếp đồng ý.</p>
+            <div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="document.getElementById('wcim-reason').value='Khách đổi ý'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px]" data-i18n="ui.order_html.button_b31ed4b8">Khách đổi ý</button>
+                <button type="button" onclick="document.getElementById('wcim-reason').value='Đặt nhầm món'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px]" data-i18n="ui.order_html.button_04fab408">Đặt nhầm món</button>
+                <button type="button" onclick="document.getElementById('wcim-reason').value='Chờ lâu quá khách hủy'" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[11px]" data-i18n="ui.order_html.button_84ced9db">Chờ lâu</button>
+            </div>
+            <textarea id="wcim-reason" rows="2" class="w-full rounded-xl bg-slate-950 border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-400" placeholder="Nhập lý do hủy món..." data-i18n-placeholder="ui.order_html.ph_024f0a0c"></textarea>
+            <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="closeWaiterCancelModal()" class="px-4 py-2 rounded-xl bg-white/10 text-xs font-bold text-slate-300" data-i18n="ui.order_html.button_4af9b80b">Đóng</button>
+                <button type="button" onclick="submitWaiterCancelModal()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-black text-white" data-i18n="ui.order_html.button_102ed574">Gửi Bếp Duyệt Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/license_ping.js?v=2" data-license-rights=""></script>
+</body>
+</html>

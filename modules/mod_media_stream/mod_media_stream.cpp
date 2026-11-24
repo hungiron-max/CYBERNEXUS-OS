@@ -8,7 +8,10 @@
 #include <ctime>
 #include <regex>
 #include <iomanip>
+#include <algorithm>
+#include <cctype>
 #include "sqlite3.h"
+#include "embedded_web_assets.hpp"
 
 namespace fs = std::filesystem;
 using namespace CyberNexus;
@@ -147,20 +150,7 @@ private:
             );
         )");
 
-        // Seed tracks if empty
-        json countRow = queryOne("SELECT COUNT(*) as c FROM media_tracks");
-        if (countRow.is_object() && countRow.value("c", 0) == 0) {
-            execSql(R"(
-                INSERT INTO media_tracks (title, artist, album, genre, duration_sec, file_path) VALUES
-                ('Baby Blue', 'Bad Boys Blue', 'Super 20', 'Eurodance', 228, 'assets/media/BABY_BLUE___BAD_BOYS_BLUE.MP3'),
-                ('74 - 75', 'The Connells', 'Ring', 'Pop Rock', 278, 'assets/media/74-75-The-Connels.mp3'),
-                ('Yesterday Once More', 'Carpenters', 'Now & Then', 'Pop Ballad', 238, 'assets/media/Yesterday-Once-More.mp3'),
-                ('Trouble Is A Friend', 'Lenka', 'Lenka', 'Indie Pop', 216, 'assets/media/Trouble Is A Friend - Lenka.mp3'),
-                ('The Day You Went Away', 'M2M', 'Shades of Purple', 'Teen Pop', 223, 'assets/media/The day you went away - M2M.mp3'),
-                ('Circle In The Sand', 'Belinda Carlisle', 'Heaven on Earth', 'Pop Rock', 242, 'assets/media/Circle-In-The-Sand.mp3');
-            )");
-        }
-
+        // MED-01: Do NOT seed ghost tracks or ghost queue rows when audio files do not exist on disk.
         // Seed / Upgrade EQ presets with 15 Pro Studio Mastering Presets
         json eqCount = queryOne("SELECT COUNT(*) as c FROM media_eq_presets WHERE preset_name LIKE '%Cinema 3D%'");
         if (eqCount.is_object() && eqCount.value("c", 0) == 0) {
@@ -185,16 +175,88 @@ private:
             )");
         }
 
-        // Seed Jukebox queue with a playing song and queued songs if empty
-        json queueCount = queryOne("SELECT COUNT(*) as c FROM media_jukebox_queue WHERE status = 'playing'");
-        if (queueCount.is_object() && queueCount.value("c", 0) == 0) {
-            execSql(R"(
-                INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_name, status, requested_at, played_at) VALUES
-                (1, 'Baby Blue', 'Bad Boys Blue', 228, 'Hệ Thống Quán (Mặc định)', 'playing', datetime('now', '-2 minutes'), datetime('now', '-2 minutes')),
-                (2, '74 - 75', 'The Connells', 278, 'Bàn 02', 'pending', datetime('now', '-1 minutes'), NULL),
-                (3, 'Yesterday Once More', 'Carpenters', 238, 'Bàn 05 (VIP)', 'pending', datetime('now'), NULL);
-            )");
+        // MED-01: Do NOT seed ghost playing/pending queue items on startup.
+    }
+
+    bool isTrackPlayableOnDisk(const json& track) const {
+        if (!track.is_object()) return false;
+        std::string srcType = track.value("source_type", "local");
+        std::string ytId = track.value("yt_video_id", "");
+        if (srcType == "youtube" && !ytId.empty()) return true;
+        std::string fp = track.value("file_path", "");
+        if (fp.empty()) return false;
+        if (fp.rfind("http://", 0) == 0 || fp.rfind("https://", 0) == 0) return true;
+        while (!fp.empty() && fp[0] == '/') fp.erase(fp.begin());
+        std::error_code ec;
+        if (std::filesystem::exists(fp, ec)) return true;
+        if (std::filesystem::exists("web/" + fp, ec)) return true;
+        if (std::filesystem::exists("./" + fp, ec)) return true;
+        if (std::filesystem::exists("./web/" + fp, ec)) return true;
+        return false;
+    }
+
+    static std::string toLowerTrim(const std::string& s) {
+        std::string r = s;
+        std::transform(r.begin(), r.end(), r.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        while (!r.empty() && std::isspace((unsigned char)r.front())) r.erase(r.begin());
+        while (!r.empty() && std::isspace((unsigned char)r.back())) r.pop_back();
+        return r;
+    }
+
+    json getActiveScheduleInfo(int& outRemSec, bool& outMasterEnabled) {
+        outRemSec = -1;
+        outMasterEnabled = true;
+        json mRow = queryOne("SELECT setting_value FROM store_settings WHERE setting_key = 'jukebox_schedule_enabled' LIMIT 1");
+        if (mRow.is_object() && mRow.value("setting_value", "1") == "0") {
+            outMasterEnabled = false;
+            return nullptr;
         }
+        std::time_t nowT = std::time(nullptr);
+        std::tm lt{};
+#ifdef _WIN32
+        localtime_s(&lt, &nowT);
+#else
+        localtime_r(&nowT, &lt);
+#endif
+        int nowSec = lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec;
+        char hhmmBuf[8];
+        std::snprintf(hhmmBuf, sizeof(hhmmBuf), "%02d:%02d", lt.tm_hour, lt.tm_min);
+        std::string hhmm(hhmmBuf);
+
+        json schedules = queryAll("SELECT * FROM media_time_schedules WHERE is_active = 1 ORDER BY start_time ASC, id ASC");
+        for (const auto& sl : schedules) {
+            std::string st = sl.value("start_time", "");
+            std::string en = sl.value("end_time", "");
+            if (st.size() != 5 || en.size() != 5) continue;
+            bool inRange = (st <= en) ? (hhmm >= st && hhmm <= en) : (hhmm >= st || hhmm <= en);
+            if (inRange) {
+                int enH = std::stoi(en.substr(0, 2));
+                int enM = std::stoi(en.substr(3, 2));
+                int endSec = enH * 3600 + enM * 60 + 59;
+                int rem = (st <= en)
+                    ? (endSec - nowSec)
+                    : ((hhmm >= st) ? ((86400 - nowSec) + endSec) : (endSec - nowSec));
+                outRemSec = std::max(0, rem);
+                return sl;
+            }
+        }
+        return nullptr;
+    }
+
+    int computeQueueTotalSec(int& outPlayingRem, int& outPendingSec) {
+        outPlayingRem = 0;
+        outPendingSec = 0;
+        json np = queryOne("SELECT track_duration, CAST((julianday('now') - julianday(COALESCE(played_at, datetime('now')))) * 86400 AS INTEGER) as elapsed FROM media_jukebox_queue WHERE status = 'playing' ORDER BY id DESC LIMIT 1");
+        if (np.is_object()) {
+            int dur = std::max(0, np.value("track_duration", 180));
+            int el = std::max(0, np.value("elapsed", 0));
+            outPlayingRem = std::max(0, dur - el);
+        }
+        json pend = queryOne("SELECT COALESCE(SUM(track_duration), 0) as s FROM media_jukebox_queue WHERE status = 'pending'");
+        if (pend.is_object()) {
+            outPendingSec = std::max(0, pend.value("s", 0));
+        }
+        return outPlayingRem + outPendingSec;
     }
 
 public:
@@ -219,6 +281,7 @@ public:
         if (sqlite3_open_v2(dbPath.c_str(), &m_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr) != SQLITE_OK) {
             std::cerr << "[mod_media_stream Error] Khong the mo CSDL tai " << dbPath << std::endl;
         } else {
+            execSql("PRAGMA busy_timeout = 5000;");
             execSql("PRAGMA journal_mode = WAL;");
             ensureTables();
         }
@@ -241,17 +304,35 @@ public:
         svr.Get("/api/media/tracks", [this](const httplib::Request& req, httplib::Response& res) {
             std::string kw = req.has_param("kw") ? req.get_param_value("kw") : "";
             std::string genre = req.has_param("genre") ? req.get_param_value("genre") : "";
+            auto escSql = [](const std::string& s) {
+                std::string r;
+                r.reserve(s.size());
+                for (char c : s) {
+                    if (c == '\'') r += "''";
+                    else if (c != '\0') r += c;
+                }
+                return r;
+            };
 
             std::string sql = "SELECT * FROM media_tracks WHERE is_active = 1";
             if (!kw.empty()) {
-                sql += " AND (title LIKE '%" + kw + "%' OR artist LIKE '%" + kw + "%')";
+                std::string ekw = escSql(kw);
+                sql += " AND (title LIKE '%" + ekw + "%' OR artist LIKE '%" + ekw + "%')";
             }
             if (!genre.empty() && genre != "all") {
-                sql += " AND genre = '" + genre + "'";
+                sql += " AND genre = '" + escSql(genre) + "'";
             }
             sql += " ORDER BY play_count DESC, id ASC";
 
-            json tracks = queryAll(sql);
+            json rawTracks = queryAll(sql);
+            bool playableOnly = req.has_param("playable_only") && req.get_param_value("playable_only") == "1";
+            json tracks = json::array();
+            for (auto& t : rawTracks) {
+                bool ok = isTrackPlayableOnDisk(t);
+                t["file_exists"] = ok;
+                if (playableOnly && !ok) continue;
+                tracks.push_back(t);
+            }
             json out = {
                 {"success", true},
                 {"count", tracks.size()},
@@ -266,31 +347,22 @@ public:
         svr.Get("/api/media/jukebox/status", [this](const httplib::Request& req, httplib::Response& res) {
             // Lấy bài đang phát
             json nowPlaying = queryOne(R"(
-                SELECT q.*, COALESCE(t.cover_image, '') as cover_image, COALESCE(t.genre, 'Lossless') as genre, COALESCE(t.file_path, '') as file_path 
+                SELECT q.*, COALESCE(t.cover_image, '') as cover_image, COALESCE(t.genre, 'Lossless') as genre,
+                       COALESCE(t.file_path, '') as file_path, COALESCE(t.source_type, 'local') as source_type,
+                       COALESCE(t.yt_video_id, '') as yt_video_id
                 FROM media_jukebox_queue q
                 LEFT JOIN media_tracks t ON q.track_id = t.id
                 WHERE q.status = 'playing' 
                 ORDER BY q.id DESC LIMIT 1
             )");
 
-            // If nowPlaying has no valid file_path or track was removed, link to first available track
-            if (nowPlaying.is_object() && nowPlaying.value("file_path", "").empty()) {
-                json firstTrack = queryOne("SELECT id, title, artist, duration_sec, file_path, genre FROM media_tracks WHERE is_active = 1 LIMIT 1");
-                if (firstTrack.is_object()) {
-                    int64_t qId = nowPlaying.value("id", 0LL);
-                    int64_t trId = firstTrack.value("id", 0LL);
-                    std::string trTitle = firstTrack.value("title", "");
-                    std::string trArtist = firstTrack.value("artist", "");
-                    int trDur = firstTrack.value("duration_sec", 180);
-                    execSql("UPDATE media_jukebox_queue SET track_id = " + std::to_string(trId) + 
-                            ", track_title = '" + trTitle + "', track_artist = '" + trArtist + "', track_duration = " + std::to_string(trDur) + 
-                            " WHERE id = " + std::to_string(qId));
-                    nowPlaying = queryOne(R"(
-                        SELECT q.*, COALESCE(t.cover_image, '') as cover_image, COALESCE(t.genre, 'Lossless') as genre, COALESCE(t.file_path, '') as file_path 
-                        FROM media_jukebox_queue q
-                        LEFT JOIN media_tracks t ON q.track_id = t.id
-                        WHERE q.id = )" + std::to_string(qId));
+            // MED-01: Clear ghost now_playing if underlying audio file does not exist on disk
+            if (nowPlaying.is_object() && !isTrackPlayableOnDisk(nowPlaying)) {
+                int64_t ghostQid = nowPlaying.value("id", 0LL);
+                if (ghostQid > 0) {
+                    execSql("UPDATE media_jukebox_queue SET status = 'skipped' WHERE id = " + std::to_string(ghostQid));
                 }
+                nowPlaying = nullptr;
             }
 
             // Lấy danh sách hàng đợi
@@ -313,12 +385,24 @@ public:
                 LIMIT 5
             )");
 
+            int slotRemSec = -1;
+            bool masterSchedOn = true;
+            json activeSlot = getActiveScheduleInfo(slotRemSec, masterSchedOn);
+            int playingRemSec = 0, pendingSec = 0;
+            int queueTotalSec = computeQueueTotalSec(playingRemSec, pendingSec);
+            bool queueLockedBySlot = (masterSchedOn && activeSlot.is_object() && slotRemSec >= 0 && queueTotalSec >= (slotRemSec - 60));
+
             json out = {
                 {"success", true},
                 {"is_active", true},
                 {"now_playing", nowPlaying.is_null() ? json(nullptr) : nowPlaying},
                 {"queue", queue},
                 {"history", history},
+                {"schedule_master_enabled", masterSchedOn},
+                {"active_schedule", activeSlot.is_null() ? json(nullptr) : activeSlot},
+                {"slot_remaining_sec", slotRemSec},
+                {"queue_total_sec", queueTotalSec},
+                {"queue_locked_by_slot", queueLockedBySlot},
                 {"server_time", std::time(nullptr)}
             };
             res.set_content(out.dump(), "application/json; charset=utf-8");
@@ -329,23 +413,75 @@ public:
         // ==========================================
         svr.Post("/api/media/jukebox/request", [this](const httplib::Request& req, httplib::Response& res) {
             try {
+                // ANTISPAM-06: Kiểm tra công tắc Bật/Tắt quyền khách chọn nhạc Jukebox
+                json jbAllow = queryOne("SELECT setting_value FROM store_settings WHERE setting_key = 'jukebox_guest_enabled' LIMIT 1");
+                if (jbAllow.is_object() && jbAllow.value("setting_value", "1") == "0") {
+                    res.status = 403;
+                    res.set_content("{\"success\":false,\"message\":\"Jukebox đang ở chế độ quán tự phát nhạc. Vui lòng thử lại sau nhé!\"}", "application/json; charset=utf-8");
+                    return;
+                }
+
                 json body = json::parse(req.body);
                 int64_t trackId = body.value("track_id", 0);
                 std::string tableName = body.value("table_name", "Khách tại bàn");
                 int64_t tableId = body.value("table_id", 0);
                 std::string phone = body.value("phone", "");
-                int isPriority = body.value("is_priority", 0);
+                // ANTISPAM-06: Tuyệt đối KHÔNG tin is_priority từ client gửi lên (chỉ tự bật = 1 qua sự kiện ORDER_PAID)
+                int isPriority = 0;
 
                 if (trackId <= 0) {
                     res.set_content("{\"success\":false,\"message\":\"Vui lòng chọn bài hát hợp lệ!\"}", "application/json; charset=utf-8");
                     return;
                 }
 
-                // 1. Kiểm tra bài hát có tồn tại không
+                // 1. Kiểm tra bài hát có tồn tại và có file phát được thật trên đĩa không (MED-01)
                 json track = queryOne("SELECT * FROM media_tracks WHERE id = " + std::to_string(trackId) + " AND is_active = 1");
                 if (track.is_null()) {
+                    res.status = 404;
                     res.set_content("{\"success\":false,\"message\":\"Bài hát không có trong kho bài của quán!\"}", "application/json; charset=utf-8");
                     return;
+                }
+                if (!isTrackPlayableOnDisk(track)) {
+                    res.status = 400;
+                    res.set_content("{\"success\":false,\"missing_file\":true,\"message\":\"Không tìm thấy file âm thanh của bài hát này trên máy chủ! Vui lòng tải lại file hoặc chọn bài khác.\"}", "application/json; charset=utf-8");
+                    return;
+                }
+
+                // 1b. MED-02 & MED-04: Khóa thể loại theo khung giờ cho Khách bàn; Admin/Thu ngân có thể vượt khung giờ (force_override)
+                std::string staffRole = req.get_header_value("X-CN-Staff-Role");
+                bool isStaffOverride = (staffRole == "admin" || staffRole == "cashier") && body.value("force_override", true);
+                int slotRemSec = -1;
+                bool masterSchedOn = true;
+                json activeSlot = getActiveScheduleInfo(slotRemSec, masterSchedOn);
+                if (masterSchedOn && activeSlot.is_object() && !isStaffOverride) {
+                    std::string reqGenre = activeSlot.value("genre", "");
+                    std::string trkGenre = track.value("genre", "");
+                    if (!reqGenre.empty() && toLowerTrim(reqGenre) != toLowerTrim(trkGenre)) {
+                        res.status = 400;
+                        json errOut = {
+                            {"success", false},
+                            {"slot_genre_mismatch", true},
+                            {"allowed_genre", reqGenre},
+                            {"message", "Khung giờ hiện tại (" + activeSlot.value("name", "") + " " + activeSlot.value("start_time", "") + "-" + activeSlot.value("end_time", "") + ") chỉ nhận nhạc thể loại \"" + reqGenre + "\"!"}
+                        };
+                        res.set_content(errOut.dump(), "application/json; charset=utf-8");
+                        return;
+                    }
+                    int playingRem = 0, pendingSec = 0;
+                    int curQueueTotal = computeQueueTotalSec(playingRem, pendingSec);
+                    int trkDur = std::max(30, track.value("duration_sec", 180));
+                    if (slotRemSec >= 0 && (curQueueTotal >= (slotRemSec - 60) || (curQueueTotal + trkDur) > (slotRemSec + 60))) {
+                        res.status = 400;
+                        json errOut = {
+                            {"success", false},
+                            {"queue_locked_by_slot", true},
+                            {"slot_remaining_sec", slotRemSec},
+                            {"queue_total_sec", curQueueTotal},
+                            {"message", "Hàng đợi đã đủ phát sát mốc kết thúc khung giờ " + activeSlot.value("name", "") + " (" + activeSlot.value("end_time", "") + ", dung sai ±60s). Tạm khóa thêm bài cho đến khung giờ tiếp theo!"}
+                        };
+                        res.set_content(errOut.dump(), "application/json; charset=utf-8");
+                        return;
+                    }
                 }
 
                 auto sanitize = [](std::string s) {
@@ -357,20 +493,35 @@ public:
                     return s;
                 };
 
-                std::string clientIp = req.get_header_value("X-Forwarded-For");
-                if (clientIp.empty()) clientIp = req.remote_addr;
-                size_t commaPos = clientIp.find(',');
-                if (commaPos != std::string::npos) clientIp = clientIp.substr(0, commaPos);
-                if (clientIp.empty()) clientIp = body.value("device_id", "unknown_client");
+                // ANTISPAM-06: Dùng đúng req.remote_addr thật, tuyệt đối KHÔNG tin header X-Forwarded-For từ client
+                std::string clientIp = req.remote_addr.empty() ? "unknown_client" : req.remote_addr;
 
-                // 2. Giới hạn mỗi IP/thiết bị/khách chỉ được yêu cầu tối đa 5 bài hát đang chờ trong hàng đợi
+                // 2a. Cooldown 60 giây giữa 2 lần thêm bài của cùng 1 thiết bị
+                json recentReq = queryOne(
+                    "SELECT id FROM media_jukebox_queue WHERE requester_ip = '" + sanitize(clientIp) +
+                    "' AND requested_at >= datetime('now', '-60 seconds') LIMIT 1"
+                );
+                if (!recentReq.is_null()) {
+                    res.status = 429;
+                    res.set_content("{\"success\":false,\"cooldown\":true,\"message\":\"Bạn vừa yêu cầu một bài hát. Vui lòng đợi 60 giây trước khi chọn bài tiếp theo!\"}", "application/json; charset=utf-8");
+                    return;
+                }
+
+                // 2b. Giới hạn mỗi thiết bị tối đa 3 bài đang chờ & tổng hàng đợi tối đa 25 bài
                 json activeReq = queryOne(
                     "SELECT COUNT(*) as c FROM media_jukebox_queue WHERE requester_ip = '" + sanitize(clientIp) +
                     "' AND status = 'pending'"
                 );
                 int pendingByClient = activeReq.is_object() ? activeReq.value("c", 0) : 0;
-                if (pendingByClient >= 5) {
-                    res.set_content("{\"success\":false,\"limit_reached\":true,\"message\":\"Mỗi thiết bị/khách chỉ được yêu cầu tối đa 5 bài hát đang chờ trong hàng đợi! Vui lòng đợi các bài trước phát xong.\"}", "application/json; charset=utf-8");
+                if (pendingByClient >= 3) {
+                    res.status = 429;
+                    res.set_content("{\"success\":false,\"limit_reached\":true,\"message\":\"Mỗi thiết bị chỉ được yêu cầu tối đa 3 bài đang chờ! Vui lòng đợi các bài trước phát xong.\"}", "application/json; charset=utf-8");
+                    return;
+                }
+                json totalPending = queryOne("SELECT COUNT(*) as c FROM media_jukebox_queue WHERE status = 'pending'");
+                if (totalPending.is_object() && totalPending.value("c", 0) >= 25) {
+                    res.status = 429;
+                    res.set_content("{\"success\":false,\"queue_full\":true,\"message\":\"Hàng đợi nhạc quán đang đầy (tối đa 25 bài). Vui lòng thử lại sau ít phút!\"}", "application/json; charset=utf-8");
                     return;
                 }
 
@@ -421,6 +572,12 @@ public:
         // ==========================================
         svr.Post("/api/media/jukebox/vote", [this](const httplib::Request& req, httplib::Response& res) {
             try {
+                json jbAllow = queryOne("SELECT setting_value FROM store_settings WHERE setting_key = 'jukebox_guest_enabled' LIMIT 1");
+                if (jbAllow.is_object() && jbAllow.value("setting_value", "1") == "0") {
+                    res.status = 403;
+                    res.set_content("{\"success\":false,\"message\":\"Chức năng bình chọn nhạc khách hàng đang tạm khóa!\"}", "application/json; charset=utf-8");
+                    return;
+                }
                 json body = json::parse(req.body);
                 int64_t queueId = body.value("queue_id", 0);
                 if (queueId <= 0) {
@@ -428,7 +585,7 @@ public:
                     return;
                 }
 
-                json qItem = queryOne("SELECT id, status, vote_count FROM media_jukebox_queue WHERE id = " + std::to_string(queueId));
+                json qItem = queryOne("SELECT id, status, vote_count, COALESCE(requester_ip, '') as requester_ip FROM media_jukebox_queue WHERE id = " + std::to_string(queueId));
                 if (qItem.is_null() || qItem.value("status", "") != "pending") {
                     res.set_content("{\"success\":false,\"message\":\"Bài hát không còn nằm trong hàng đợi để bình chọn!\"}", "application/json; charset=utf-8");
                     return;
@@ -443,11 +600,22 @@ public:
                     return s;
                 };
 
-                std::string voterKey = req.get_header_value("X-Forwarded-For");
-                if (voterKey.empty()) voterKey = req.remote_addr;
-                size_t commaPos = voterKey.find(',');
-                if (commaPos != std::string::npos) voterKey = voterKey.substr(0, commaPos);
-                if (voterKey.empty()) voterKey = body.value("device_id", "unknown_voter");
+                // ANTISPAM-06: Dùng req.remote_addr thật, cấm giả mạo X-Forwarded-For & cấm tự vote bài mình vừa thêm
+                std::string voterKey = req.remote_addr.empty() ? "unknown_voter" : req.remote_addr;
+                if (!qItem.value("requester_ip", "").empty() && qItem.value("requester_ip", "") == voterKey) {
+                    res.status = 400;
+                    res.set_content("{\"success\":false,\"message\":\"Bạn không thể tự bình chọn cho bài hát do chính mình vừa thêm!\"}", "application/json; charset=utf-8");
+                    return;
+                }
+                json recentVotes = queryOne(
+                    "SELECT COUNT(*) as c FROM media_jukebox_votes WHERE voter_key = '" + sanitize(voterKey) +
+                    "' AND voted_at >= datetime('now', '-15 minutes')"
+                );
+                if (recentVotes.is_object() && recentVotes.value("c", 0) >= 5) {
+                    res.status = 429;
+                    res.set_content("{\"success\":false,\"message\":\"Bạn đã dùng hết 5 lượt bình chọn trong 15 phút. Vui lòng đợi ít phút!\"}", "application/json; charset=utf-8");
+                    return;
+                }
 
                 json already = queryOne(
                     "SELECT id FROM media_jukebox_votes WHERE queue_id = " + std::to_string(queueId) +
@@ -489,18 +657,59 @@ public:
             // Chuyển bài đang phát thành skipped
             execSql("UPDATE media_jukebox_queue SET status = 'skipped' WHERE status = 'playing'");
 
-            // Đưa bài pending đầu tiên lên thành playing
-            json nextSong = queryOne("SELECT id FROM media_jukebox_queue WHERE status = 'pending' ORDER BY is_priority DESC, vote_count DESC, id ASC LIMIT 1");
-            if (!nextSong.is_null()) {
-                int64_t nextId = nextSong.value("id", 0);
+            // Đưa bài pending hợp lệ đầu tiên (có file thật trên đĩa) lên thành playing
+            json pendingList = queryAll(R"(
+                SELECT q.id, COALESCE(t.file_path, '') as file_path, COALESCE(t.source_type, 'local') as source_type, COALESCE(t.yt_video_id, '') as yt_video_id
+                FROM media_jukebox_queue q
+                LEFT JOIN media_tracks t ON q.track_id = t.id
+                WHERE q.status = 'pending'
+                ORDER BY q.is_priority DESC, q.vote_count DESC, q.id ASC
+                LIMIT 15
+            )");
+            int64_t nextId = 0;
+            for (const auto& pItem : pendingList) {
+                if (isTrackPlayableOnDisk(pItem)) {
+                    nextId = pItem.value("id", int64_t(0));
+                    break;
+                } else {
+                    execSql("UPDATE media_jukebox_queue SET status = 'skipped' WHERE id = " + std::to_string(pItem.value("id", int64_t(0))));
+                }
+            }
+
+            if (nextId > 0) {
                 execSql("UPDATE media_jukebox_queue SET status = 'playing', played_at = datetime('now') WHERE id = " + std::to_string(nextId));
             } else {
-                // Hết bài trong queue -> Chèn bài mặc định
-                execSql(R"(
-                    INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_name, status, played_at)
-                    SELECT id, title, artist, duration_sec, 'Quán Tự Động', 'playing', datetime('now')
-                    FROM media_tracks ORDER BY RANDOM() LIMIT 1
-                )");
+                // Hết bài trong queue -> MED-01 & MED-02: Chọn bài có file thật & ưu tiên đúng thể loại khung giờ đang bật
+                int slotRemSec = -1;
+                bool masterSchedOn = true;
+                json activeSlot = getActiveScheduleInfo(slotRemSec, masterSchedOn);
+                std::string targetGenre = (masterSchedOn && activeSlot.is_object()) ? activeSlot.value("genre", "") : "";
+
+                json allPlayable = queryAll("SELECT id, title, artist, duration_sec, genre, file_path, COALESCE(source_type, 'local') as source_type, COALESCE(yt_video_id, '') as yt_video_id FROM media_tracks WHERE is_active = 1 ORDER BY RANDOM()");
+                json picked = nullptr;
+                json fallback = nullptr;
+                for (const auto& tr : allPlayable) {
+                    if (!isTrackPlayableOnDisk(tr)) continue;
+                    if (fallback.is_null()) fallback = tr;
+                    if (!targetGenre.empty() && toLowerTrim(tr.value("genre", "")) == toLowerTrim(targetGenre)) {
+                        picked = tr;
+                        break;
+                    }
+                }
+                if (picked.is_null()) picked = fallback;
+                if (picked.is_object()) {
+                    auto esc = [](std::string s) {
+                        size_t pos = 0;
+                        while ((pos = s.find("'", pos)) != std::string::npos) { s.replace(pos, 1, "''"); pos += 2; }
+                        return s;
+                    };
+                    execSql(
+                        "INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_name, status, played_at) VALUES (" +
+                        std::to_string(picked.value("id", int64_t(0))) + ", '" + esc(picked.value("title", "")) + "', '" +
+                        esc(picked.value("artist", "")) + "', " + std::to_string(picked.value("duration_sec", 180)) +
+                        ", 'Quán Tự Động', 'playing', datetime('now'))"
+                    );
+                }
             }
 
             res.set_content("{\"success\":true,\"message\":\"Đã chuyển sang bài hát kế tiếp!\"}", "application/json; charset=utf-8");
@@ -620,6 +829,20 @@ public:
 
         extern void registerYoutubeAudioRoutes(httplib::Server& svr, sqlite3* db);
         registerYoutubeAudioRoutes(svr, m_db);
+
+        // ARCH-08: Serve Media/Jukebox Add-on JS directly from signed C++ DLL
+        svr.Get("/assets/js/admin_media_dsp.js", [](const httplib::Request&, httplib::Response& res) {
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_content(CyberNexusEmbeddedAssets::get_admin_media_dsp_js(), "application/javascript; charset=utf-8");
+        });
+        svr.Get("/assets/js/pos-jukebox.js", [](const httplib::Request&, httplib::Response& res) {
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_content(CyberNexusEmbeddedAssets::get_pos_jukebox_js(), "application/javascript; charset=utf-8");
+        });
+        svr.Get("/assets/js/jukebox-engine.js", [](const httplib::Request&, httplib::Response& res) {
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+            res.set_content(CyberNexusEmbeddedAssets::get_jukebox_engine_js(), "application/javascript; charset=utf-8");
+        });
     }
 
     void onSystemEvent(const std::string& eventType, const json& eventPayload) override {

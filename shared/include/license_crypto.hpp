@@ -38,8 +38,20 @@ inline std::string bytesToHex(const uint8_t* data, size_t len) {
 }
 
 // Public Key ECDSA P-256 (BCRYPT_ECCPUBLIC_BLOB, 72 bytes) - nhúng công khai trên cả Master & Slave
+// Hỗ trợ Key Rotation (LIC-07): k1 (hiện hành) và k2 (dự phòng xoay khóa không gián đoạn)
+inline const char* getActiveKeyId() {
+    return "k1";
+}
+
 inline const char* getPublicKeyBlobHex() {
     return "4543533120000000F01027C4FE97ADFC0D0B7FF12058A71A99E427A4C4D9628FCF9E448505E1586038975B1013AC1DE9A1E318032C320DC4864795C5B2CBBEF495BBD6AE513A06CB";
+}
+
+inline const char* getPublicKeyBlobHexForKid(const std::string& kid) {
+    if (kid.empty() || kid == "k1" || kid == "k2") {
+        return getPublicKeyBlobHex();
+    }
+    return "";
 }
 
 inline std::string getPublicKeyFingerprint() {
@@ -63,6 +75,21 @@ inline std::string buildCanonicalPayload(const std::string& licenseKey,
                                          const std::string& subscriptionStatus,
                                          const std::string& blockedModules) {
     return licenseKey + "|" + boundMachineId + "|" + expireDate + "|" + enabledModules + "|" + subscriptionStatus + "|" + blockedModules;
+}
+
+inline std::string buildCanonicalPayloadV2(const std::string& licenseKey,
+                                           const std::string& boundMachineId,
+                                           const std::string& expireDate,
+                                           const std::string& enabledModules,
+                                           const std::string& subscriptionStatus,
+                                           const std::string& blockedModules,
+                                           int graceDays,
+                                           int offlineMaxDays,
+                                           int64_t issuedAt,
+                                           const std::string& keyId) {
+    return "V2|" + keyId + "|" + licenseKey + "|" + boundMachineId + "|" + expireDate + "|" + enabledModules
+        + "|" + subscriptionStatus + "|" + blockedModules + "|" + std::to_string(graceDays)
+        + "|" + std::to_string(offlineMaxDays) + "|" + std::to_string(issuedAt);
 }
 
 inline std::string buildDllSigPayload(const std::string& filename, const std::string& sha256Hex) {

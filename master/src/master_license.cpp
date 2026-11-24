@@ -488,5 +488,13 @@ json LicenseService::activateLicense(const std::string& licenseKey) {
     };
 }
 
+std::vector<std::string> LicenseService::getHardwareFactors() {
+    return {"MASTER-HOST"};
+}
+
+std::string LicenseService::computeRightsRevision() {
+    return "master";
+}
+
 } // namespace SaleApp::Backend
 
