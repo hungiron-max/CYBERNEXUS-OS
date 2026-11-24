@@ -145,10 +145,12 @@ def run_e2e():
         try:
             # Wait for server ready
             ready = False
+            ping_mid = ""
             for _ in range(40):
                 try:
                     st, res = http_req(base_url, "/api/license?action=ping")
                     if st == 200 and res.get("success"):
+                        ping_mid = res.get("machine_id", "")
                         ready = True
                         break
                 except Exception:
@@ -158,6 +160,19 @@ def run_e2e():
                 log_fp.flush()
                 print("--- SLAVE LOG ---\n" + open(log_path, "r", encoding="utf-8", errors="replace").read())
             assert ready, "cybernexus_slave failed to start in time"
+
+            # Seed an active local license cache for this ephemeral CI runner's machine_id
+            lic_conn = sqlite3.connect(db_path)
+            lic_conn.execute(
+                """
+                INSERT OR REPLACE INTO local_license_cache
+                    (id, license_key, store_name, plan_name, subscription_status, expire_date, grace_days, offline_max_days, issued_at, bound_machine_id, enabled_modules)
+                VALUES (1, 'E2E-CI-KEY', 'E2E Store', 'PRO', 'active', '2099-12-31', 7, 365, ?, ?, '["all"]')
+                """,
+                (int(time.time()), ping_mid),
+            )
+            lic_conn.commit()
+            lic_conn.close()
 
             # 1. Login as seeded admin
             st, login_res = http_req(
