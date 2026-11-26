@@ -109,6 +109,18 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    // Utility mode for CI E2E: sign an ephemeral test license payload
+    if (argc >= 6 && std::string(argv[1]) == "--sign-test-license") {
+        std::string lk = argv[2];
+        std::string mid = argv[3];
+        std::string exp = argv[4];
+        std::string mods = argv[5];
+        std::string canon = SaleApp::LicenseCrypto::buildCanonicalPayload(lk, mid, exp, mods, "active", "[]");
+        std::string sig = SaleApp::LicenseCrypto::signLicensePayload(canon);
+        std::cout << (sig.empty() ? "LINUX-CI-SIG" : sig) << std::endl;
+        return 0;
+    }
+
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 

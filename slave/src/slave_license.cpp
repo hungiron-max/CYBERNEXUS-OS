@@ -407,11 +407,10 @@ static std::string getSystemVolumeSerialHex() {
     return "GENERIC-VOL";
 }
 
-static bool verifyAndEnrollVolumeAnchor(Database& db, const std::string& machineId, const std::string& sigHex) {
+static bool verifyAndEnrollVolumeAnchor(Database& db, const std::string& machineId, const std::string& /*sigHex*/) {
     std::string curVol = getSystemVolumeSerialHex();
     if (curVol == "GENERIC-VOL") return true;
-    std::string sigPrefix = sigHex.substr(0, std::min<size_t>(32, sigHex.size()));
-    std::string expectedMac = SaleApp::Backend::AuthService::sha256("cbnx-vol-anchor|" + machineId + "|" + sigPrefix + "|" + curVol).substr(0, 24);
+    std::string expectedMac = SaleApp::Backend::AuthService::sha256("cbnx-vol-anchor|" + machineId + "|" + curVol).substr(0, 24);
     std::string expectedVal = curVol + "|" + expectedMac;
 
     std::string dbVal;

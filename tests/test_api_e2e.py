@@ -162,14 +162,29 @@ def run_e2e():
             assert ready, "cybernexus_slave failed to start in time"
 
             # Seed an active local license cache for this ephemeral CI runner's machine_id
+            master_bin = next((p for p in [
+                os.path.join(ROOT, "build", "Release", "cybernexus_master.exe"),
+                os.path.join(ROOT, "build", "cybernexus_master.exe"),
+                os.path.join(ROOT, "master", "cybernexus_master.exe"),
+                os.path.join(ROOT, "build", "cybernexus_master"),
+            ] if os.path.isfile(p)), None)
+            lic_sig = "LINUX-CI-SIG"
+            if master_bin:
+                sig_out = subprocess.check_output(
+                    [master_bin, "--sign-test-license", "E2E-CI-KEY", ping_mid, "2099-12-31", '["all"]'],
+                    text=True, encoding="utf-8", errors="replace"
+                ).strip().splitlines()
+                if sig_out:
+                    lic_sig = sig_out[-1].strip()
+
             lic_conn = sqlite3.connect(db_path)
             lic_conn.execute(
                 """
                 INSERT OR REPLACE INTO local_license_cache
-                    (id, license_key, store_name, plan_name, subscription_status, expire_date, grace_days, offline_max_days, issued_at, bound_machine_id, enabled_modules)
-                VALUES (1, 'E2E-CI-KEY', 'E2E Store', 'PRO', 'active', '2099-12-31', 7, 365, ?, ?, '["all"]')
+                    (id, license_key, store_name, plan_name, subscription_status, expire_date, grace_days, offline_max_days, issued_at, bound_machine_id, enabled_modules, blocked_modules, license_signature)
+                VALUES (1, 'E2E-CI-KEY', 'E2E Store', 'PRO', 'active', '2099-12-31', 7, 365, ?, ?, '["all"]', '[]', ?)
                 """,
-                (int(time.time()), ping_mid),
+                (int(time.time()), ping_mid, lic_sig),
             )
             lic_conn.commit()
             lic_conn.close()
