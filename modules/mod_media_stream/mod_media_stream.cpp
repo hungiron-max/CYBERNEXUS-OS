@@ -120,6 +120,7 @@ private:
             );
         )");
         execSql("ALTER TABLE media_jukebox_queue ADD COLUMN requester_ip TEXT DEFAULT ''");
+        execSql("ALTER TABLE media_jukebox_queue ADD COLUMN device_id TEXT DEFAULT ''");
 
         execSql(R"(
             CREATE TABLE IF NOT EXISTS media_jukebox_votes (
@@ -392,6 +393,15 @@ public:
             int queueTotalSec = computeQueueTotalSec(playingRemSec, pendingSec);
             bool queueLockedBySlot = (masterSchedOn && activeSlot.is_object() && slotRemSec >= 0 && queueTotalSec >= (slotRemSec - 60));
 
+            // UPG-MED-02: Smart Auto-DJ theo mật độ bàn đang có khách
+            int occupiedTables = 0;
+            try {
+                json occ = queryOne("SELECT COUNT(*) as c FROM tables_areas WHERE status = 'occupied'");
+                if (occ.is_object()) occupiedTables = occ.value("c", 0);
+            } catch (...) {}
+            int suggestedVol = (occupiedTables >= 7) ? 90 : (occupiedTables >= 3 ? 75 : 55);
+            std::string autoDjMood = (occupiedTables >= 7) ? "Sôi động (Đông khách)" : (occupiedTables >= 3 ? "Vừa phải (Trung bình)" : "Nhẹ nhàng (Ít khách)");
+
             json out = {
                 {"success", true},
                 {"is_active", true},
@@ -403,9 +413,18 @@ public:
                 {"slot_remaining_sec", slotRemSec},
                 {"queue_total_sec", queueTotalSec},
                 {"queue_locked_by_slot", queueLockedBySlot},
+                {"occupied_tables", occupiedTables},
+                {"suggested_volume", suggestedVol},
+                {"auto_dj_mood", autoDjMood},
                 {"server_time", std::time(nullptr)}
             };
             res.set_content(out.dump(), "application/json; charset=utf-8");
+        });
+
+        // UPG-MED-02: Màn hình phụ quầy bar hiển thị bài đang phát + Top Vote + Auto-DJ
+        svr.Get("/api/media/jukebox/bar_display", [this](const httplib::Request&, httplib::Response& res) {
+            std::string html = R"(<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CyberNexus Bar Jukebox Display</title><style>body{margin:0;background:#070d1a;color:#f8fafc;font-family:system-ui,sans-serif;padding:24px}.card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:20px;margin-bottom:16px}.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#312e81;color:#c7d2fe;font-size:12px;font-weight:700}</style></head><body><div class="card"><span class="badge" id="mood">Auto-DJ</span><h1 id="np-title" style="margin:12px 0 4px">Đang tải...</h1><p id="np-artist" style="color:#94a3b8;margin:0"></p></div><div class="card"><h3>Top Vote Hàng Đợi</h3><ol id="q-list"></ol></div><script>async function tick(){try{const r=await fetch('/api/media/jukebox/status');const d=await r.json();document.getElementById('mood').textContent=(d.auto_dj_mood||'Auto-DJ')+' • Vol '+(d.suggested_volume||70)+'%';document.getElementById('np-title').textContent=d.now_playing?(d.now_playing.track_title||'Đang phát'):'Chưa có bài phát';document.getElementById('np-artist').textContent=d.now_playing?(d.now_playing.track_artist||''):'';document.getElementById('q-list').innerHTML=(d.queue||[]).slice(0,8).map(x=>'<li><b>'+x.track_title+'</b> ('+(x.vote_count||0)+' vote)</li>').join('');}catch(_){}}tick();setInterval(tick,5000);</script></body></html>)";
+            res.set_content(html, "text/html; charset=utf-8");
         });
 
         // ==========================================
@@ -495,34 +514,34 @@ public:
 
                 // ANTISPAM-06: Dùng đúng req.remote_addr thật, tuyệt đối KHÔNG tin header X-Forwarded-For từ client
                 std::string clientIp = req.remote_addr.empty() ? "unknown_client" : req.remote_addr;
+                std::string deviceId = body.value("device_id", "");
+                std::string guestKey = deviceId.empty() ? clientIp : (clientIp + "|" + deviceId);
 
-                // 2a. Cooldown 60 giây giữa 2 lần thêm bài của cùng 1 thiết bị
-                json recentReq = queryOne(
-                    "SELECT id FROM media_jukebox_queue WHERE requester_ip = '" + sanitize(clientIp) +
-                    "' AND requested_at >= datetime('now', '-60 seconds') LIMIT 1"
-                );
-                if (!recentReq.is_null()) {
-                    res.status = 429;
-                    res.set_content("{\"success\":false,\"cooldown\":true,\"message\":\"Bạn vừa yêu cầu một bài hát. Vui lòng đợi 60 giây trước khi chọn bài tiếp theo!\"}", "application/json; charset=utf-8");
-                    return;
-                }
-
-                // 2b. Giới hạn mỗi thiết bị tối đa 3 bài đang chờ & tổng hàng đợi tối đa 25 bài
-                json activeReq = queryOne(
-                    "SELECT COUNT(*) as c FROM media_jukebox_queue WHERE requester_ip = '" + sanitize(clientIp) +
-                    "' AND status = 'pending'"
-                );
-                int pendingByClient = activeReq.is_object() ? activeReq.value("c", 0) : 0;
-                if (pendingByClient >= 3) {
-                    res.status = 429;
-                    res.set_content("{\"success\":false,\"limit_reached\":true,\"message\":\"Mỗi thiết bị chỉ được yêu cầu tối đa 3 bài đang chờ! Vui lòng đợi các bài trước phát xong.\"}", "application/json; charset=utf-8");
-                    return;
-                }
+                // UPG-MED-01:
+                // - Tổng hàng đợi pending >= 10 bài -> chặn không cho add
+                // - Nếu 5 <= pending < 10 -> giới hạn 2 bài / 30 phút / mỗi khách (không giới hạn theo bàn)
+                // - Nếu pending < 5 -> cho phép add không giới hạn
                 json totalPending = queryOne("SELECT COUNT(*) as c FROM media_jukebox_queue WHERE status = 'pending'");
-                if (totalPending.is_object() && totalPending.value("c", 0) >= 25) {
+                int pendingCount = totalPending.is_object() ? totalPending.value("c", 0) : 0;
+                if (pendingCount >= 10) {
                     res.status = 429;
-                    res.set_content("{\"success\":false,\"queue_full\":true,\"message\":\"Hàng đợi nhạc quán đang đầy (tối đa 25 bài). Vui lòng thử lại sau ít phút!\"}", "application/json; charset=utf-8");
+                    res.set_content("{\"success\":false,\"queue_full\":true,\"message\":\"Hàng đợi nhạc đã đạt giới hạn tối đa 10 bài! Vui lòng chờ phát bớt.\"}", "application/json; charset=utf-8");
                     return;
+                }
+                if (pendingCount >= 5) {
+                    std::string guestCond = deviceId.empty()
+                        ? ("requester_ip = '" + sanitize(clientIp) + "'")
+                        : ("(device_id = '" + sanitize(deviceId) + "' OR (COALESCE(device_id, '') = '' AND requester_ip = '" + sanitize(clientIp) + "'))");
+                    json guestRecent = queryOne(
+                        "SELECT COUNT(*) as c FROM media_jukebox_queue WHERE " + guestCond +
+                        " AND requested_at >= datetime('now', '-30 minutes')"
+                    );
+                    int recentByGuest = guestRecent.is_object() ? guestRecent.value("c", 0) : 0;
+                    if (recentByGuest >= 2) {
+                        res.status = 429;
+                        res.set_content("{\"success\":false,\"limit_reached\":true,\"message\":\"Hàng đợi hiện có >= 5 bài. Mỗi khách chỉ được chọn tối đa 2 bài / 30 phút!\"}", "application/json; charset=utf-8");
+                        return;
+                    }
                 }
 
                 // 3. Chống Duplicate: Bài đang phát hoặc có trong hàng đợi
@@ -540,9 +559,9 @@ public:
                 std::string artist = track.value("artist", "Ca sĩ");
                 int duration = track.value("duration_sec", 180);
 
-                std::string insertSql = "INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_id, table_name, customer_phone, is_priority, status, requester_ip) VALUES (" +
+                std::string insertSql = "INSERT INTO media_jukebox_queue (track_id, track_title, track_artist, track_duration, table_id, table_name, customer_phone, is_priority, status, requester_ip, device_id) VALUES (" +
                     std::to_string(trackId) + ", '" + sanitize(title) + "', '" + sanitize(artist) + "', " + std::to_string(duration) + ", " +
-                    std::to_string(tableId) + ", '" + sanitize(tableName) + "', '" + sanitize(phone) + "', " + std::to_string(isPriority) + ", 'pending', '" + sanitize(clientIp) + "')";
+                    std::to_string(tableId) + ", '" + sanitize(tableName) + "', '" + sanitize(phone) + "', " + std::to_string(isPriority) + ", 'pending', '" + sanitize(clientIp) + "', '" + sanitize(deviceId) + "')";
 
                 if (execSql(insertSql)) {
                     // Cập nhật play_count

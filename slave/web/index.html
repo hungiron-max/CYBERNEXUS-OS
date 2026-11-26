@@ -144,7 +144,7 @@
 
         <!-- 2. Center: Jukebox (Fixed Left) | Unified Station Links | Cashier Counter Ops | Utilities -->
         <div class="cn-nav-center">
-            <div id="pos-jukebox-pill" style="min-width:200px;max-width:250px;" class="juke-pill-fixed flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-fuchsia-500/30 hover:border-fuchsia-500/60 shadow-md shadow-fuchsia-500/10 transition-all cursor-pointer select-none shrink-0" onclick="POSJukebox.openModal()" title="Hệ Thống Âm Nhạc &amp; Jukebox Quán" data-i18n-title="ui.pos_html.div_title_b83e3cfc">
+            <div id="pos-jukebox-pill" style="min-width:140px;max-width:180px;" class="juke-pill-fixed flex items-center justify-between gap-1.5 px-2 py-1 rounded-xl bg-slate-900/80 border border-fuchsia-500/30 hover:border-fuchsia-500/60 shadow-md shadow-fuchsia-500/10 transition-all cursor-pointer select-none shrink-0" onclick="POSJukebox.openModal()" title="Hệ Thống Âm Nhạc &amp; Jukebox Quán" data-i18n-title="ui.pos_html.div_title_b83e3cfc">
                 <div class="w-6 h-6 rounded-lg bg-gradient-to-tr from-fuchsia-600 to-pink-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-fuchsia-500/40">
                     <i id="pos-juke-disc" class="fas fa-compact-disc text-xs"></i>
                 </div>
@@ -166,24 +166,24 @@
             <span class="cn-nav-divider"></span>
             <button type="button" onclick="POS.openShiftModal()" class="btn-glass cn-nav-btn bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border-amber-500/40" title="Mở ca, Phiếu Thu/Chi nhanh & Kết ca đối soát tiền mặt" data-i18n-title="ui.pos_html.button_title_a55e2341">
                 <i class="fas fa-cash-register text-amber-400 text-xs"></i>
-                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_7f54146c">Giao Ca / Quỹ</span>
+                <span class="hidden" data-i18n="ui.pos_html.button_7f54146c">Giao Ca / Quỹ</span>
             </button>
             <button type="button" onclick="POS.openReprintModal()" class="btn-glass cn-nav-btn bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 border-sky-500/40" title="Tra cứu lịch sử thanh toán & in lại hóa đơn" data-i18n-title="ui.pos_html.button_title_215cbfa2">
                 <i class="fas fa-receipt text-sky-400 text-xs"></i>
-                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_03f468ef">Lịch Sử Đơn</span>
+                <span class="hidden" data-i18n="ui.pos_html.button_03f468ef">Lịch Sử Đơn</span>
             </button>
             <button type="button" onclick="POS.openRevenueStatsModal()" class="btn-glass cn-nav-btn bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border-emerald-500/40" title="Thống kê doanh thu ca & trong ngày" data-i18n-title="ui.pos_html.button_title_27fba175">
                 <i class="fas fa-chart-pie text-emerald-400 text-xs"></i>
-                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_3a41fd36">Thống Kê</span>
+                <span class="hidden" data-i18n="ui.pos_html.button_3a41fd36">Thống Kê</span>
             </button>
             <button type="button" onclick="window.ReceiptTemplate?.openNoSaleDrawerModal()" class="btn-glass cn-nav-btn bg-slate-800/90 hover:bg-amber-500/20 text-amber-200 border border-white/10" title="Mở két tiền ngoài giao dịch (yêu cầu PIN Quản lý & Audit Log)" data-i18n-title="ui.pos_html.button_title_87f3aac8">
                 <i class="fas fa-key text-amber-400 text-xs"></i>
-                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_eeb2898f">Mở Két</span>
+                <span class="hidden" data-i18n="ui.pos_html.button_eeb2898f">Mở Két</span>
             </button>
             <span class="cn-nav-divider"></span>
-            <button type="button" onclick="POS.loadTables()" class="btn-glass cn-nav-btn bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10" title="Làm mới trạng thái" data-i18n-title="ui.pos_html.button_title_c4bd47f4">
+            <button type="button" id="pos-refresh-tables-btn" onclick="POS.loadTables()" class="btn-glass cn-nav-btn bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10" title="Làm mới trạng thái" data-i18n-title="ui.pos_html.button_title_c4bd47f4">
                 <i class="fas fa-sync-alt text-sky-400 text-xs"></i>
-                <span class="hidden xl:inline" data-i18n="ui.pos_html.button_771032ac">Làm mới</span>
+                <span class="hidden" data-i18n="ui.pos_html.button_771032ac">Làm mới</span>
             </button>
             <button type="button" onclick="showLanQrModal()" class="btn-glass cn-nav-btn bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border-purple-500/40" title="Mở trên điện thoại / tablet qua Wi-Fi" data-i18n-title="ui.pos_html.button_title_c277121d">
                 <i class="fas fa-qrcode text-xs sm:text-sm"></i>
@@ -296,7 +296,7 @@
             <!-- Cart Totals & Checkout -->
             <div class="p-2 sm:p-2.5 border-t border-white/10 bg-slate-950/95 space-y-1.5 shrink-0 cart-checkout-footer">
                 <div class="flex justify-between items-center text-xs text-slate-300">
-                    <span data-i18n="ui.pos_html.span_218f6568">Tiền hàng (<span id="cart-items-count" class="font-bold text-sky-400">0</span> món):</span>
+                    <span>Tiền hàng (<span id="cart-items-count" class="font-bold text-sky-400">0</span> món):</span>
                     <span class="font-mono font-bold text-sm"><span id="cart-subtotal">0</span> <span class="text-[10px] text-slate-400" data-i18n="ui.adm_html.span_e53c1767">đ</span></span>
                 </div>
                 <div class="flex justify-between items-center text-xs text-rose-400">
@@ -334,23 +334,23 @@
             <div id="pos-pending-alerts-bar" class="hidden px-3 py-1.5 bg-amber-950/70 border-b border-amber-500/40 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0"></div>
             
             <!-- Area & Tables Selector Bar -->
-            <div class="p-2 border-b border-white/10 bg-slate-900/50 space-y-2 shrink-0">
+            <div class="p-1.5 sm:p-2 border-b border-white/10 bg-slate-900/50 space-y-1.5 sm:space-y-2 shrink-0 min-w-0">
                 <!-- Row 1: Mang Về (MV1, MV2...) -->
-                <div class="flex items-center gap-2">
-                    <div class="w-20 shrink-0 text-center py-1 px-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider" data-i18n="ui.customer_html.button_78e6716b">
+                <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                    <div class="w-16 sm:w-20 shrink-0 text-center py-1 px-1.5 sm:px-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] sm:text-[11px] font-black uppercase tracking-wider" data-i18n="ui.customer_html.button_78e6716b">
                         Mang Về
                     </div>
-                    <div id="tables-mangve" class="flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <div id="tables-mangve" class="flex-1 min-w-0 flex gap-1.5 sm:gap-2 overflow-x-auto p-1 scrollbar-none">
                         <!-- MV Tables rendered here -->
                     </div>
                 </div>
 
                 <!-- Row 2: Tại Quán (TQ1, TQ2...) -->
-                <div class="flex items-center gap-2">
-                    <div class="w-20 shrink-0 text-center py-1 px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-black uppercase tracking-wider" data-i18n="ui.pos_html.div_2fa80da1">
+                <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                    <div class="w-16 sm:w-20 shrink-0 text-center py-1 px-1.5 sm:px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] sm:text-[11px] font-black uppercase tracking-wider" data-i18n="ui.pos_html.div_2fa80da1">
                         Tại Quán
                     </div>
-                    <div id="tables-taiquan" class="flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <div id="tables-taiquan" class="flex-1 min-w-0 flex gap-1.5 sm:gap-2 overflow-x-auto p-1 scrollbar-none">
                         <!-- TQ Tables rendered here -->
                     </div>
                 </div>
@@ -374,7 +374,7 @@
             </div>
 
             <!-- Products Grid (Touch-friendly cards) -->
-            <div class="flex-1 overflow-y-auto p-2 sm:p-3 min-h-0 pb-16 sm:pb-3">
+            <div class="flex-1 overflow-y-auto p-2 sm:p-3 min-h-0 pb-24 sm:pb-3" style="padding-bottom: max(5.5rem, env(safe-area-inset-bottom, 0px));">
                 <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     <!-- Products rendered by pos.js -->
                 </div>
@@ -441,7 +441,7 @@
             <div class="py-2.5 border-b border-white/10 shrink-0 space-y-2">
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <!-- Search input with clear button -->
-                    <div class="relative flex-1">
+                    <div class="relative flex-1 min-w-[200px]">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                         <input type="text" id="reprint-search-input" 
                                placeholder="Nhập mã HĐ (VD: HD261030-0007), tên bàn (MV1, TQ2), người tạo..." data-i18n-placeholder="ui.pos_html.ph_2f87e0ad"

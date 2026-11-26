@@ -1,12 +1,1223 @@
 window.QA_TRACKER_DATA = {
   "meta": {
     "project": "CyberNexus OS (Master SaaS + Slave Edge Node + DLL + Control Center)",
-    "updated_at": "24/11/2026 19:23",
-    "latest_ota": "v2026.11.24.13",
-    "latest_ota_version": "v2026.11.24.13",
-    "updatedAt": "2026-11-24 19:23:00"
+    "updated_at": "2026-11-26 14:47",
+    "latest_ota": "v2026.11.26.01",
+    "latest_ota_version": "v2026.11.26.01",
+    "updatedAt": "2026-11-26 14:47:00"
   },
   "items": [
+    {
+      "id": "SEC-LIC-01",
+      "group": "ARCH",
+      "group_label": "Nhóm V: Kiến trúc & Mạng",
+      "title": "[P0 Bảo Mật License] Bắt buộc xác thực ECDSA P-256 trên local_license_cache (chặn sửa SQLite xóa signature/enrolled) & xóa DEV bypass",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 13:11",
+      "ota_version": "—",
+      "summary": "- Kiểm toán slave_license.cpp:417-422 cho thấy isMachineMismatch() chỉ kiểm tra ECDSA nếu !sigHex.empty() || sigEnrolled (lấy từ store_settings không ký). Mở store_local.db xóa license_signature + cnx_ecdsa_enrolled + bound_machine_id là bẻ khóa 100% offline.\n- Ngoài ra, slave_license.cpp:98-106 có CYBERNEXUS_DEV_UNACTIVATED_BYPASS=1 tự kích hoạt tới 2028-12-31.",
+      "principle": "- Mọi bản quyền không ở trạng thái unactivated bắt buộc phải có license_signature ECDSA P-256 hợp lệ; xóa cửa hậu env bypass trong bản Release.",
+      "issue_proposal": "1. slave/src/slave_license.cpp (isMachineMismatch): Bắt buộc verifyLicensePayload() cho mọi license khác unactivated, không phụ thuộc cờ cnx_ecdsa_enrolled trong store_settings.\n2. slave/src/slave_license.cpp (ensureTableExists): Bọc #ifndef NDEBUG (hoặc gỡ bỏ) CYBERNEXUS_DEV_UNACTIVATED_BYPASS.\n3. shared/include/license_crypto.hpp: Không trả true ở nhánh #else non-Windows.",
+      "test_steps": [
+        "Sửa store_local.db xóa license_signature & cnx_ecdsa_enrolled trong khi subscription_status='active' -> isSystemActive() phải trả false và chặn API 403.",
+        "Đặt CYBERNEXUS_DEV_UNACTIVATED_BYPASS=1 chạy bản Release -> không được tự kích hoạt."
+      ],
+      "notes": "- Đã vá slave_license.cpp (bắt buộc bound_machine_id + ECDSA cho mọi trạng thái != unactivated, bọc #if !defined(NDEBUG) cho DEV bypass) và license_crypto.hpp (fail-closed nhánh #else).",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 13:11:00",
+      "approval": "approved"
+    },
+    {
+      "id": "SEC-LIC-02",
+      "group": "ARCH",
+      "group_label": "Nhóm V: Kiến trúc & Mạng",
+      "title": "[P0 Chống Copy & Tua Đồng Hồ] Ràng buộc thêm Volume Serial ổ C: vào Machine ID offline & chặn reset StateAnchor khi xóa Registry",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 13:11",
+      "ota_version": "—",
+      "summary": "- Offline hiện chỉ kiểm tra duy nhất MachineGuid (slave_license.cpp:251-298) nên nhân bản VM/Ghost OS vẫn chạy được.\n- readRegistryClockAnchor() (:357-378) trả 0 khi HKCU\\Software\\CyberNexus\\StateAnchor bị xóa, cho phép reset mốc chống tua ngược đồng hồ LIC-05.",
+      "principle": "- Copy hoặc nhân bản VM sang phần cứng/ổ đĩa khác phải bị phát hiện offline; mất StateAnchor khi đã từng kích hoạt phải bị đánh dấu nghi vấn.",
+      "issue_proposal": "1. slave_license.cpp: Kết hợp Volume Serial ổ hệ thống (C:\\) vào kiểm tra offline (hoặc hardware_factors local hash) bên cạnh MachineGuid.\n2. Khi đã kích hoạt (expire_date != ''), nếu cả cnx_max_observed_epoch và StateAnchor đều bị xóa về 0 -> ghi nhận LICENSE_CLOCK_TAMPERED.",
+      "test_steps": [
+        "Giữ nguyên MachineGuid nhưng đổi Volume Serial / copy sang VM clone -> isSystemActive() từ chối HARDWARE_NODE_LOCK_MISMATCH.",
+        "Xóa HKCU\\Software\\CyberNexus\\StateAnchor và cnx_max_observed_epoch trên DB đã kích hoạt -> bị chặn."
+      ],
+      "notes": "- Đã thêm verifyAndEnrollVolumeAnchor() (ràng buộc Volume Serial C:\\ vào cnx_vol_anchor + HKCU\\Software\\CyberNexus\\VolAnchor) và cờ cnx_clock_enrolled chặn xóa trắng mốc thời gian trong slave_license.cpp.",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 13:11:00",
+      "approval": "approved"
+    },
+    {
+      "id": "SEC-INT-01",
+      "group": "ARCH",
+      "group_label": "Nhóm V: Kiến trúc & Mạng",
+      "title": "[P0 Toàn Vẹn Web & Code] Ký số ECDSA cho web_integrity.json, phát hiện file JS tiêm mới & khóa khi mất/sai manifest",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 13:11",
+      "ota_version": "—",
+      "summary": "- main_slave.cpp:32-90: web_integrity.json chưa có chữ ký số; nếu xóa file này thì verifyWebIntegrity() trả ok: true (:47-51); không quét file .js/.html mới bị tiêm vào slave/web/; startup (:1141) bỏ qua kết quả và không báo Master.",
+      "principle": "- Mọi file Web UI phải khớp manifest đã ký ECDSA; mất manifest hoặc có file sửa/tiêm mới phải ghi cảnh báo đỏ, gửi về Master và hạn chế truy cập.",
+      "issue_proposal": "1. tools/generate_web_integrity.py & main_master.cpp: Ký ECDSA P-256 cho web_integrity.json (trường ecdsa_sig).\n2. slave/src/main_slave.cpp (verifyWebIntegrity): Xác thực chữ ký manifest; báo lỗi nếu thiếu manifest hoặc phát hiện file JS/HTML lạ ngoài manifest; gửi cảnh báo qua /api/license/poll runtime.",
+      "test_steps": [
+        "Sửa 1 byte trong slave/web/assets/js/pos.js hoặc thêm file evil.js hoặc xóa web_integrity.json -> GET /api/system/integrity trả ok=false & ghi audit WEB_INTEGRITY_TAMPERED."
+      ],
+      "notes": "- Đã thêm --sign-web trong main_master.cpp, tự động ký trong generate_web_integrity.py (master=17, slave=51), và nâng cấp verifyWebIntegrity() trong main_slave.cpp kiểm tra ECDSA + thiếu manifest + file tiêm mới.",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 13:11:00",
+      "approval": "approved"
+    },
+    {
+      "id": "SEC-INT-02",
+      "group": "ARCH",
+      "group_label": "Nhóm V: Kiến trúc & Mạng",
+      "title": "[P1 Toàn Vẹn DLL & Launcher] Kiểm tra ECDSA .sig đầy đủ trong Control Center, đồng bộ sign_module.py v2 & kiểm tra định kỳ DLL",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- launcher/CyberNexusControlCenter.cpp:320-335 chỉ đối chiếu sha256 chứ chưa verify ecdsa_sig.\n- tools/sign_module.py:18-49 vẫn dùng HMAC cũ ('module'/'signature') gây lỗi khi nạp vào PluginManager v2.\n- PluginManager chỉ verify .sig 1 lần lúc startup, cho phép đổi CYBERNEXUS_MODULES_DIR.",
+      "principle": "- Mọi công cụ ký & nạp DLL phải thống nhất ECDSA P-256 v2 và phát hiện thay thế DLL sau khởi động.",
+      "issue_proposal": "1. tools/sign_module.py: Chuyển sang gọi master --sign-dll hoặc xuất đúng format ECDSA v2.\n2. CyberNexusControlCenter.cpp: Gọi verifyLicensePayload() cho ecdsa_sig của DLL.\n3. main_slave.cpp: Bổ sung kiểm tra định kỳ hash 3 DLL đang nạp so với .sig.",
+      "test_steps": [
+        "Thay file .sig giả chỉ khớp sha256 -> Control Center & Slave đều báo chữ ký ECDSA không hợp lệ."
+      ],
+      "notes": "- Đã đồng bộ tools/sign_module.py sang ECDSA P-256 v2, bổ sung xác thực ecdsa_sig trong CyberNexusControlCenter.cpp (-lbcrypt) và thêm verifyModulesIntegrity() kiểm tra định kỳ mỗi 2 phút trong main_slave.cpp.",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "SEC-TUN-01",
+      "group": "ARCH",
+      "group_label": "Nhóm V: Kiến trúc & Mạng",
+      "title": "[P0 Master Kiểm Soát Slave] Xác thực machine_id trên /poll & /ack, ký ECDSA snapshot/OTA và thêm lệnh CHECK_INTEGRITY từ Master",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 13:11",
+      "ota_version": "—",
+      "summary": "- master_handlers.cpp:3985-4125: /api/license/poll & /ack chỉ kiểm tra license_key mà không check machine_id (ai biết key đều poll cướp được lệnh RESET_OWNER_PIN).\n- main_slave.cpp:892-915 ghi snapshot license từ /poll vào DB không verify chữ ký; slave_updater.h:268 mới check X-Package-SHA256 HTTP chứ chưa ký ECDSA gói OTA; chưa có lệnh Master chủ động gọi CHECK_INTEGRITY.",
+      "principle": "- Master chủ động kiểm soát và kiểm tra toàn vẹn Slave qua kênh Reverse Long-Polling đã xác thực 2 chiều (license_key + machine_id + ECDSA).",
+      "issue_proposal": "1. master_handlers.cpp: Bắt buộc kiểm tra machine_id khớp saas_tenants.machine_id tại handleLicensePoll & handleLicenseAck.\n2. main_slave.cpp & slave_updater.h: Xác thực ECDSA cho snapshot license trong /poll và gói OTA ZIP.\n3. master_tunnel.h & main_slave.cpp: Thêm lệnh CHECK_INTEGRITY để Master chủ động yêu cầu Slave chạy kiểm tra DLL .sig, web_integrity, clock_anchor và trả kết quả về Master.",
+      "test_steps": [
+        "Gửi POST /api/license/poll với đúng license_key nhưng sai machine_id -> Master trả 403.",
+        "Từ Master gửi lệnh CHECK_INTEGRITY -> Slave trả về báo cáo toàn vẹn DLL/Web/Clock tức thì."
+      ],
+      "notes": "- Đã khóa machine_id trên /api/license/poll & /ack (master_handlers.cpp), xác thực ECDSA snapshot trong tunnelThread và thêm lệnh CHECK_INTEGRITY (check_store_integrity -> main_slave.cpp).",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 13:11:00",
+      "approval": "approved"
+    },
+    {
+      "id": "OFF-VQR-01",
+      "group": "BUG",
+      "group_label": "Thanh Toán & Offline",
+      "title": "[P1 Offline 100%] Đổi vietqr_url khi tạo đơn sang endpoint nội bộ /api/payment/vietqr_svg (bỏ img.vietqr.io bị CSP & mất WAN chặn)",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- slave_handlers.cpp:3945-3949 trả vietqr_url = 'https://img.vietqr.io/image/...' khi tạo đơn, bị lỗi khi quán mất Internet và bị chính CSP img-src 'self' (main_slave.cpp:210) chặn.",
+      "principle": "- Mọi mã VietQR trả về cho POS/Customer/Order đều phải sinh nội bộ bằng EMVCo (vietqr_emvco.hpp) qua đường dẫn local /api/payment/vietqr_svg.",
+      "issue_proposal": "1. slave_handlers.cpp:3945-3949: Đổi vietqr_url sang '/api/payment/vietqr_svg?amount=...&info=...'.",
+      "test_steps": [
+        "Ngắt hoàn toàn Internet -> tạo đơn QR/Mang về -> vietqr_url trả đường dẫn local /api/payment/vietqr_svg và hiển thị ảnh QR không lỗi CSP."
+      ],
+      "notes": "- Đã đổi vietqr_url khi tạo đơn trong slave_handlers.cpp:3942 sang endpoint nội bộ /api/payment/vietqr_svg (100% offline, không bị CSP img-src 'self' chặn).",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "SEC-LIC-03",
+      "group": "ARCH",
+      "group_label": "Nhóm V: Kiến trúc & Mạng",
+      "title": "[P1 Offline Vĩnh Viễn] Cấu hình offline_max_days = 0 (không giới hạn ngày offline) cho gói Offline/Enterprise & đồng bộ getLicenseStatus",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- Hiện offline_max_days mặc định 14 ngày (slave_license.cpp:518-525) khiến Slave chạy 100% offline quá 14 ngày bị chuyển sang offline_lease_exceeded; đồng thời getLicenseStatus() (:779-906) chưa chạy kiểm tra LIC-05 clock rollback như isSystemActive().",
+      "principle": "- Gói Offline cần hỗ trợ offline_max_days = 0 (hoặc 365+ ngày) trong khi vẫn giữ kiểm tra expire_date và LIC-05; UI /api/license?action=status phải phản ánh đúng trạng thái CLOCK_TAMPERED.",
+      "issue_proposal": "1. master_license.cpp & slave_license.cpp: Hỗ trợ offline_max_days = 0 nghĩa là chỉ kiểm tra expire_date + LIC-05, không giới hạn 14 ngày.\n2. slave_license.cpp (getLicenseStatus): Gọi cùng logic kiểm tra LIC-05 như isSystemActive().",
+      "test_steps": [
+        "Cấp license với offline_max_days = 0 -> Slave chạy offline > 30 ngày (chưa tới expire_date) vẫn hoạt động bình thường."
+      ],
+      "notes": "- Đã đồng bộ kiểm tra LIC-05 clock_tampered vào getLicenseStatus() và hỗ trợ offline_max_days = 0 (không giới hạn ngày offline cho gói Offline/Enterprise) trong slave_license.cpp.",
+      "created_at": "2026-11-26 13:04:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-INV-02",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Kho] Trừ kho ngay tại công đoạn Bếp chế biến & hạch toán waste_on_cancel khi hủy món đã làm",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- Hiện tại trừ kho chỉ chạy khi đơn đạt served + paid. Đề xuất chuyển thời điểm trừ kho sang lúc Bếp xác nhận chế biến và ghi nhận waste_on_cancel nếu Bếp đã làm rồi mới hủy món.",
+      "principle": "- Nguyên liệu rời kho ngay khi Bếp bắt đầu chế biến để phản ánh tồn kho thực tế theo thời gian thực.",
+      "issue_proposal": "1. kitchen_kds.js & slave_handlers.cpp: Kích hoạt deductInventoryForItem() khi món chuyển trạng thái preparing/ready.\n2. Nếu hủy món đã chế biến, ghi material_transactions.trans_type='waste' (waste_on_cancel) và tự hạch toán finance_expenses.",
+      "test_steps": [
+        "Bếp bấm nhận làm/xong món -> tồn kho giảm ngay; hủy món đã làm -> không hoàn kho sạch mà ghi waste_on_cancel."
+      ],
+      "notes": "- Đã kích hoạt deductInventoryForOrder() ngay khi Bếp chuyển preparing/ready/served (update_item_status) và chuyển restoreInventoryForItem() sang ghi waste_on_cancel + finance_expenses nếu món đã chế biến trong slave_handlers.cpp.",
+      "created_at": "2026-11-26 12:02:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-ORD-02",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Đơn hàng] Tách tab Đơn Giao Hàng/Ship riêng & Hàng đợi Offline IndexedDB tự đồng bộ trên /pos và /order",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- Cần tách riêng tab Đơn Giao Hàng/Ship (theo dõi tài xế, phí ship, trạng thái Đang giao/Đã giao) khỏi lưới bàn tại quán và lưu hàng đợi IndexedDB khi rớt LAN tạm thời.",
+      "principle": "- Không để đơn Delivery lẫn với bàn MV/TQ và đảm bảo mất mạng LAN vẫn tạo đơn offline không trùng qua client_offline_id.",
+      "issue_proposal": "1. pos.js & order_waiter.js: Thêm tab Giao Hàng / Ship riêng (trạng thái Đang pha -> Chờ giao -> Đang ship -> Hoàn tất).\n2. Thêm IndexedDB offline_order_queue tự động đẩy lại qua sync_offline khi có mạng.",
+      "test_steps": [
+        "Ngắt mạng LAN -> tạo đơn trên /pos -> lưu IndexedDB; bật lại mạng -> tự đẩy lên server đúng 1 đơn theo client_offline_id."
+      ],
+      "notes": "- Đã bổ sung CnxOfflineQueue (IndexedDB cybernexus_offline_v1) vào security_utils.js, tự lưu hàng đợi khi mất mạng LAN trong pos.js saveOrder() và tự flush khi có mạng (syncOfflineOrders).",
+      "created_at": "2026-11-26 12:02:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-WIFI-02",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất WiFi QoS] Dynamic Bandwidth Throttling tự hạ băng thông Free user khi tải router > 80%",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- Khi giờ cao điểm nhiều khách dùng WiFi Free, cần tự động bóp băng thông nhóm Free khi tải router vượt 80% để bảo vệ luồng thanh toán POS/VietQR và WiFi VIP.",
+      "principle": "- Luôn ưu tiên SLA cho POS/VietQR/KDS và nhóm WiFi VIP trước nhóm WiFi Free.",
+      "issue_proposal": "1. mod_network_qos.cpp: Theo dõi tải/số client active; nếu vượt ngưỡng 80% thì hạ cap Mbps của tier 'free' trong router_qos.json.",
+      "test_steps": [
+        "Mô phỏng tải router > 80% -> tier Free tự giảm băng thông, luồng POS/VietQR và VIP giữ nguyên tốc độ."
+      ],
+      "notes": "- Đã bổ sung Dynamic Bandwidth Throttling (stage 4: 1024/512 kbps) cho nhóm WiFi Free khi tải router >= 80% max_concurrent_clients trong mod_network_qos.cpp.",
+      "created_at": "2026-11-26 12:02:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-MED-02",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Jukebox] Smart Auto-DJ điều chỉnh nhạc & âm lượng theo mật độ bàn + màn hình phụ quầy bar",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "26/11/2026 14:24",
+      "ota_version": "—",
+      "summary": "- Nâng cấp Auto-DJ tự chọn playlist & mức âm lượng theo khung giờ kết hợp mật độ bàn đang có khách, đồng thời hiển thị bài đang phát + Top Vote lên màn hình phụ quầy bar.",
+      "principle": "- Âm nhạc quán tự động thích nghi theo độ đông khách và tăng tương tác Vote tại quầy bar.",
+      "issue_proposal": "1. mod_media_stream.cpp & slave_handlers.cpp: Kết hợp số bàn occupied để điều chỉnh preset volume/playlist theo khung giờ.\n2. Thêm view màn hình phụ quầy bar (Now Playing + Top Vote Queue).",
+      "test_steps": [
+        "Thay đổi số bàn đang mở -> Auto-DJ chuyển preset âm lượng phù hợp và màn hình phụ cập nhật realtime."
+      ],
+      "notes": "- Đã bổ sung Auto-DJ theo mật độ bàn đang có khách (occupied_tables, suggested_volume, auto_dj_mood) vào /api/media/jukebox/status và màn hình phụ quầy bar /api/media/jukebox/bar_display trong mod_media_stream.cpp.",
+      "created_at": "2026-11-26 12:02:00",
+      "fixed_at": "2026-11-26 14:24:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-FIX-01",
+      "group": "BUG",
+      "group_label": "Hiệu năng & Tải trang (POS/Slave)",
+      "title": "[Backend + POS] Sửa lỗi GET /api/settings.php treo 15-20s do gọi đồng bộ Master WAN (fetchMasterAiQuota) làm trắng màn hình /pos",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:00",
+      "ota_version": "—",
+      "summary": "- Khi đăng nhập Thu ngân vào /pos, GET /api/settings.php gọi đồng bộ fetchMasterAiQuota() ra Master WAN bị treo 15-20s chờ timeout, đồng thời POS.init() dùng await tuần tự loadSettings() trước loadCategories/Products/Tables khiến toàn bộ màn hình /pos trống trơn.",
+      "principle": "- GET /api/settings.php mặc định chỉ đọc SQLite local (< 5ms), chỉ lấy AI quota khi có ?include_quota=1 (hoặc dùng cache nền); POS.init() tải song song các API độc lập bằng Promise.all.",
+      "issue_proposal": "1. slave_handlers.cpp (handleSettings): Chỉ gọi fetchMasterAiQuota() khi req có param include_quota=1.\n2. pos.js (init): Chạy Promise.all([loadSettings(), loadTaxPolicy(), loadCategories(), loadProducts(), loadTables()]) để bàn và thực đơn hiển thị ngay lập tức.",
+      "test_steps": [
+        "Đăng nhập Thu Ngân 01 (PIN 111111) vào /pos khi Master WAN chậm/offline -> bàn MV1..TQ8, danh mục và món ăn hiển thị ngay < 500ms, không bị màn hình trắng."
+      ],
+      "notes": "- Đã sửa slave_handlers.cpp (opt-in ?include_quota=1) & pos.js (Promise.all); xác minh trên Chrome /pos với Thu Ngân 01 (PIN 111111): settings.php 6ms/9ms, toàn bộ 13 bàn & 15 danh mục & món ăn hiển thị sau 330ms, 0 lỗi JS.",
+      "created_at": "2026-11-26 08:53:00",
+      "fixed_at": "2026-11-26 09:00:00",
+      "approval": "approved"
+    },
+    {
+      "id": "ORD-FIX-02",
+      "group": "BUG",
+      "group_label": "Phục Vụ (/order)",
+      "title": "[Order Waiter] Sửa lỗi ReferenceError: scrollToReadyTable khi bấm chuông thông báo và 400 Bad Request ở ack_notification",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 08:42",
+      "ota_version": "—",
+      "summary": "- Test Chrome E2E trên /order ghi nhận lỗi 'Uncaught ReferenceError: scrollToReadyTable is not defined' khi bấm nút chuông thông báo, và 14 request POST ack_notification trả 400 Bad Request khi tải trang.",
+      "principle": "- Mọi nút thông báo trên /order phải hoạt động không lỗi JS và chỉ gửi ack_notification cho các notification_id hợp lệ.",
+      "issue_proposal": "1. order_waiter.js: Khai báo/gắn đúng hàm scrollToReadyTable() hoặc cuộn tới thẻ bàn đang ready.\n2. order_waiter.js & slave_handlers.cpp: Kiểm tra lại payload ack_notification để tránh gửi ID không hợp lệ gây 400.",
+      "test_steps": [
+        "Mở /order khi có món sẵn sàng -> bấm chuông thông báo -> cuộn đúng tới bàn đang ready, 0 lỗi JS và 0 request 400."
+      ],
+      "notes": "- Đã thêm window.scrollToReadyTable() trong order_waiter.js và hỗ trợ ack_notification cho cả GET/POST trong slave_handlers.cpp; xác minh trên Chrome /order: 0 lỗi 400 ack_notification (16/16 trả 200), bấm #nav-bell-btn có 0 lỗi JS.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 08:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "INV-FIX-01",
+      "group": "BUG",
+      "group_label": "Kho & Định Lượng",
+      "title": "[Backend Kho] Chuẩn hóa trừ kho khi chế biến / phát sinh món thêm sau thanh toán & hoàn kho khi hủy món",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 08:42",
+      "ota_version": "—",
+      "summary": "- Kiểm thử E2E cho thấy deductInventoryForOrder() chỉ chạy 1 lần khi đơn đạt đủ served + paid (stock_deducted=1). Món gọi thêm sau khi đã thanh toán không trừ thêm kho, và decide_cancel_item không hoàn/ghi nhận hao hụt theo từng món.",
+      "principle": "- Mọi món thực sự chế biến phải trừ kho đúng định lượng (kể cả món gọi thêm), và hủy món phải xử lý hoàn kho/hao hụt theo trạng thái đã làm hay chưa.",
+      "issue_proposal": "1. slave_handlers.cpp: Theo dõi trạng thái trừ kho theo từng order_items (item_stock_deducted) thay vì cờ tổng orders.stock_deducted, hỗ trợ trừ món gọi thêm và hoàn kho khi hủy món.",
+      "test_steps": [
+        "Đơn đã thanh toán gọi thêm món -> kiểm tra material_transactions ghi nhận trừ kho thêm cho món mới; hủy món chưa chế biến -> hoàn kho đúng định lượng."
+      ],
+      "notes": "- Đã bổ sung item_stock_deducted theo từng order_items và restoreInventoryForItem() khi hủy món trong slave_handlers.cpp; xác minh trên Chrome: tồn Bánh mì tươi giòn giảm đúng 255->254->253->251 (bao gồm đơn thêm món sau khi đã thanh toán HD261126-0011) và hiện sale_deduct trên /admin.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 08:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "INV-FIX-02",
+      "group": "BUG",
+      "group_label": "Kho & Định Lượng",
+      "title": "[Admin Kho UI] Sửa hiển thị 'MÃ NVL: null' và nhãn tiếng Anh thô 'sale_deduct', 'loss' trong Lịch sử nhập xuất",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Trên /admin -> Kho & Chi Phí Vật Liệu, nguyên liệu mới hiển thị MÃ NVL là 'null' và bảng Lịch sử nhập xuất hiện nguyên chuỗi 'sale_deduct', 'loss' chưa Việt hóa.",
+      "principle": "- Mọi mã vật tư và loại giao dịch kho phải hiển thị nhãn tiếng Việt rõ ràng (VD: Xuất bán định lượng, Xuất hủy/Hao hụt).",
+      "issue_proposal": "1. admin_inventory_ops.js: Fallback mã NVL theo format NVL{id} nếu null và map badge tiếng Việt cho sale_deduct, sale_restore, loss.",
+      "test_steps": [
+        "Mở /admin -> Kho & Chi Phí Vật Liệu -> Lịch sử nhập xuất: không còn chữ 'null', 'sale_deduct', 'loss' thô."
+      ],
+      "notes": "- Đã cập nhật get_materials & materials trả mã NVL%03d khi code rỗng, và Việt hóa badge (Trừ bán hàng, Hoàn kho hủy, Xuất hủy / Hao hụt) trong admin_inventory.js; xác minh trực quan trên Chrome /admin: Nước đá tinh khiết hiện NVL020, bảng lịch sử hiện badge tiếng Việt.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "SHIFT-FIX-01",
+      "group": "BUG",
+      "group_label": "Nhân Sự & Chốt Ca",
+      "title": "[POS Chốt Ca] Cảnh báo / yêu cầu xử lý khi kết ca vẫn còn đơn mở (open_orders_count > 0) hoặc nhân viên chưa check-out",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Test E2E close_shift trả success=true ngay cả khi còn 7 đơn đang mở (open_orders_count: 7) và checked_out_attendance: false.",
+      "principle": "- Trước khi kết ca cần cảnh báo rõ danh sách đơn chưa thu tiền và tùy chọn tự chốt công cuối ca.",
+      "issue_proposal": "1. pos_shift_reports.js & slave_handlers.cpp: Cảnh báo/yêu cầu xác nhận Admin nếu còn đơn đang mở hoặc nhân viên đang working khi bấm Kết ca.",
+      "test_steps": [
+        "Còn bàn chưa thanh toán -> bấm Kết ca -> hiển thị cảnh báo danh sách bàn chưa đóng hoặc yêu cầu xác nhận bàn giao ca."
+      ],
+      "notes": "- Đã khóa close_shift trong slave_handlers.cpp trả HTTP 400 (SHIFT_OPEN_ORDERS) nếu open_orders_count > 0 mà thiếu force_close, đồng thời phát cảnh báo ADMIN_SHIFT_CLOSED; xác minh trên Chrome /pos: close_shift bị chặn khi còn 5 đơn mở.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "WIFI-FIX-01",
+      "group": "BUG",
+      "group_label": "WiFi Marketing",
+      "title": "[WiFi Portal] Gỡ thuộc tính readonly chặn nhập liệu ở cả 3 ô Tên, SĐT (Free) và Mã hóa đơn (VIP) trên /wifi.html",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "26/11/2026 08:42",
+      "ota_version": "—",
+      "summary": "- Kiểm thử Mobile 390x844 trên /wifi.html phát hiện cả #wifi-free-name, #wifi-free-phone và #wifi-vip-order đều có readOnly=true (vẫn giữ readonly kể cả sau khi focus/click), chặn hoàn toàn khách nhập thông tin.",
+      "principle": "- Khách hàng trên điện thoại phải nhập được tên, SĐT và mã hóa đơn trực tiếp để kích hoạt WiFi Free/VIP.",
+      "issue_proposal": "1. wifi.html & wifi_portal.js: Gỡ thuộc tính readonly trên các ô nhập và đảm bảo header không bị cắt chữ trên màn hình 390px.",
+      "test_steps": [
+        "Mở /wifi.html trên màn hình 390x844 -> gõ được tên/SĐT ở tab Free và gõ được mã hóa đơn ở tab WiFi VIP -> kích hoạt thành công."
+      ],
+      "notes": "- Đã gỡ readonly khỏi #wifi-free-name, #wifi-free-phone, #wifi-vip-order trong wifi.html; xác minh trên Chrome Mobile 390x844: readOnly===false, gõ được cả 3 ô với 0 lỗi JS.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 08:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "ORD-FIX-03",
+      "group": "BUG",
+      "group_label": "Phục Vụ (/order)",
+      "title": "[Order Mobile UI] Sửa bố cục dòng món trong Bottom Sheet /order bị ép tên món xuống 5 dòng trên màn hình 390px",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Trên màn hình 390x844, dòng món trong Danh Sách Món Tại Bàn (/order) dồn #1, tên món, badge Chờ bếp, nút Đã bưng, Ghi chú, Báo Hủy trên 1 hàng ngang khiến tên món bị ép thành 5 dòng hẹp và phải cuộn ngang.",
+      "principle": "- Trên Mobile, mỗi thẻ món chia 2 tầng (Tầng 1: STT + Tên món + Badge trạng thái; Tầng 2: Các nút thao tác Đã bưng / Ghi chú / Báo Hủy) để đọc rõ không bị ép chữ.",
+      "issue_proposal": "1. order_waiter.js: Tách flex-col trên mobile cho mỗi dòng món trong bottom sheet.",
+      "test_steps": [
+        "Mở /order trên 390x844 -> mở chi tiết bàn có món -> tên món hiển thị 1-2 dòng rõ ràng, nút thao tác nằm gọn hàng dưới."
+      ],
+      "notes": "- Đã chuyển dòng món trong order_waiter.js sang flex-col sm:flex-row; xác minh trên Chrome Mobile 390x844 (/order bàn TQ5): 'Bánh Mì Chảo Đặc Biệt' hiển thị 1 dòng (16px) gọn gàng.",
+      "created_at": "2026-11-26 07:49:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-FIX-01",
+      "group": "BUG",
+      "group_label": "Giao Diện Mobile (/menu)",
+      "title": "[Customer Mobile UI] Sửa cắt chữ header ('CYBEI'), thanh đáy ('Chi tiết g...') và tab Jukebox ('Hàng Đợi (1') ở 390px",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Ở màn hình 390x844 của /menu, header bị chật làm tên quán bị cắt còn 'CYBEI', thanh đáy bị cắt 'Chi tiết g...' và modal Jukebox cắt mép 'Hàng Đợi (1'.",
+      "principle": "- Giao diện khách hàng trên 390px phải đọc trọn vẹn tên quán, nút giỏ hàng và tiêu đề tab Jukebox.",
+      "issue_proposal": "1. customer.html & customer_app.js: Tinh chỉnh padding/gap header, rút gọn nhãn thanh đáy và cho phép tab Jukebox co giãn đều.",
+      "test_steps": [
+        "Mở /menu?table=TQ1 ở 390x844 -> kiểm tra header, thanh đáy và modal Jukebox không bị cắt mất chữ."
+      ],
+      "notes": "- Đã tinh chỉnh responsive header/bottom-bar/Jukebox tabs trong customer.html & customer_app.js; xác minh trên Chrome Mobile 390x844: scrollWidth=390 (0 overflow), không cắt chữ.",
+      "created_at": "2026-11-26 07:49:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-INV-01",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Kho] Quản lý lô & hạn sử dụng FEFO, tự chuyển xuất hủy hết hạn thành chi phí hao hụt (finance_expenses) và trừ kho theo công đoạn Bếp",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Đề xuất nâng cấp quy trình Kho nguyên liệu thông minh hơn sau kiểm thử E2E.",
+      "principle": "- Giảm thất thoát nguyên liệu (hết hạn/hủy món đã làm) bằng quản lý FEFO theo lô, tự động hạch toán xuất hủy hết hạn sang chi phí hao hụt (finance_expenses) và cảnh báo tồn tối thiểu theo tốc độ bán thực tế.",
+      "issue_proposal": "1. Thêm bảng lô nhập (material_batches: batch_code, expiry_date, remaining_qty) để xuất theo FEFO.\n2. Khi xuất hủy hết hạn/hư hỏng (trans_type='loss'), tự động INSERT bút toán chi phí vào finance_expenses (source='inventory_loss', category='Hao hụt / Hủy nguyên liệu').\n3. Cảnh báo nguyên liệu sắp hết hạn trước 2 ngày.",
+      "test_steps": [
+        "Nhập 2 lô khác hạn sử dụng -> bán hàng tự trừ lô hết hạn trước; xuất hủy 5kg hết hạn tự động ghi nhận chi phí hao hụt trong finance_expenses."
+      ],
+      "notes": "- Đã triển khai bảng material_batches FEFO, tự động ghi finance_expenses và phát ADMIN_INVENTORY_LOSS khi xuất hủy (loss) trong slave_handlers.cpp; xác minh add_transaction loss trên Nước đá tinh khiết tạo alert id 71 và cập nhật tồn kho thành công.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-ORD-01",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Đơn hàng & CRM] Tách luồng Ship/Offline IndexedDB, Guest Checkout không cần login & CRM Khách VIP theo Số điện thoại",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Đề xuất chuẩn hóa xử lý đơn đa kênh (Tại bàn / Mang về / Ship / Offline) và quản lý Khách hàng / Khách VIP không bắt khách tạo tài khoản.",
+      "principle": "- Khách đặt Online chỉ cần Tên + Số điện thoại (không cần login); dùng Số điện thoại làm khóa CRM tự tích lũy chi tiêu/điểm nâng hạng VIP (ưu đãi giảm giá, Jukebox VIP, WiFi VIP); Offline lưu hàng đợi IndexedDB chống trùng.",
+      "issue_proposal": "1. Tạo/chuẩn hóa bảng customers theo phone (total_orders, total_spent, tier: regular|silver|gold|vip).\n2. Bổ sung hàng đợi offline IndexedDB trên POS/Order tự đẩy lại theo client_offline_id khi có mạng.\n3. Bổ sung trạng thái riêng cho đơn Delivery (Đang pha -> Chờ giao -> Đang ship -> Hoàn tất).",
+      "test_steps": [
+        "Khách đặt Online không cần đăng nhập bằng SĐT -> tự tích lũy vào CRM; đạt ngưỡng VIP tự áp ưu đãi ở lần đặt sau."
+      ],
+      "notes": "- Đã thêm bảng customers theo phone + tự động tích lũy hạng và endpoint GET /api/operations.php?action=customer_crm trong slave_handlers.cpp; xác minh trả HTTP 200 JSON hợp lệ.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-MED-01",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Jukebox] Chỉ hiện Jukebox cho khách đã vào WiFi VIP, giới hạn 2 bài/30p, tối đa 10 bài hàng đợi & tự phát theo khung giờ",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Nâng cấp Jukebox trên /menu và mod_media_stream theo đúng quyền lợi WiFi VIP và chống quá tải hàng đợi.",
+      "principle": "- Chỉ khách đã kết nối WiFi VIP mới thấy thanh Jukebox trên /menu; khi hàng đợi pending < 5 bài thì cho phép add không giới hạn; khi 5 <= pending < 10 mới áp dụng giới hạn 2 bài/30 phút/khách (requester_ip + device_id); đạt >= 10 bài chặn add; hàng đợi trống tự phát nhạc theo khung giờ.",
+      "issue_proposal": "1. slave_handlers.cpp & customer_app.js: Thêm kiểm tra trạng thái WiFi VIP còn hiệu lực của thiết bị (/api/wifi/vip_status) để ẩn/hiện Jukebox trên /menu.\n2. mod_media_stream.cpp (/api/media/jukebox/request): Đếm pendingCount; nếu pendingCount >= 10 -> chặn; nếu pendingCount >= 5 -> kiểm tra cùng khách (requester_ip + device_id) đã add >= 2 bài trong 30 phút gần nhất -> chặn; nếu pendingCount < 5 -> cho add không giới hạn.\n3. mod_media_stream.cpp: Khi hàng đợi pending = 0, tự động chọn & phát bài phù hợp khung giờ (media_schedules).",
+      "test_steps": [
+        "Khách chưa vào WiFi VIP mở /menu -> không thấy Jukebox.",
+        "Khách đã kích hoạt WiFi VIP -> thấy Jukebox, add 2 bài OK, bài thứ 3 trong 30p bị chặn; khi hàng đợi đủ 10 bài từ chối add thêm; khi hàng đợi trống tự phát nhạc đúng khung giờ."
+      ],
+      "notes": "- Đã triển khai device_id & luật <5 tự do / 5-9 tối đa 2 bài/30p/khách / >=10 chặn trong mod_media_stream.cpp, và cổng WiFi VIP + UI Jukebox trong customer.html & customer_app.js; xác minh trực quan trên Chrome Mobile 390x844.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-WIFI-01",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất WiFi] Cấp QR WiFi VIP theo Bàn (1 món = 1 client VIP, không phân biệt ăn/uống) hiệu lực tới khi trả bàn hoặc quá 3 giờ",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Chuẩn hóa quy trình WiFi VIP cho cả Phục vụ order và Khách tự order (bắt buộc chọn/quét QR bàn): mỗi 1 món trong đơn (không phân biệt đồ ăn hay nước uống) tương ứng 1 suất client WiFi VIP.",
+      "principle": "- Khách chưa có WiFi -> Phục vụ order chọn bàn sinh mã QR WiFi VIP của bàn (quota = tổng số lượng món, tối đa 3 giờ hoặc tới khi giải phóng bàn); Khách tự kết nối WiFi đặt đơn -> bắt buộc chọn/quét QR bàn và nhận nút 1 chạm/QR tương tự; cùng thiết bị quét lại không trừ thêm suất.",
+      "issue_proposal": "1. slave_handlers.cpp: Cho phép WiFi VIP theo order_id đang mở tại bàn (hoặc đã paid), vip_quota = SUM(oi.quantity) của món chưa hủy; hết hạn sau 180 phút hoặc khi giải phóng bàn (thu hồi qua mod_network_qos).\n2. order_waiter.js (/order): Hiện nút/QR WiFi VIP của bàn (VD: '2/3 máy • còn 2h50p') để Phục vụ đưa khách quét.\n3. customer_app.js (/menu): Hiện nút 1 chạm kích hoạt WiFi VIP kèm access_token sau khi đơn bàn được duyệt; wifi_portal.js tự điền khi quét QR.",
+      "test_steps": [
+        "Bàn TQ2 gọi 3 món (ăn + uống) -> Phục vụ mở QR WiFi VIP cho 3 máy quét thành công, máy thứ 4 bị chặn; gọi thêm 1 món tăng lên 4 suất; giải phóng bàn hoặc quá 3 giờ tự hết hiệu lực."
+      ],
+      "notes": "- Đã triển khai quy tắc 1 món = 1 máy VIP, /api/wifi/vip_status và nút 1 chạm 'Kích hoạt WiFi VIP Bàn' trên /menu; xác minh trên Chrome Mobile /menu?table=TQ5 (2 món = 2 máy) kích hoạt thành công.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UPG-HRM-01",
+      "group": "UX",
+      "group_label": "Đề Xuất Nâng Cấp Thông Minh",
+      "title": "[Đề xuất Chấm Công & Chốt Ca] Khóa chốt ca 2 lớp & Popup/Chuông cảnh báo trực tiếp cho Admin trên Web App (không cần Telegram)",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "26/11/2026 09:26",
+      "ota_version": "—",
+      "summary": "- Đề xuất nâng cấp quy trình Chấm công và Chốt ca chặt chẽ, minh bạch, báo động trực tiếp trên /admin & /pos thay vì phụ thuộc Telegram.",
+      "principle": "- Mọi phiên chốt ca đều đối soát đủ đơn mở, tự chốt công nhân viên theo ca và gửi thông báo In-App Popup/Chuông (app_notifications) + Web Push/Email cho Chủ quán.",
+      "issue_proposal": "1. Mở rộng app_notifications (thêm is_read_admin) và polling chuông + Popup Toast trên /admin.html cho các sự kiện: Chốt ca lệch quỹ, Kết ca còn đơn treo, Xuất hủy hết hạn, Hủy đơn lớn, Nguyên liệu cận date.\n2. Tự động gắn ca (Ca Sáng/Chiều/Tối) khi Check-in và nhắc Check-out khi hết ca.",
+      "test_steps": [
+        "Không cấu hình Telegram -> thực hiện Chốt ca lệch quỹ hoặc Xuất hủy hết hạn -> Chủ quán mở /admin nhận ngay Popup + chuông cảnh báo đỏ."
+      ],
+      "notes": "- Đã thêm is_read_admin, admin_alerts, ack_admin_alert trong slave_handlers.cpp và startAdminAlertPolling() trong admin.js; xác minh trực quan trên Chrome /admin hiển thị Toast Popup 'Báo cáo Kết Ca CA-0106 (Khớp 100%)'.",
+      "created_at": "2026-11-26 07:41:00",
+      "fixed_at": "2026-11-26 09:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "POS-FIX-03",
+      "group": "BUG",
+      "group_label": "POS Thu Ngân",
+      "title": "[POS Footer] Sửa chữ 'Tiền hàng (4' bị mất 'món):', sửa nút VietQR + IN LẠI HÓA ĐƠN rớt 2 hàng và thêm fallback reprintActiveOrder",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 20:04",
+      "ota_version": "v2026.11.25.07",
+      "summary": "- Trên /pos: (1) span data-i18n='ui.pos_html.span_218f6568' bị i18n thay thế thành 'Tiền hàng (' làm mất đuôi ' món):'; (2) pos.js gán class 'col-span-2' vào #btn-pos-checkout trong grid 2 cột khiến nút VietQR rớt đứng lẻ 1 hàng; (3) reprintActiveOrder() im lặng return nếu activeOrderId rỗng hoặc API lỗi.",
+      "principle": "- Footer giỏ hàng POS phải hiển thị đúng 'Tiền hàng (X món):', nút VietQR và nút Thanh toán/In lại hóa đơn nằm gọn 1 hàng cân đối, và bấm In lại hóa đơn luôn có phản hồi.",
+      "issue_proposal": "1. index.html: Đặt data-i18n trên span chữ 'Tiền hàng' riêng, giữ nguyên '(<span id=\"cart-items-count\">0</span> món):' bên ngoài để i18n không cắt mất.\n2. pos.js: Bỏ 'col-span-2' khỏi btnCheckout.className ở cả trạng thái isPaid và !isPaid.\n3. pos.js (reprintActiveOrder): Fallback sang currentTable.active_order_id nếu thiếu activeOrderId và thông báo toast/alert nếu lỗi.",
+      "test_steps": [
+        "Mở /pos chọn bàn có 4 món đã thanh toán -> thấy đủ 'Tiền hàng (4 món):', nút VietQR và IN LẠI HÓA ĐƠN nằm cùng 1 hàng cân đối, bấm IN LẠI HÓA ĐƠN mở đúng modal xem trước hóa đơn."
+      ],
+      "notes": "- Đã sửa index.html & pos.js (thêm updateCheckoutButton() reset cả khi cart rỗng, bỏ col-span-2, sửa Tiền hàng (X món):, thêm fallback reprintActiveOrder); xác minh trên Chrome /pos: TQ6 'Tiền hàng (4 món): 95.000 đ', VietQR + IN LẠI HÓA ĐƠN cùng 1 hàng, mở receipt modal OK, chuyển sang TQ1 reset về THANH TOÁN (F9), 0 lỗi JS.",
+      "created_at": "2026-11-25 19:58:00",
+      "fixed_at": "2026-11-25 20:04:00",
+      "approval": "approved"
+    },
+    {
+      "id": "POS-FIX-04",
+      "group": "BUG",
+      "group_label": "POS Thu Ngân",
+      "title": "[POS Lịch Sử Đơn] Luôn reset modal Lịch sử hóa đơn về 'Hôm nay' theo giờ local VN và chống co hẹp ô tìm kiếm",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 20:04",
+      "ota_version": "v2026.11.25.07",
+      "summary": "- openReprintModal() giữ nguyên ngày cũ nếu từng bấm 'Hôm qua', dùng giờ UTC (toISOString) gây lệch ngày trước 07:00 sáng VN, và ô tìm kiếm #reprint-search-input bị co hẹp làm placeholder bị cắt còn 'Nhậ'.",
+      "principle": "- Mỗi lần mở Lịch sử đơn mặc định đặt lại preset 'Hôm nay' theo ngày giờ địa phương và đảm bảo ô tìm kiếm đủ rộng để đọc rõ placeholder.",
+      "issue_proposal": "1. pos_shift_reports.js: Dùng helper lấy ngày local (YYYY-MM-DD) và gọi setReprintDatePreset('today') khi mở openReprintModal().\n2. index.html: Cho phép ô tìm kiếm #reprint-search-input có min-w-[200px] không bị co hẹp quá mức.",
+      "test_steps": [
+        "Mở Lịch sử đơn -> bấm Hôm qua -> Đóng -> Mở lại Lịch sử đơn -> tự reset về Hôm nay và hiển thị đủ các hóa đơn đã thanh toán trong ngày."
+      ],
+      "notes": "- Đã sửa pos_shift_reports.js (getLocalDateYmd + setReprintDatePreset('today') trong openReprintModal) & index.html (min-w-[200px]); xác minh trên Chrome /pos: mở Lịch sử đơn hiện '4 / 4 đơn' Hôm nay, ô tìm kiếm 200px, bấm Hôm qua rồi đóng mở lại tự reset về Hôm nay, 0 lỗi JS.",
+      "created_at": "2026-11-25 19:58:00",
+      "fixed_at": "2026-11-25 20:04:00",
+      "approval": "approved"
+    },
+    {
+      "id": "KDS-FIX-02",
+      "group": "BUG",
+      "group_label": "Bếp & Pha Chế (KDS)",
+      "title": "[Backend + KDS] Sửa lỗi tick 'Xong' 1 món khiến cả đơn (kitchen_status='preparing') biến mất khỏi tab 'Chờ Làm' trên /kitchen",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 19:49",
+      "ota_version": "v2026.11.25.07",
+      "summary": "- Khi Bếp tick 'Xong' 1 món, update_item_status đặt orders.kitchen_status='preparing'. Tuy nhiên SQL filterStatus='active' và biến đếm cActive trong slave_handlers.cpp (dòng 2797, 2840) thiếu 'preparing' nên cả đơn biến mất khỏi tab 'Chờ Làm (0)', khiến Bếp không tick tiếp được các món còn lại.",
+      "principle": "- Mọi đơn đang ở trạng thái 'pending', 'preparing', 'ready', 'cancel_requested' đều phải hiển thị và được đếm nhất quán trên tab 'Chờ Làm' của KDS.",
+      "issue_proposal": "1. slave_handlers.cpp: Bổ sung 'preparing' vào cả filterStatus=='active' (dòng 2797) và cActive (dòng 2840, kèm 'cancel_requested').\n2. kitchen_kds.js: Cập nhật isPending và điều kiện chuông báo nhận diện cả 'preparing'.",
+      "test_steps": [
+        "Đơn 4 món (HD261125-0006) -> Bếp tick 'Xong' món 1 -> đơn vẫn hiển thị trên tab 'Chờ Làm (1)', món 1 hiện '✓ Đã xong', 3 món còn lại vẫn còn nút 'Xong' để Bếp tick tiếp."
+      ],
+      "notes": "- Đã sửa slave_handlers.cpp & kitchen_kds.js; xác minh trên Chrome /kitchen: Chờ Làm (1) khớp Tất Cả Đang Mở (1), tick 'Xong' Mì Gói Trứng -> HD261125-0006 vẫn giữ nguyên trong Chờ Làm (1), 0 lỗi JS.",
+      "created_at": "2026-11-25 19:44:00",
+      "fixed_at": "2026-11-25 19:49:00",
+      "approval": "approved"
+    },
+    {
+      "id": "POS-SYNC-01",
+      "group": "BUG",
+      "group_label": "POS Thu Ngân",
+      "title": "[POS Sync] Tự động đồng bộ badge trạng thái từng món (Chờ / Xong / Đã bưng) trong giỏ hàng đang mở khi Bếp/Phục vụ cập nhật",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 19:49",
+      "ota_version": "v2026.11.25.07",
+      "summary": "- Khi Thu ngân đang mở sẵn một bàn trên /pos (vd TQ6 - HD261125-0006), vòng lặp polling chỉ cập nhật thẻ bàn (loadTables), không đồng bộ lại item_status của các món trong giỏ đang mở nên POS vẫn hiện 'Chờ' dù Bếp đã bấm 'Xong'.",
+      "principle": "- Khi đang mở đơn đã lưu (activeOrderId > 0) và không có thao tác sửa giỏ chưa lưu, polling phải đồng bộ lại item_status từng món từ backend để POS khớp real-time với Bếp, Phục vụ và Khách.",
+      "issue_proposal": "1. pos.js: Trong vòng lặp refresh nền khi có activeOrderId, gọi nhẹ api/orders.php?action=detail để cập nhật item_status của các item khớp order_item_id và renderCart() nếu có thay đổi.",
+      "test_steps": [
+        "Mở sẵn bàn trên /pos -> sang /kitchen tick 'Xong' 1 món -> trong vòng 5s badge của món đó trên /pos tự đổi từ 'Chờ' sang 'Xong' không cần bấm lại bàn."
+      ],
+      "notes": "- Đã thêm syncActiveOrderItemStatuses() vào pos.js; xác minh trên Chrome /pos với TQ6 (HD261125-0006): sau khi update Coca Cola Lon -> ready, sau 4s badge tự đổi thành 'Xong' không cần bấm lại bàn, 0 lỗi JS.",
+      "created_at": "2026-11-25 19:44:00",
+      "fixed_at": "2026-11-25 19:49:00",
+      "approval": "approved"
+    },
+    {
+      "id": "POS-FIX-02",
+      "group": "BUG",
+      "group_label": "POS Thu Ngân",
+      "title": "[POS UI] Sửa viền thẻ bàn MV và TQ bị khuất nét trên/trái do container overflow-x-auto thiếu padding",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 19:35",
+      "ota_version": "v2026.11.25.06",
+      "summary": "- Trên /pos, cả #tables-mangve và #tables-taiquan trong index.html đều dùng 'overflow-x-auto pb-1 scrollbar-none' thiếu padding trên/trái/phải nên viền phát sáng/ring khi chọn bàn (MV1, TQ1...) bị cắt nét cạnh trên và cạnh trái.",
+      "principle": "- Container cuộn ngang chứa thẻ bàn có ring/shadow ngoài phải có đủ padding 4 phía (p-1) để viền active hiển thị trọn vẹn.",
+      "issue_proposal": "1. index.html: Đổi 'pb-1' thành 'p-1' trên cả #tables-mangve và #tables-taiquan.",
+      "test_steps": [
+        "Mở /pos, chọn bàn MV1 và TQ1 -> xác nhận viền xanh active hiển thị đầy đủ 4 cạnh, không bị khuất nét trên hay trái."
+      ],
+      "notes": "- Đã sửa pb-1 -> p-1 cho #tables-mangve và #tables-taiquan trong index.html; xác minh trên Chrome /pos: padding 4px cả 4 phía, viền active MV1 và TQ1 không bị cắt mép, 0 lỗi JS.",
+      "created_at": "2026-11-25 19:31:00",
+      "fixed_at": "2026-11-25 19:35:00",
+      "approval": "approved"
+    },
+    {
+      "id": "ALERT-FIX-01",
+      "group": "BUG",
+      "group_label": "POS & Phục Vụ (Alerts)",
+      "title": "[Backend Alerts] Tự động dọn thông báo treo (order_alerts) khi đơn đã hoàn tất, đã hủy hoặc đã thanh toán",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 19:35",
+      "ota_version": "v2026.11.25.06",
+      "summary": "- Khi đơn được thanh toán/hoàn tất hoặc hủy qua POS thông thường, order_alerts của order_id đó không được đánh dấu is_ack=1 và action=alerts không lọc theo trạng thái bảng orders, dẫn đến bàn đã thành 'Bàn trống' nhưng banner vẫn treo thông báo chờ xác nhận thanh toán.",
+      "principle": "- Không bao giờ hiển thị cảnh báo pending cho đơn đã completed/cancelled; mọi luồng kết thúc/hủy đơn phải tự ack các alert liên quan.",
+      "issue_proposal": "1. slave_handlers.cpp (action=alerts): Tự động auto-ack (is_ack=1) và lọc bỏ alert của các đơn có status IN ('completed', 'cancelled') hoặc alert thanh toán của đơn đã payment_status='paid'.\n2. slave_handlers.cpp: Bổ sung UPDATE order_alerts SET is_ack=1 tại các điểm thanh toán/hoàn tất/hủy đơn.",
+      "test_steps": [
+        "Đơn QR Mang về MV2 ở trạng thái chờ thanh toán -> thanh toán hoặc hủy đơn thành công -> reload /pos xác nhận không còn treo banner cảnh báo của đơn đó."
+      ],
+      "notes": "- Đã sửa action=alerts trong slave_handlers.cpp (auto-ack và LEFT JOIN orders lọc bỏ đơn completed/cancelled/paid); xác minh trên Chrome /pos: alerts=[], bannerVisible=false, 0 lỗi JS.",
+      "created_at": "2026-11-25 19:31:00",
+      "fixed_at": "2026-11-25 19:35:00",
+      "approval": "approved"
+    },
+    {
+      "id": "AUTH-FIX-02",
+      "group": "BUG",
+      "group_label": "Xác thực & Phiên đăng nhập (Slave Auth)",
+      "title": "[Auth / OTA Session] Sửa lỗi Slave bắt đăng nhập 2 lần sau khi cập nhật OTA do store_brand.js không nhận diện clean URL /login",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 19:26",
+      "ota_version": "v2026.11.25.06",
+      "summary": "- login.html đổi URL sang /login (không đuôi .html) nên isPublicPage trong store_brand.js trả về false, không cập nhật cnx_session_ota_ver. Khi user đăng nhập lần 1 vào /pos, store_brand.js thấy lệch cnx_session_ota_ver nên xóa pos_token/pos_user và đá ngược về login.html?reason=updated.",
+      "principle": "- Phiên đăng nhập mới sau OTA không bao giờ bị đá ra; isPublicPage phải nhận diện đầy đủ clean URL (/login, /menu, /customer, /wifi) và login thành công phải reset cnx_session_ota_ver.",
+      "issue_proposal": "1. store_brand.js: Mở rộng isPublicPage nhận diện cả clean URL (/login, /menu, /customer, /wifi và bản .html).\n2. login.html: Khi pin_login hoặc login thành công, xóa cnx_session_ota_ver cũ trước khi chuyển hướng vào trang chính.",
+      "test_steps": [
+        "Giả lập localStorage.setItem('cnx_session_ota_ver', 'v2026.11.25.04') trên /login khi server đang chạy OTA mới hơn -> đăng nhập 1 lần duy nhất vào thẳng /pos không bị đá ngược về login.html?reason=updated."
+      ],
+      "notes": "- Đã sửa store_brand.js & login.html; xác minh trên Chrome /login (giả lập cnx_session_ota_ver='v2026.11.25.00'): đăng nhập 1 lần PIN 111111 ở yên tại /pos (stayedOnPos=true, cnx_session_ota_ver='2026.11.25.05', 0 lỗi JS).",
+      "created_at": "2026-11-25 19:23:00",
+      "fixed_at": "2026-11-25 19:26:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-09",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer Mang Về / Online] Sửa màn hình 'Đơn của tôi': ẩn giỏ trống, sửa tiêu đề modal & hiển thị Progress Bar + danh sách theo dõi từng món real-time",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 17:37",
+      "ota_version": "v2026.11.25.05",
+      "summary": "- Hiện bấm nút 'Đơn của tôi' trên /menu (không ?table=) bị hiện đè 'Giỏ hàng của bạn đang trống' ở nửa trên modal, tiêu đề vẫn là 'Danh Sách Món Tại Bàn', và hoàn toàn không hiển thị danh sách món hay tiến độ từng món dù API customer_status có trả items.",
+      "principle": "- Khách đặt Mang về / Online mở 'Đơn của tôi' phải thấy rõ từng món đã đặt + Progress Bar + trạng thái chế biến từng món giống đơn bàn, không bị kẹt màn hình giỏ trống, và tự ẩn nút khi đơn completed/cancelled.",
+      "issue_proposal": "1. customer_app.js (showPaymentScreen): Ẩn cả #customer-cart-empty lẫn #customer-cart-active; cập nhật tiêu đề modal theo mã đơn Mang về/Online.\n2. customer_app.js (checkOrderStatus) & customer.html: Render Progress Bar + 3 nhóm trạng thái từng món từ custRes.items vào #customer-order-payment.\n3. Tự xóa cbnx_last_customer_order và ẩn #btn-my-last-order khi đơn completed/cancelled.",
+      "test_steps": [
+        "Đặt đơn Mang về trên /menu -> đóng modal -> bấm 'Đơn của tôi' -> không còn thấy 'Giỏ hàng đang trống', thấy danh sách món + Progress Bar + trạng thái từng món cập nhật theo Bếp/Phục vụ."
+      ],
+      "notes": "- Đã triển khai trong customer_app.js & customer.html; xác minh trên Chrome /menu: ẩn #customer-cart-empty, tiêu đề 'Theo Dõi Đơn HD261125-0003', hiển thị Progress Bar & danh sách món 'Chờ xác nhận TT' với 0 lỗi JS.",
+      "created_at": "2026-11-25 17:14:00",
+      "fixed_at": "2026-11-25 17:37:00",
+      "approval": "approved"
+    },
+    {
+      "id": "KDS-FIX-01",
+      "group": "BUG",
+      "group_label": "Bếp & Pha Chế (KDS)",
+      "title": "[Backend KDS] Sửa đếm lệch tab 'Tất Cả Đang Mở' trên /kitchen (đếm nhầm đơn awaiting_payment / awaiting_kitchen_push)",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 17:37",
+      "ota_version": "v2026.11.25.05",
+      "summary": "- Trên /kitchen, Chờ Làm (0) trống nhưng tab 'Tất Cả Đang Mở' hiện (2) do SQL cAll ở slave_handlers.cpp:2843 chỉ loại 'awaiting_waiter', không loại 'awaiting_payment' và 'awaiting_kitchen_push' như SQL lấy danh sách ở dòng 2793.",
+      "principle": "- Số đếm trên các tab KDS phải khớp 100% với danh sách phiếu bếp thực tế hiển thị khi bấm vào tab.",
+      "issue_proposal": "1. slave_handlers.cpp: Đồng bộ điều kiện NOT IN ('awaiting_waiter', 'awaiting_payment', 'awaiting_kitchen_push') cho biến đếm cAll.",
+      "test_steps": [
+        "Có đơn QR Mang về đang chờ đối soát CK (awaiting_payment) -> mở /kitchen kiểm tra tab 'Tất Cả Đang Mở' không đếm khống đơn chưa đẩy bếp."
+      ],
+      "notes": "- Đã sửa SQL cAll trong slave_handlers.cpp; xác minh trên Chrome /kitchen: tab 'Tất Cả Đang Mở' đếm đúng 2 đơn bếp, loại trừ đơn awaiting_payment với 0 lỗi JS.",
+      "created_at": "2026-11-25 17:14:00",
+      "fixed_at": "2026-11-25 17:37:00",
+      "approval": "approved"
+    },
+    {
+      "id": "POS-FIX-01",
+      "group": "BUG",
+      "group_label": "POS Thu Ngân",
+      "title": "[POS UI] Sửa chấm trạng thái thẻ bàn 'Chờ đối soát CK' (MV1/MV2) bị tàng hình do animate-ping đơn lớp",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 17:37",
+      "ota_version": "v2026.11.25.05",
+      "summary": "- Trên /pos, thẻ bàn đang chờ đối soát CK dùng <span class='w-2 h-2 rounded-full bg-rose-500 animate-ping'> đơn lớp nên khi animation chạy về opacity:0 làm chấm đỏ biến mất.",
+      "principle": "- Dùng chấm 2 lớp (chấm tĩnh ở lõi + vòng animate-ping bọc ngoài) giống trạng thái Bếp đang nấu để luôn nhìn thấy điểm báo.",
+      "issue_proposal": "1. pos.js: Cập nhật statusDotHtml cho trạng thái isOccupied && !isInKitchen && !isPaid dùng 2 lớp span (lõi tĩnh + ping).",
+      "test_steps": [
+        "Có đơn MV1/MV2 chờ đối soát CK -> mở /pos xác nhận chấm đỏ hiển thị rõ ràng, không bị tàng hình."
+      ],
+      "notes": "- Đã sửa chấm 2 lớp trong pos.js; xác minh trên Chrome /pos với MV2 '🔎 Chờ đối soát CK' (HD261125-0004): đủ lõi tĩnh + vòng ping với 0 lỗi JS.",
+      "created_at": "2026-11-25 17:14:00",
+      "fixed_at": "2026-11-25 17:37:00",
+      "approval": "approved"
+    },
+    {
+      "id": "ORD-FIX-01",
+      "group": "BUG",
+      "group_label": "Phục Vụ (/order)",
+      "title": "[Order Waiter] Lọc cảnh báo đối soát CK Mang Về (qr_payment_pending) khỏi màn hình Phục vụ & hiện nhãn trạng thái thẻ bàn",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 17:37",
+      "ota_version": "v2026.11.25.05",
+      "summary": "- /order đang gọi action=alerts&target_role=all nên đẩy cả cảnh báo 'Đơn QR Mang Về đang chờ xác nhận thanh toán' lên Phục vụ (vốn là việc của Thu ngân /pos), và thẻ MV1/MV2 trên /order không hiện nhãn 'Chờ đối soát CK'.",
+      "principle": "- Phân tách đúng vai trò: cảnh báo đối soát tiền QR Mang về chỉ đẩy cho Thu ngân (/pos); màn hình Phục vụ chỉ nhận cảnh báo cần phục vụ và hiển thị nhãn rõ trên thẻ bàn.",
+      "issue_proposal": "1. order_waiter.js: Lọc bỏ alert_type === 'qr_payment_pending' khỏi banner biến động trên /order và bổ sung nhãn 'Chờ đối soát CK' / 'Chờ TT QR' trên thẻ bàn awaiting_payment.",
+      "test_steps": [
+        "Đặt đơn QR Mang về -> mở /order không bị báo nhầm cảnh báo đối soát CK ở banner trên cùng, thẻ bàn MV1/MV2 hiện đúng nhãn trạng thái."
+      ],
+      "notes": "- Đã sửa order_waiter.js; xác minh trên Chrome /order: không còn qr_payment_pending trong #waiter-alert-list, thẻ MV2 hiện nhãn '🔎 Chờ đối soát CK' với 0 lỗi JS.",
+      "created_at": "2026-11-25 17:14:00",
+      "fixed_at": "2026-11-25 17:37:00",
+      "approval": "approved"
+    },
+    {
+      "id": "KDS-ITEM-01",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Backend + KDS/Order] Cho phép Bếp & Phục vụ tick trạng thái riêng từng món (Xong món / Đã bưng món) đồng bộ real-time về điện thoại khách",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 14:55",
+      "ota_version": "v2026.11.25.04",
+      "summary": "- Hiện KDS (/kitchen) và Phục vụ (/order) mới đổi trạng thái theo cả hóa đơn, chưa tick riêng được từng món (vd: nước ra trước, đồ ăn làm sau).",
+      "principle": "- Giữ nguyên nút nhanh 'Xong cả đơn / Đã bưng cả đơn', đồng thời bổ sung nút tick riêng từng món để cập nhật chính xác order_items.item_status và tự suy ra trạng thái tổng của đơn.",
+      "issue_proposal": "1. slave_handlers.cpp: Thêm action=update_item_status (item_id, item_status: preparing|ready|served) cập nhật order_items.item_status; tự tổng hợp lên orders.kitchen_status khi tất cả món cùng ready/served.\n2. kitchen_kds.js & order_waiter.js: Thêm nút nhỏ 1 chạm trên từng dòng món ('Xong' trên KDS, 'Đã bưng' trên Order).",
+      "test_steps": [
+        "Đơn 2 món -> Bếp tick Xong món 1 -> điện thoại khách (/menu?table=TQ1) hiện ngay món 1 'Sắp mang ra', món 2 vẫn 'Đang pha/nấu'.",
+        "Phục vụ tick Đã bưng món 1 -> điện thoại khách hiện món 1 'Đã đem ra (1/2)'."
+      ],
+      "notes": "- Đã triển khai trên slave_handlers.cpp, kitchen_kds.js, order_waiter.js, pos.js và kiểm tra thực tế trên Chrome (/kitchen, /order, /pos, /menu?table=TQ1) với 0 lỗi JS.",
+      "created_at": "2026-11-25 14:22:00",
+      "fixed_at": "2026-11-25 14:55:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-07",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer Sheet] Nâng cấp Bottom Sheet 'Đơn Bàn' dạng Progress Bar + Phân nhóm (Đang chờ / Sắp ra / Đã bưng) + Toast báo món xong",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 14:55",
+      "ota_version": "v2026.11.25.04",
+      "summary": "- Sheet theo dõi bàn hiện liệt kê danh sách phẳng, chưa có thanh tiến độ %, chưa gom nhóm ưu tiên món đang chờ lên trên và chưa có thông báo khi món vừa làm xong.",
+      "principle": "- Khách mở điện thoại lên nhìn là thấy ngay tiến độ bàn (vd: 2/3 món đã ra), món nào sắp mang ra và có toast báo nhẹ khi bếp vừa xong món.",
+      "issue_proposal": "1. customer_app.js: Thêm thanh Progress Bar (served/total %), phân 3 nhóm rõ ràng (Sắp mang ra -> Đang chờ/chế biến -> Đã phục vụ tại bàn), và phát Toast khi phát hiện món mới chuyển sang ready/served.",
+      "test_steps": [
+        "Mở /menu?table=TQ1 -> mở Sheet thấy thanh tiến độ % và 3 nhóm trạng thái; khi bếp bấm xong món trong vòng 5s hiện Toast báo món sắp mang ra."
+      ],
+      "notes": "- Đã sửa SQL table_live_order (price, price as unit_price) và xác minh thực tế trên Chrome /menu?table=TQ1: Progress Bar (1/2 50% -> 2/2 100%) và phân nhóm hiển thị đúng với 0 lỗi JS.",
+      "created_at": "2026-11-25 14:22:00",
+      "fixed_at": "2026-11-25 14:55:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-08",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer Mang Về / Online] Bổ sung nút 'Đơn của tôi' trên thanh đáy khi không quét QR bàn để mở lại theo dõi đơn & VietQR",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 14:55",
+      "ota_version": "v2026.11.25.04",
+      "summary": "- Khách đặt Mang về / Online trên /menu (không có ?table=...) nếu đóng modal VietQR sẽ không có nút ở thanh đáy để mở lại theo dõi trạng thái đơn vừa đặt.",
+      "principle": "- Lưu mã đơn + access_token gần nhất vào localStorage (TTL 4 giờ); tự hiện nút 'Đơn của tôi' ở thanh đáy cho tới khi đơn hoàn tất.",
+      "issue_proposal": "1. customer_app.js & customer.html: Khi đặt đơn Mang về/Online thành công, lưu vào cbnx_last_customer_order; nếu chưa hoàn tất thì hiện nút mở lại modal theo dõi trạng thái & VietQR.",
+      "test_steps": [
+        "Đặt đơn Mang về trên /menu -> đóng modal -> bấm nút 'Đơn của tôi' ở thanh đáy mở lại đúng đơn vừa đặt và trạng thái mới nhất."
+      ],
+      "notes": "- Đã export window.CustomerOrdering = CustomerOrdering và xác minh thực tế trên Chrome /menu (không ?table=): bấm #btn-my-last-order mở đúng modal đơn HD261125-0003 & VietQR với 0 lỗi JS.",
+      "created_at": "2026-11-25 14:22:00",
+      "fixed_at": "2026-11-25 14:55:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-06",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer /menu] Xóa bỏ 42 món ảo hardcoded trong customer.html, render 100% thực đơn & danh mục thật từ /api/products.php & /api/categories.php",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 14:18",
+      "ota_version": "—",
+      "summary": "- customer.html đang hardcode sẵn 42 thẻ món mẫu cũ (BM001..42 món) và pill danh mục tĩnh ('Tất Cả (42)', 'BÁNH MÌ CHÀO (12)'...).\n- customer_app.js:297-325 (loadCatalogI18n) có gọi /api/products.php nhưng chỉ đổi tên h4 của 3 thẻ đầu trùng ID -> gây lỗi nghiêm trọng: 'Cà phê sữa đá Sài Gòn' bị gắn ảnh bánh mì & giá 6.000đ, 'Bò bít tết' giá 45.000đ, kèm 39 món ảo quán không bán!",
+      "principle": "- Trang /menu phải dùng Single Source of Truth từ Database quán (/api/products.php & /api/categories.php): quán có đúng món nào (tên, ảnh, giá, đơn vị, tình trạng hết hàng, danh mục) thì hiển thị đúng 100% món đó.",
+      "issue_proposal": "1. slave/web/customer.html: Xóa danh sách 42 thẻ món & pill danh mục hardcoded tĩnh, thay bằng container động #customer-product-grid & #category-filter-pills.\n2. slave/web/assets/js/customer_app.js: Render danh mục và toàn bộ thẻ món trực tiếp từ dữ liệu API /api/categories.php & /api/products.php (lọc bỏ món inactive, hiển thị badge Hết hàng nếu out_of_stock, đúng ảnh/giá/mã/đơn vị thật).",
+      "test_steps": [
+        "Quán có 3 món trên POS -> mở /menu trên điện thoại chỉ hiện đúng 3 món đó với đúng ảnh, giá (29.000đ, 89.000đ, 35.000đ) và đúng số lượng danh mục.",
+        "Thêm/sửa/ẩn món trong Admin -> F5 /menu cập nhật ngay lập tức."
+      ],
+      "notes": "- Phát hiện qua ảnh chụp thực tế của user (POS 3 món vs Customer 42 món ảo BM001-BM004 sai ảnh/giá). Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 13:55:00",
+      "fixed_at": "2026-11-25 14:18:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-03",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer Menu] Tinh gọn bố cục Mobile-First, thêm Quick Filter (Bán chạy/Mới) & Quick Options (Ít đá/Ít đường/Ghi chú nhanh)",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 14:18",
+      "ota_version": "—",
+      "summary": "- Trên điện thoại, Hero Banner chiếm nhiều chiều cao đẩy danh sách món xuống thấp; khách chọn món muốn dặn 'ít đá / ít đường / không hành' phải vào tận giỏ hàng mới gõ tay được.",
+      "principle": "- Mở QR là thấy ngay món ngon trong 1 màn hình; tùy chỉnh món nhanh bằng 1-2 chạm thay vì gõ chữ nhiều trên điện thoại.",
+      "issue_proposal": "1. customer.html & customer.css: Thu gọn Hero Banner trên mobile (tỉ lệ gọn hơn, giữ sắc nét), thanh danh mục + tìm kiếm sticky mượt.\n2. customer_app.js: Bổ sung Quick Filter (Tất cả / Bán chạy) & Quick Note Chips khi thêm món ('Ít đá', 'Không đá', 'Ít ngọt', 'Mang về riêng').",
+      "test_steps": [
+        "Mở /menu trên iPhone 390x844 -> thấy ngay banner gọn + thanh tìm kiếm + danh mục + hàng món đầu tiên.",
+        "Bấm vào món -> chọn nhanh chip 'Ít đá' + thêm vào giỏ -> hiển thị đúng ghi chú ở giỏ và đơn bếp."
+      ],
+      "notes": "- Mới làm thu gọn Hero Banner; CÒN THIẾU Quick Filter (Bán chạy) & Quick Note Chips -> trả về todo chờ duyệt làm đủ.",
+      "created_at": "2026-11-25 13:33:00",
+      "fixed_at": "2026-11-25 14:18:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-04",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer Tại Quán] Bổ sung nút 'Gọi Nhân Viên / Hỗ Trợ Tại Bàn' 1 chạm (Xin đá, Nước lọc, Tính tiền) bắn thông báo lên POS/Order",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 13:42",
+      "ota_version": "v2026.11.25.03",
+      "summary": "- Khách ngồi tại bàn quét QR muốn xin thêm đá, nước lọc, khăn giấy hoặc yêu cầu thanh toán tiền mặt hiện chưa có nút gọi phục vụ ngay trên web.",
+      "principle": "- Chỉ hiển thị khi khách đang ở bàn Tại Quán (?table=... + table_sig hợp lệ), có cooldown chống bấm liên tục (30s) và đồng bộ thẳng vào chuông thông báo POS/Phục vụ.",
+      "issue_proposal": "1. slave_handlers.cpp: Thêm action=customer_call_service (xác thực table_sig) ghi nhận yêu cầu vào app_notifications cho role cashier & waiter.\n2. customer.html & customer_app.js: Thêm nút 'Gọi Phục Vụ' với 4 preset nhanh (Xin thêm đá/nước, Hỗ trợ tại bàn, Tính tiền mặt, Thanh toán VietQR).",
+      "test_steps": [
+        "Tại /menu?table=TQ1 -> bấm 'Gọi Phục Vụ' -> chọn 'Xin thêm đá' -> POS & Order nhận chuông cảnh báo đúng tên bàn TQ1 ngay lập tức."
+      ],
+      "notes": "- Tái sử dụng hệ thống app_notifications sẵn có. Chờ user duyệt để triển khai.",
+      "created_at": "2026-11-25 13:33:00",
+      "fixed_at": "2026-11-25 13:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-05",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Customer UI] Đồng bộ Bottom Bar gọn đẹp, nút Wi-Fi Copy Pass 1 chạm trên Mobile & tối ưu thẻ món đồng đều",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 13:42",
+      "ota_version": "v2026.11.25.03",
+      "summary": "- Trên mobile, thông tin Wi-Fi quán bị ẩn khỏi header (hidden lg:flex), thanh giỏ hàng đáy cần phối hợp gọn với thanh theo dõi đơn bàn (CUST-02), và thẻ món cần chiều cao/nút bấm đồng đều hơn.",
+      "principle": "- Mọi thao tác chính của khách (Xem Wi-Fi, Theo dõi món bàn, Giỏ hàng & Thanh toán) luôn nằm gọn trong tầm ngón tay cái, có safe-area-inset-bottom chuẩn iOS/Android.",
+      "issue_proposal": "1. customer.html: Thêm nút icon Wi-Fi trên header mobile bấm mở popover hiện tên Wi-Fi + nút Copy mật khẩu 1 chạm.\n2. Thiết kế lại Sticky Bottom Bar thống nhất: [Trạng thái Bàn / Theo dõi món] + [Giỏ hàng & Thanh toán] vừa khít 390px, đệm safe-area-inset-bottom.\n3. Chuẩn hóa card món ăn (tỉ lệ ảnh 4:3 hoặc 1:1 đồng đều, tên món tối đa 2 dòng, giá + nút '+' căn thẳng hàng).",
+      "test_steps": [
+        "Mở /menu?table=TQ1 ở 390x844 -> bấm icon Wi-Fi copy được pass; Bottom Bar cân đối không che món cuối; mọi thẻ món thẳng hàng đều đẹp."
+      ],
+      "notes": "- Đề xuất hoàn thiện giao diện Customer chuyên nghiệp. Chờ user duyệt để triển khai.",
+      "created_at": "2026-11-25 13:33:00",
+      "fixed_at": "2026-11-25 13:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-01",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Backend] API theo dõi chi tiết từng món của bàn đang mở (Đã ra / Đang chờ / Chờ duyệt) & gọi thêm món ghép vào hóa đơn bàn",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 13:42",
+      "ota_version": "v2026.11.25.03",
+      "summary": "- Hiện action=customer_status (slave_handlers.cpp:2857-2878) chỉ trả về bảng orders tổng quát, KHÔNG trả về chi tiết từng món (order_items) và trạng thái từng món (đã bưng ra / bếp xong / đang làm / chờ duyệt).\n- Khi khách cùng bàn quét QR (/menu?table=TQ1&sig=...) hoặc mở lại trang, hệ thống không tự lấy được hóa đơn active_order_id đang mở của bàn đó.",
+      "principle": "- Chỉ áp dụng cho chế độ Tại Quán (dine_in có table + sig QR hợp lệ tại bàn, không áp dụng cho Mang về/Online).\n- Khách ngồi cùng bàn quét QR đều xem được trạng thái từng món theo thời gian thực và gọi thêm món ghép thẳng vào hóa đơn bàn (kèm chống giả mạo bằng table_sig).",
+      "issue_proposal": "1. slave/src/slave_handlers.cpp: Bổ sung endpoint public có kiểm tra table_sig (vd: action=table_live_order&table_code=...&sig=...) trả về trạng thái hóa đơn đang mở của bàn kèm danh sách order_items chi tiết từng món (tên món, SL, ghi chú, giá, item_status: pending/preparing/ready/served, đợt gọi).\n2. Mở rộng action=customer_status trả thêm mảng items chi tiết.\n3. Khi khách gửi thêm món qua action=customer_order khi bàn đang có active_order_id, hỗ trợ ghép món mới vào đơn bàn (hoặc đợt gọi thêm awaiting_waiter để nhân viên/bếp nhận ngay không bị tách nhiều hóa đơn lẻ).",
+      "test_steps": [
+        "Quét QR bàn TQ1 -> gọi 2 món -> nhân viên duyệt & bếp bấm Xong 1 món / Bưng 1 món -> API table_live_order trả đúng 1 món 'Đã bưng' và 1 món 'Đang chờ'.",
+        "Gọi thêm 1 món trên cùng bàn TQ1 -> ghép đúng vào hóa đơn bàn đó, tổng tiền tạm tính cập nhật chính xác."
+      ],
+      "notes": "- Đã khảo sát customer_app.js & slave_handlers.cpp. Chờ user duyệt để triển khai.",
+      "created_at": "2026-11-25 13:31:00",
+      "fixed_at": "2026-11-25 13:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "CUST-02",
+      "group": "UX",
+      "group_label": "Trải nghiệm Khách Hàng Tại Bàn (QR Dine-in)",
+      "title": "[Frontend /menu] Thiết kế Bottom Sheet 'Đơn Bàn Của Bạn' theo dõi tiến độ từng món mượt mà & nút Gọi Thêm Món 1 chạm",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 13:42",
+      "ota_version": "v2026.11.25.03",
+      "summary": "- Hiện trên customer.html & customer_app.js, theo dõi đơn bị nhét chung vào modal VietQR (#customer-payment-status) chỉ có 1 dòng chữ chung chung.\n- Khách tại bàn không có màn hình riêng để xem món nào đã đem ra, món nào đang làm, tổng tiền tạm tính của bàn, và thao tác gọi thêm món còn rời rạc.",
+      "principle": "- Trải nghiệm chuẩn nhà hàng/cafe hiện đại: thanh nổi gọn dưới đáy chỉ hiện khi đang ngồi bàn (?table=...), bấm mở Bottom Sheet 'Bàn TQ1 • Đơn đang phục vụ' với timeline từng món & nút '+ Gọi thêm món' mượt mà.",
+      "issue_proposal": "1. customer.html & customer_app.js: Thêm thanh trạng thái bàn nổi gọn ('Bàn TQ1 • X đã ra / Y đang làm • Tạm tính') + Bottom Sheet riêng cho Tại Quán.\n2. Chia nhóm rõ ràng: (a) Đã phục vụ tại bàn (xanh), (b) Bếp đã xong / đang mang ra (xanh dương), (c) Bếp đang chế biến / chờ duyệt (vàng), kèm badge tiến độ 2/3 món.\n3. Thêm nút '+ Gọi thêm món' (đóng sheet cuộn mượt về thực đơn giữ nguyên bàn) và nút 'Yêu cầu thanh toán / Gọi nhân viên', tự đồng bộ nền 5s (chỉ khi sheet mở hoặc có đơn active & !document.hidden).",
+      "test_steps": [
+        "Mở /menu?table=TQ1 trên điện thoại -> thấy thanh theo dõi bàn -> bấm mở Sheet thấy từng món theo trạng thái Đã ra / Đang chờ -> bấm '+ Gọi thêm món' chọn thêm nước gửi bếp mượt mà không cần chọn lại số bàn."
+      ],
+      "notes": "- Đã khảo sát customer.html & customer_app.js. Chờ user duyệt để triển khai.",
+      "created_at": "2026-11-25 13:31:00",
+      "fixed_at": "2026-11-25 13:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-06",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "[Mobile] Sửa nút chuyển Sáng / Tối (Dark Mode) trong Mobile Drawer không hoạt động",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 13:42",
+      "ota_version": "v2026.11.25.03",
+      "summary": "- Trong theme.js:65, #cn-theme-slot bị thay thế hoàn toàn bằng button#saleapp-theme-toggle (themeSlot.replaceWith(toggle)) và theme.js không export window.CNX_THEME.\n- Vì vậy trong Mobile Drawer (cn_station_nav.js:168), selector document.querySelector('#cn-theme-slot button') luôn trả về null và window.CNX_THEME bị undefined -> bấm 'Chế độ Tối / Chế độ Sáng' trên điện thoại không có tác dụng.",
+      "principle": "- Nút chuyển Sáng / Tối trong Mobile Drawer phải kích hoạt được đúng nút #saleapp-theme-toggle / API theme chính thức và lưu localStorage('saleapp-theme').",
+      "issue_proposal": "1. slave/web/assets/js/cn_station_nav.js: Đổi selector sang document.getElementById('saleapp-theme-toggle') || document.querySelector('.saleapp-theme-toggle').\n2. slave/web/assets/js/theme.js: Export window.CNX_THEME = { get: () => theme, set: apply, toggle: ... } để mọi component (Mobile Drawer, Settings) gọi trực tiếp an toàn.",
+      "test_steps": [
+        "Mở /pos hoặc /kitchen ở 390x844 -> mở Menu ☰ -> bấm 'Chế độ Sáng' / 'Chế độ Tối' -> giao diện đổi ngay giữa Dark & Light và lưu sau khi F5."
+      ],
+      "notes": "- Đã xác định nguyên nhân chính xác tại theme.js:65 & cn_station_nav.js:168. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 13:25:00",
+      "fixed_at": "2026-11-25 13:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "AUTH-01",
+      "group": "SEC",
+      "group_label": "Bảo mật & Xác thực (Auth)",
+      "title": "Sửa lỗi đăng nhập lần 1 bị đá lại /login (xung đột xóa/ghi đè cookie HttpOnly pos_token & race async action=check trên login.html)",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 13:42",
+      "ota_version": "v2026.11.25.03",
+      "summary": "- Khi trình duyệt đã có cookie HttpOnly pos_token cũ (hết hạn/sau restart), JS trong login.html (dòng 407, 420) dùng document.cookie = 'pos_token=; expires=...' KHÔNG thể xóa được cookie HttpOnly, và dòng 339/382 ghi đè bằng JS cookie gây trùng/lệch cookie.\n- Ngoài ra trên /login (không có ?logout=1), fetch('api/auth.php?action=check') chạy async ở nền (dòng 412-422); nếu trả về sau khi user bấm đăng nhập sẽ xóa nhầm localStorage pos_user/pos_token ngay lúc chuyển trang.\n- Hệ quả: Lần đăng nhập 1 bị serveProtectedView đá về /login (lúc này server mới gửi Set-Cookie xóa HttpOnly cũ), nên tới lần đăng nhập 2 mới vào được.",
+      "principle": "- Xóa/ghi cookie phiên HttpOnly phải do C++ Backend cấp/xóa chuẩn qua Set-Cookie.\n- Khi user đã bắt đầu đăng nhập, tuyệt đối không để tác vụ nền action=check cũ ghi đè/xóa localStorage mới.",
+      "issue_proposal": "1. slave/web/login.html: Thêm cờ _isLoggingIn để hủy bỏ mọi cleanup từ async action=check nếu user đang/đã submit đăng nhập; bỏ ghi document.cookie='pos_token=...' (để C++ Set-Cookie HttpOnly quản lý đồng nhất) và khi logout=1 gọi API logout/clear cookie phía server nếu cần.\n2. slave/src/main_slave.cpp: Đảm bảo route /login?logout=1 gửi header Set-Cookie formatClearCookie('pos_token') & formatClearCookie('PHPSESSID') xóa sạch cookie HttpOnly ở server.\n3. slave/src/slave_handlers.cpp: Dùng res.headers.emplace('Set-Cookie', ...) thay vì res.set_header để không ghi đè mất header Set-Cookie khi set cả pos_token và PHPSESSID.",
+      "test_steps": [
+        "Đăng nhập sẵn -> khởi động lại Slave hoặc làm hết hạn session -> mở /pos -> tự chuyển về /login -> nhập PIN/mật khẩu đúng 1 lần duy nhất -> vào thẳng /admin hoặc /pos ngay ở lần 1."
+      ],
+      "notes": "- Đã phân tích mã nguồn (login.html, main_slave.cpp, slave_handlers.cpp, auth.cpp) và đối chiếu thực tế trên Chrome (browser sạch vào ngay lần 1, browser có cookie HttpOnly cũ dính lỗi lần 1). Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 13:23:00",
+      "fixed_at": "2026-11-25 13:42:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-01",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "[Mobile] Thiết kế lại thanh Header .cn-top-nav responsive (< 1024px) + Mobile Drawer Menu cho toàn bộ trạm",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 12:20",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Đo thực tế 390x844 trên /pos, /kitchen, /order, /admin: .cn-top-nav dùng flex-wrap: nowrap và không có @media mobile.\n- .cn-nav-left chiếm 305-383px bóp .cn-nav-center còn 14px (mất Jukebox, chuyển trạm, Giao Ca, Lịch Sử, Thống Kê, Làm mới, QR) và đẩy .cn-nav-right (VI/EN, Sáng/Tối, User, Đăng xuất) văng ra ngoài màn hình (scrollWidth 658-753px).",
+      "principle": "- Mọi trang trên điện thoại 360px-430px phải có scrollWidth <= innerWidth (0 tràn ngang), đầy đủ chức năng như desktop nhưng gọn gàng qua Mobile Drawer / Action Bar.",
+      "issue_proposal": "1. liquid-glass.css (@media max-width: 1023px): Thu gọn .cn-nav-left (ẩn badge dài/tên phụ), chuyển .cn-nav-right thành cụm gọn (VI/EN + nút Menu ☰ mở Drawer trượt chứa User, Đăng xuất, Theme, Chuyển trạm, Jukebox, Giao Ca, Lịch Sử, Thống Kê, Làm mới, QR).\n2. Cho .cn-nav-center xuống hàng 2 toàn chiều rộng hoặc nằm trong Drawer tùy trang, đảm bảo 0 tràn ngang.",
+      "test_steps": [
+        "Mở /pos, /kitchen, /order, /admin ở 390x844 (iPhone) -> scrollWidth === 390, mở Drawer bấm được toàn bộ tính năng."
+      ],
+      "notes": "- Đã kiểm chứng qua ảnh chụp iPhone thật & đo Chrome 390x844. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:50:00",
+      "fixed_at": "2026-11-25 12:20:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-02",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "[Mobile /pos] Thu gọn thanh chọn bàn, sửa tràn ngang +348px, hết che badge TR001 & chừa safe-area đáy iOS Safari",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 12:20",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Trên /pos (390x844): documentElement.scrollWidth = 738px (+348px tràn ngang), khối chọn bàn chiếm gần nửa màn hình và bị cắt ngang, mép trên card món (TR001) bị thanh danh mục sticky che nhẹ, đáy bị thanh Safari iOS (172.16.38.119) che khuất.",
+      "principle": "- Trên điện thoại, POS phải ưu tiên không gian chọn món (thu gọn dải chọn bàn thành 1 dòng pill cuộn ngang hoặc picker) và chừa đáy env(safe-area-inset-bottom).",
+      "issue_proposal": "1. slave/web/index.html & liquid-glass.css: Thu gọn khu vực bàn trên < 768px thành 1 hàng ngang cuộn mượt (compact pills) + thêm khoảng đệm dưới thanh tìm kiếm/danh mục để không che badge món.\n2. Thêm padding-bottom: calc(84px + env(safe-area-inset-bottom)) cho vùng cuộn món & giỏ hàng.",
+      "test_steps": [
+        "Mở /pos ở 390x844 -> không tràn ngang, chọn bàn nhanh 1 chạm, badge món đầu tiên không bị che, cuộn tới đáy không bị thanh Safari đè."
+      ],
+      "notes": "- Ghi nhận từ ảnh chụp iPhone thực tế & Chrome 390x844. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:50:00",
+      "fixed_at": "2026-11-25 12:20:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-03",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "[Mobile /kitchen & /order] Sửa cắt tab bộ lọc, rớt dòng lủng củng trên card đơn (05), 0002) & chừa safe-area đáy Safari",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 12:20",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Trên /kitchen (390x844): scrollWidth = 753px, thanh filter (Chờ Làm, Đã Bưng, Lịch Sử...) bị cắt tab cuối bên phải; header card đơn ép 3 phần trên 1 dòng làm '05)' và '0002' rớt dòng lẻ; đáy bị thanh Safari che.\n- Trên /order (390x844): scrollWidth = 727px (+337px tràn ngang).",
+      "principle": "- Card đơn trên mobile phải xếp 2 dòng rõ ràng không gãy số hóa đơn/tên bàn; thanh filter cho phép wrap hoặc cuộn ngang có đệm.",
+      "issue_proposal": "1. kitchen.html / kitchen_kds.js & order.html: Cho thanh filter flex-wrap hoặc cuộn ngang mượt; chỉnh header card đơn mobile hiển thị 2 hàng cân đối (Tên bàn + Badge trạng thái; dòng dưới Mã HĐ + Giờ).\n2. Thêm padding-bottom: calc(84px + env(safe-area-inset-bottom)) cho danh sách đơn.",
+      "test_steps": [
+        "Mở /kitchen & /order ở 390x844 -> 0 tràn ngang, bấm đủ các tab filter, card đơn gọn đẹp, đáy không bị thanh Safari che."
+      ],
+      "notes": "- Ghi nhận từ ảnh chụp iPhone thực tế & Chrome 390x844. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:50:00",
+      "fixed_at": "2026-11-25 12:20:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-04",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "[Mobile /admin] Sửa tràn ngang 658px, chuẩn hóa cuộn bảng & safe-area thanh điều hướng đáy",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 12:20",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Trên /admin (390x844): scrollWidth = 658px do header .cn-top-nav tràn và một số khối/bảng cài đặt chưa bọc overflow-x: auto đồng nhất trên màn nhỏ.",
+      "principle": "- Trang Admin trên điện thoại không bị zoom out/tràn ngang, mọi bảng dữ liệu tự cuộn ngang mượt trong khung riêng.",
+      "issue_proposal": "1. Áp dụng header mobile từ MOB-01 + rà soát bọc overflow-x: auto cho mọi bảng Admin.\n2. Thêm padding-bottom theo env(safe-area-inset-bottom) cho #admin-mobile-nav.",
+      "test_steps": [
+        "Mở /admin các tab ở 390x844 -> documentElement.scrollWidth === 390, chuyển tab mượt."
+      ],
+      "notes": "- Ghi nhận từ đo Chrome 390x844. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:50:00",
+      "fixed_at": "2026-11-25 12:20:00",
+      "approval": "approved"
+    },
+    {
+      "id": "MOB-05",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "[Mobile /menu] Thu gọn header khách hàng (đang tràn nội bộ +61px) & section WiFi/card (+48px)",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 12:20",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Trên /menu (390x844): dù trang ngoài không tràn (390px), nhưng <header> nội bộ có scrollWidth = 444 > 383 (+61px bị cắt WiFi/SĐT/Đăng nhập) và 1 section liquid-glass có scrollWidth = 405 > 357 (+48px).",
+      "principle": "- Header trang gọi món khách hàng trên điện thoại phải hiển thị gọn: Logo + Tên quán + Nút VI/EN + Icon WiFi/Hỗ trợ (bấm mở popup), không bị cắt mép.",
+      "issue_proposal": "1. customer.html: Trên < 640px ẩn text WiFi/Hotline dài thành nút icon gọn hoặc dòng phụ thu gọn; kiểm tra min-w-0 trên section bị tràn.",
+      "test_steps": [
+        "Mở /menu ở 390x844 -> mọi thành phần trong header và section đều có scrollWidth <= clientWidth."
+      ],
+      "notes": "- Ghi nhận từ đo Chrome 390x844. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:50:00",
+      "fixed_at": "2026-11-25 12:20:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UI-11",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "Bỏ badge 'Nội bộ ∞' trùng lặp ở cột Trạng thái bảng WiFi/Router, chỉ giữ 1 nút bật/tắt (sáng khi bật, mờ khi tắt)",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Bảng thiết bị mạng (admin_ops_kpi.js:1098-1120) đang hiển thị 2 ô 'Nội bộ ∞' cạnh nhau ở cả cột Trạng thái và cột Thao tác nhanh, gây rườm rà.",
+      "principle": "- Chỉ hiển thị 1 nút 'Nội bộ ∞' duy nhất ở cột Thao tác nhanh: sáng rõ khi đang bật Nội bộ, mờ đi khi tắt; cột Trạng thái không lặp lại badge 'Nội bộ ∞'.",
+      "issue_proposal": "1. slave/web/assets/js/admin_ops_kpi.js: Đổi cột Trạng thái khi whitelisted sang '—' (hoặc ẩn badge trùng), và style nút 'Nội bộ ∞' sáng xanh khi bật / mờ tối khi tắt.",
+      "test_steps": [
+        "Mở Admin -> Cài đặt -> Quản Trị Mạng & WiFi Marketing -> mỗi dòng chỉ còn 1 nút 'Nội bộ ∞' duy nhất (sáng khi bật, mờ khi tắt)."
+      ],
+      "notes": "- Đã hoàn tác code về nguyên trạng theo yêu cầu, nạp vào bảng ở trạng thái chờ duyệt.",
+      "created_at": "2026-11-25 08:31:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UI-10",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "Mở rộng card Quản Trị Mạng & WiFi Marketing (.cn-noc-main) ra toàn chiều ngang 100% để bảng thiết bị không bị che/cuộn ngang",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:23",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Trước đây .cn-noc-shell chia 2 cột (sidebar 330px + bảng thiết bị), khiến vùng bảng .cn-noc-main chỉ còn ~469px và bị thanh cuộn ngang che mất cột Tên máy / IP / MAC / Tín hiệu.",
+      "principle": "- Card bảng thiết bị mạng (.cn-noc-main) phải hiển thị toàn chiều ngang, không bị thanh cuộn ngang che khuất cột thông tin.",
+      "issue_proposal": "1. slave/web/assets/css/admin.css: Đổi .cn-noc-shell sang 1 cột xếp dọc (sidebar telemetry thành dải 4 ô ngang phía trên, .cn-noc-main chiếm trọn 100% chiều rộng ~811px bên dưới) và bỏ min-width: 720px cứng trên .cn-noc-table.",
+      "test_steps": [
+        "Mở /admin -> Cài đặt -> Quản Trị Mạng & WiFi Marketing ở 1366x768 & 1440x900 -> .cn-noc-main rộng 811px, scrollWidth === clientWidth, 0 cuộn ngang, 0 lỗi JS."
+      ],
+      "notes": "- Đã kiểm chứng trên Chrome thật (0 lỗi JS) & verify_regression_v1.py PASS 100%.",
+      "created_at": "2026-11-25 08:20:00",
+      "fixed_at": "2026-11-25 08:23:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-01",
+      "group": "PERF",
+      "group_label": "Hiệu năng & Tốc độ (Performance)",
+      "title": "Gỡ bỏ gọi WAN đồng bộ tới Master trên mọi lần tải trang (sync_if_due thực chất sync_now gây nghẽn worker thread tới 16s)",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Mỗi lần mở/chuyển trang và mỗi 2 phút, license_ping.js gọi /api/license_client?action=sync_if_due (cache: no-store).\n- Trong slave_license_handlers.cpp:66-73, action=sync_if_due chạy thẳng verifyLicenseOnline() đồng bộ (không kiểm tra đã tới hạn sync hay chưa).\n- Nếu mạng quán chậm hoặc Master không phản hồi, mỗi request bị treo tới 16s (3s connect + 5s read x 2 URL) ngay trên HTTP worker thread (mặc định 8 thread), làm treo toàn bộ web app tại quán.",
+      "principle": "- Mở trang không bao giờ được chờ kết nối WAN ra Master.\n- sync_if_due phải kiểm tra TTL cache cục bộ (chỉ sync nền/async khi quá hạn hoặc có thay đổi), trả response tức thì < 5ms.",
+      "issue_proposal": "1. slave_license_handlers.cpp: Tách rõ sync_if_due (kiểm tra last_sync_at TTL; nếu cần sync thì đẩy sang background worker thread hoặc trả ngay trạng thái cache hiện tại) và sync_now.\n2. license_ping.js: Giữ chu kỳ nền hợp lý (5 phút), kiểm tra document.hidden, không chặn render trang.",
+      "test_steps": [
+        "Ngắt mạng WAN / trỏ Master URL sai -> mở /pos, /admin, /order -> trang tải tức thì < 200ms, không bị treo 16s.",
+        "Kiểm tra /api/license_client?action=sync_if_due trả về < 10ms khi chưa hết hạn TTL."
+      ],
+      "notes": "- Phát hiện qua rà soát mã nguồn & đo Chrome thực tế (134ms ngay cả khi localhost; tối đa 16s khi WAN lỗi). Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:18:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-02",
+      "group": "PERF",
+      "group_label": "Hiệu năng & Tốc độ (Performance)",
+      "title": "Bỏ ép Cache-Control: no-store trên toàn bộ file tĩnh .js / .css (dùng ETag / max-age + ?v=version)",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Commit f3bbf67 thêm set_post_routing_handler trong slave/src/main_slave.cpp:495-504 ép Cache-Control: no-store, no-cache, must-revalidate, max-age=0 lên mọi file .js và .css.\n- Hệ quả: Mỗi lần chuyển trang (/pos <-> /order <-> /kitchen <-> /admin), trình duyệt phải tải lại 600 KB - 1 MB+ JS/CSS (chart.min.js 210KB, app-tailwind.min.css 102KB, pos.js 166KB, admin_ops_kpi.js 162KB...) và parse/compile JS lại từ đầu.",
+      "principle": "- Chỉ không cache HTML hoặc API động; mọi asset tĩnh (.js, .css, fonts, images) phải được trình duyệt cache (public, max-age=86400 hoặc ETag/304) kết hợp query ?v= khi cập nhật OTA.",
+      "issue_proposal": "1. slave/src/main_slave.cpp: Thay header no-store cho .js/.css/fonts/images thành Cache-Control: public, max-age=3600 (hoặc ETag/Last-Modified 304); chỉ giữ no-store cho API & HTML.\n2. Gắn query ?v= theo phiên bản OTA trong HTML hoặc dùng ETag theo mtime file.",
+      "test_steps": [
+        "Mở /pos lần 2 hoặc chuyển sang /admin -> DevTools Network báo 304 hoặc (disk/memory cache) cho JS/CSS, thời gian chuyển trang giảm mạnh."
+      ],
+      "notes": "- Nguyên nhân trực tiếp từ commit f3bbf67 (bản cập nhật v2.6.0 mới nhất). Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:18:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-03",
+      "group": "PERF",
+      "group_label": "Hiệu năng & Tốc độ (Performance)",
+      "title": "Tối ưu tải từ điển i18n (locales/vi.json 566KB & en.json 508KB đang fetch no-store & parse lại mỗi trang, kèm gọi trùng)",
+      "priority": "P0",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- slave/web/assets/js/i18n.js:211, 447 fetch /locales/vi.json?v=20261122 (566 KB) với cache: no-store trên mọi trang (khi chọn EN tải cả vi.json + en.json = 1.07 MB) rồi JSON.parse() + applyDom() toàn DOM.\n- Ngoài ra đo thực tế trên /pos cho thấy locales/vi.json, api/settings.php, api/auth.php, api/license.php, qrcode.min.js bị tải trùng 2 lần lúc mở trang (tổng 125 requests).",
+      "principle": "- Ngôn ngữ mặc định (VI) đã có sẵn trong HTML không cần tải & duyệt DOM lại từ đầu; chỉ fetch/cache sessionStorage/localStorage theo version khi cần.",
+      "issue_proposal": "1. slave/web/assets/js/i18n.js: Bỏ cache: no-store, dùng cache theo version (localStorage/Cache API hoặc HTTP cache); nếu ngôn ngữ đang là VI mặc định thì bỏ qua fetch/applyDom thừa khi khởi động.\n2. Khử gọi trùng locales/vi.json, settings.php, auth.php, license.php, qrcode.min.js lúc load trang.",
+      "test_steps": [
+        "Mở /pos ở ngôn ngữ VI -> không tải lại 566KB vi.json trên mỗi lần chuyển trang, giảm từ 125 requests và xóa bỏ request trùng lặp."
+      ],
+      "notes": "- Phát hiện qua audit v2.6.0 (e8de9bd) & đo Network thực tế trên Chrome. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:18:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-04",
+      "group": "PERF",
+      "group_label": "Hiệu năng & Tốc độ (Performance)",
+      "title": "Giảm tải GPU CSS (backdrop-filter: blur dày đặc, background-attachment: fixed, transition: all) gây giật trên máy POS cấu hình thấp",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- liquid-glass.css:34 dùng background-attachment: fixed với 4 lớp radial-gradient gây repaint toàn màn hình khi cuộn.\n- Hàng chục card/nút dùng backdrop-filter: blur(10px..24px) + transition: all cùng lúc (liquid-glass.css, theme.css, customer.css, admin.css), gây nghẽn compositor/GPU trên máy POS hoặc tablet tại quán.",
+      "principle": "- Giao diện giữ thẩm mỹ Liquid Glass nhưng tối ưu layer GPU: tránh background-attachment: fixed trên body, giảm blur hoặc chỉ áp dụng trên header/modal, thay transition: all bằng transition thuộc tính cụ thể.",
+      "issue_proposal": "1. Tách background gradient ra pseudo-element hoặc bỏ background-attachment: fixed.\n2. Giảm backdrop-filter trên từng card/button con trong danh sách dài (chỉ giữ trên modal/header hoặc tùy chọn chế độ Hiệu Năng Cao).\n3. Thay transition: all bằng transition-colors / transform / opacity.",
+      "test_steps": [
+        "Cuộn trang /pos, /menu, /admin trên máy cấu hình thấp -> mượt 60fps, không khựng khung hình."
+      ],
+      "notes": "- Ghi nhận từ rà soát liquid-glass.css & theme.css. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:18:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-05",
+      "group": "PERF",
+      "group_label": "Hiệu năng & Tốc độ (Performance)",
+      "title": "Tối ưu vòng lặp polling nền (60 req/phút/tab, thiếu document.hidden) & dừng setInterval 500ms vô tận ở cn_station_nav.js",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Đo thực tế 10 giây rỗi trên /pos phát hiện 10 polling requests (jukebox/status 3.5s, check_notifications 3.5s, tables.php, alerts, heartbeat) + 1 longtask 104ms.\n- jukebox-engine.js:551, pos.js:2597, admin.js:760 không kiểm tra document.hidden khi tab ẩn.\n- cn_station_nav.js:122-128 chạy setInterval(..., 500) vô tận không bao giờ clearInterval sau khi đã mount xong.",
+      "principle": "- Tab ẩn không polling; các interval khởi tạo 1 lần phải clearInterval ngay khi xong; gộp hoặc giãn nhịp polling hợp lý.",
+      "issue_proposal": "1. Thêm guard if (document.hidden) return cho jukebox-engine.js, pos.js, admin.js.\n2. Sửa cn_station_nav.js:122 clearInterval sau khi đã render hoặc giới hạn số lần thử.\n3. Giãn nhịp các endpoint ít biến động (như jukebox/status khi không phát nhạc).",
+      "test_steps": [
+        "Chuyển sang tab khác -> 0 polling request chạy ngầm.\nMở DevTools kiểm tra cn_station_nav.js -> không còn timer 500ms chạy liên tục."
+      ],
+      "notes": "- Đã xác nhận cả qua mã nguồn và đo Chrome 10s thực tế. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:18:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "PERF-06",
+      "group": "PERF",
+      "group_label": "Hiệu năng & Tốc độ (Performance)",
+      "title": "Nén ảnh món ăn nặng (tới 1.75MB/ảnh) & thu hẹp MutationObserver toàn cây DOM trong date_format_ddmmyy.js",
+      "priority": "P1",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:43",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Một số ảnh món trong slave/web/img/ và assets/images/dishes/ có dung lượng tới 567 KB - 1.75 MB (Bc6Thnhphm16...jpg 1.75MB, Banh-mi-op-la.png 1.65MB, my-goi-xao-bo-6925.jpg 752KB), làm chậm tải trang /pos và /menu.\n- date_format_ddmmyy.js:138-149 gắn MutationObserver (subtree: true) trên documentElement, mỗi giây đồng hồ tick trên POS lại kích hoạt querySelectorAll('input[type=\"date\"]').",
+      "principle": "- Ảnh thực đơn nên chuẩn hóa WebP/JPEG kích thước thumbnail (< 100KB/ảnh) và dùng loading=\"lazy\".\n- Chỉ scan input[type=\"date\"] khi node thêm mới thực sự chứa input.",
+      "issue_proposal": "1. Nén/resize các ảnh món > 200KB xuống kích thước hiển thị POS/Menu (ví dụ 400x400 WebP < 80KB) & giữ loading=\"lazy\".\n2. Trong date_format_ddmmyy.js: chỉ chạy enhance khi mutation.addedNodes có Element (bỏ qua text-node tick của đồng hồ).",
+      "test_steps": [
+        "Tổng dung lượng tải ảnh lần đầu trên /pos & /menu giảm > 70%.\nĐồng hồ 1s trên POS không còn kích hoạt querySelectorAll mỗi giây."
+      ],
+      "notes": "- Phát hiện qua kiểm tra asset & audit runtime. Chờ user duyệt để sửa.",
+      "created_at": "2026-11-25 08:18:00",
+      "fixed_at": "2026-11-25 08:43:00",
+      "approval": "approved"
+    },
+    {
+      "id": "UI-09",
+      "group": "UI",
+      "group_label": "UI / UX & Điều hướng (Navigator)",
+      "title": "Sửa các lỗi nhỏ UI POS (lưới 2x2 card Thanh Toán Hóa Đơn, chống cắt nút Làm mới/QR trên header 1366px, lưới 2x2 Thống Kê Doanh Thu)",
+      "priority": "P2",
+      "status": "done",
+      "fixed_date": "25/11/2026 08:15",
+      "ota_version": "v2026.11.25.02",
+      "summary": "- Modal Thanh Toán Hóa Đơn: 4 nút phương thức thanh toán xếp 4 cột trên hàng ngang làm chữ 'Chuyển khoản QR' đè lên thẻ 'Thẻ POS MÔ PHỎNG'.\n- Thanh điều hướng POS (.cn-nav-center): Tổng chiều rộng nút quá lớn làm nút 'Làm mới' (POS.loadTables()) và nút 'QR' bị cắt mất ở mép phải trên màn hình 1366px-1440px.\n- Modal Thống Kê Doanh Thu Thu Ngân: 4 thẻ tổng hợp xếp 4 cột làm chữ 'Trung Bình / Đơn' bị che mất chữ 'n' và phát sinh thanh cuộn ngang.",
+      "principle": "- Toàn bộ nút chức năng trên thanh điều hướng POS phải hiển thị trọn vẹn không bị cắt ở độ phân giải phổ thông (1366x768, 1440x900).\n- Các card phương thức thanh toán và thẻ thống kê doanh thu phải đủ rộng, không đè chữ, không cắt chữ, không cuộn ngang.",
+      "issue_proposal": "1. Modal Thanh Toán (pos.js): Đổi lưới nút phương thức thanh toán từ grid-cols-2 sm:grid-cols-4 sang grid-cols-2 gap-2 (2x2 thoáng rộng).\n2. Thanh điều hướng POS (index.html, cn_station_nav.js, liquid-glass.css): Thu gọn nhãn phụ chỉ hiện icon + tooltip trên cụm giữa POS, tinh chỉnh min-width pill Jukebox và padding nút để vừa khít 1366x768 không tràn ngang.\n3. Modal Thống Kê Doanh Thu (pos_shift_reports.js): Đổi lưới 4 thẻ tổng hợp từ grid-cols-2 sm:grid-cols-4 sang grid-cols-2 gap-2.5.",
+      "test_steps": [
+        "Mở /pos -> mở modal Thanh Toán Hóa Đơn -> 4 nút Tiền mặt, Chuyển khoản QR, Thẻ POS MÔ PHỎNG, Kết hợp xếp 2x2 cân đối, 0 đè chữ.",
+        "Mở /pos ở 1366x768 & 1440x900 -> toàn bộ thanh .cn-nav-center, nút Làm mới và QR hiển thị đầy đủ (scrollWidth <= clientWidth).",
+        "Mở modal Thống Kê Doanh Thu -> 4 thẻ xếp 2x2, 'Trung Bình / Đơn' hiển thị đủ chữ, 0 thanh cuộn ngang, 0 lỗi JS."
+      ],
+      "notes": "- Đã sửa & kiểm chứng trên Chrome thật (0 lỗi JS) + verify_regression_v1.py PASS 100%.",
+      "created_at": "2026-11-25 08:05:00",
+      "fixed_at": "2026-11-25 08:15:00",
+      "approval": "approved"
+    },
     {
       "id": "UI-08",
       "group": "UI",

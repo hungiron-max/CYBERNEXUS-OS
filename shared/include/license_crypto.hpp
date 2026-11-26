@@ -162,7 +162,7 @@ inline bool verifyLicensePayload(const std::string& canonicalPayload, const std:
 #else
     (void)canonicalPayload;
     (void)sigHex;
-    return true;
+    return false; // Fail-closed on unsupported platforms
 #endif
 }
 

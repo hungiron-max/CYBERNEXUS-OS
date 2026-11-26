@@ -879,6 +879,8 @@ class NetworkQosPlugin : public IModulePlugin {
             std::time_t now = std::time(nullptr);
             {
                 std::lock_guard<std::mutex> lk(m_mtx);
+                int maxCap = std::max(10, m_cfg.value("max_concurrent_clients", 50));
+                bool highLoad80 = (static_cast<double>(m_sessions.size()) / static_cast<double>(maxCap)) >= 0.80;
                 for (auto it = m_sessions.begin(); it != m_sessions.end(); ) {
                     WifiSession& s = it->second;
                     if (s.tier == "whitelist" || s.tier == "blocked" || s.duration_sec <= 0) {
@@ -894,6 +896,11 @@ class NetworkQosPlugin : public IModulePlugin {
                         actions.push_back(s);
                         it = m_sessions.erase(it);
                         continue;
+                    }
+                    // UPG-WIFI-02: Khi tải router > 80%, tự động hạ băng thông nhóm WiFi Free để bảo vệ POS/VietQR & VIP
+                    if (s.tier == "free" && highLoad80 && s.stage < 4) {
+                        s.stage = 4;
+                        actions.push_back(s);
                     }
                     if (s.tier == "vip" && inPeakNow) {
                         if (ratio >= 0.90 && s.stage < 2) {
@@ -913,6 +920,8 @@ class NetworkQosPlugin : public IModulePlugin {
                 int remMins = std::max(1, static_cast<int>((act.start_epoch + act.duration_sec - now) / 60));
                 if (act.stage == 3) {
                     applySpeedByRouterType(act.ip, act.mac, 1, 0, 0, true, msg);
+                } else if (act.stage == 4) {
+                    applySpeedByRouterType(act.ip, act.mac, remMins, 1024, 512, false, msg);
                 } else if (act.stage == 2) {
                     applySpeedByRouterType(act.ip, act.mac, remMins, 3072, 1536, false, msg);
                 } else if (act.stage == 1) {

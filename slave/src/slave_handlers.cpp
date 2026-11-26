@@ -514,6 +514,33 @@ static void ensureInventoryRecipeSchema(Database& db) {
             )
         )");
         try { db.execute("ALTER TABLE orders ADD COLUMN stock_deducted INTEGER DEFAULT 0"); } catch (...) {}
+        try { db.execute("ALTER TABLE order_items ADD COLUMN item_stock_deducted INTEGER DEFAULT 0"); } catch (...) {}
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS material_batches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                material_id INTEGER NOT NULL,
+                batch_code TEXT DEFAULT '',
+                expiry_date TEXT DEFAULT '',
+                remaining_qty REAL DEFAULT 0,
+                unit_cost REAL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        )");
+        db.execute(R"(
+            CREATE TABLE IF NOT EXISTS customers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone TEXT UNIQUE NOT NULL,
+                fullname TEXT DEFAULT '',
+                total_orders INTEGER DEFAULT 0,
+                total_spent REAL DEFAULT 0,
+                points INTEGER DEFAULT 0,
+                tier TEXT DEFAULT 'regular',
+                last_order_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        )");
+        try { db.execute("ALTER TABLE orders ADD COLUMN customer_phone TEXT DEFAULT ''"); } catch (...) {}
+        try { db.execute("ALTER TABLE app_notifications ADD COLUMN is_read_admin INTEGER DEFAULT 0"); } catch (...) {}
         s_recipeInit.store(true);
     } catch (...) {}
 }
@@ -522,7 +549,7 @@ static void deductInventoryForOrder(Database& db, int64_t orderId) {
     if (orderId <= 0) return;
     ensureInventoryRecipeSchema(db);
     auto ord = db.queryRow("SELECT id, order_code, COALESCE(stock_deducted, 0) as stock_deducted FROM orders WHERE id = :id", {{":id", orderId}});
-    if (ord.is_null() || ord.value("stock_deducted", int64_t(0)) != 0) return;
+    if (ord.is_null()) return;
 
     auto rows = db.query(R"(
         SELECT pr.material_id, m.name as material_name, m.unit, COALESCE(m.cost_price, 0) as cost_price,
@@ -531,6 +558,7 @@ static void deductInventoryForOrder(Database& db, int64_t orderId) {
         JOIN product_recipes pr ON pr.product_id = oi.product_id
         JOIN materials m ON m.id = pr.material_id
         WHERE oi.order_id = :oid
+          AND COALESCE(oi.item_stock_deducted, 0) = 0
           AND COALESCE(oi.cancel_status, 'none') NOT IN ('approved', 'out_of_stock')
           AND pr.quantity_per_unit > 0
         GROUP BY pr.material_id
@@ -555,7 +583,113 @@ static void deductInventoryForOrder(Database& db, int64_t orderId) {
             {":note", "Tự động trừ kho theo định lượng đơn #" + oCode}
         });
     }
+    db.execute("UPDATE order_items SET item_stock_deducted = 1 WHERE order_id = :oid AND COALESCE(item_stock_deducted, 0) = 0 AND COALESCE(cancel_status, 'none') NOT IN ('approved', 'out_of_stock')",
+               {{":oid", orderId}});
     db.execute("UPDATE orders SET stock_deducted = 1 WHERE id = :id", {{":id", orderId}});
+    // UPG-ORD-01: Tự động cập nhật CRM Khách hàng & hạng VIP theo Số điện thoại
+    try {
+        auto oInfo = db.queryRow("SELECT COALESCE(customer_phone, '') as customer_phone, COALESCE(customer_name, '') as customer_name, total_amount FROM orders WHERE id = :id", {{":id", orderId}});
+        if (!oInfo.is_null()) {
+            std::string cPhone = oInfo.value("customer_phone", "");
+            std::string cName = oInfo.value("customer_name", "");
+            if (cPhone.empty()) {
+                auto lp = cName.rfind('(');
+                auto rp = cName.rfind(')');
+                if (lp != std::string::npos && rp != std::string::npos && rp > lp + 7) {
+                    std::string cand = cName.substr(lp + 1, rp - lp - 1);
+                    if (std::all_of(cand.begin(), cand.end(), [](unsigned char ch){ return std::isdigit(ch) || ch == '+'; })) {
+                        cPhone = cand;
+                    }
+                }
+            }
+            double oTot = oInfo.value("total_amount", 0.0);
+            if (!cPhone.empty() && cPhone.size() >= 8) {
+                db.execute(R"(
+                    INSERT INTO customers (phone, fullname, total_orders, total_spent, points, tier, last_order_at)
+                    VALUES (:p, :n, 1, :s, :pts, 'regular', CURRENT_TIMESTAMP)
+                    ON CONFLICT(phone) DO UPDATE SET
+                        fullname = CASE WHEN excluded.fullname != '' THEN excluded.fullname ELSE customers.fullname END,
+                        total_orders = customers.total_orders + 1,
+                        total_spent = customers.total_spent + excluded.total_spent,
+                        points = customers.points + excluded.points,
+                        last_order_at = CURRENT_TIMESTAMP
+                )", {{":p", cPhone}, {":n", cName}, {":s", oTot}, {":pts", static_cast<int64_t>(oTot / 10000.0)}});
+                db.execute(R"(
+                    UPDATE customers SET tier = CASE
+                        WHEN total_spent >= 2000000 THEN 'vip'
+                        WHEN total_spent >= 1000000 THEN 'gold'
+                        WHEN total_spent >= 500000 THEN 'silver'
+                        ELSE 'regular'
+                    END WHERE phone = :p
+                )", {{":p", cPhone}});
+            }
+        }
+    } catch (...) {}
+}
+
+static void restoreInventoryForItem(Database& db, int64_t orderId, int64_t itemId, const std::string& reason = "") {
+    if (orderId <= 0 || itemId <= 0) return;
+    ensureInventoryRecipeSchema(db);
+    auto itRow = db.queryRow("SELECT id, COALESCE(item_stock_deducted, 0) as item_stock_deducted, COALESCE(item_status, '') as item_status FROM order_items WHERE id = :iid AND order_id = :oid",
+                             {{":iid", itemId}, {":oid", orderId}});
+    if (itRow.is_null() || itRow.value("item_stock_deducted", int64_t(0)) == 0) return;
+    std::string itSt = itRow.value("item_status", "");
+    bool alreadyPrepared = (itSt == "preparing" || itSt == "ready" || itSt == "served");
+    auto ord = db.queryRow("SELECT order_code FROM orders WHERE id = :id", {{":id", orderId}});
+    std::string oCode = ord.is_null() ? std::to_string(orderId) : ord.value("order_code", std::to_string(orderId));
+
+    auto rows = db.query(R"(
+        SELECT pr.material_id, m.name as material_name, m.unit, COALESCE(m.cost_price, 0) as cost_price,
+               SUM(oi.quantity * pr.quantity_per_unit) as restore_qty
+        FROM order_items oi
+        JOIN product_recipes pr ON pr.product_id = oi.product_id
+        JOIN materials m ON m.id = pr.material_id
+        WHERE oi.id = :iid AND oi.order_id = :oid AND pr.quantity_per_unit > 0
+        GROUP BY pr.material_id
+    )", {{":iid", itemId}, {":oid", orderId}});
+
+    double totalWasteCost = 0.0;
+    for (const auto& r : rows) {
+        int64_t matId = r.value("material_id", int64_t(0));
+        double rQty = r.value("restore_qty", 0.0);
+        if (matId <= 0 || rQty <= 0.0) continue;
+        std::string matName = r.value("material_name", "");
+        std::string unit = r.value("unit", "kg");
+        double unitPrice = r.value("cost_price", 0.0);
+        if (alreadyPrepared) {
+            // UPG-INV-02: Món đã chế biến khi hủy không hoàn kho sạch mà ghi nhận waste_on_cancel
+            double wCost = rQty * unitPrice;
+            totalWasteCost += wCost;
+            db.execute(R"(
+                INSERT INTO material_transactions (material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, note)
+                VALUES (:id, :name, 'waste', :qty, :unit, :price, :cost, :note)
+            )", {
+                {":id", matId}, {":name", matName}, {":qty", rQty}, {":unit", unit},
+                {":price", unitPrice}, {":cost", wCost},
+                {":note", "waste_on_cancel: Hủy món đã chế biến đơn #" + oCode + (reason.empty() ? "" : (" (" + reason + ")"))}
+            });
+        } else {
+            db.execute("UPDATE materials SET quantity = COALESCE(quantity, 0) + :q WHERE id = :id",
+                       {{":q", rQty}, {":id", matId}});
+            db.execute(R"(
+                INSERT INTO material_transactions (material_id, material_name, trans_type, quantity, unit, unit_price, total_cost, note)
+                VALUES (:id, :name, 'sale_restore', :qty, :unit, :price, :cost, :note)
+            )", {
+                {":id", matId}, {":name", matName}, {":qty", rQty}, {":unit", unit},
+                {":price", unitPrice}, {":cost", rQty * unitPrice},
+                {":note", "Hoàn kho hủy món đơn #" + oCode + (reason.empty() ? "" : (" (" + reason + ")"))}
+            });
+        }
+    }
+    if (alreadyPrepared && totalWasteCost > 0.0) {
+        try {
+            db.execute("INSERT INTO finance_expenses (category, amount, description, created_at) VALUES ('Hao hụt / Hủy món đã chế biến', :amt, :desc, datetime('now','localtime'))",
+                       {{":amt", totalWasteCost}, {":desc", "waste_on_cancel đơn #" + oCode}});
+        } catch (...) {}
+    }
+    if (!alreadyPrepared) {
+        db.execute("UPDATE order_items SET item_stock_deducted = 0 WHERE id = :iid", {{":iid", itemId}});
+    }
 }
 
 static void restoreInventoryForOrder(Database& db, int64_t orderId, const std::string& reason = "") {
@@ -571,6 +705,7 @@ static void restoreInventoryForOrder(Database& db, int64_t orderId, const std::s
         JOIN product_recipes pr ON pr.product_id = oi.product_id
         JOIN materials m ON m.id = pr.material_id
         WHERE oi.order_id = :oid
+          AND COALESCE(oi.cancel_status, 'none') NOT IN ('approved', 'out_of_stock')
           AND pr.quantity_per_unit > 0
         GROUP BY pr.material_id
     )", {{":oid", orderId}});
@@ -594,6 +729,7 @@ static void restoreInventoryForOrder(Database& db, int64_t orderId, const std::s
             {":note", "Hoàn kho hủy đơn #" + oCode + (reason.empty() ? "" : (" (" + reason + ")"))}
         });
     }
+    db.execute("UPDATE order_items SET item_stock_deducted = 0 WHERE order_id = :oid", {{":oid", orderId}});
     db.execute("UPDATE orders SET stock_deducted = 0 WHERE id = :id", {{":id", orderId}});
 }
 
@@ -1458,8 +1594,8 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
                 ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"), false, req.remote_addr);
             }
             std::string token = result.value("token", "");
-            res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", token));
-            res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
+            res.headers.emplace("Set-Cookie", AuthService::formatCookie("pos_token", token));
+            res.headers.emplace("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
             sendJson(res, result);
         } else {
             SaleApp::Security::RateLimiter::instance().recordFailure("slave_auth", rlKey, 5, 300, 300);
@@ -1523,8 +1659,8 @@ void ApiHandlers::handleAuth(const httplib::Request& req, httplib::Response& res
                 ensureStaffCheckIn(db, result["user"]["id"].get<int64_t>(), req.get_header_value("User-Agent"), false, req.remote_addr);
             }
             std::string token = result.value("token", "");
-            res.set_header("Set-Cookie", AuthService::formatCookie("pos_token", token));
-            res.set_header("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
+            res.headers.emplace("Set-Cookie", AuthService::formatCookie("pos_token", token));
+            res.headers.emplace("Set-Cookie", AuthService::formatCookie("PHPSESSID", token));
             sendJson(res, result);
         } else {
             SaleApp::Security::RateLimiter::instance().recordFailure("slave_pin", clientIp, 5, 300, 300);
@@ -2658,7 +2794,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         std::string action = getAction(req, body);
 
         static const std::vector<std::string> kPublicOrderActions = {
-            "vietqr", "preview_quote", "customer_status", "check_payment", "customer_order", "customer_mark_transfer", "submit_review"
+            "vietqr", "preview_quote", "customer_status", "check_payment", "customer_order", "customer_mark_transfer", "submit_review", "table_live_order", "customer_call_service"
         };
         bool isPublicOrderAction = (std::find(kPublicOrderActions.begin(), kPublicOrderActions.end(), action) != kPublicOrderActions.end());
         auto authUserOpt = AuthService::instance().authenticate(req);
@@ -2691,6 +2827,20 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
         }
         if (req.method == "POST") {
             if (Dot6Handlers::handleDot6Orders(action, req, res, db, body)) return;
+        }
+
+        // Acknowledge notification (Hỗ trợ cả GET và POST)
+        if (action == "ack_notification") {
+            std::string role = BodyParser::getParam(req, body, "role", "cashier");
+            std::string col = (role == "waiter") ? "is_read_waiter" : "is_read_cashier";
+            int64_t nid = 0;
+            try { nid = std::stoll(BodyParser::getParam(req, body, "notification_id", "0")); } catch (...) {}
+            try {
+                if (nid > 0) db.execute("UPDATE app_notifications SET " + col + " = 1 WHERE id = :id", {{":id", nid}});
+                else db.execute("UPDATE app_notifications SET " + col + " = 1 WHERE type NOT IN ('SYSTEM_NOTIFY', 'SYSTEM_UPDATE')");
+            } catch (...) {}
+            sendJson(res, {{"success", true}});
+            return;
         }
 
         // VietQR (Bước 3.4) - Hỗ trợ cả GET và POST
@@ -2794,7 +2944,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     )";
 
                     if (filterStatus == "active") {
-                        sql += " AND o.status = 'pending' AND (o.kitchen_status IN ('pending', 'ready', 'cancel_requested') OR o.kitchen_status IS NULL)";
+                        sql += " AND o.status = 'pending' AND (o.kitchen_status IN ('pending', 'preparing', 'ready', 'cancel_requested') OR o.kitchen_status IS NULL)";
                     } else if (filterStatus == "served") {
                         sql += " AND o.status = 'pending' AND o.kitchen_status = 'served'";
                     } else {
@@ -2837,10 +2987,10 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     o["items"] = items;
                 }
 
-                auto cActive = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'pending' AND (kitchen_status = 'pending' OR kitchen_status = 'ready' OR kitchen_status IS NULL)");
+                auto cActive = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'pending' AND (kitchen_status IN ('pending', 'preparing', 'ready', 'cancel_requested') OR kitchen_status IS NULL)");
                 auto cServed = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'pending' AND kitchen_status = 'served'");
                 auto cHistory = db.queryScalar("SELECT COUNT(*) FROM orders WHERE DATE(created_at) = '" + todayDate + "' AND (status = 'completed' OR kitchen_status = 'archived')");
-                auto cAll = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'pending' AND COALESCE(kitchen_status, 'pending') != 'awaiting_waiter'");
+                auto cAll = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status = 'pending' AND COALESCE(kitchen_status, 'pending') NOT IN ('awaiting_waiter', 'awaiting_payment', 'awaiting_kitchen_push')");
 
                 json counts = {
                     {"active", cActive.is_number() ? cActive.get<int>() : 0},
@@ -2870,10 +3020,141 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     return;
                 }
                 if (ord.contains("access_token")) ord.erase("access_token");
+                try { db.execute("ALTER TABLE order_items ADD COLUMN item_status TEXT DEFAULT ''"); } catch (...) {}
+                int64_t ordId = getInt(ord, "id", 0);
+                std::string ordKStatus = getString(ord, "kitchen_status", "pending");
+                json itemRows = db.query(R"(
+                    SELECT id, product_id, product_name, quantity, unit, price, price as unit_price, subtotal,
+                           COALESCE(note, '') as note, COALESCE(cancel_status, 'none') as cancel_status,
+                           COALESCE(NULLIF(item_status, ''), :ks) as item_status
+                    FROM order_items
+                    WHERE order_id = :oid AND COALESCE(cancel_status, 'none') NOT IN ('approved', 'out_of_stock')
+                    ORDER BY id ASC
+                )", {{":oid", ordId}, {":ks", ordKStatus}});
                 sendJson(res, {
                     {"success", true},
-                    {"order", ord}
+                    {"order", ord},
+                    {"items", itemRows}
                 });
+                return;
+            }
+
+            if (action == "table_live_order") {
+                try { db.execute("ALTER TABLE order_items ADD COLUMN item_status TEXT DEFAULT ''"); } catch (...) {}
+                std::string tCode = BodyParser::getParam(req, body, "table_code", BodyParser::getParam(req, body, "table", ""));
+                int64_t tIdParam = 0;
+                try { tIdParam = std::stoll(BodyParser::getParam(req, body, "table_id", "0")); } catch (...) {}
+                if (tCode.empty() && tIdParam <= 0) {
+                    sendJson(res, {{"success", false}, {"message", "Thiếu mã bàn!"}}, 400);
+                    return;
+                }
+                auto tblRow = (tIdParam > 0)
+                    ? db.queryRow("SELECT id, code, name, area_type, active_order_id FROM tables_areas WHERE id = :id LIMIT 1", {{":id", tIdParam}})
+                    : db.queryRow("SELECT id, code, name, area_type, active_order_id FROM tables_areas WHERE UPPER(code) = UPPER(:c) LIMIT 1", {{":c", tCode}});
+                if (tblRow.is_null()) {
+                    sendJson(res, {{"success", false}, {"message", "Không tìm thấy bàn!"}}, 404);
+                    return;
+                }
+                std::string realCode = getString(tblRow, "code", tCode);
+                std::string areaType = getString(tblRow, "area_type", "");
+                if (areaType == "MANG_VE" || areaType == "takeaway" || realCode.rfind("MV", 0) == 0) {
+                    sendJson(res, {{"success", false}, {"message", "Theo dõi bàn chỉ áp dụng cho khách ngồi Tại Quán!"}}, 400);
+                    return;
+                }
+                std::string tableSig = BodyParser::getParam(req, body, "table_sig", BodyParser::getParam(req, body, "sig", ""));
+                auto strictRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'qr_strict_signature' LIMIT 1");
+                bool strictSig = (!strictRow.is_null() && getString(strictRow, "setting_value", "0") == "1");
+                if (!tableSig.empty() || strictSig) {
+                    std::string expectedSig = Dot6Handlers::hmacSha256Hex(Dot6Handlers::getOrCreateStoreSecret(db, "qr_hmac_secret"), realCode).substr(0, 24);
+                    if (tableSig != expectedSig && !authUserOpt.has_value()) {
+                        sendJson(res, {{"success", false}, {"code", "QR_INVALID_SIGNATURE"}, {"message", "Chữ ký QR bàn không hợp lệ!"}}, 403);
+                        return;
+                    }
+                }
+                int64_t tid = getInt(tblRow, "id", 0);
+                int64_t activeOid = getInt(tblRow, "active_order_id", 0);
+                json ord = db.queryRow(R"(
+                    SELECT id, order_code, table_id, table_code, status, payment_status, kitchen_status,
+                           subtotal, discount_amount, vat_amount, total_amount, paid_amount, created_at, kitchen_ready_at, served_at
+                    FROM orders
+                    WHERE (id = :oid OR table_id = :tid) AND status = 'pending'
+                    ORDER BY id DESC LIMIT 1
+                )", {{":oid", activeOid}, {":tid", tid}});
+                if (ord.is_null()) {
+                    sendJson(res, {
+                        {"success", true},
+                        {"has_order", false},
+                        {"table_id", tid},
+                        {"table_code", realCode},
+                        {"table_name", getString(tblRow, "name", realCode)},
+                        {"order", nullptr},
+                        {"items", json::array()}
+                    });
+                    return;
+                }
+                int64_t oid = getInt(ord, "id", 0);
+                std::string kSt = getString(ord, "kitchen_status", "pending");
+                json itemRows = db.query(R"(
+                    SELECT id, product_id, product_name, quantity, unit, price, price as unit_price, subtotal,
+                           COALESCE(note, '') as note, COALESCE(cancel_status, 'none') as cancel_status,
+                           COALESCE(NULLIF(item_status, ''), :ks) as item_status
+                    FROM order_items
+                    WHERE order_id = :oid AND COALESCE(cancel_status, 'none') NOT IN ('approved', 'out_of_stock')
+                    ORDER BY id ASC
+                )", {{":oid", oid}, {":ks", kSt}});
+                sendJson(res, {
+                    {"success", true},
+                    {"has_order", true},
+                    {"table_id", tid},
+                    {"table_code", realCode},
+                    {"table_name", getString(tblRow, "name", realCode)},
+                    {"order", ord},
+                    {"items", itemRows}
+                });
+                return;
+            }
+
+            if (action == "customer_call_service") {
+                std::string tCode = BodyParser::getParam(req, body, "table_code", BodyParser::getParam(req, body, "table", ""));
+                std::string sType = BodyParser::getParam(req, body, "service_type", "staff_help");
+                std::string customNote = BodyParser::getParam(req, body, "note", "");
+                if (tCode.empty()) {
+                    sendJson(res, {{"success", false}, {"message", "Chỉ hỗ trợ gọi nhân viên khi ngồi tại bàn!"}}, 400);
+                    return;
+                }
+                std::string tableSig = BodyParser::getParam(req, body, "table_sig", BodyParser::getParam(req, body, "sig", ""));
+                auto strictRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'qr_strict_signature' LIMIT 1");
+                bool strictSig = (!strictRow.is_null() && getString(strictRow, "setting_value", "0") == "1");
+                if (!tableSig.empty() || strictSig) {
+                    std::string expectedSig = Dot6Handlers::hmacSha256Hex(Dot6Handlers::getOrCreateStoreSecret(db, "qr_hmac_secret"), tCode).substr(0, 24);
+                    if (tableSig != expectedSig && !authUserOpt.has_value()) {
+                        sendJson(res, {{"success", false}, {"code", "QR_INVALID_SIGNATURE"}, {"message", "Chữ ký QR bàn không hợp lệ!"}}, 403);
+                        return;
+                    }
+                }
+                std::string cIp = req.remote_addr.empty() ? "127.0.0.1" : req.remote_addr;
+                int retrySec = 0;
+                if (!SaleApp::Security::RateLimiter::instance().allow("qr_service_call", cIp, 1, 20, retrySec)) {
+                    sendJson(res, {{"success", false}, {"retry_after", retrySec}, {"message", "Bạn vừa gửi yêu cầu, vui lòng đợi " + std::to_string(retrySec) + " giây."}}, 429);
+                    return;
+                }
+                std::string label = "Cần nhân viên hỗ trợ";
+                if (sType == "ice_water") label = "Xin thêm đá / nước lọc";
+                else if (sType == "bill_cash") label = "Yêu cầu tính tiền mặt tại bàn";
+                else if (sType == "bill_qr") label = "Yêu cầu thanh toán VietQR tại bàn";
+                if (!customNote.empty()) label += " (" + customNote + ")";
+                ensureNotifI18nSchema(db);
+                std::string nowCall = getCurrentTimestamp();
+                db.execute(R"(
+                    INSERT INTO app_notifications (type, order_id, table_code, title, message, is_read_cashier, is_read_waiter, created_at)
+                    VALUES ('table_service_call', 0, :tc, :ttl, :msg, 0, 0, :cat)
+                )", {
+                    {":tc", tCode},
+                    {":ttl", "🔔 Bàn " + tCode + " gọi hỗ trợ"},
+                    {":msg", "Bàn " + tCode + ": " + label},
+                    {":cat", nowCall}
+                });
+                sendJson(res, {{"success", true}, {"message", "Đã gửi yêu cầu tới nhân viên phục vụ bàn " + tCode + "!"}});
                 return;
             }
 
@@ -2897,19 +3178,6 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     }
                 } catch (...) {}
                 sendJson(res, {{"success", true}, {"cancellations", cancellations}, {"ready_alerts", readyAlerts}});
-                return;
-            }
-
-            if (action == "ack_notification") {
-                std::string role = BodyParser::getParam(req, body, "role", "cashier");
-                std::string col = (role == "waiter") ? "is_read_waiter" : "is_read_cashier";
-                int64_t nid = 0;
-                try { nid = std::stoll(BodyParser::getParam(req, body, "notification_id", "0")); } catch (...) {}
-                try {
-                    if (nid > 0) db.execute("UPDATE app_notifications SET " + col + " = 1 WHERE id = :id", {{":id", nid}});
-                    else db.execute("UPDATE app_notifications SET " + col + " = 1 WHERE type NOT IN ('SYSTEM_NOTIFY', 'SYSTEM_UPDATE')");
-                } catch (...) {}
-                sendJson(res, {{"success", true}});
                 return;
             }
 
@@ -2940,13 +3208,33 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
             }
 
             if (action == "alerts") {
+                std::string nowAck = getCurrentTimestamp();
+                db.execute(R"(
+                    UPDATE order_alerts SET is_ack = 1, ack_by = 'AUTO_SYNC', ack_at = :at
+                    WHERE is_ack = 0 AND order_id IN (
+                        SELECT id FROM orders WHERE status IN ('completed', 'cancelled')
+                    )
+                )", {{":at", nowAck}});
+                db.execute(R"(
+                    UPDATE order_alerts SET is_ack = 1, ack_by = 'AUTO_SYNC', ack_at = :at
+                    WHERE is_ack = 0 AND alert_type IN ('qr_payment_pending', 'payment_verifying')
+                      AND order_id IN (SELECT id FROM orders WHERE payment_status = 'paid')
+                )", {{":at", nowAck}});
+
                 std::string roleFilter = BodyParser::getParam(req, body, "target_role", "all");
                 json alerts;
                 if (roleFilter == "all" || roleFilter.empty()) {
-                    alerts = db.query("SELECT * FROM order_alerts WHERE is_ack = 0 ORDER BY id DESC LIMIT 50");
+                    alerts = db.query(
+                        "SELECT a.* FROM order_alerts a LEFT JOIN orders o ON a.order_id = o.id "
+                        "WHERE a.is_ack = 0 AND (a.order_id IS NULL OR o.id IS NULL OR o.status NOT IN ('completed', 'cancelled')) "
+                        "ORDER BY a.id DESC LIMIT 50"
+                    );
                 } else {
                     alerts = db.query(
-                        "SELECT * FROM order_alerts WHERE is_ack = 0 AND (target_role = 'all' OR target_role = :r) ORDER BY id DESC LIMIT 50",
+                        "SELECT a.* FROM order_alerts a LEFT JOIN orders o ON a.order_id = o.id "
+                        "WHERE a.is_ack = 0 AND (a.target_role = 'all' OR a.target_role = :r) "
+                        "AND (a.order_id IS NULL OR o.id IS NULL OR o.status NOT IN ('completed', 'cancelled')) "
+                        "ORDER BY a.id DESC LIMIT 50",
                         {{":r", roleFilter}}
                     );
                 }
@@ -3168,7 +3456,8 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         }
                         tableCode = getString(tblCheck, "code", tableCode);
                         auto busyRow = db.queryRow("SELECT id FROM orders WHERE table_id = :tid AND status = 'pending' LIMIT 1", {{":tid", tableId}});
-                        if (!busyRow.is_null()) {
+                        bool wantAppend = (body.contains("append") && ((body["append"].is_boolean() && body["append"].get<bool>()) || (body["append"].is_number() && body["append"].get<int>() != 0))) || BodyParser::getParam(req, body, "mode") == "append";
+                        if (!busyRow.is_null() && !wantAppend) {
                             auto dupEarly = db.queryRow(R"(
                                 SELECT id, order_code, table_id, table_code, kitchen_status, COALESCE(access_token, '') AS access_token
                                 FROM orders
@@ -3477,6 +3766,12 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                     orderCode = getString(existingOrder, "order_code", "");
 
                     if (isAppendMode) {
+                        try { db.execute("ALTER TABLE order_items ADD COLUMN item_status TEXT DEFAULT ''"); } catch (...) {}
+                        std::string prevKs = getString(existingOrder, "kitchen_status", "pending");
+                        if (prevKs == "served" || prevKs == "ready" || prevKs == "preparing" || prevKs == "pending" || prevKs == "awaiting_waiter") {
+                            db.execute("UPDATE order_items SET item_status = :pks WHERE order_id = :oid AND COALESCE(item_status, '') = ''",
+                                {{":pks", prevKs}, {":oid", orderId}});
+                        }
                         double oldSub = getDouble(existingOrder, "subtotal", 0.0);
                         double newSub = oldSub + subtotal;
                         double discVal = getDouble(existingOrder, "discount_value", 0.0);
@@ -3683,10 +3978,8 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 std::string vietQrUrl;
                 if (!accNo.empty()) {
                     std::stringstream vss;
-                    vss << "https://img.vietqr.io/image/" << bankId << "-" << accNo
-                        << "-compact2.png?amount=" << static_cast<int64_t>(totalAmount)
-                        << "&addInfo=" << httplib::detail::encode_url("THANH TOAN " + orderCode)
-                        << "&accountName=" << httplib::detail::encode_url(accName);
+                    vss << "/api/payment/vietqr_svg?amount=" << static_cast<int64_t>(totalAmount)
+                        << "&info=" << httplib::detail::encode_url("THANH TOAN " + orderCode);
                     vietQrUrl = vss.str();
                 }
 
@@ -4634,6 +4927,7 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                         WHERE id = :id
                     )", {{":rsn", reason}, {":by", uName}, {":at", nowStr}, {":id", itemId}});
 
+                    restoreInventoryForItem(db, ordId, itemId, reason);
                     json recalc = recalculateOrderTotalsAndSettlement(db, ordId);
                     int64_t activeLeft = recalc.value("active_items", int64_t(0));
                     std::string settleSt = recalc.value("settlement_status", "settled");
@@ -4740,6 +5034,78 @@ void ApiHandlers::handleOrders(const httplib::Request& req, httplib::Response& r
                 db.commit();
 
                 sendJson(res, {{"success", true}, {"message", msg}, {"settlement", recalc}});
+                return;
+            }
+
+            // KDS-ITEM-01: Cập nhật trạng thái riêng từng món (preparing | ready | served) & tự tổng hợp trạng thái đơn
+            if (action == "update_item_status") {
+                try { db.execute("ALTER TABLE order_items ADD COLUMN item_status TEXT DEFAULT ''"); } catch (...) {}
+                int64_t itemId = 0;
+                try { itemId = std::stoll(BodyParser::getParam(req, body, "item_id", "0")); } catch (...) {}
+                std::string nextSt = BodyParser::getParam(req, body, "item_status", "ready");
+                if (nextSt != "pending" && nextSt != "preparing" && nextSt != "ready" && nextSt != "served") {
+                    sendError(res, "Trạng thái món không hợp lệ!", 400);
+                    return;
+                }
+                auto itRow = db.queryRow("SELECT oi.*, o.order_code, o.table_id, o.table_code, o.kitchen_status FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = :id", {{":id", itemId}});
+                if (itRow.is_null()) {
+                    sendError(res, "Không tìm thấy món!", 404);
+                    return;
+                }
+                int64_t ordId = getInt(itRow, "order_id", 0);
+                std::string oCode = getString(itRow, "order_code", "");
+                std::string tCode = getString(itRow, "table_code", "");
+                std::string pName = getString(itRow, "product_name", "Món");
+                std::string nowStr = getCurrentTimestamp();
+
+                db.beginTransaction();
+                db.execute("UPDATE order_items SET item_status = :st WHERE id = :id", {{":st", nextSt}, {":id", itemId}});
+                json allIts = db.query("SELECT COALESCE(NULLIF(item_status, ''), :oks) as st FROM order_items WHERE order_id = :oid AND COALESCE(cancel_status, 'none') NOT IN ('approved', 'out_of_stock')",
+                    {{":oks", getString(itRow, "kitchen_status", "pending")}, {":oid", ordId}});
+                bool allServed = !allIts.empty();
+                bool allReadyOrServed = !allIts.empty();
+                bool anyReady = false;
+                bool anyActiveWork = false;
+                for (const auto& r : allIts) {
+                    std::string s = getString(r, "st", "pending");
+                    if (s != "served") allServed = false;
+                    if (s != "ready" && s != "served") allReadyOrServed = false;
+                    if (s == "ready") anyReady = true;
+                    if (s == "preparing" || s == "ready" || s == "served") anyActiveWork = true;
+                }
+                std::string nextOrdKs = getString(itRow, "kitchen_status", "pending");
+                if (allServed) {
+                    nextOrdKs = "served";
+                    db.execute("UPDATE orders SET kitchen_status = 'served', kitchen_ready_at = COALESCE(kitchen_ready_at, :now), served_at = COALESCE(served_at, :now) WHERE id = :id AND status != 'cancelled'",
+                        {{":now", nowStr}, {":id", ordId}});
+                    syncOrderStatus(db, ordId);
+                } else if (allReadyOrServed && anyReady) {
+                    nextOrdKs = "ready";
+                    db.execute("UPDATE orders SET kitchen_status = 'ready', kitchen_ready_at = COALESCE(kitchen_ready_at, :now) WHERE id = :id AND status != 'cancelled'",
+                        {{":now", nowStr}, {":id", ordId}});
+                } else if (anyActiveWork && nextOrdKs == "pending") {
+                    nextOrdKs = "preparing";
+                    db.execute("UPDATE orders SET kitchen_status = 'preparing' WHERE id = :id AND status != 'cancelled'", {{":id", ordId}});
+                }
+                if (nextSt == "ready") {
+                    ensureNotifI18nSchema(db);
+                    db.execute(R"(
+                        INSERT INTO app_notifications (type, order_id, table_code, title, message, is_read_cashier, is_read_waiter, created_at)
+                        VALUES ('kitchen_ready', :oid, :tc, :ttl, :msg, 0, 0, :cat)
+                    )", {
+                        {":oid", ordId},
+                        {":tc", tCode},
+                        {":ttl", "🍽️ Bàn " + tCode + " có món đã xong"},
+                        {":msg", "Bàn " + tCode + " (" + oCode + "): \"" + pName + "\" đã xong, mời phục vụ mang ra!"},
+                        {":cat", nowStr}
+                    });
+                }
+                if (nextSt == "preparing" || nextSt == "ready" || nextSt == "served") {
+                    // UPG-INV-02: Trừ kho ngay tại công đoạn Bếp nhận làm / hoàn thành món
+                    deductInventoryForOrder(db, ordId);
+                }
+                db.commit();
+                sendJson(res, {{"success", true}, {"item_id", itemId}, {"item_status", nextSt}, {"order_kitchen_status", nextOrdKs}});
                 return;
             }
 
@@ -6330,6 +6696,20 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                 try {
                     openOrdersCnt = db.queryScalar("SELECT COUNT(*) FROM orders WHERE status NOT IN ('completed', 'cancelled')").get<int64_t>();
                 } catch (...) {}
+                if (openOrdersCnt > 0) {
+                    bool forceClose = (getInt(body, "force_close", 0) != 0) || (body.contains("force_close") && body["force_close"].is_boolean() && body["force_close"].get<bool>());
+                    bool allowForce = forceClose && userOpt.has_value() && (userOpt->role == "admin" || userOpt->is_super_admin);
+                    if (forceClose && !allowForce) {
+                        json mgr;
+                        allowForce = Dot6Handlers::verifyManagerPin(db, BodyParser::getParam(req, body, "manager_pin", ""), mgr);
+                    }
+                    if (!allowForce) {
+                        sendErrorCode(res, "SHIFT_OPEN_ORDERS",
+                            "Còn " + std::to_string(openOrdersCnt) + " đơn hàng đang mở chưa thanh toán/hoàn tất! Vui lòng thu hết đơn hoặc dùng PIN Quản lý để ép kết ca.",
+                            {{"open_orders_count", openOrdersCnt}}, 400);
+                        return;
+                    }
+                }
 
                 double cashIn = db.queryScalar(
                     "SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE shift_id = :sid AND trans_type = 'in'",
@@ -6380,6 +6760,10 @@ void ApiHandlers::handleFinance(const httplib::Request& req, httplib::Response& 
                     {":dtl", "Lý thuyết: " + std::to_string(static_cast<int64_t>(expectedCash)) + "đ | Thực đếm: " + std::to_string(static_cast<int64_t>(actualCash)) + "đ"},
                     {":cat", nowStr}
                 });
+                try {
+                    db.execute("INSERT INTO app_notifications (type, order_id, table_code, title, message, is_read_waiter, is_read_cashier, is_read_admin, created_at) VALUES ('ADMIN_SHIFT_CLOSED', 0, :tc, :t, :m, 1, 1, 0, :ca)",
+                               {{":tc", shiftCode}, {":t", "Báo cáo Kết Ca " + shiftCode + " (" + diffLabel + ")"}, {":m", "Thu ngân: " + uName + " | Lý thuyết: " + std::to_string(static_cast<int64_t>(expectedCash)) + "đ | Thực đếm: " + std::to_string(static_cast<int64_t>(actualCash)) + "đ | Đơn mở: " + std::to_string(openOrdersCnt)}, {":ca", nowStr}});
+                } catch (...) {}
                 db.commit();
 
                 bool checkedOutAtt = false;
@@ -6556,10 +6940,12 @@ void ApiHandlers::handleSettings(const httplib::Request& req, httplib::Response&
                 map[k] = v;
             }
             map["has_gemini_key"] = hasGemini;
-            json qSnap;
-            if (fetchMasterAiQuota(qSnap)) {
-                map["ai_quota"] = qSnap.value("ai_quota", json::object());
-                map["master_has_ai_key"] = qSnap.value("master_has_key", false);
+            if (req.has_param("include_quota") && req.get_param_value("include_quota") == "1") {
+                json qSnap;
+                if (fetchMasterAiQuota(qSnap)) {
+                    map["ai_quota"] = qSnap.value("ai_quota", json::object());
+                    map["master_has_ai_key"] = qSnap.value("master_has_key", false);
+                }
             }
 
             // Detect Local LAN IPs
@@ -6843,6 +7229,40 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
     std::string action = getAction(req, body);
     if (Dot6Handlers::handleDot6Operations(action, req, res, db, body)) return;
 
+    if (action == "admin_alerts") {
+        ensureInventoryRecipeSchema(db);
+        json alerts = db.query("SELECT id, type, order_id, table_code, title, message, created_at FROM app_notifications WHERE COALESCE(is_read_admin, 0) = 0 AND type LIKE 'ADMIN_%' ORDER BY id DESC LIMIT 20");
+        json expSoon = db.query(R"(
+            SELECT mb.id, mb.material_id, m.name as material_name, mb.batch_code, mb.expiry_date, mb.remaining_qty, m.unit
+            FROM material_batches mb JOIN materials m ON m.id = mb.material_id
+            WHERE mb.remaining_qty > 0 AND mb.expiry_date != '' AND date(mb.expiry_date) <= date('now', '+2 days', 'localtime')
+            ORDER BY mb.expiry_date ASC LIMIT 20
+        )");
+        sendJson(res, {{"success", true}, {"alerts", alerts}, {"expiring_batches", expSoon}});
+        return;
+    }
+    if (action == "ack_admin_alert") {
+        ensureInventoryRecipeSchema(db);
+        int64_t nid = 0;
+        try { nid = std::stoll(BodyParser::getParam(req, body, "notification_id", "0")); } catch (...) {}
+        if (nid > 0) db.execute("UPDATE app_notifications SET is_read_admin = 1 WHERE id = :id", {{":id", nid}});
+        else db.execute("UPDATE app_notifications SET is_read_admin = 1 WHERE type LIKE 'ADMIN_%'");
+        sendJson(res, {{"success", true}});
+        return;
+    }
+    if (action == "customer_crm") {
+        ensureInventoryRecipeSchema(db);
+        std::string phone = BodyParser::getParam(req, body, "phone", "");
+        if (!phone.empty()) {
+            auto cRow = db.queryRow("SELECT * FROM customers WHERE phone = :p LIMIT 1", {{":p", phone}});
+            sendJson(res, {{"success", true}, {"customer", cRow.is_null() ? json(nullptr) : cRow}});
+            return;
+        }
+        json list = db.query("SELECT * FROM customers ORDER BY total_spent DESC, id DESC LIMIT 100");
+        sendJson(res, {{"success", true}, {"data", list}});
+        return;
+    }
+
     // INV-02: Read-only BOM & recipe queries work on both GET and POST
     if (action == "get_bom_matrix") {
         if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
@@ -6880,7 +7300,7 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
     if (req.method == "GET") {
         if (action == "materials" || action.empty()) {
             if (!requireModule(res, "inventory_recipes", "Quản Lý Kho & Định Lượng")) return;
-            json mats = db.query("SELECT * FROM materials WHERE status = 'active' ORDER BY id ASC");
+            json mats = db.query("SELECT *, COALESCE(NULLIF(code, ''), 'NVL' || printf('%03d', id)) AS code FROM materials WHERE status = 'active' ORDER BY id ASC");
             sendJson(res, {{"success", true}, {"data", mats}});
             return;
         }
@@ -7281,6 +7701,34 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
             });
 
             db.execute("UPDATE materials SET quantity = :q WHERE id = :id", {{":q", newQty}, {":id", matId}});
+            std::string expDate = body.value("expiry_date", "");
+            if (dbType == "import" && qty > 0.0) {
+                std::string bCode = "LOT-" + getCurrentDate() + "-" + std::to_string(matId);
+                db.execute("INSERT INTO material_batches (material_id, batch_code, expiry_date, remaining_qty, unit_cost) VALUES (:mid, :bc, :ed, :rq, :uc)",
+                           {{":mid", matId}, {":bc", bCode}, {":ed", expDate}, {":rq", qty}, {":uc", price}});
+            } else if (dbType == "loss" && qty > 0.0) {
+                // FEFO batch deduction on loss
+                double remLoss = qty;
+                json batches = db.query("SELECT id, remaining_qty FROM material_batches WHERE material_id = :mid AND remaining_qty > 0 ORDER BY CASE WHEN expiry_date IS NULL OR expiry_date = '' THEN 1 ELSE 0 END, expiry_date ASC, id ASC", {{":mid", matId}});
+                for (const auto& b : batches) {
+                    if (remLoss <= 0.0001) break;
+                    double bQty = b.value("remaining_qty", 0.0);
+                    double take = std::min(remLoss, bQty);
+                    db.execute("UPDATE material_batches SET remaining_qty = MAX(0, remaining_qty - :t) WHERE id = :bid", {{":t", take}, {":bid", b.value("id", int64_t(0))}});
+                    remLoss -= take;
+                }
+                double lossCost = qty * price;
+                if (lossCost > 0.0) {
+                    db.execute(R"(
+                        INSERT INTO finance_expenses (expense_date, category, description, supplier, amount, vat_amount, source, created_by, created_at)
+                        VALUES (:d, 'Hao hụt / Hủy nguyên liệu', :desc, 'Kho nội bộ', :amt, 0, 'inventory_loss', 'Hệ thống Kho', :ca)
+                    )", {{":d", getCurrentDate()}, {":desc", "[Xuất hủy] " + matName + " (" + std::to_string(qty) + " " + unit + ")" + (note.empty() ? "" : (" - " + note))}, {":amt", lossCost}, {":ca", getCurrentTimestamp()}});
+                }
+                try {
+                    db.execute("INSERT INTO app_notifications (type, order_id, table_code, title, message, is_read_waiter, is_read_cashier, is_read_admin, created_at) VALUES ('ADMIN_INVENTORY_LOSS', 0, 'KHO', :t, :m, 1, 1, 0, :ca)",
+                               {{":t", "Xuất hủy nguyên liệu: " + matName}, {":m", "Đã xuất hủy " + std::to_string(qty) + " " + unit + " (" + std::to_string(static_cast<int64_t>(lossCost)) + "đ) và hạch toán vào chi phí hao hụt."}, {":ca", getCurrentTimestamp()}});
+                } catch (...) {}
+            }
             db.commit();
 
             sendJson(res, {{"success", true}, {"message", "Ghi nhận phiếu kho thành công!"}, {"new_quantity", newQty}});
@@ -8310,7 +8758,13 @@ void ApiHandlers::handleOperations(const httplib::Request& req, httplib::Respons
         json mats = db.query(sql, params);
         double totalStockVal = 0.0;
         int lowStockCount = 0;
-        for (const auto& m : mats) {
+        for (auto& m : mats) {
+            if (jStr(m, "code").empty()) {
+                int mid = jInt(m, "id", 0);
+                char buf[32];
+                snprintf(buf, sizeof(buf), "NVL%03d", mid);
+                m["code"] = std::string(buf);
+            }
             double q = jNum(m, "quantity", 0.0);
             double mq = jNum(m, "min_quantity", 0.0);
             double cp = jNum(m, "cost_price", 0.0);
@@ -10336,42 +10790,85 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
                 return;
             }
             auto ord = db.queryRow(
-                "SELECT id, order_code, payment_status, status FROM orders WHERE UPPER(order_code) = UPPER(:oc) AND date(created_at) = date('now', 'localtime') LIMIT 1",
+                "SELECT id, order_code, payment_status, status, kitchen_status, table_id, table_code, "
+                "CAST((julianday('now', 'localtime') - julianday(created_at)) * 1440 AS INTEGER) AS age_mins "
+                "FROM orders WHERE UPPER(order_code) = UPPER(:oc) AND date(created_at) = date('now', 'localtime') LIMIT 1",
                 {{":oc", orderCode}}
             );
-            if (ord.is_null() || (ord.value("payment_status", "") != "paid" && ord.value("status", "") != "completed")) {
-                sendError(res, "Mã hóa đơn không tồn tại trong hôm nay hoặc chưa thanh toán!", 400);
+            if (ord.is_null() || ord.value("status", "") == "cancelled") {
+                sendError(res, "Mã hóa đơn không tồn tại trong hôm nay hoặc đã bị hủy!", 400);
                 return;
             }
+            int ageMins = ord.value("age_mins", 0);
+            if (ageMins > vipMins) {
+                sendError(res, "Mã WiFi VIP của đơn này đã hết hạn quá 3 giờ (180 phút)!", 400);
+                return;
+            }
+            // Nếu đơn đã hoàn tất (trả bàn) hoặc chưa gửi bếp thì kiểm tra hợp lệ:
+            // UPG-WIFI-01: Cho phép cấp ngay khi đơn đang mở tại bàn (đã duyệt/gửi bếp) hoặc đã thanh toán; hết hạn khi trả bàn (free) hoặc quá 3h.
+            std::string ordStatus = ord.value("status", "");
+            std::string payStatus = ord.value("payment_status", "");
+            int64_t ordTableId = ord.value("table_id", int64_t(0));
+            if (ordStatus == "completed") {
+                // Nếu là đơn tại bàn và bàn đã giải phóng -> hết hiệu lực
+                if (ordTableId > 0) {
+                    auto tblRow = db.queryRow("SELECT status, active_order_id FROM tables_areas WHERE id = :tid", {{":tid", ordTableId}});
+                    if (!tblRow.is_null() && (tblRow.value("status", "") == "free" || tblRow.value("active_order_id", int64_t(0)) != ord.value("id", int64_t(0)))) {
+                        sendError(res, "Bàn đã thanh toán và giải phóng, mã WiFi VIP đã hết hiệu lực!", 400);
+                        return;
+                    }
+                }
+            }
+            int64_t ordId = ord.value("id", int64_t(0));
             std::string realCode = ord.value("order_code", orderCode);
-            auto cntRow = db.queryRow(
-                "SELECT COUNT(DISTINCT client_ip) AS c FROM wifi_marketing_leads WHERE UPPER(order_code) = UPPER(:oc) AND client_ip != :ip",
-                {{":oc", realCode}, {":ip", clientIp}}
-            );
-            int usedOtherDevices = cntRow.is_null() ? 0 : cntRow.value("c", 0);
-            if (usedOtherDevices >= maxDev) {
-                sendError(res, "Mã hóa đơn này đã đạt giới hạn tối đa " + std::to_string(maxDev) + " thiết bị sử dụng.", 400);
-                return;
-            }
+            std::string deviceId = getString(body, "device_id", "");
+            std::string clientKey = deviceId.empty() ? clientIp : deviceId;
 
-            db.execute(
-                "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'vip_order', :oc)",
-                {{":cn", cname}, {":ph", phone}, {":ip", clientIp}, {":oc", realCode}}
+            // UPG-WIFI-01: 1 món (ăn hoặc uống) = 1 suất client VIP
+            int itemQuota = 0;
+            try {
+                itemQuota = db.queryScalar(
+                    "SELECT COALESCE(SUM(quantity), 0) FROM order_items WHERE order_id = :oid AND COALESCE(cancel_status, 'none') NOT IN ('approved', 'out_of_stock')",
+                    {{":oid", ordId}}
+                ).get<int>();
+            } catch (...) {}
+            int effectiveMax = std::max(1, itemQuota);
+
+            auto existingSelf = db.queryRow(
+                "SELECT id FROM wifi_marketing_leads WHERE UPPER(order_code) = UPPER(:oc) AND unlock_type = 'vip_order' AND (client_ip = :ip OR (:ck != '' AND customer_name LIKE :ckp)) LIMIT 1",
+                {{":oc", realCode}, {":ip", clientIp}, {":ck", clientKey}, {":ckp", "%" + clientKey + "%"}}
             );
+            if (existingSelf.is_null()) {
+                auto cntRow = db.queryRow(
+                    "SELECT COUNT(DISTINCT client_ip) AS c FROM wifi_marketing_leads WHERE UPPER(order_code) = UPPER(:oc) AND unlock_type = 'vip_order' AND client_ip != :ip",
+                    {{":oc", realCode}, {":ip", clientIp}}
+                );
+                int usedOtherDevices = cntRow.is_null() ? 0 : cntRow.value("c", 0);
+                if (usedOtherDevices >= effectiveMax) {
+                    sendError(res, "Đơn này có " + std::to_string(effectiveMax) + " món (tối đa " + std::to_string(effectiveMax) + " thiết bị VIP) và đã hết suất!", 400);
+                    return;
+                }
+                db.execute(
+                    "INSERT INTO wifi_marketing_leads (customer_name, phone, client_ip, unlock_type, order_code) VALUES (:cn, :ph, :ip, 'vip_order', :oc)",
+                    {{":cn", cname.empty() ? clientKey : cname}, {":ph", phone}, {":ip", clientIp}, {":oc", realCode}}
+                );
+            }
+            int remMins = std::max(1, vipMins - std::max(0, ageMins));
             CyberNexus::PluginManager::instance().dispatchEvent("WIFI_UNLOCK_SESSION", {
                 {"mode", "vip"},
                 {"order_code", realCode},
                 {"client_ip", clientIp},
                 {"mac", mac},
-                {"minutes", vipMins}
+                {"minutes", remMins}
             });
             sendJson(res, {
                 {"success", true},
                 {"tier", "vip"},
-                {"minutes", vipMins},
+                {"minutes", remMins},
+                {"vip_quota", effectiveMax},
                 {"client_ip", clientIp},
                 {"order_code", realCode},
-                {"message", "Đã kích hoạt WiFi VIP thành công! Chúc quý khách trải nghiệm mượt mà."}
+                {"message", "Đã kích hoạt WiFi VIP thành công (" + std::to_string(remMins) + " phút)!"}
             });
             return;
         }
@@ -10402,6 +10899,43 @@ void ApiHandlers::registerRoutes(httplib::Server& svr) {
             {"client_ip", clientIp},
             {"message", "Đã kết nối WiFi tốc độ cao (" + std::to_string(freeMins) + " phút)! Chúc quý khách vui vẻ."}
         });
+    });
+
+    svr.Get("/api/wifi/vip_status", [ensureWifiLeadsSchema, readWifiPolicy](const httplib::Request& req, httplib::Response& res) {
+        auto& db = Database::instance();
+        ensureWifiLeadsSchema(db);
+        std::string clientIp = req.remote_addr.empty() ? "127.0.0.1" : req.remote_addr;
+        json pol = readWifiPolicy();
+        int vipMins = pol.value("vip_minutes", 180);
+        auto row = db.queryRow(
+            "SELECT w.order_code, o.status as order_status, o.table_id, "
+            "CAST((julianday('now', 'localtime') - julianday(o.created_at)) * 1440 AS INTEGER) AS age_mins "
+            "FROM wifi_marketing_leads w "
+            "JOIN orders o ON UPPER(o.order_code) = UPPER(w.order_code) "
+            "WHERE w.unlock_type = 'vip_order' AND w.client_ip = :ip "
+            "AND date(o.created_at) = date('now', 'localtime') AND o.status != 'cancelled' "
+            "ORDER BY w.id DESC LIMIT 1",
+            {{":ip", clientIp}}
+        );
+        bool vipActive = false;
+        std::string activeCode = "";
+        int remMins = 0;
+        if (!row.is_null()) {
+            int age = row.value("age_mins", 0);
+            std::string ost = row.value("order_status", "");
+            int64_t tid = row.value("table_id", int64_t(0));
+            bool tableFreed = false;
+            if (ost == "completed" && tid > 0) {
+                auto tRow = db.queryRow("SELECT status FROM tables_areas WHERE id = :tid", {{":tid", tid}});
+                if (!tRow.is_null() && tRow.value("status", "") == "free") tableFreed = true;
+            }
+            if (age <= vipMins && !tableFreed) {
+                vipActive = true;
+                activeCode = row.value("order_code", "");
+                remMins = std::max(1, vipMins - std::max(0, age));
+            }
+        }
+        sendJson(res, {{"success", true}, {"vip_active", vipActive}, {"order_code", activeCode}, {"remaining_minutes", remMins}});
     });
 
     svr.Get("/api/wifi/leads", [ensureWifiLeadsSchema](const httplib::Request& req, httplib::Response& res) {

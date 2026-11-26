@@ -130,8 +130,8 @@ async function loadTablesData() {
             const listEl = document.getElementById('waiter-alert-list');
             const cntEl = document.getElementById('waiter-alert-count');
             if (aJson && aJson.success && box && listEl) {
-                const alerts = Array.isArray(aJson.alerts) ? aJson.alerts : [];
-                const qrAlerts = alerts.filter(al => al.alert_type === 'qr_table_pending' || al.alert_type === 'qr_payment_pending');
+                const alerts = (Array.isArray(aJson.alerts) ? aJson.alerts : []).filter(al => al.alert_type !== 'qr_payment_pending');
+                const qrAlerts = alerts.filter(al => al.alert_type === 'qr_table_pending');
                 if (!window.knownQrAlertIds) {
                     window.knownQrAlertIds = new Set(qrAlerts.map(al => Number(al.id)));
                 } else {
@@ -170,7 +170,7 @@ async function loadTablesData() {
                                     <b class="block truncate">${isQr ? '📱 ' : ''}${escapeHtml(nTxt.title || al.title)}</b>
                                     <span class="text-[11px] opacity-85">${escapeHtml(nTxt.message || al.message)}</span>
                                 </div>
-                                <div class="flex items-center gap-1.5 shrink-0">
+                                <div class="flex items-center flex-wrap justify-end gap-1.5 shrink-0">
                                     ${isQr && Number(al.table_id || 0) > 0 ? `<button type="button" onclick="selectOrderTable(${Number(al.table_id)})" class="px-2 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold">${window.cnxT?window.cnxT('js.s_ord.59bf3eff','Mở bàn'):'Mở bàn'}</button>` : ''}
                                     <button type="button" onclick="ackWaiterAlert(${Number(al.id)})" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">${isQr ? 'Đã xem' : (window.cnxT?window.cnxT('js.s_ord.37f682c8','Đã báo khách'):'Đã báo khách')}</button>
                                 </div>
@@ -601,12 +601,16 @@ function renderTables() {
                     badgeHtml = (window.cnxT?window.cnxT('js.s_ord.f6dba09c','<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span>'):'<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 font-bold text-[9px] flex items-center gap-0.5"><i class="fas fa-money-bill-wave text-[8px]"></i> Đã TT</span>');
                 }
             } else {
-                if (isServed) {
+                if (kStatus === 'awaiting_payment') {
+                    badgeHtml = t.payment_status === 'verifying'
+                        ? '<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/40 font-bold text-[9px] whitespace-nowrap">🔎 Chờ đối soát CK</span>'
+                        : '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 font-bold text-[9px] whitespace-nowrap">⏳ Chờ TT QR</span>';
+                } else if (isServed) {
                     badgeHtml = (window.cnxT?window.cnxT('js.s_ord.b480e38d','<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>'):'<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold text-[9px] flex items-center gap-0.5">🍽️ Đã bưng</span>');
                 } else if (isInKitchen) {
                     badgeHtml = yellowDotHtml;
                 } else {
-                    badgeHtml = '<span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>';
+                    badgeHtml = '<span class="relative flex h-2.5 w-2.5 shrink-0"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-85"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span></span>';
                 }
             }
         } else {
@@ -711,6 +715,7 @@ async function loadExistingTableOrder(orderId) {
                 quantity: parseInt(it.quantity),
                 note: it.note || '',
                 toppings: it.toppings || [],
+                item_status: it.item_status || (data.order && data.order.kitchen_status) || 'pending',
                 is_confirmed: true
             }));
             newCartItems = []; // No new items yet
@@ -959,11 +964,19 @@ function renderCartSheetItems() {
             const cancelRsn = (it.cancel_reason || noteStr || '').trim();
 
             html += `
-                <div class="p-2.5 rounded-xl ${isCancelled ? 'bg-slate-950/70 border border-rose-500/20 opacity-60' : (isCancelNote ? 'bg-amber-950/20 border border-amber-500/40' : (isRejected ? 'bg-rose-950/15 border border-rose-500/30' : 'bg-slate-900/60 border border-white/5 opacity-80'))} flex items-center justify-between transition-all">
-                    <div class="space-y-0.5 flex-1 pr-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-slate-400 font-mono text-[11px]">#${idx + 1}</span>
+                <div class="p-2.5 rounded-xl ${isCancelled ? 'bg-slate-950/70 border border-rose-500/20 opacity-60' : (isCancelNote ? 'bg-amber-950/20 border border-amber-500/40' : (isRejected ? 'bg-rose-950/15 border border-rose-500/30' : 'bg-slate-900/60 border border-white/5 opacity-80'))} flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all">
+                    <div class="space-y-0.5 flex-1 min-w-0 sm:pr-2">
+                        <div class="flex items-center flex-wrap gap-1.5">
+                            <span class="text-slate-400 font-mono text-[11px] shrink-0">#${idx + 1}</span>
                             <h5 class="font-bold text-xs ${isCancelled ? 'line-through text-slate-400' : 'text-slate-200'}">${it.name}</h5>
+                            ${(() => {
+                                if (isCancelled) return '';
+                                const ist = it.item_status || activeOrderKitchenStatus || 'pending';
+                                if (ist === 'served') return '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] font-bold">✓ Đã bưng</span>';
+                                if (ist === 'ready') return '<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/40 text-[9px] font-bold animate-pulse">🔔 Sắp mang ra</span>';
+                                if (ist === 'preparing') return '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-bold">Đang làm</span>';
+                                return '<span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[9px] font-bold">Chờ bếp</span>';
+                            })()}
                         </div>
                         <div class="text-[11px] text-slate-400 font-mono">
                             ${formatMoney(it.price + topSum)} ${window.cnxT?window.cnxT('js.s_ord.a951693c','đ /'):'đ /'} ${it.unit || (window.cnxT?window.cnxT('js.s_adm.3a9dfd9c','phần'):'phần')}
@@ -977,7 +990,13 @@ function renderCartSheetItems() {
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="flex items-center flex-wrap justify-end gap-1.5 shrink-0">
+                        ${(!isCancelled && (it.item_status || activeOrderKitchenStatus) !== 'served' && activeOrderKitchenStatus !== 'awaiting_waiter') ? `
+                            <button type="button" class="text-xs px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/30 active:scale-90 flex items-center gap-1 cursor-pointer" onclick="event.stopPropagation(); markWaiterItemServed(${it.order_item_id || it.id})" title="Xác nhận đã bưng món này ra bàn">
+                                <i class="fas fa-check text-[10px]"></i>
+                                <span>Đã bưng</span>
+                            </button>
+                        ` : ''}
                         ${(!isAlreadyServed && !isCancelled && !isCancelNote) ? `
                             <button type="button" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 active:scale-90 flex items-center gap-1 cursor-pointer" onclick="event.stopPropagation(); addNoteToConfirmedItem(${it.order_item_id || it.id})" title="Bổ sung ghi chú gửi bếp">
                                 <i class="fas fa-comment-dots text-[10px]"></i>
@@ -1189,6 +1208,36 @@ function closeCartBottomSheet() {
     document.getElementById('cart-sheet-overlay').classList.remove('open');
     document.querySelector('.bottom-sheet').classList.remove('open');
 }
+
+window.scrollToReadyTable = function() {
+    const readyCard = document.querySelector('#tables-grid .border-amber-400, #tables-grid .border-rose-400, #kitchen-alert-banner:not(.hidden)');
+    if (readyCard) {
+        readyCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        readyCard.classList.add('ring-4', 'ring-amber-300');
+        setTimeout(() => readyCard.classList.remove('ring-4', 'ring-amber-300'), 1800);
+    } else if (typeof loadTablesData === 'function') {
+        loadTablesData();
+    }
+};
+
+window.markWaiterItemServed = async function(itemId) {
+    try {
+        const res = await fetch('api/orders.php?action=update_item_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: itemId, item_status: 'served' })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            if (activeOrderId) await loadExistingTableOrder(activeOrderId);
+            await loadTablesData();
+        } else {
+            alert((data && data.message) || 'Không thể cập nhật món đã bưng!');
+        }
+    } catch (e) {
+        console.error('markWaiterItemServed error:', e);
+    }
+};
 
 // 5. Send Order to Kitchen (Báo bếp / Lưu bàn)
 async function sendOrderToKitchen() {

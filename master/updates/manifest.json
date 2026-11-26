@@ -1,18 +1,18 @@
 {
-  "version": "2026.11.24.13",
-  "title": "Admin Media: 4:6 Queue/Catalog Ratio & Single-Row Badges",
-  "notes": "- Điều chỉnh tỷ lệ card Hàng Đợi (4fr) / Kho Nhạc (6fr) trên cột phải lg:col-span-7\n- Đưa tiêu đề bài hát (dòng 1) và nghệ sĩ + badge (dòng 2, không xuống dòng) gọn gàng",
-  "release_notes": "- Điều chỉnh tỷ lệ card Hàng Đợi (4fr) / Kho Nhạc (6fr) trên cột phải lg:col-span-7\n- Đưa tiêu đề bài hát (dòng 1) và nghệ sĩ + badge (dòng 2, không xuống dòng) gọn gàng",
-  "created_at": "2026-11-24 19:20:30",
-  "release_date": "2026-11-24 19:20:30",
+  "version": "2026.11.26.01",
+  "title": "CyberNexus OS v2.8.0",
+  "notes": "Release v2.8.0: Offline ECDSA/HWID/Web Integrity/Tunnel, FEFO & Kitchen Stock Deduction, WiFi VIP 1:1 & Auto-DJ Bar Display, Offline IndexedDB & VietQR SVG",
+  "release_notes": "Release v2.8.0: Offline ECDSA/HWID/Web Integrity/Tunnel, FEFO & Kitchen Stock Deduction, WiFi VIP 1:1 & Auto-DJ Bar Display, Offline IndexedDB & VietQR SVG",
+  "created_at": "2026-11-26 14:46:59",
+  "release_date": "2026-11-26 14:46:59",
   "target_tenant": "",
   "release_status": "published",
   "auto_publish": true,
   "pushed_stores": [
     "ALL"
   ],
-  "sha256": "ff2864fa26faac72c8a922b648cc6e845bbb5fba291610534e13254d6d5d3a2c",
-  "size_bytes": 22953754,
+  "sha256": "52eee3073d971478a3e08ab8420f5ca3308a011895b5a40207fc9df54c982ae3",
+  "size_bytes": 19321513,
   "files": [
     "CyberNexus_Control_Center.exe",
     "cybernexus_slave.exe",

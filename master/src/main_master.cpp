@@ -74,6 +74,41 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    // [SEC-INT-01] Sign web_integrity.json manifests with Master ECDSA P-256 CNG private key
+    if (argc >= 3 && std::string(argv[1]) == "--sign-web") {
+        for (int i = 2; i < argc; ++i) {
+            std::string manPath = argv[i];
+            std::ifstream ifs(manPath, std::ios::binary);
+            if (!ifs) {
+                std::cerr << "[SignWeb] Cannot open manifest: " << manPath << std::endl;
+                return 2;
+            }
+            nlohmann::json man;
+            try { ifs >> man; } catch (...) {
+                std::cerr << "[SignWeb] Invalid JSON: " << manPath << std::endl;
+                return 3;
+            }
+            nlohmann::json filesObj = (man.is_object() && man.contains("files") && man["files"].is_object()) ? man["files"] : nlohmann::json::object();
+            std::string canon = "CBNX_WEB_ECDSA_V1:" + std::to_string(filesObj.size()) + ":" + SaleApp::Backend::AuthService::sha256(filesObj.dump());
+            std::string sigHex = SaleApp::LicenseCrypto::signLicensePayload(canon);
+            if (sigHex.empty() || !SaleApp::LicenseCrypto::verifyLicensePayload(canon, sigHex)) {
+                std::cerr << "[SignWeb] ECDSA sign/verify failed for: " << manPath << std::endl;
+                return 4;
+            }
+            man["algorithm"] = "ECDSA-P256-SHA256";
+            man["key_fingerprint"] = SaleApp::LicenseCrypto::getPublicKeyFingerprint();
+            man["ecdsa_sig"] = sigHex;
+            std::ofstream ofs(manPath, std::ios::binary | std::ios::trunc);
+            if (!ofs) {
+                std::cerr << "[SignWeb] Cannot write manifest: " << manPath << std::endl;
+                return 5;
+            }
+            ofs << man.dump(2) << "\n";
+            std::cout << "[SignWeb] OK " << manPath << " files=" << filesObj.size() << " fp=" << SaleApp::LicenseCrypto::getPublicKeyFingerprint() << std::endl;
+        }
+        return 0;
+    }
+
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 

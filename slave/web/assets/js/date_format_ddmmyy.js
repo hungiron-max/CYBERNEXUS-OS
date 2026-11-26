@@ -136,8 +136,20 @@
     }
 
     let rafScheduled = false;
-    const obs = new MutationObserver(() => {
+    const obs = new MutationObserver((mutations) => {
         if (rafScheduled) return;
+        let hasElementAdded = false;
+        for (let i = 0; i < mutations.length; i++) {
+            const added = mutations[i].addedNodes;
+            for (let j = 0; j < added.length; j++) {
+                if (added[j].nodeType === 1) {
+                    hasElementAdded = true;
+                    break;
+                }
+            }
+            if (hasElementAdded) break;
+        }
+        if (!hasElementAdded) return;
         rafScheduled = true;
         requestAnimationFrame(() => {
             rafScheduled = false;

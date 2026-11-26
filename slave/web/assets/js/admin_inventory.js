@@ -1321,7 +1321,11 @@ Object.assign(Admin, {
             const typeBadges = {
                 import: (window.cnxT?window.cnxT('js.s_inv.12ecee0f','<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">Nhập kho</span>'):'<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">Nhập kho</span>'),
                 export: (window.cnxT?window.cnxT('js.s_inv.4ea99f4c','<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">Xuất kho</span>'):'<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">Xuất kho</span>'),
-                adjustment: (window.cnxT?window.cnxT('js.s_inv.b67f154f','<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold text-[10px]">Cân chỉnh</span>'):'<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold text-[10px]">Cân chỉnh</span>')
+                adjustment: (window.cnxT?window.cnxT('js.s_inv.b67f154f','<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold text-[10px]">Cân chỉnh</span>'):'<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold text-[10px]">Cân chỉnh</span>'),
+                sale_deduct: '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px]">Trừ bán hàng</span>',
+                sale_restore: '<span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-bold text-[10px]">Hoàn kho hủy</span>',
+                loss: '<span class="px-1.5 py-0.5 rounded bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-[10px]">Xuất hủy / Hao hụt</span>',
+                waste: '<span class="px-1.5 py-0.5 rounded bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-[10px]">Hao hụt</span>'
             };
 
             tbody.innerHTML = data.transactions.map(t => `

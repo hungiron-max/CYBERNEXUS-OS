@@ -29,11 +29,13 @@ const POS = {
             searchInput.setAttribute('autocomplete', 'off');
         }
         this.bindEvents();
-        await this.loadSettings();
-        await this.loadTaxPolicy();
-        await this.loadCategories();
-        await this.loadProducts();
-        await this.loadTables();
+        await Promise.all([
+            this.loadSettings(),
+            this.loadTaxPolicy(),
+            this.loadCategories(),
+            this.loadProducts(),
+            this.loadTables()
+        ]);
         if (searchInput) searchInput.value = '';
         this.selectDefaultTable();
         this.startClock();
@@ -372,7 +374,9 @@ const POS = {
             const statusDotHtml = isOccupied
                 ? (isInKitchen
                     ? `<span class="relative flex h-2.5 w-2.5 shrink-0" title="Bếp đang chế biến (${elapsedMins} phút)"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-85"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span></span>`
-                    : `<span class="w-2 h-2 rounded-full ${isPaid ? 'bg-teal-400' : 'bg-rose-500 animate-ping'}"></span>`)
+                    : (isPaid
+                        ? `<span class="w-2 h-2 rounded-full bg-teal-400"></span>`
+                        : `<span class="relative flex h-2.5 w-2.5 shrink-0"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-85"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span></span>`))
                 : '<span class="w-2 h-2 rounded-full bg-emerald-400"></span>';
 
             const rushBtnHtml = (isOverdueKitchen && orderId > 0)
@@ -744,6 +748,7 @@ const POS = {
                     price: parseFloat(it.price),
                     quantity: parseInt(it.quantity),
                     note: it.note || '',
+                    item_status: it.item_status || (data.order && data.order.kitchen_status) || 'pending',
                     toppings: it.toppings || []
                 }));
 
@@ -994,6 +999,7 @@ const POS = {
             if (btnPrintTemp) {
                 btnPrintTemp.classList.add('hidden');
             }
+            this.updateCheckoutButton(false);
             cartItemsContainer.innerHTML = `
                 <div class="h-64 flex flex-col items-center justify-center text-slate-500">
                     <i class="fas fa-shopping-basket text-4xl mb-3 opacity-30"></i>
@@ -1081,7 +1087,16 @@ const POS = {
                 <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 hover:border-white/10 transition-colors">
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex-1 min-w-0">
-                            <h5 class="text-sm font-bold text-slate-100 truncate">${escapeHtml(item.name)}</h5>
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <h5 class="text-sm font-bold text-slate-100 truncate">${escapeHtml(item.name)}</h5>
+                                ${item.order_item_id ? (() => {
+                                    const ist = item.item_status || this.activeOrderKitchenStatus || 'pending';
+                                    if (ist === 'served') return '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold shrink-0">✓ Đã bưng</span>';
+                                    if (ist === 'ready') return '<span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[9px] font-bold shrink-0">Xong</span>';
+                                    if (ist === 'preparing') return '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-bold shrink-0">Đang làm</span>';
+                                    return '<span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[9px] font-bold shrink-0">Chờ</span>';
+                                })() : ''}
+                            </div>
                             <div class="text-xs text-amber-400 font-semibold mt-0.5">
                                 ${this.formatMoney(unitPrice)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}
                                 ${toppingPrice > 0 ? `<span class="text-[10px] text-sky-400 font-normal"> ${window.cnxT?window.cnxT('js.s_pos.8b412bee','(Gồm topping)'):'(Gồm topping)'}</span>` : ''}
@@ -1166,16 +1181,7 @@ const POS = {
             ` + cartItemsContainer.innerHTML;
         }
 
-        const btnCheckout = document.getElementById('btn-pos-checkout');
-        if (btnCheckout) {
-            if (isPaid) {
-                btnCheckout.className = 'col-span-2 py-3 px-2 sm:px-4 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-xl bg-teal-600/30 hover:bg-teal-600/50 text-teal-300 border border-teal-500/50 active:scale-95 transition-transform truncate';
-                btnCheckout.innerHTML = (window.cnxT?window.cnxT('js.s_pos.c668a4d8','<i class="fas fa-print text-base sm:text-lg"></i> <span>IN LẠI HÓA ĐƠN</span>'):'<i class="fas fa-print text-base sm:text-lg"></i> <span>IN LẠI HÓA ĐƠN</span>');
-            } else {
-                btnCheckout.className = 'col-span-2 btn-glass-success py-3 px-2 sm:px-4 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-xl shadow-emerald-600/30 active:scale-95 transition-transform truncate';
-                btnCheckout.innerHTML = (window.cnxT?window.cnxT('js.s_pos.e771dfea','<i class="fas fa-hand-holding-dollar text-base sm:text-lg"></i> <span>THANH TOÁN (F9)</span>'):'<i class="fas fa-hand-holding-dollar text-base sm:text-lg"></i> <span>THANH TOÁN (F9)</span>');
-            }
-        }
+        this.updateCheckoutButton(isPaid);
 
         // Calculate discount
         let discountAmount = 0;
@@ -1277,7 +1283,23 @@ const POS = {
             }
         } catch (e) {
             console.error('Error saving order:', e);
+            if (window.CnxOfflineQueue) {
+                try {
+                    await window.CnxOfflineQueue.enqueue(payload);
+                    if (typeof this.showToast === 'function') this.showToast('Mất mạng LAN: đã lưu đơn vào hàng đợi Offline IndexedDB!', 'warning');
+                } catch (_) {}
+            }
         }
+    },
+
+    async syncOfflineOrders() {
+        if (!window.CnxOfflineQueue) return { synced: 0 };
+        const res = await window.CnxOfflineQueue.flush();
+        if (res.synced > 0) {
+            if (typeof this.showToast === 'function') this.showToast(`Đã đồng bộ ${res.synced} đơn hàng Offline lên máy chủ!`, 'success');
+            this.loadTables();
+        }
+        return res;
     },
 
     // Cancel / Clear Order (Kiểm toán bắt buộc nhập lý do hủy đơn)
@@ -1739,6 +1761,18 @@ const POS = {
         if (modal) modal.classList.remove('open');
     },
 
+    updateCheckoutButton(isPaid) {
+        const btnCheckout = document.getElementById('btn-pos-checkout');
+        if (!btnCheckout) return;
+        if (isPaid) {
+            btnCheckout.className = 'py-2 px-2.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl bg-teal-600/30 hover:bg-teal-600/50 text-teal-300 border border-teal-500/50 active:scale-95 transition-transform whitespace-nowrap';
+            btnCheckout.innerHTML = (window.cnxT?window.cnxT('js.s_pos.c668a4d8','<i class="fas fa-print text-sm"></i> <span>IN LẠI HÓA ĐƠN</span>'):'<i class="fas fa-print text-sm"></i> <span>IN LẠI HÓA ĐƠN</span>');
+        } else {
+            btnCheckout.className = 'btn-glass-success py-2 px-2.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl shadow-emerald-600/30 active:scale-95 transition-transform whitespace-nowrap';
+            btnCheckout.innerHTML = (window.cnxT?window.cnxT('js.s_pos.e771dfea','<i class="fas fa-hand-holding-dollar text-sm"></i> <span>THANH TOÁN (F9)</span>'):'<i class="fas fa-hand-holding-dollar text-sm"></i> <span>THANH TOÁN (F9)</span>');
+        }
+    },
+
     handleCheckoutClick() {
         const isPaid = this.activeOrderPaymentStatus === 'paid' || (this.currentTable && this.currentTable.payment_status === 'paid');
         if (isPaid) {
@@ -1749,9 +1783,13 @@ const POS = {
     },
 
     async reprintActiveOrder() {
-        if (!this.activeOrderId) return;
+        const oid = this.activeOrderId || (this.currentTable && this.currentTable.active_order_id);
+        if (!oid) {
+            if (typeof this.showToast === 'function') this.showToast('Không tìm thấy mã hóa đơn để in lại!', 'error');
+            return;
+        }
         try {
-            const res = await fetch(`api/orders.php?order_id=${this.activeOrderId}`);
+            const res = await fetch(`api/orders.php?order_id=${oid}`);
             const data = await res.json();
             if (data.success && data.order) {
                 fetch('api/orders.php?action=log_audit', {
@@ -1770,9 +1808,12 @@ const POS = {
                     })
                 }).catch((errIgnored) => { (window.CyberSecurity ? CyberSecurity.logSilentError('pos.js', errIgnored) : console.debug('pos.js', errIgnored)); });
                 this.showReceiptModal(data.order, data.items, data.store, (window.cnxT?window.cnxT('js.s_pos.45dd3378','IN LẠI HÓA ĐƠN'):'IN LẠI HÓA ĐƠN'), (window.cnxT?window.cnxT('js.s_pos.f23ba7df','Xem trước & In hóa đơn nhiệt 80mm'):'Xem trước & In hóa đơn nhiệt 80mm'));
+            } else {
+                if (typeof this.showToast === 'function') this.showToast((data && data.message) || 'Không tải được chi tiết hóa đơn!', 'error');
             }
         } catch(e) {
             console.error('Error reprinting order:', e);
+            if (typeof this.showToast === 'function') this.showToast('Lỗi kết nối khi tải hóa đơn!', 'error');
         }
     },
 
@@ -1987,17 +2028,17 @@ const POS = {
                 <!-- Payment Methods -->
                 <div class="mb-4">
                     <label class="block text-xs font-semibold text-slate-300 mb-2">${window.cnxT?window.cnxT('js.s_pos.6b619788','Phương thức thanh toán:'):'Phương thức thanh toán:'}</label>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <button type="button" id="paymethod-cash" class="btn-glass btn-glass-primary text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('cash', ${total})">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="paymethod-cash" class="btn-glass btn-glass-primary text-xs py-2.5 px-3 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('cash', ${total})">
                             <i class="fas fa-money-bill-wave"></i> ${window.cnxT?window.cnxT('ui.admin_html.option_7d2970d9','Tiền mặt'):'Tiền mặt'}
                         </button>
-                        <button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('banking', ${total})">
+                        <button type="button" id="paymethod-banking" class="btn-glass text-xs py-2.5 px-3 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('banking', ${total})">
                             <i class="fas fa-qrcode"></i> ${window.cnxT?window.cnxT('js.s_pos.0452370e','Chuyển khoản QR'):'Chuyển khoản QR'}
                         </button>
-                        <button type="button" id="paymethod-card" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('card', ${total})">
+                        <button type="button" id="paymethod-card" class="btn-glass text-xs py-2.5 px-3 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('card', ${total})">
                             <i class="fas fa-credit-card"></i> ${window.cnxT?window.cnxT('js.s_fin.2879c570','Thẻ POS'):'Thẻ POS'}
                         </button>
-                        <button type="button" id="paymethod-split" class="btn-glass text-xs py-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('split', ${total})">
+                        <button type="button" id="paymethod-split" class="btn-glass text-xs py-2.5 px-3 flex items-center justify-center gap-1.5 whitespace-nowrap" onclick="POS.selectPaymentMethod('split', ${total})">
                             <i class="fas fa-code-branch"></i> ${window.cnxT?window.cnxT('js.s_pos.30c15a90','Kết hợp'):'Kết hợp'}
                         </button>
                     </div>
@@ -2548,6 +2589,7 @@ const POS = {
             try {
                 // Real-time table updates: so Cashier immediately sees orders created by Waiter
                 await this.loadTables();
+                await this.syncActiveOrderItemStatuses();
 
                 const res = await fetch('api/orders.php?action=check_notifications&role=cashier');
                 const data = await res.json();
@@ -2586,7 +2628,7 @@ const POS = {
         };
 
         const check = async () => {
-            if (_notifInFlight) return;
+            if (document.hidden || _notifInFlight) return;
             _notifInFlight = true;
             try {
                 await _rawCheck();
@@ -2595,6 +2637,28 @@ const POS = {
             }
         };
         setInterval(check, 3500);
+    },
+
+    async syncActiveOrderItemStatuses() {
+        if (!this.activeOrderId || !Array.isArray(this.cart) || this.cart.length === 0) return;
+        try {
+            const res = await fetch(`api/orders.php?action=detail&order_id=${this.activeOrderId}`);
+            const data = await res.json();
+            if (!data || !data.success || !Array.isArray(data.items)) return;
+            const serverKStatus = (data.order && data.order.kitchen_status) || this.activeOrderKitchenStatus || 'pending';
+            const statusById = new Map(data.items.map(it => [Number(it.id), it.item_status || serverKStatus || 'pending']));
+            let changed = (serverKStatus !== this.activeOrderKitchenStatus);
+            this.activeOrderKitchenStatus = serverKStatus;
+            this.cart.forEach(item => {
+                if (!item.order_item_id) return;
+                const nextSt = statusById.get(Number(item.order_item_id));
+                if (nextSt && nextSt !== item.item_status) {
+                    item.item_status = nextSt;
+                    changed = true;
+                }
+            });
+            if (changed) this.renderCart();
+        } catch (_) {}
     },
 
     async ackCancelAlert() {

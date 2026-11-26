@@ -106,10 +106,10 @@ async function loadKitchenOrders() {
             const rCount = Number(o.rush_count || 0);
             nextRushMap.set(o.id, rCount);
             if (!isFirstLoad) {
-                if (!knownOrderIds.has(o.id) && (o.kitchen_status === 'pending' || !o.kitchen_status)) {
+                if (!knownOrderIds.has(o.id) && (o.kitchen_status === 'pending' || o.kitchen_status === 'preparing' || !o.kitchen_status)) {
                     hasNewOrder = true;
                 }
-                if (rCount > Number(window.knownRushMap.get(o.id) || 0) && (o.kitchen_status === 'pending' || !o.kitchen_status)) {
+                if (rCount > Number(window.knownRushMap.get(o.id) || 0) && (o.kitchen_status === 'pending' || o.kitchen_status === 'preparing' || !o.kitchen_status)) {
                     hasNewRush = true;
                 }
             }
@@ -151,7 +151,7 @@ async function loadKitchenOrders() {
             const isPaid = (o.payment_status === 'paid' || Boolean(o.paid_at));
             const isServed = status === 'served' || Boolean(o.served_at);
             const isReady = status === 'ready' || Boolean(o.kitchen_ready_at);
-            const isPending = !isReady && !isServed && (status === 'pending' || !status);
+            const isPending = !isReady && !isServed && (status === 'pending' || status === 'preparing' || !status);
 
             // Đơn HOÀN THÀNH khi đủ cả 3 yếu tố: Xong món + Bưng ra + Thanh toán (hoặc status == 'completed')
             const isFullyCompleted = (o.status === 'completed' && isServed) || (isPaid && isServed && isReady);
@@ -186,6 +186,12 @@ async function loadKitchenOrders() {
                             <div class="flex items-center gap-1.5 shrink-0">
                                 <span class="w-6 h-6 rounded bg-amber-500/20 text-amber-300 font-mono font-black text-xs flex items-center justify-center">x${it.quantity}</span>
                                 ${(!isHistorical && !isCancelledItem) ? `
+                                    ${(() => {
+                                        const itSt = it.item_status || o.kitchen_status || 'pending';
+                                        if (itSt === 'served') return '<span class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">✓ Đã bưng</span>';
+                                        if (itSt === 'ready') return '<span class="px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/40 text-[10px] font-bold">✓ Đã xong</span>';
+                                        return `<button type="button" onclick="updateKitchenItemStatus(${it.id}, 'ready')" class="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/40 text-[10px] font-black flex items-center gap-1 active:scale-90 transition-all" title="Đánh dấu đã xong món này"><i class="fas fa-check text-[9px]"></i><span>Xong</span></button>`;
+                                    })()}
                                     ${hasCancelNote ? `
                                         <button type="button" onclick="openKitchenActionModal('approve_cancel', ${o.id}, ${it.id}, '${safeName}', '${safeTbl}', '${safeOcode}', '${safeRsn}')" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-500/30 active:scale-90 transition-all animate-pulse" title="Đồng ý hủy món theo yêu cầu của phục vụ">
                                             <i class="fas fa-check"></i>
@@ -352,14 +358,14 @@ async function loadKitchenOrders() {
             html += `
                 <div class="liquid-glass p-4 rounded-2xl flex flex-col justify-between border ${cardBorderClass} transition-all">
                     <div>
-                        <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
-                            <div>
-                                <span class="font-black text-lg ${tableColorClass}">${o.table_code}</span>
-                                <span class="text-xs text-slate-400 ml-1 font-medium">${tableNameDisplay}</span>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-white/10 mb-3">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="font-black text-lg ${tableColorClass} whitespace-nowrap">${o.table_code}</span>
+                                <span class="text-xs text-slate-400 font-medium truncate">${tableNameDisplay}</span>
                             </div>
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
                                 ${statusBadgeHtml}
-                                <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-white/10">
+                                <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-white/10 whitespace-nowrap">
                                     ${o.order_code}
                                 </span>
                             </div>
@@ -894,3 +900,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.addEventListener('focus', sendKitchenHeartbeat);
 });
+
+window.updateKitchenItemStatus = async function(itemId, nextSt) {
+    try {
+        const res = await fetch('api/orders.php?action=update_item_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: itemId, item_status: nextSt || 'ready' })
+        });
+        const d = await res.json();
+        if (d && d.success) {
+            await loadKitchenOrders();
+        } else {
+            alert((d && d.message) || 'Không thể cập nhật trạng thái món!');
+        }
+    } catch (e) {
+        console.error('updateKitchenItemStatus error:', e);
+    }
+};

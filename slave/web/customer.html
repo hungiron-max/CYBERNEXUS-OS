@@ -129,12 +129,12 @@
     <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-white/10 px-3 py-2 sm:px-6">
         <div class="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
             <!-- Brand -->
-            <div class="flex items-center gap-2 min-w-0 shrink-0">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
                 <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-xs sm:text-base shadow-md shadow-indigo-500/25 shrink-0">
                     <i class="fas fa-mug-hot"></i>
                 </div>
-                <div class="min-w-0">
-                    <h1 class="text-xs sm:text-base font-black tracking-wide uppercase whitespace-nowrap" data-i18n="ui.customer_html.h1_55ad14ec">
+                <div class="min-w-0 flex-1">
+                    <h1 class="text-[11px] sm:text-base font-black tracking-wide uppercase whitespace-nowrap truncate max-w-[130px] sm:max-w-none" data-i18n="ui.customer_html.h1_55ad14ec">
                         <span class="goc-pho-gradient-text" data-store-name>CyberNexus POS</span>
                     </h1>
                     <p class="text-[10px] text-slate-400 whitespace-nowrap truncate hidden sm:block mt-0.5" data-i18n="ui.cust_html.p_f7ba9a97">
@@ -144,16 +144,32 @@
             </div>
 
             <!-- Wi-Fi & Quick Icon Actions -->
-            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 relative">
                 <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-slate-300 font-mono whitespace-nowrap shrink-0 shadow-sm">
                     <i class="fas fa-wifi text-sky-400"></i>
                     <span>Wi-Fi: <b class="text-white">Store_WiFi</b> <span class="text-slate-500">·</span> pass: <b class="text-amber-300 font-bold">88888888</b></span>
+                </div>
+                <button type="button" onclick="document.getElementById('cust-wifi-popover')?.classList.toggle('hidden')" class="lg:hidden nav-action-btn btn-glass text-xs text-sky-300 border border-sky-500/30 bg-sky-500/10" title="Wi-Fi Quán">
+                    <i class="fas fa-wifi text-[11px]"></i>
+                </button>
+                <div id="cust-wifi-popover" class="hidden absolute right-0 top-11 z-50 w-60 p-3 rounded-2xl bg-slate-900/95 border border-sky-400/40 shadow-2xl text-xs space-y-2">
+                    <div class="flex items-center justify-between text-sky-300 font-bold">
+                        <span><i class="fas fa-wifi mr-1"></i> Wi-Fi Quán</span>
+                        <button type="button" onclick="document.getElementById('cust-wifi-popover')?.classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+                    </div>
+                    <div class="font-mono text-[11px] text-slate-300 space-y-0.5">
+                        <div>Tên: <b class="text-white">Store_WiFi</b></div>
+                        <div>Pass: <b class="text-amber-300" id="cust-wifi-pass">88888888</b></div>
+                    </div>
+                    <button type="button" onclick="navigator.clipboard?.writeText('88888888'); CustomerOrdering?.showToast?.('Đã copy mật khẩu Wi-Fi!'); document.getElementById('cust-wifi-popover')?.classList.add('hidden');" class="w-full py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 font-bold text-[11px]">
+                        <i class="fas fa-copy mr-1"></i> Copy mật khẩu
+                    </button>
                 </div>
 
                 <!-- Hotline: Compact Icon on Mobile, full on desktop -->
                 <a href="tel:0903100001" class="nav-action-btn btn-glass text-xs text-emerald-300 hover:text-white font-bold border border-emerald-500/30 bg-emerald-500/10 shadow-sm" title="Gọi Hotline: 0903 100 001" data-i18n-title="ui.cust_html.a_title_e8cc2c39">
                     <i class="fas fa-phone-alt text-[11px]"></i>
-                    <span class="nav-btn-label">0903 100 001</span>
+                    <span class="nav-btn-label hidden sm:inline">0903 100 001</span>
                 </a>
 
                 <!-- Language Switcher (VI / EN Offline) -->
@@ -166,7 +182,7 @@
                 <div id="user-nav-zone" class="flex items-center gap-1.5 shrink-0">
                     <a href="index.html" class="nav-action-btn btn-glass text-xs text-sky-300 hover:text-white font-bold border border-sky-500/30 bg-sky-500/10 shadow-sm" title="Đăng Nhập" data-i18n-title="customer.login">
                         <i class="fas fa-sign-in-alt text-xs"></i>
-                        <span class="nav-btn-label" data-i18n="customer.login">Đăng Nhập</span>
+                        <span class="nav-btn-label hidden sm:inline" data-i18n="customer.login">Đăng Nhập</span>
                     </a>
                 </div>
             </div>
@@ -181,8 +197,8 @@
             <div class="absolute -right-12 -top-12 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
             
             <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch w-full min-w-0">
-                <!-- Smart Hero Slider Container (16:9 Standard Video & Slide Ratio) -->
-                <div id="customer-ad-carousel" class="lg:col-span-2 relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner" style="aspect-ratio: 16 / 9; width: 100%;">
+                <!-- Smart Hero Slider Container (Compact on Mobile, 16:9 on Desktop) -->
+                <div id="customer-ad-carousel" class="lg:col-span-2 relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70 shadow-inner max-h-[175px] sm:max-h-none" style="aspect-ratio: 16 / 9; width: 100%;">
                     <!-- Slides Container (Full Bleed 100% of 16:9 Frame) -->
                     <div id="customer-ad-slides-container" class="absolute inset-0 w-full h-full overflow-hidden">
                         <!-- Slide 0: Hình ảnh mở đầu (6s) -->
@@ -331,1073 +347,14 @@
                 </div>
             </div>
 
-            <!-- Category Filter Pills -->
+            <!-- Quick Filter (Bán chạy / Tất cả) & Category Filter Pills (100% Dynamic from DB) -->
             <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none w-full min-w-0 max-w-full" id="category-filter-pills" style="-webkit-overflow-scrolling: touch;">
-                <button type="button" onclick="CustomerOrdering.filterCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0" data-i18n="ui.customer_html.button_69018b29">Tất Cả (42)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(1)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_adaae284">BÁNH MÌ CHẢO (12)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(2)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_8cc78762">BÁNH FLAN (3)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(3)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_a994409d">BÒ BÍT TẾT (3)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(4)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_6f2b48aa">CAFE (4)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(7)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_1dcbb6fa">ĐÁ XAY (2)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(10)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_274aeecf">NƯỚC NGỌT (4)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(11)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_b4f4e312">SINH TỐ (2)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(12)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_cb31fd44">TOPPING (5)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(13)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_18815f0b">TRÀ SỮA (4)</button>
-<button type="button" onclick="CustomerOrdering.filterCategory(14)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0" data-i18n="ui.customer_html.button_07f17cfb">TRÀ TRÁI CÂY (3)</button>
+                <button type="button" onclick="CustomerOrdering.filterCategory(0)" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0">Đang tải thực đơn...</button>
             </div>
 
-            <!-- Products Grid (42 món đầy đủ, nạp sẵn 100% tức thì) -->
+            <!-- Products Grid (100% Dynamic from /api/products.php) -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4" id="products-grid">
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="1" data-category-id="1" data-product-name="Bánh Mì" data-product-price="6000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793438761_26c1602f.jpg" alt="Bánh Mì" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_f8b321e3">Bánh Mì</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_ce692321">/ cái</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_6ba5e38e">6.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(1)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="2" data-category-id="1" data-product-name="Bánh Mì Chảo Đặc Biệt" data-product-price="45000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793447406_e3759f8d.jpg" alt="Bánh Mì Chảo Đặc Biệt" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_1d11777e">Bánh Mì Chảo Đặc Biệt</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_381ad85a">/ chảo</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_43d81093">45.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(2)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="3" data-category-id="1" data-product-name="Bánh Mì Ốp La 2 Trứng" data-product-price="30000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793447482_12ea6230.jpg" alt="Bánh Mì Ốp La 2 Trứng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_941e00ad">Bánh Mì Ốp La 2 Trứng</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_381ad85a">/ chảo</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_948e34f1">30.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(3)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="4" data-category-id="1" data-product-name="Bánh Mì Trứng Xúc Xích" data-product-price="30000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793447617_d3ec9d0d.jpg" alt="Bánh Mì Trứng Xúc Xích" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM004</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_01ec1dd2">Bánh Mì Trứng Xúc Xích</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_381ad85a">/ chảo</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_948e34f1">30.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(4)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="5" data-category-id="1" data-product-name="Mì Gói Bò" data-product-price="35000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/bm005_mi_goi_bo.jpg" alt="Mì Gói Bò" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM005</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_f39d475a">Mì Gói Bò</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_748d842c">/ tô</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_2d7985bc">35.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(5)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="6" data-category-id="1" data-product-name="Mì Gói Trứng" data-product-price="30000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793448287_cad05755.jpg" alt="Mì Gói Trứng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM006</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_15ad1db1">Mì Gói Trứng</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_748d842c">/ tô</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_948e34f1">30.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(6)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="7" data-category-id="1" data-product-name="Mì Xào Bò" data-product-price="35000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793447848_970f2f65.jpg" alt="Mì Xào Bò" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM007</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_ec9963cb">Mì Xào Bò</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_1421fa8b">/ dĩa</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_2d7985bc">35.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(7)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="8" data-category-id="1" data-product-name="Mì Xào Bò Trứng" data-product-price="40000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/bm008.jpg" alt="Mì Xào Bò Trứng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM008</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_d36f9878">Mì Xào Bò Trứng</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_1421fa8b">/ dĩa</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_63de0eb0">40.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(8)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="9" data-category-id="1" data-product-name="Pate Thêm" data-product-price="5000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/bm009.jpg" alt="Pate Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM009</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_4ecb457f">Pate Thêm</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_3fe6fd33">5.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(9)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="10" data-category-id="1" data-product-name="Rau Thêm" data-product-price="10000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/bm010.jpg" alt="Rau Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM010</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_b0d5b109">Rau Thêm</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_470c6022">10.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(10)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="11" data-category-id="1" data-product-name="Trứng Ốp La Thêm" data-product-price="7000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/bm011.jpg" alt="Trứng Ốp La Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM011</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_5da3e191">Trứng Ốp La Thêm</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_d1cb884e">/ trứng</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_c92d0608">7.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(11)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="12" data-category-id="1" data-product-name="Xúc Xích Thêm" data-product-price="8000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/bm012.jpg" alt="Xúc Xích Thêm" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BM012</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_ef0641a4">Xúc Xích Thêm</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_a3caaab0">/ cây</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_efc6a3f3">8.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(12)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="13" data-category-id="2" data-product-name="Bánh Flan Truyền Thống" data-product-price="7000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/fl001.jpg" alt="Bánh Flan Truyền Thống" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">FL001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_d378cc95">Bánh Flan Truyền Thống</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_ce692321">/ cái</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_c92d0608">7.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(13)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="14" data-category-id="2" data-product-name="Bánh Flan (3 Cái)" data-product-price="20000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/fl002.jpg" alt="Bánh Flan (3 Cái)" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">FL002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_cc46c66c">Bánh Flan (3 Cái)</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_015ade1c">20.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(14)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="15" data-category-id="2" data-product-name="Bánh Flan Cốt Dừa Cafe" data-product-price="15000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/fl001.jpg" alt="Bánh Flan Cốt Dừa Cafe" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">FL003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_db3e0eba">Bánh Flan Cốt Dừa Cafe</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_25b7a4de">15.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(15)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="16" data-category-id="3" data-product-name="Bò Bít Tết Tiêu Đen" data-product-price="50000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793448377_d168bdbb.jpg" alt="Bò Bít Tết Tiêu Đen" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BT001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_d1f6160f">Bò Bít Tết Tiêu Đen</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_381ad85a">/ chảo</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_e1608870">50.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(16)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="17" data-category-id="3" data-product-name="Bò Full Topping (Khoai, Trứng, Pate, Phô mai)" data-product-price="60000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793448461_85f7c08d.jpg" alt="Bò Full Topping (Khoai, Trứng, Pate, Phô mai)" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BT002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_01681398">Bò Full Topping (Khoai, Trứng, Pate, Phô mai)</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_381ad85a">/ chảo</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_7e2a5b4f">60.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(17)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="18" data-category-id="3" data-product-name="Bò + Trứng Ốp La" data-product-price="50000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793448445_1fc15f8d.jpg" alt="Bò + Trứng Ốp La" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">BT003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_6e7c0eb7">Bò + Trứng Ốp La</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_381ad85a">/ chảo</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_e1608870">50.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(18)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="19" data-category-id="4" data-product-name="Cafe Đen Đá" data-product-price="18000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793448597_04984650.jpg" alt="Cafe Đen Đá" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_c2c729e8">Cafe Đen Đá</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_40fe8ec1">18.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(19)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="20" data-category-id="4" data-product-name="Cafe Sữa Đá" data-product-price="22000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793448692_5cbbfa81.jpg" alt="Cafe Sữa Đá" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_60dee028">Cafe Sữa Đá</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_c2f40e6a">22.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(20)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="21" data-category-id="4" data-product-name="Bạc Xỉu CyberNexus POS" data-product-price="25000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/cf003.jpg" alt="Bạc Xỉu CyberNexus POS" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_312dcafd">Bạc Xỉu CyberNexus POS</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_68effef0">25.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(21)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="22" data-category-id="4" data-product-name="Bình Trà Nóng" data-product-price="20000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793447316_ff7f593c.jpg" alt="Bình Trà Nóng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">CF004</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_310474f5">Bình Trà Nóng</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_efcda0e8">/ bình</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_015ade1c">20.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(22)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="23" data-category-id="13" data-product-name="Trà Sữa Truyền Thống CyberNexus POS" data-product-price="25000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/ts001.jpg" alt="Trà Sữa Truyền Thống CyberNexus POS" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_cbda6241">Trà Sữa Truyền Thống CyberNexus POS</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_68effef0">25.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(23)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="24" data-category-id="13" data-product-name="Trà Sữa Thái Xanh Thơm Béo" data-product-price="28000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/ts002.jpg" alt="Trà Sữa Thái Xanh Thơm Béo" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_63a77167">Trà Sữa Thái Xanh Thơm Béo</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_6d322a21">28.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(24)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="25" data-category-id="13" data-product-name="Trà Sữa Khoai Môn" data-product-price="30000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793439132_0c741f4d.jpg" alt="Trà Sữa Khoai Môn" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_c03f0c1c">Trà Sữa Khoai Môn</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_948e34f1">30.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(25)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="26" data-category-id="13" data-product-name="Trà Sữa Oolong Nướng" data-product-price="32000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793439034_158d1f7c.jpg" alt="Trà Sữa Oolong Nướng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TS004</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_2d214257">Trà Sữa Oolong Nướng</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_25d3db9b">32.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(26)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="27" data-category-id="14" data-product-name="Trà Đào Cam Sả" data-product-price="30000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/tc001.jpg" alt="Trà Đào Cam Sả" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TC001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_484eff89">Trà Đào Cam Sả</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_948e34f1">30.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(27)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="28" data-category-id="14" data-product-name="Trà Vải Hoa Hồng" data-product-price="30000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793438866_74ff69e5.jpg" alt="Trà Vải Hoa Hồng" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TC002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_d39f9eed">Trà Vải Hoa Hồng</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_948e34f1">30.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(28)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="29" data-category-id="14" data-product-name="Trà Ổi Hồng Nhiệt Đới" data-product-price="28000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793440770_3fc266f9.jpg" alt="Trà Ổi Hồng Nhiệt Đới" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TC003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_7c7755a6">Trà Ổi Hồng Nhiệt Đới</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_6d322a21">28.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(29)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="30" data-category-id="10" data-product-name="Coca Cola Lon" data-product-price="15000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/nn001.jpg" alt="Coca Cola Lon" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_7e954673">Coca Cola Lon</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ lon</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_25b7a4de">15.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(30)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="31" data-category-id="10" data-product-name="7Up Lon" data-product-price="15000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793447229_129666ae.jpg" alt="7Up Lon" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_fb2bb6ce">7Up Lon</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ lon</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_25b7a4de">15.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(31)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="32" data-category-id="10" data-product-name="Bò Cụng (Redbull)" data-product-price="20000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/nn003.jpg" alt="Bò Cụng (Redbull)" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_cba87af0">Bò Cụng (Redbull)</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ lon</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_015ade1c">20.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(32)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="33" data-category-id="10" data-product-name="Trà Xanh Không Độ / C2" data-product-price="15000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/nn004.jpg" alt="Trà Xanh Không Độ / C2" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">NN004</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_978cca00">Trà Xanh Không Độ / C2</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ chai</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_25b7a4de">15.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(33)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="34" data-category-id="11" data-product-name="Sinh Tố Bơ Đắk Lắk" data-product-price="35000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dish_1793440656_e10ead01.jpg" alt="Sinh Tố Bơ Đắk Lắk" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">ST001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_06337872">Sinh Tố Bơ Đắk Lắk</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_2d7985bc">35.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(34)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="35" data-category-id="11" data-product-name="Sinh Tố Mãng Cầu" data-product-price="32000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/st002.jpg" alt="Sinh Tố Mãng Cầu" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">ST002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_cd6df5a2">Sinh Tố Mãng Cầu</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_25d3db9b">32.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(35)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="36" data-category-id="7" data-product-name="Matcha Đá Xay Kem Cheese" data-product-price="38000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dx001.jpg" alt="Matcha Đá Xay Kem Cheese" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">DX001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_68cc59d8">Matcha Đá Xay Kem Cheese</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_701311bb">38.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(36)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="37" data-category-id="7" data-product-name="Cookie Đá Xay Socola" data-product-price="36000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/dx002.jpg" alt="Cookie Đá Xay Socola" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">DX002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_ffabc32a">Cookie Đá Xay Socola</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium">/ ly</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_84be5ece">36.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(37)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="38" data-category-id="12" data-product-name="Trân Châu Đen Hoàng Kim" data-product-price="5000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/tp001.jpg" alt="Trân Châu Đen Hoàng Kim" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TP001</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_198d9089">Trân Châu Đen Hoàng Kim</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_3fe6fd33">5.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(38)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="39" data-category-id="12" data-product-name="Trân Châu Trắng Giòn" data-product-price="6000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/tp002.jpg" alt="Trân Châu Trắng Giòn" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TP002</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_6cd31924">Trân Châu Trắng Giòn</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_6ba5e38e">6.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(39)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="40" data-category-id="12" data-product-name="Thạch Khúc Bạch Phô Mai" data-product-price="8000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/tp003.jpg" alt="Thạch Khúc Bạch Phô Mai" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TP003</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_e0dd9c56">Thạch Khúc Bạch Phô Mai</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_efc6a3f3">8.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(40)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="41" data-category-id="12" data-product-name="Kem Cheese Macchiato" data-product-price="10000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/tp004.jpg" alt="Kem Cheese Macchiato" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TP004</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_0c626c68">Kem Cheese Macchiato</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_470c6022">10.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(41)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
-                    <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="42" data-category-id="12" data-product-name="Thạch Củ Năng Lá Dứa" data-product-price="6000">
-                        <div class="space-y-2">
-                            <!-- Product Image: 4:3 Aspect Ratio -->
-                            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 group-hover:scale-[1.02] transition-all flex items-center justify-center">
-                                <img src="assets/images/dishes/tp005.jpg" alt="Thạch Củ Năng Lá Dứa" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src=\'assets/images/dishes/default_dish.jpg\';" loading="lazy" />
-                                <div class="absolute top-1.5 left-1.5">
-                                    <span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">TP005</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-2 leading-snug" data-i18n="ui.customer_html.h4_4c98fba0">Thạch Củ Năng Lá Dứa</h4>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 mt-2 border-t border-white/10">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-slate-400 font-medium" data-i18n="ui.cust_html.span_0ddc60cd">/ phần</span>
-                                <span class="text-sm sm:text-base font-black font-mono text-emerald-400" data-i18n="ui.cust_html.span_6ba5e38e">6.000 đ</span>
-                            </div>
-                            <button type="button" onclick="CustomerOrdering.addItem(42)" class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95 transition-all" data-i18n="ui.customer_html.button_11ef06c7">
-                                <i class="fas fa-plus"></i> Thêm vào giỏ
-                            </button>
-                        </div>
-                    </div>
+                <div class="col-span-full py-10 text-center text-xs text-slate-400">Đang tải thực đơn của quán...</div>
             </div>
         </section>
     </main>
@@ -1408,27 +365,93 @@
         <span id="customer-cart-toast-msg" data-i18n="ui.cust_html.span_cf725e6b">Đã thêm món vào giỏ hàng!</span>
     </div>
 
-    <!-- Floating Cart Bar (Chuẩn 100% Sticky Đáy Giống order.html) -->
-    <div id="customer-bottom-bar" class="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/95 backdrop-blur-md border-t border-white/10 z-40" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; padding: 12px; background: rgba(2, 6, 23, 0.95); border-top: 1px solid rgba(255, 255, 255, 0.1);">
-        <div class="max-w-2xl mx-auto flex items-center justify-between gap-2" style="max-width: 672px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <button type="button" onclick="CustomerOrdering.openCart()" id="btn-cart-capsule" class="flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-900 border border-sky-500/30 hover:border-sky-400 cursor-pointer transition-all" style="flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4);">
-                <div class="flex items-center gap-2.5" style="display: flex; align-items: center; gap: 10px;">
-                    <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-black font-mono border border-sky-500/30" style="width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+    <!-- Floating Cart Bar (Chuẩn 100% Sticky Đáy + Live Table Tracker & Gọi Nhân Viên) -->
+    <div id="customer-bottom-bar" class="fixed bottom-0 left-0 right-0 p-2.5 sm:p-3 bg-slate-950/95 backdrop-blur-md border-t border-white/10 z-40" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); background: rgba(2, 6, 23, 0.96); border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <div class="max-w-2xl mx-auto flex items-center justify-between gap-1.5 sm:gap-2">
+            <!-- Live Table Order Tracker Button (Shown only in Dine-In QR Table mode) -->
+            <button type="button" id="btn-table-live-tracker" onclick="window.CustomerTableLive && CustomerTableLive.openSheet()" class="hidden py-2 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-300 text-xs font-bold items-center gap-1.5 shrink-0">
+                <i class="fas fa-utensils text-xs"></i>
+                <span id="btn-table-live-label" class="whitespace-nowrap">Đơn bàn</span>
+            </button>
+
+            <!-- Call Waiter / Service Button (Shown only in Dine-In QR Table mode) -->
+            <button type="button" id="btn-call-staff-quick" onclick="window.CustomerTableLive && CustomerTableLive.openServiceModal()" class="hidden py-2 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 text-xs font-bold items-center gap-1 shrink-0" title="Gọi nhân viên hỗ trợ tại bàn">
+                <i class="fas fa-bell text-xs"></i>
+                <span class="hidden sm:inline">Gọi NV</span>
+            </button>
+
+            <!-- My Last Takeaway/Online Order Button (CUST-08) -->
+            <button type="button" id="btn-my-last-order" onclick="window.CustomerOrdering && CustomerOrdering.reopenLastOrder()" class="hidden py-2 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-300 text-xs font-bold items-center gap-1 shrink-0" title="Xem lại đơn hàng vừa đặt">
+                <i class="fas fa-receipt text-xs"></i>
+                <span class="whitespace-nowrap">Đơn của tôi</span>
+            </button>
+
+            <button type="button" onclick="CustomerOrdering.openCart()" id="btn-cart-capsule" class="flex-1 min-w-0 flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900 border border-sky-500/30 hover:border-sky-400 cursor-pointer transition-all">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-black font-mono border border-sky-500/30 shrink-0">
                         <span id="customer-cart-count">0</span>
                     </div>
-                    <div class="text-left">
-                        <div class="text-xs font-black text-white leading-tight" data-i18n="customer.cart_details">Chi tiết giỏ món</div>
-                        <div id="customer-cart-status-text" class="text-[10px] text-slate-400 font-mono" data-i18n="customer.cart_empty_status">Chưa chọn món nào</div>
+                    <div class="text-left min-w-0">
+                        <div class="text-xs font-black text-white leading-tight truncate" data-i18n="customer.cart_details">Chi tiết giỏ món</div>
+                        <div id="customer-cart-status-text" class="text-[10px] text-slate-400 font-mono truncate" data-i18n="customer.cart_empty_status">Chưa chọn món nào</div>
                     </div>
                 </div>
-                <span id="customer-bottom-total" class="font-black text-sm text-emerald-400 font-mono" data-i18n="ui.sa_html.div_e995e897">0 đ</span>
+                <span id="customer-bottom-total" class="font-black text-xs sm:text-sm text-emerald-400 font-mono whitespace-nowrap shrink-0 ml-1" data-i18n="ui.sa_html.div_e995e897">0 đ</span>
             </button>
 
             <!-- VietQR Quick Button -->
-            <button type="button" onclick="showQuickVietQr()" id="btn-float-vietqr" class="btn-glass py-2.5 px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 font-bold text-xs flex items-center gap-1 shadow-md shadow-purple-600/10 shrink-0" style="padding: 10px 14px; border-radius: 12px; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px;" data-i18n="ui.customer_html.button_21a6efac">
+            <button type="button" onclick="showQuickVietQr()" id="btn-float-vietqr" class="btn-glass py-2 px-2.5 sm:px-3 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 font-bold text-xs flex items-center gap-1 shadow-md shadow-purple-600/10 shrink-0 rounded-xl" data-i18n="ui.customer_html.button_21a6efac">
                 <i class="fas fa-qrcode text-sm"></i>
-                <span>VietQR</span>
+                <span class="hidden sm:inline">VietQR</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet: Live Table Order Tracker (CUST-02) -->
+    <div id="customer-table-sheet" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-md p-0 sm:p-4">
+        <div class="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-emerald-500/40 p-4 sm:p-5 shadow-2xl max-h-[88vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+                <div>
+                    <h3 id="cust-table-sheet-title" class="font-black text-sm text-emerald-300 flex items-center gap-2">
+                        <i class="fas fa-chair"></i> <span>Đơn Bàn Đang Phục Vụ</span>
+                    </h3>
+                    <p id="cust-table-sheet-sub" class="text-[11px] text-slate-400 font-mono mt-0.5">Tự động cập nhật tiến độ từ Bếp</p>
+                </div>
+                <button type="button" onclick="window.CustomerTableLive && CustomerTableLive.closeSheet()" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xl flex items-center justify-center">&times;</button>
+            </div>
+            <div id="customer-table-sheet-body" class="flex-1 overflow-y-auto py-3 space-y-3 text-xs"></div>
+            <div class="pt-3 border-t border-white/10 flex items-center gap-2 shrink-0">
+                <button type="button" onclick="window.CustomerTableLive && CustomerTableLive.orderMore()" class="flex-1 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5">
+                    <i class="fas fa-plus"></i> <span>Gọi thêm món</span>
+                </button>
+                <button type="button" onclick="window.CustomerTableLive && CustomerTableLive.openServiceModal()" class="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5">
+                    <i class="fas fa-bell"></i> <span>Gọi NV / Tính tiền</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Call Waiter / Table Service (CUST-04) -->
+    <div id="customer-service-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/85 backdrop-blur-md p-3">
+        <div class="w-full max-w-sm rounded-2xl bg-slate-900 border border-amber-400/40 p-4 shadow-2xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-white/10">
+                <h3 class="font-black text-sm text-amber-300 flex items-center gap-2"><i class="fas fa-bell"></i> Hỗ Trợ Tại Bàn</h3>
+                <button type="button" onclick="window.CustomerTableLive && CustomerTableLive.closeServiceModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+                <button type="button" onclick="CustomerTableLive.callService('ice_water')" class="p-3 rounded-xl bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 text-sky-200 flex flex-col items-center gap-1.5">
+                    <i class="fas fa-glass-water text-base text-sky-400"></i><span>Xin đá / Nước lọc</span>
+                </button>
+                <button type="button" onclick="CustomerTableLive.callService('staff_help')" class="p-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 flex flex-col items-center gap-1.5">
+                    <i class="fas fa-hand-paper text-base text-amber-400"></i><span>Gọi nhân viên</span>
+                </button>
+                <button type="button" onclick="CustomerTableLive.callService('bill_cash')" class="p-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 flex flex-col items-center gap-1.5">
+                    <i class="fas fa-money-bill-wave text-base text-emerald-400"></i><span>Tính tiền mặt</span>
+                </button>
+                <button type="button" onclick="CustomerTableLive.callService('bill_qr')" class="p-3 rounded-xl bg-purple-500/15 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 flex flex-col items-center gap-1.5">
+                    <i class="fas fa-qrcode text-base text-purple-400"></i><span>Tính tiền VietQR</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1563,6 +586,9 @@
                     </div>
                 </div>
 
+                <!-- Live Per-Item Tracking (CUST-09) -->
+                <div id="customer-order-live-items" class="text-left space-y-2.5"></div>
+
                 <p id="customer-payment-status" class="text-xs text-amber-300 font-semibold p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20" data-i18n="ui.cust_html.p_b58eac73">
                     Đơn hàng đang chờ xác nhận thanh toán / duyệt bàn trước khi chuyển vào Bếp.
                 </p>
@@ -1662,7 +688,7 @@
                 <button type="button" id="tab-btn-juke-tracks" onclick="CustomerJukebox.switchTab('tracks')" class="flex-1 py-1.5 rounded-lg font-bold transition-all bg-purple-600 text-white shadow-sm" data-i18n="ui.customer_html.button_92fc8d68">
                     <i class="fas fa-list-music mr-1"></i> Kho Bài Hát
                 </button>
-                <button type="button" id="tab-btn-juke-queue" onclick="CustomerJukebox.switchTab('queue')" class="flex-1 py-1.5 rounded-lg font-bold transition-all text-slate-400 hover:text-white" data-i18n="ui.cust_html.button_7fc00fc9">
+                <button type="button" id="tab-btn-juke-queue" onclick="CustomerJukebox.switchTab('queue')" class="flex-1 py-1.5 px-2 rounded-lg font-bold transition-all text-slate-400 hover:text-white whitespace-nowrap truncate" data-i18n="ui.cust_html.button_7fc00fc9">
                     <i class="fas fa-layer-group mr-1"></i> Hàng Đợi (<span id="juke-queue-count">0</span>)
                 </button>
             </div>
@@ -1719,7 +745,7 @@
 
             <!-- Modal Footer -->
             <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
-                <span data-i18n="ui.cust_html.span_9d56c122"><i class="fas fa-shield-halved text-purple-400 mr-1"></i>Mỗi bàn được yêu cầu 1 bài / 15 phút</span>
+                <span data-i18n="ui.cust_html.span_9d56c122"><i class="fas fa-shield-halved text-purple-400 mr-1"></i>&lt; 5 bài: Tự do | 5-9 bài: 2 bài/30p/khách | ≥ 10: Đầy</span>
                 <button type="button" class="btn-glass px-3 py-1 text-xs" onclick="CustomerJukebox.close()" data-i18n="ui.customer_html.button_6c80084d">Đóng</button>
             </div>
         </div>
@@ -1727,6 +753,6 @@
 
     <!-- JavaScript Interactive Handlers -->
     <script src="assets/js/security_utils.js?v=1"></script>
-<script src="assets/js/customer_app.js?v=20261121"></script>
+<script src="assets/js/customer_app.js?v=20261126"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@
 #include "httplib.h"
 #include "db.hpp"
 #include "license.hpp"
+#include "license_crypto.hpp"
 #include "auth.hpp"
 #include "slave_handlers.hpp"
 #include "slave_tunnel.h"
@@ -29,13 +30,55 @@ static nlohmann::json g_lastWebIntegrityReport = {
     {"ok", true}, {"checked_count", 0}, {"mismatched_files", nlohmann::json::array()}, {"missing_files", nlohmann::json::array()}, {"checked_at", ""}
 };
 
+static nlohmann::json verifyModulesIntegrity(const fs::path& modDir) {
+    nlohmann::json rep = {{"ok", true}, {"checked", 0}, {"tampered", nlohmann::json::array()}};
+    if (!fs::exists(modDir)) return rep;
+    try {
+        int cnt = 0;
+        for (const auto& entry : fs::directory_iterator(modDir)) {
+            if (!entry.is_regular_file()) continue;
+            std::string ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext != ".dll" && ext != ".so") continue;
+            cnt++;
+            std::string fname = entry.path().filename().string();
+            fs::path sigPath = entry.path().string() + ".sig";
+            if (!fs::exists(sigPath)) {
+                rep["ok"] = false;
+                rep["tampered"].push_back({{"file", fname}, {"reason", "missing_sig"}});
+                continue;
+            }
+            std::ifstream sf(sigPath, std::ios::binary);
+            nlohmann::json sigDoc = nlohmann::json::parse(sf, nullptr, false);
+            std::string expSha = sigDoc.is_object() ? sigDoc.value("sha256", "") : "";
+            std::string ecdsaSig = sigDoc.is_object() ? sigDoc.value("ecdsa_sig", "") : "";
+            std::ifstream df(entry.path(), std::ios::binary);
+            std::string bytes((std::istreambuf_iterator<char>(df)), std::istreambuf_iterator<char>());
+            std::string actSha = SaleApp::Backend::AuthService::sha256(bytes);
+            bool ok = !expSha.empty() && expSha == actSha && !ecdsaSig.empty() &&
+                      SaleApp::LicenseCrypto::verifyLicensePayload(
+                          SaleApp::LicenseCrypto::buildDllSigPayload(fname, actSha), ecdsaSig);
+            if (!ok) {
+                rep["ok"] = false;
+                rep["tampered"].push_back({{"file", fname}, {"reason", "sig_or_hash_mismatch"}});
+            }
+        }
+        rep["checked"] = cnt;
+    } catch (...) {
+        rep["ok"] = false;
+    }
+    return rep;
+}
+
 static nlohmann::json verifyWebIntegrity(const fs::path& webRoot) {
     nlohmann::json report = {
         {"ok", true},
         {"has_manifest", false},
+        {"signature_valid", false},
         {"checked_count", 0},
         {"mismatched_files", nlohmann::json::array()},
         {"missing_files", nlohmann::json::array()},
+        {"unexpected_files", nlohmann::json::array()},
         {"checked_at", ""}
     };
     std::time_t nowT = std::time(nullptr);
@@ -45,6 +88,8 @@ static nlohmann::json verifyWebIntegrity(const fs::path& webRoot) {
 
     fs::path manifestPath = webRoot / "web_integrity.json";
     if (!fs::exists(manifestPath)) {
+        report["ok"] = false;
+        report["error"] = "missing_web_integrity_manifest";
         std::lock_guard<std::mutex> lk(g_webIntegrityMtx);
         g_lastWebIntegrityReport = report;
         return report;
@@ -56,6 +101,17 @@ static nlohmann::json verifyWebIntegrity(const fs::path& webRoot) {
         mf >> manifest;
         nlohmann::json filesMap = (manifest.is_object() && manifest.contains("files") && manifest["files"].is_object())
             ? manifest["files"] : manifest;
+
+        // SEC-INT-01: Xac thuc chu ky ECDSA P-256 cua web_integrity.json
+        std::string manSig = manifest.is_object() ? manifest.value("ecdsa_sig", "") : "";
+        std::string manCanon = "CBNX_WEB_ECDSA_V1:" + std::to_string(filesMap.size()) + ":" + SaleApp::Backend::AuthService::sha256(filesMap.dump());
+        bool sigValid = !manSig.empty() && SaleApp::LicenseCrypto::verifyLicensePayload(manCanon, manSig);
+        report["signature_valid"] = sigValid;
+        if (!sigValid) {
+            report["ok"] = false;
+            report["error"] = "invalid_manifest_ecdsa_signature";
+        }
+
         int checked = 0;
         for (auto it = filesMap.begin(); it != filesMap.end(); ++it) {
             if (!it.value().is_string()) continue;
@@ -75,6 +131,20 @@ static nlohmann::json verifyWebIntegrity(const fs::path& webRoot) {
             if (actualSha != expectedSha) {
                 report["ok"] = false;
                 report["mismatched_files"].push_back({{"file", rel}, {"expected", expectedSha}, {"actual", actualSha}});
+            }
+        }
+        // SEC-INT-01: Phat hien file .html/.css/.js la bi tiem vao thu muc web
+        if (fs::exists(webRoot)) {
+            for (const auto& entry : fs::recursive_directory_iterator(webRoot)) {
+                if (!entry.is_regular_file()) continue;
+                std::string ext = entry.path().extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                if (ext != ".html" && ext != ".css" && ext != ".js") continue;
+                std::string rel = fs::relative(entry.path(), webRoot).generic_string();
+                if (!filesMap.contains(rel)) {
+                    report["ok"] = false;
+                    report["unexpected_files"].push_back(rel);
+                }
             }
         }
         report["checked_count"] = checked;
@@ -491,15 +561,20 @@ int main(int argc, char* argv[]) {
         std::cout << "[Slave Static] Mount /locales -> " << (webDir / "locales").string() << std::endl;
     }
 
-    // Chống cache JS/CSS trên trình duyệt/điện thoại máy trạm để tự nhận bản vá OTA ngay không cần Ctrl+F5
+    // Cache tài nguyên tĩnh hợp lý (1 giờ) để chuyển trang tức thì; không áp dụng cho /api/ hoặc HTML view
     svr.set_post_routing_handler([](const httplib::Request& req, httplib::Response& res) {
+        if (res.status != 200 || req.path.rfind("/api/", 0) == 0) return;
         auto endsWith = [&](const char* ext) {
             size_t elen = std::strlen(ext);
             return req.path.size() >= elen && req.path.compare(req.path.size() - elen, elen, ext) == 0;
         };
-        if (endsWith(".js") || endsWith(".css")) {
-            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-            res.set_header("Pragma", "no-cache");
+        if (endsWith(".js") || endsWith(".css") || endsWith(".json") ||
+            endsWith(".woff2") || endsWith(".woff") || endsWith(".ttf") ||
+            endsWith(".png") || endsWith(".jpg") || endsWith(".jpeg") ||
+            endsWith(".webp") || endsWith(".svg")) {
+            if (!res.has_header("Cache-Control")) {
+                res.set_header("Cache-Control", "public, max-age=3600");
+            }
         }
     });
 
@@ -667,7 +742,14 @@ int main(int argc, char* argv[]) {
     svr.Get("/attendance", serveView("attendance"));
     svr.Get("/attendance.html", redirectClean("/attendance"));
 
-    svr.Get("/login", serveView("login"));
+    svr.Get("/login", [serveView](const httplib::Request& req, httplib::Response& res) {
+        if (req.has_param("logout") && req.get_param_value("logout") == "1") {
+            res.headers.emplace("Set-Cookie", AuthService::formatClearCookie("pos_token"));
+            res.headers.emplace("Set-Cookie", AuthService::formatClearCookie("PHPSESSID"));
+            res.headers.emplace("Set-Cookie", AuthService::formatClearCookie("pos_remember"));
+        }
+        serveView("login")(req, res);
+    });
     svr.Get("/login.html", redirectClean("/login"));
     svr.Get("/login.php", redirectClean("/login"));
 
@@ -755,14 +837,21 @@ int main(int argc, char* argv[]) {
     });
     heartbeatThread.detach();
 
-    // [HR-03 + SEC-15] Background Maintenance Thread (Chạy autoProcessShifts mỗi 2 phút & auto_apply OTA khi 0 đơn pending mỗi 5s)
-    std::thread shiftMaintThread([]() {
+    // [HR-03 + SEC-15 + SEC-INT-02] Background Maintenance Thread
+    std::thread shiftMaintThread([modulesDir]() {
         std::this_thread::sleep_for(std::chrono::seconds(2));
         int tick = 0;
         while (s_heartbeatRunning) {
             if (tick % 24 == 2) {
                 try {
                     SaleApp::Backend::ApiHandlers::runPeriodicShiftMaintenance();
+                    auto dllRep = verifyModulesIntegrity(modulesDir);
+                    if (!dllRep.value("ok", true)) {
+                        Database::instance().execute(R"(
+                            INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                            VALUES ('DLL_INTEGRITY_TAMPERED', 'Cảnh báo DLL module bị thay thế sau khởi động', 'CRITICAL', 0, 'INTEGRITY', 'SYSTEM', 0, 'runtime_dll_check', 0, 'System Watchdog', 'system', :dtl, datetime('now','localtime'))
+                        )", {{":dtl", dllRep.dump()}});
+                    }
                 } catch (...) {}
             }
             try {
@@ -778,7 +867,7 @@ int main(int argc, char* argv[]) {
 
     // 7. Reverse Long-Polling Worker Thread (Xuyên NAT/WAN để Master kiểm tra Online & đẩy lệnh tức thì)
     SlaveTunnelStatus::instance().setStartTimeNow();
-    std::thread tunnelThread([]() {
+    std::thread tunnelThread([webDir]() {
         std::this_thread::sleep_for(std::chrono::seconds(2));
         std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)));
         int retryCount = 0;
@@ -846,6 +935,7 @@ int main(int argc, char* argv[]) {
                     {"active_orders", activeOrders},
                     {"db_ok", true},
                     {"app_version", curAppVer},
+                    {"web_integrity_ok", [&]() { std::lock_guard<std::mutex> lk(g_webIntegrityMtx); return g_lastWebIntegrityReport.value("ok", true); }()},
                     {"lan_ip", netGeo.value("lan_ip", "")},
                     {"wan_ip", netGeo.value("wan_ip", "")},
                     {"geo_lat", netGeo.value("geo_lat", 0.0)},
@@ -886,15 +976,18 @@ int main(int argc, char* argv[]) {
                                 std::string ex = lic.value("expire_date", "2028-12-31");
                                 double cfp = lic.value("card_fee_percent", 0.0);
                                 std::string licSig = lic.value("license_signature", "");
-                                if (!em.empty()) {
+                                // SEC-TUN-01: Chi ghi snapshot tu /poll neu chu ky ECDSA P-256 hop le
+                                std::string canon = SaleApp::LicenseCrypto::buildCanonicalPayload(key, mid, ex, em, st, bm);
+                                bool sigOk = !licSig.empty() && SaleApp::LicenseCrypto::verifyLicensePayload(canon, licSig);
+                                if (!em.empty() && sigOk) {
                                     bool updated = Database::instance().execute(
                                         "UPDATE local_license_cache SET enabled_modules = :em, blocked_modules = :bm, "
                                         "subscription_status = :st, expire_date = :ex, card_fee_percent = :cfp, "
                                         "last_sync_at = datetime('now'), last_sync_status = 'online_ok', "
-                                        "license_signature = CASE WHEN :sig != '' THEN :sig ELSE COALESCE(license_signature, '') END WHERE id = 1",
+                                        "license_signature = :sig WHERE id = 1",
                                         {{":em", em}, {":bm", bm}, {":st", st}, {":ex", ex}, {":cfp", cfp}, {":sig", licSig}}
                                     );
-                                    if (updated && !licSig.empty()) {
+                                    if (updated) {
                                         try {
                                             Database::instance().execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_ecdsa_enrolled', '1') ON CONFLICT(setting_key) DO UPDATE SET setting_value = '1'");
                                         } catch (...) {}
@@ -913,6 +1006,19 @@ int main(int argc, char* argv[]) {
 
                                 if (cmdType == "PING" && !cmdId.empty()) {
                                     sendAckAfter = true;
+                                } else if (cmdType == "CHECK_INTEGRITY") {
+                                    // SEC-TUN-01: Master chu dong goi kiem tra toan ven Web/License
+                                    nlohmann::json webRep = verifyWebIntegrity(webDir);
+                                    std::string licCode, licReason;
+                                    bool licOk = LicenseService::instance().isSystemActive(&licCode, &licReason);
+                                    runtime["integrity_report"] = {
+                                        {"web", webRep},
+                                        {"license_active", licOk},
+                                        {"license_code", licCode},
+                                        {"license_reason", licReason}
+                                    };
+                                    cmdOk = webRep.value("ok", false) && licOk;
+                                    sendAckAfter = !cmdId.empty();
                                 } else if (cmdType == "SYNC_LICENSE") {
                                     LicenseService::instance().verifyLicenseOnline(key, mid);
                                     sendAckAfter = !cmdId.empty();
@@ -1125,8 +1231,19 @@ int main(int argc, char* argv[]) {
         res.set_content("{\"success\":false,\"message\":\"Lệnh điều khiển không hợp lệ.\"}", "application/json; charset=utf-8");
     });
 
-    // Health check & Web Integrity check (SEC-19)
-    verifyWebIntegrity(webDir);
+    // Health check & Web Integrity check (SEC-19 / SEC-INT-01)
+    {
+        nlohmann::json initRep = verifyWebIntegrity(webDir);
+        if (!initRep.value("ok", false)) {
+            std::cerr << "[Security Guard] CANH BAO TOAN VEN WEB THAT BAI: " << initRep.value("error", "mismatch") << std::endl;
+            try {
+                Database::instance().execute(R"(
+                    INSERT INTO audit_logs (action_code, action_label, severity, order_id, order_code, table_code, amount_impact, reason, user_id, user_name, user_role, details, created_at)
+                    VALUES ('WEB_INTEGRITY_TAMPERED', 'Cảnh báo file JS/HTML bị chỉnh sửa trái phép lúc khởi động', 'CRITICAL', 0, 'INTEGRITY', 'SYSTEM', 0, 'startup_check', 0, 'System Watchdog', 'system', :dtl, datetime('now','localtime'))
+                )", {{":dtl", initRep.dump()}});
+            } catch (...) {}
+        }
+    }
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) {
         res.set_content("{\"status\":\"healthy\",\"role\":\"slave\",\"time\":" + std::to_string(std::time(nullptr)) + "}", "application/json");
     });

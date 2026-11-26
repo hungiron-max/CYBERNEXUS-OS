@@ -549,7 +549,7 @@
             if (this.pollingTimer) clearInterval(this.pollingTimer);
             this._statusPollInFlight = false;
             this.pollingTimer = setInterval(async () => {
-                if (this._statusPollInFlight) return;
+                if (document.hidden || this._statusPollInFlight) return;
                 this._statusPollInFlight = true;
                 try {
                     await this.refreshStatus();

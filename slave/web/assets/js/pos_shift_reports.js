@@ -504,19 +504,20 @@ Object.assign(POS, {
     // ==========================================
     reprintSearchTimeout: null,
 
+    getLocalDateYmd(dateObj = new Date()) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    },
+
     openReprintModal() {
         const modal = document.getElementById('reprint-search-modal');
         if (!modal) return;
 
-        // Default to today
-        const todayStr = new Date().toISOString().split('T')[0];
-        const dateFromEl = document.getElementById('reprint-date-from');
-        const dateToEl = document.getElementById('reprint-date-to');
         const statusEl = document.getElementById('reprint-status-filter');
         const searchInput = document.getElementById('reprint-search-input');
 
-        if (dateFromEl && !dateFromEl.value) dateFromEl.value = todayStr;
-        if (dateToEl && !dateToEl.value) dateToEl.value = todayStr;
         if (statusEl) statusEl.value = 'completed';
         if (searchInput) {
             searchInput.value = '';
@@ -525,7 +526,7 @@ Object.assign(POS, {
         }
 
         modal.classList.add('open');
-        this.loadReprintOrders();
+        this.setReprintDatePreset('today');
         setTimeout(() => {
             if (searchInput) searchInput.focus();
         }, 150);
@@ -542,7 +543,7 @@ Object.assign(POS, {
         if (!dateFromEl || !dateToEl) return;
 
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = this.getLocalDateYmd(now);
 
         // Reset preset button styling
         document.querySelectorAll('.reprint-preset-btn').forEach(btn => {
@@ -559,12 +560,12 @@ Object.assign(POS, {
             dateToEl.value = todayStr;
         } else if (preset === 'yesterday') {
             const yesterday = new Date(now.getTime() - 86400000);
-            const yestStr = yesterday.toISOString().split('T')[0];
+            const yestStr = this.getLocalDateYmd(yesterday);
             dateFromEl.value = yestStr;
             dateToEl.value = yestStr;
         } else if (preset === '7days') {
             const past7 = new Date(now.getTime() - 7 * 86400000);
-            dateFromEl.value = past7.toISOString().split('T')[0];
+            dateFromEl.value = this.getLocalDateYmd(past7);
             dateToEl.value = todayStr;
         } else if (preset === 'all') {
             dateFromEl.value = '';
@@ -895,7 +896,7 @@ Object.assign(POS, {
                 </div>
 
                 <!-- Payment Methods Breakdown Cards -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div class="grid grid-cols-2 gap-2.5">
                     <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 min-w-0">
                         <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
                             <i class="fas fa-money-bill-wave text-emerald-400"></i>

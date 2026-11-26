@@ -1,9 +1,9 @@
 {
   "algorithm": "ECDSA-P256-SHA256",
-  "ecdsa_sig": "f03ed08a310bd50ec777448a18c61798ff2a8edcd0721f831062fd1641e93913c693120e7c0a42663a7cdf7c74c514424ddb47e9ebd42396b3b02f626a19dd75",
+  "ecdsa_sig": "010c9d35ff1b55891c59f1dedceb890e15ef6d221a3d4decf57c53e06a1438fd1d2676475fb6e210fae4fc968b1e6ac5c31ae21558a4cfa60a58ef848bf61cd3",
   "file": "libmod_media_stream.dll",
   "key_fingerprint": "ECDSA-P256-EF18CC703F77B217",
-  "sha256": "abd22e514220254fae3bebfbd771d89a6d3efef38aa37de15c187534a2cc3762",
+  "sha256": "c465de786a83ba791f7e7d691f0246af976e6df64dc3dbdf609f2899f572fb73",
   "signed_by": "CyberNexus-SuperAdmin",
   "version": 2
 }

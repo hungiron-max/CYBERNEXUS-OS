@@ -203,20 +203,25 @@
         });
     }
 
+    const loadingPromises = {};
     async function ensureLoaded(lang) {
         if (SUPPORTED.indexOf(lang) < 0) return false;
         if (loadedLangs[lang]) return true;
+        if (loadingPromises[lang]) return loadingPromises[lang];
         if (!global.fetch || (global.location && global.location.protocol === 'file:')) return false;
-        try {
-            const res = await fetch('/locales/' + lang + '.json?v=20261122', { cache: 'no-store' });
-            if (res.ok) {
-                const json = await res.json();
-                mergeDict(lang, json);
-                loadedLangs[lang] = true;
-                return true;
-            }
-        } catch (e) { safeDebug('fetchLocale:' + lang, e); }
-        return false;
+        loadingPromises[lang] = (async function () {
+            try {
+                const res = await fetch('/locales/' + lang + '.json?v=20261122');
+                if (res.ok) {
+                    const json = await res.json();
+                    mergeDict(lang, json);
+                    loadedLangs[lang] = true;
+                    return true;
+                }
+            } catch (e) { safeDebug('fetchLocale:' + lang, e); }
+            return false;
+        })();
+        try { return await loadingPromises[lang]; } finally { delete loadingPromises[lang]; }
     }
 
     function t(key, varsOrFallback, fallback) {
@@ -444,8 +449,12 @@
         return currentLang;
     }
 
-    const readyPromise = Promise.all([ensureLoaded('vi'), ensureLoaded(currentLang)]).then(function () {
-        applyDom();
+    const readyPromise = (currentLang === 'vi'
+        ? ensureLoaded('vi')
+        : Promise.all([ensureLoaded('vi'), ensureLoaded(currentLang)])
+    ).then(function () {
+        if (currentLang !== 'vi') applyDom();
+        else updateSwitcherUi();
         try {
             if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
                 global.dispatchEvent(new CustomEvent('cnx:i18n-ready', { detail: { lang: currentLang } }));

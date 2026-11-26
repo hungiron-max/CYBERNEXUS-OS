@@ -4,7 +4,10 @@
 #include "body_parser.hpp"
 #include "license.hpp"
 #include "ConfigManager.hpp"
+#include <atomic>
+#include <chrono>
 #include <ctime>
+#include <thread>
 
 namespace SaleApp::Backend {
 
@@ -69,7 +72,27 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
             std::string key = (!row.is_null() && row.contains("license_key") && row["license_key"].is_string())
                 ? row["license_key"].get<std::string>() : "";
             if (!key.empty()) {
-                LicenseService::instance().verifyLicenseOnline(key, LicenseService::instance().getMachineId());
+                if (action == "sync_now") {
+                    LicenseService::instance().verifyLicenseOnline(key, LicenseService::instance().getMachineId());
+                } else {
+                    static std::atomic<bool> s_bgSyncInFlight{false};
+                    static std::atomic<long long> s_lastBgSyncMs{0};
+                    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count();
+                    long long prevMs = s_lastBgSyncMs.load();
+                    if (!s_bgSyncInFlight.load() && (prevMs == 0 || (nowMs - prevMs) >= 180000)) {
+                        if (!s_bgSyncInFlight.exchange(true)) {
+                            s_lastBgSyncMs.store(nowMs);
+                            std::string mid = LicenseService::instance().getMachineId();
+                            std::thread([key, mid]() {
+                                try {
+                                    LicenseService::instance().verifyLicenseOnline(key, mid);
+                                } catch (...) {}
+                                s_bgSyncInFlight.store(false);
+                            }).detach();
+                        }
+                    }
+                }
             }
             json st = LicenseService::instance().getLicenseStatus();
             json stData = st.value("data", json::object());
@@ -77,7 +100,7 @@ void ApiHandlers::handleLicenseClient(const httplib::Request& req, httplib::Resp
             std::string rightsRev = stData.value("rights_revision", LicenseService::instance().computeRightsRevision());
             sendJson(res, {
                 {"success", curState == "valid" || curState == "grace_period"},
-                {"synced", true},
+                {"synced", action == "sync_now"},
                 {"state", curState},
                 {"rights_revision", rightsRev},
                 {"message", (curState == "valid" || curState == "grace_period") ? "Đã đồng bộ giấy phép bản quyền từ Master thành công!" : stData.value("message", "Bản quyền không hợp lệ!")},

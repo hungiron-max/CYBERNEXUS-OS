@@ -1,16 +1,12 @@
 {
-  "generated_at": "2026-11-24 19:20:23",
+  "algorithm": "ECDSA-P256-SHA256",
   "count": 17,
+  "ecdsa_sig": "4500b52cbffe9b4d101fb4c1f97ef71b55051ac85b83b93d9e5f80a7fb1e96b2b2d98c3e3149839af0593d7865628b9ffa1b32e9cb7e02eb78b75f81039ebd8e",
   "files": {
-    "i18n_studio.html": "5072117b7daa7e31429c6a9b3889fb6862894e9ae6d444dfa27fb8bf0810260f",
-    "super_admin.html": "1ceff877445f3c72fbaa479a6b403c6a1c4243af87c004dbf18bbf886c4ce79e",
-    "theme_studio.html": "18e1aab7c0677aee5e98cf174b78e4bc0311adb02dd3060f8f058b17e138c9d8",
     "assets/css/app-tailwind.min.css": "903f224051ef3478c993d95a15574ed536e282a6a3d723cf8991b3a87e9e7f35",
     "assets/css/liquid-glass.css": "4dc721cad7d57491cd44b882c5e795bc344e4dc516381b2e1710760a7705468b",
     "assets/css/super_admin.css": "204319123839ae36987ea1eb9ce706b8ce8168ed48cb2d87f721930cf0729d86",
     "assets/css/theme.css": "67b551fed7c35b29ebf1aae4f6fc5485e94574435d67c32527a745dbc1aa5c80",
-    "assets/vendor/qrcode.min.js": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
-    "assets/vendor/fontawesome/css/all.min.css": "c22cfb6520a7fdbb738632834019acf47c78b1279462c0eb4cb83bae83ecb5a7",
     "assets/js/chart.min.js": "87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2",
     "assets/js/i18n.js": "cb551748e7887bffd5bcc587fa8a84f4948e9f023b986c6f481590de5a9c2eb9",
     "assets/js/image_processor.js": "713bfd191b38bbf746e6a770221d69dc5e95199ad7790d1308ae0500896bc8b3",
@@ -18,6 +14,13 @@
     "assets/js/super_admin.js": "2e266d66f969a596402f59dabf7b94b3bfae990b43d237d4edff23c9d1fc0910",
     "assets/js/super_admin_ext.js": "7b9b8b90f230d5ef331bcce03076475bc526a4448c87df14242e01c60a23f46d",
     "assets/js/super_admin_mysql_backup.js": "751f6810fd0bae5cba757ce6aaa8f763f0291485d8ba273218b0cba2d92a8816",
-    "assets/js/theme.js": "a8fb1b44941632200019cbe1558e42e4818b9193c9e724a27c03aaea89f015f4"
-  }
+    "assets/js/theme.js": "a8fb1b44941632200019cbe1558e42e4818b9193c9e724a27c03aaea89f015f4",
+    "assets/vendor/fontawesome/css/all.min.css": "c22cfb6520a7fdbb738632834019acf47c78b1279462c0eb4cb83bae83ecb5a7",
+    "assets/vendor/qrcode.min.js": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
+    "i18n_studio.html": "5072117b7daa7e31429c6a9b3889fb6862894e9ae6d444dfa27fb8bf0810260f",
+    "super_admin.html": "1ceff877445f3c72fbaa479a6b403c6a1c4243af87c004dbf18bbf886c4ce79e",
+    "theme_studio.html": "18e1aab7c0677aee5e98cf174b78e4bc0311adb02dd3060f8f058b17e138c9d8"
+  },
+  "generated_at": "2026-11-26 14:46:51",
+  "key_fingerprint": "ECDSA-P256-EF18CC703F77B217"
 }

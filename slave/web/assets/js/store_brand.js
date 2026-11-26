@@ -94,7 +94,7 @@
             const d = (json && json.data) ? json.data : json;
             if (d && d.ota_applied_version) {
                 const page = (window.location.pathname || '').toLowerCase();
-                const isPublicPage = page.endsWith('/login.html') || page.endsWith('/customer.html') || page.endsWith('/wifi.html');
+                const isPublicPage = ['/login', '/login.html', '/menu', '/customer', '/customer.html', '/wifi', '/wifi.html'].some(p => page === p || page.endsWith(p));
                 const prevOta = localStorage.getItem('cnx_session_ota_ver');
                 if (!isPublicPage && localStorage.getItem('pos_token')) {
                     if (prevOta && prevOta !== d.ota_applied_version) {

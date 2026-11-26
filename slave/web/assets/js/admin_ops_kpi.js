@@ -1095,8 +1095,8 @@ Object.assign(Admin, {
             <tbody>${filtered.map(d => {
                 const tier = d.tier || d.qos || 'free';
                 const remTxt = fmtRem(Number(d.remaining_sec || 0));
-                const qBadge = d.whitelisted || tier === 'whitelist'
-                    ? '<span class="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-[10px] font-bold">Nội bộ ∞</span>'
+                const qBadge = (d.whitelisted || tier === 'whitelist')
+                    ? '<span class="text-slate-500 text-[10px]">—</span>'
                     : (tier === 'vip' || tier === 'vip_high_speed'
                         ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">VIP${escapeHtml(remTxt)}</span>`
                         : (tier === 'blocked'
@@ -1116,7 +1116,7 @@ Object.assign(Admin, {
                         <div class="inline-flex items-center gap-1">
                             ${tier === 'blocked'
                                 ? `<button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'unblock', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px]">Mở chặn</button>`
-                                : `<button type="button" onclick="Admin.toggleDeviceWhitelist('${escapeJsAttr(d.ip)}', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded ${d.whitelisted ? 'bg-sky-500 text-slate-950' : 'bg-sky-500/20 hover:bg-sky-500/35 text-sky-300'} font-bold text-[10px]" title="Ghim Nội bộ ∞ không giới hạn">Nội bộ ∞</button>
+                                : `<button type="button" onclick="Admin.toggleDeviceWhitelist('${escapeJsAttr(d.ip)}', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded ${(d.whitelisted || tier === 'whitelist') ? 'bg-sky-500 text-slate-950 shadow-sm shadow-sky-400/40' : 'bg-slate-800/60 text-slate-400 border border-white/10 opacity-70 hover:opacity-100 hover:text-sky-300'} font-bold text-[10px] transition-opacity" title="Bật/Tắt Nội bộ ∞ không giới hạn">Nội bộ ∞</button>
                                    <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'vip_high_speed', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 font-bold text-[10px]">${(tier === 'vip' || tier === 'vip_high_speed') ? 'Gia hạn VIP' : 'Cấp VIP'}</button>
                                    <button type="button" onclick="Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'kick', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 font-bold text-[10px]" title="Đá rớt mềm (không Ban)">Ngắt</button>
                                    <button type="button" onclick="if(confirm('Chặn (Ban) thiết bị ${escapeJsAttr(d.mac || d.ip)} khỏi WiFi quán?')) Admin.setDeviceQos('${escapeJsAttr(d.ip)}', 'ban', '${escapeJsAttr(d.mac || '')}')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 font-bold text-[10px]" title="Ban cứng MAC">Chặn</button>`}

@@ -411,6 +411,7 @@ const Admin = {
         await this.loadDashboard();
         await this.loadProducts();
         await this.loadTables();
+        this.startAdminAlertPolling();
         this.initDishImageDrop();
         this.loadSystemUpdates();
         this.enforceModuleLicenses(true);
@@ -758,7 +759,7 @@ const Admin = {
         if (!this.mediaPollingTimer) {
             this._mediaPollInFlight = false;
             this.mediaPollingTimer = setInterval(async () => {
-                if (this._mediaPollInFlight) return;
+                if (document.hidden || this._mediaPollInFlight) return;
                 this._mediaPollInFlight = true;
                 try {
                     if (window.JukeboxEngine) {
@@ -771,6 +772,34 @@ const Admin = {
                 }
             }, 3500);
         }
+    },
+
+    startAdminAlertPolling() {
+        if (this._adminAlertTimer) clearInterval(this._adminAlertTimer);
+        const poll = async () => {
+            try {
+                const res = await fetch('/api/operations.php?action=admin_alerts', { cache: 'no-store' });
+                const data = await res.json();
+                if (!data || !data.success) return;
+                const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+                if (alerts.length > 0) {
+                    const top = alerts[0];
+                    if (window.__lastAdminAlertId !== top.id) {
+                        window.__lastAdminAlertId = top.id;
+                        const div = document.createElement('div');
+                        div.className = 'fixed bottom-4 right-4 z-50 max-w-sm p-3.5 rounded-2xl bg-slate-900 border border-amber-400/50 text-white shadow-2xl space-y-1.5 text-xs';
+                        div.innerHTML = `<div class="flex items-center justify-between gap-2"><b class="text-amber-300">🔔 ${top.title || 'Thông báo Quản trị'}</b><button type="button" class="text-slate-400 hover:text-white text-base leading-none">&times;</button></div><p class="text-slate-200">${top.message || ''}</p>`;
+                        div.querySelector('button').onclick = () => {
+                            fetch('/api/operations.php?action=ack_admin_alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_id: top.id }) }).catch(() => {});
+                            div.remove();
+                        };
+                        document.body.appendChild(div);
+                    }
+                }
+            } catch (_) {}
+        };
+        setTimeout(poll, 1500);
+        this._adminAlertTimer = setInterval(poll, 12000);
     },
 
     // 1. Dashboard & Reports

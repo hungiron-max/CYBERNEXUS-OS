@@ -95,8 +95,12 @@ void LicenseService::ensureTableExists() {
                     }
                 }
             } catch (...) {}
+#if !defined(NDEBUG)
             const char* devBypass = std::getenv("CYBERNEXUS_DEV_UNACTIVATED_BYPASS");
             bool isDevBypass = (devBypass && std::string(devBypass) == "1");
+#else
+            bool isDevBypass = false;
+#endif
             std::string initStatus = isDevBypass ? "active" : "unactivated";
             std::string initExpire = isDevBypass ? "2028-12-31" : "";
             db.execute(R"(
@@ -391,6 +395,73 @@ static void writeRegistryClockAnchor(const std::string& machineId, int64_t epoch
 #endif
 }
 
+static std::string getSystemVolumeSerialHex() {
+#ifdef _WIN32
+    DWORD volSerial = 0;
+    if (GetVolumeInformationA("C:\\", NULL, 0, &volSerial, NULL, NULL, NULL, 0)) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%08X", static_cast<unsigned int>(volSerial));
+        return std::string(buf);
+    }
+#endif
+    return "GENERIC-VOL";
+}
+
+static bool verifyAndEnrollVolumeAnchor(Database& db, const std::string& machineId, const std::string& sigHex) {
+    std::string curVol = getSystemVolumeSerialHex();
+    if (curVol == "GENERIC-VOL") return true;
+    std::string sigPrefix = sigHex.substr(0, std::min<size_t>(32, sigHex.size()));
+    std::string expectedMac = SaleApp::Backend::AuthService::sha256("cbnx-vol-anchor|" + machineId + "|" + sigPrefix + "|" + curVol).substr(0, 24);
+    std::string expectedVal = curVol + "|" + expectedMac;
+
+    std::string dbVal;
+    try {
+        auto vRow = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'cnx_vol_anchor' LIMIT 1");
+        if (!vRow.is_null()) dbVal = vRow.value("setting_value", "");
+    } catch (...) {}
+
+    std::string regVal;
+#ifdef _WIN32
+    HKEY hKey = nullptr;
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\CyberNexus", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        char buf[256] = {};
+        DWORD sz = sizeof(buf), type = REG_SZ;
+        if (RegQueryValueExA(hKey, "VolAnchor", NULL, &type, (LPBYTE)buf, &sz) == ERROR_SUCCESS) regVal = buf;
+        RegCloseKey(hKey);
+    }
+#endif
+
+    auto parseVol = [](const std::string& raw, std::string& outVol) -> bool {
+        auto sep = raw.find('|');
+        if (sep == std::string::npos) return false;
+        outVol = raw.substr(0, sep);
+        return !outVol.empty();
+    };
+
+    if (!dbVal.empty()) {
+        std::string storedVol;
+        if (!parseVol(dbVal, storedVol) || storedVol != curVol || dbVal != expectedVal) return false;
+    }
+    if (!regVal.empty()) {
+        std::string storedVol;
+        if (!parseVol(regVal, storedVol) || storedVol != curVol || regVal != expectedVal) return false;
+    }
+    if (dbVal.empty() || regVal.empty()) {
+        try {
+            db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_vol_anchor', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
+                       {{":v", expectedVal}});
+        } catch (...) {}
+#ifdef _WIN32
+        HKEY hW = nullptr;
+        if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\CyberNexus", 0, NULL, 0, KEY_WRITE, NULL, &hW, NULL) == ERROR_SUCCESS) {
+            RegSetValueExA(hW, "VolAnchor", 0, REG_SZ, reinterpret_cast<const BYTE*>(expectedVal.c_str()), static_cast<DWORD>(expectedVal.size() + 1));
+            RegCloseKey(hW);
+        }
+#endif
+    }
+    return true;
+}
+
 bool LicenseService::isMachineMismatch(std::string* outBound, std::string* outCurrent) {
     std::string currentMid = getMachineId();
     if (outCurrent) *outCurrent = currentMid;
@@ -419,7 +490,13 @@ bool LicenseService::isMachineMismatch(std::string* outBound, std::string* outCu
     } catch (...) {}
     if (outBound) *outBound = boundMid;
     if (!boundMid.empty() && boundMid != currentMid) return true;
-    if (!sigHex.empty() || sigEnrolled) {
+    // SEC-LIC-01: Mọi trạng thái khác unactivated BẮT BUỘC phải có bound_machine_id khớp & chữ ký ECDSA P-256 hợp lệ
+    bool mustVerifySig = (subStatus != "unactivated") || !sigHex.empty() || sigEnrolled;
+    if (mustVerifySig) {
+        if (boundMid.empty() || sigHex.empty()) {
+            if (outBound) *outBound = "SIGNATURE_TAMPERED";
+            return true;
+        }
         std::string normMods = "[]";
         std::string normBlk = "[]";
         try {
@@ -443,6 +520,11 @@ bool LicenseService::isMachineMismatch(std::string* outBound, std::string* outCu
         }
         if (!okSig) {
             if (outBound) *outBound = "SIGNATURE_TAMPERED";
+            return true;
+        }
+        // SEC-LIC-02: Kiểm tra ràng buộc Volume Serial ổ C: chống clone VM / copy sang ổ khác
+        if (!verifyAndEnrollVolumeAnchor(Database::instance(), currentMid, sigHex)) {
+            if (outBound) *outBound = "VOLUME_" + getSystemVolumeSerialHex();
             return true;
         }
     }
@@ -494,6 +576,20 @@ bool LicenseService::isSystemActive(std::string* outCode, std::string* outReason
         return false;
     }
     int64_t maxObs = std::max(maxObsDb, maxObsReg);
+    // SEC-LIC-02: Nếu từng có StateAnchor (cnx_clock_enrolled) mà bị xóa sạch cả DB lẫn Registry -> báo CLOCK_TAMPERED
+    bool clockEnrolled = false;
+    try {
+        auto ce = db.queryRow("SELECT setting_value FROM store_settings WHERE setting_key = 'cnx_clock_enrolled' LIMIT 1");
+        clockEnrolled = (!ce.is_null() && ce.value("setting_value", "") == "1");
+    } catch (...) {}
+    if ((clockEnrolled || issuedAt > 0) && maxObsDb > 0 && maxObsReg == 0) {
+        // Registry StateAnchor bị xóa trong khi DB vẫn có mốc -> đồng bộ lại hoặc cảnh báo nếu đã enroll trước đó
+        writeRegistryClockAnchor(mismatchCur, maxObsDb);
+    } else if (clockEnrolled && maxObs <= 0) {
+        if (outCode) *outCode = "LICENSE_CLOCK_TAMPERED";
+        if (outReason) *outReason = "Phát hiện mốc thời gian bảo mật bị xóa trắng! Vui lòng đồng bộ lại với Máy chủ Master.";
+        return false;
+    }
     if (maxObs > 0 && static_cast<int64_t>(nowEpoch) + 600 < maxObs) {
         if (outCode) *outCode = "LICENSE_CLOCK_TAMPERED";
         if (outReason) *outReason = "Phát hiện đồng hồ hệ thống Windows bị chỉnh lùi trái phép (Clock Rollback)! Vui lòng chỉnh lại giờ chuẩn hoặc kết nối Máy chủ Master.";
@@ -503,6 +599,7 @@ bool LicenseService::isSystemActive(std::string* outCode, std::string* outReason
         try {
             db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_max_observed_epoch', :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v",
                        {{":v", std::to_string(static_cast<int64_t>(nowEpoch))}});
+            db.execute("INSERT INTO store_settings (setting_key, setting_value) VALUES ('cnx_clock_enrolled', '1') ON CONFLICT(setting_key) DO UPDATE SET setting_value = '1'");
         } catch (...) {}
         writeRegistryClockAnchor(mismatchCur, static_cast<int64_t>(nowEpoch));
     }
@@ -831,20 +928,27 @@ json LicenseService::getLicenseStatus(int64_t tenantId) {
         state = "offline_lease_exceeded";
         subStatus = "offline_lease_exceeded";
         msg = "Máy POS đã mất kết nối Master quá " + std::to_string(offlineMaxDays) + " ngày. Vui lòng kết nối Internet để đồng bộ lại!";
-    } else if (daysLeft < 0 || subStatus == "expired") {
-        int overdue = (daysLeft < 0) ? (-daysLeft) : (graceDays + 1);
-        if (subStatus != "expired" && graceDays > 0 && overdue <= graceDays) {
-            state = "grace_period";
-            subStatus = "grace_period";
-            graceDaysLeft = graceDays - overdue;
-            msg = "Bản quyền đã quá hạn — đang trong thời gian ân hạn (còn " + std::to_string(graceDaysLeft) + " ngày). Vui lòng gia hạn VietQR!";
-        } else {
-            state = "expired";
-            msg = "Bản quyền đã hết hạn. Vui lòng gia hạn qua VietQR để tự động mở khóa 24/7.";
+    } else {
+        std::string activeCode, activeReason;
+        if (!isSystemActive(&activeCode, &activeReason) && activeCode == "LICENSE_CLOCK_TAMPERED") {
+            state = "clock_tampered";
+            subStatus = "clock_tampered";
+            msg = activeReason;
+        } else if (daysLeft < 0 || subStatus == "expired") {
+            int overdue = (daysLeft < 0) ? (-daysLeft) : (graceDays + 1);
+            if (subStatus != "expired" && graceDays > 0 && overdue <= graceDays) {
+                state = "grace_period";
+                subStatus = "grace_period";
+                graceDaysLeft = graceDays - overdue;
+                msg = "Bản quyền đã quá hạn — đang trong thời gian ân hạn (còn " + std::to_string(graceDaysLeft) + " ngày). Vui lòng gia hạn VietQR!";
+            } else {
+                state = "expired";
+                msg = "Bản quyền đã hết hạn. Vui lòng gia hạn qua VietQR để tự động mở khóa 24/7.";
+            }
+        } else if (daysLeft <= 7) {
+            subStatus = "expiring_soon";
+            msg = "Bản quyền sắp hết hạn trong " + std::to_string(daysLeft) + " ngày.";
         }
-    } else if (daysLeft <= 7) {
-        subStatus = "expiring_soon";
-        msg = "Bản quyền sắp hết hạn trong " + std::to_string(daysLeft) + " ngày.";
     }
 
     auto enabledRaw = getEnabledModules();

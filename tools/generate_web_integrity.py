@@ -32,6 +32,15 @@ def generate_for_web_dir(web_dir: str) -> int:
 
 
 if __name__ == "__main__":
+    import subprocess
+    m_path = os.path.join(ROOT, "master", "web", "web_integrity.json")
+    s_path = os.path.join(ROOT, "slave", "web", "web_integrity.json")
     m_cnt = generate_for_web_dir(os.path.join(ROOT, "master", "web"))
     s_cnt = generate_for_web_dir(os.path.join(ROOT, "slave", "web"))
+    master_exe = next((p for p in [
+        os.path.join(ROOT, "build", "cybernexus_master.exe"),
+        os.path.join(ROOT, "master", "cybernexus_master.exe"),
+    ] if os.path.exists(p)), None)
+    if master_exe:
+        subprocess.run([master_exe, "--sign-web", m_path, s_path], check=True)
     print(f"WEB_INTEGRITY_GENERATED: master={m_cnt}, slave={s_cnt}")

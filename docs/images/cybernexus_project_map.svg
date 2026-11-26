@@ -1,0 +1,351 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1240" width="1800" height="1240" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070d1a"/>
+      <stop offset="50%" stop-color="#0c1528"/>
+      <stop offset="100%" stop-color="#081020"/>
+    </linearGradient>
+    <linearGradient id="masterHdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="slaveHdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#065f46"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="dllHdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#581c87"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="sharedHdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#78350f"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="devopsHdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowEmerald" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#a78bfa"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+
+  <rect width="1800" height="1240" fill="url(#bgGrad)"/>
+  <g stroke="#1e293b" stroke-width="0.6" opacity="0.35">
+    <path d="M0 80 H1800 M0 160 H1800 M0 240 H1800 M0 320 H1800 M0 400 H1800 M0 480 H1800 M0 560 H1800 M0 640 H1800 M0 720 H1800 M0 800 H1800 M0 880 H1800 M0 960 H1800 M0 1040 H1800 M0 1120 H1800"/>
+    <path d="M100 0 V1240 M200 0 V1240 M300 0 V1240 M400 0 V1240 M500 0 V1240 M600 0 V1240 M700 0 V1240 M800 0 V1240 M900 0 V1240 M1000 0 V1240 M1100 0 V1240 M1200 0 V1240 M1300 0 V1240 M1400 0 V1240 M1500 0 V1240 M1600 0 V1240 M1700 0 V1240"/>
+  </g>
+
+  <rect x="30" y="20" width="1740" height="76" rx="14" fill="#0f172a" stroke="#334155" stroke-width="1.5" filter="url(#cardShadow)"/>
+  <text x="56" y="54" fill="#f8fafc" font-size="24" font-weight="800" letter-spacing="0.4">BẢN ĐỒ KIẾN TRÚC CHI TIẾT TOÀN DỰ ÁN — CYBERNEXUS OS (SỐ LIỆU ĐO THỰC TẾ)</text>
+  <text x="56" y="79" fill="#94a3b8" font-size="13.5">QA Arch Index: 133 tệp mã nguồn chính • 94,765 dòng • 6 CMake Executables + 3 Signed DLLs • SQLite: 48 bảng Slave + 40 bảng Master</text>
+  <g transform="translate(1285, 34)">
+    <rect x="0" y="0" width="135" height="24" rx="6" fill="#1e3a8a" stroke="#60a5fa"/><text x="67" y="16" text-anchor="middle" fill="#dbeafe" font-size="11" font-weight="700">OTA v2026.11.25.07</text>
+    <rect x="145" y="0" width="140" height="24" rx="6" fill="#064e3b" stroke="#34d399"/><text x="215" y="16" text-anchor="middle" fill="#d1fae5" font-size="11" font-weight="700">6 EXE + 3 Signed DLL</text>
+    <rect x="295" y="0" width="150" height="24" rx="6" fill="#4c1d95" stroke="#a78bfa"/><text x="370" y="16" text-anchor="middle" fill="#ede9fe" font-size="11" font-weight="700">ECDSA P-256 CNG .sig</text>
+  </g>
+
+  <g transform="translate(30, 115)" filter="url(#cardShadow)">
+    <rect width="1100" height="290" rx="14" fill="#0f172a" stroke="#3b82f6" stroke-width="1.8"/>
+    <rect width="1100" height="40" rx="14" fill="url(#masterHdr)"/>
+    <rect y="26" width="1100" height="14" fill="url(#masterHdr)"/>
+    <text x="18" y="26" fill="#ffffff" font-size="15.5" font-weight="700">1. MASTER SAAS SERVER (master/) — Port :8500 • 38 tệp (45,691 dòng kể cả vendor)</text>
+    <rect x="935" y="9" width="148" height="22" rx="11" fill="#0f172a" opacity="0.85"/>
+    <text x="1009" y="24" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="700">cybernexus_master.exe</text>
+
+    <rect x="16" y="54" width="262" height="220" rx="10" fill="#172554" fill-opacity="0.45" stroke="#3b82f6" stroke-opacity="0.5"/>
+    <text x="28" y="75" fill="#93c5fd" font-size="12.5" font-weight="700">C++ Backend (master/src/)</text>
+    <text x="28" y="96" fill="#e2e8f0" font-size="11.5">• main_master.cpp (HTTP :8500)</text>
+    <text x="28" y="115" fill="#e2e8f0" font-size="11.5">• master_handlers.cpp (5,388 dòng)</text>
+    <text x="28" y="133" fill="#94a3b8" font-size="10.5">  Tenants, Billing, OTA, Audit Sync</text>
+    <text x="28" y="153" fill="#e2e8f0" font-size="11.5">• master_handlers.hpp</text>
+    <text x="28" y="172" fill="#e2e8f0" font-size="11.5">• master_license.cpp</text>
+    <text x="28" y="191" fill="#94a3b8" font-size="10.5">  Cấp License &amp; 18 quyền module</text>
+    <text x="28" y="211" fill="#e2e8f0" font-size="11.5">• master_tunnel.h (Relay WAN/LAN)</text>
+    <text x="28" y="231" fill="#e2e8f0" font-size="11.5">• OPEN_FIREWALL_PORT_8500.bat</text>
+    <text x="28" y="256" fill="#60a5fa" font-size="10.5" font-weight="600">API: /api/master/* • /api/ota/* • /api/ai/*</text>
+
+    <rect x="292" y="54" width="260" height="220" rx="10" fill="#172554" fill-opacity="0.45" stroke="#3b82f6" stroke-opacity="0.5"/>
+    <text x="304" y="75" fill="#93c5fd" font-size="12.5" font-weight="700">Master Web UI (3 HTML • 8 JS)</text>
+    <text x="304" y="98" fill="#f8fafc" font-size="11.5" font-weight="600">• super_admin.html</text>
+    <text x="304" y="116" fill="#94a3b8" font-size="10.5">  Quản lý Tenants (GP001..SDL002), Gói cước,</text>
+    <text x="304" y="131" fill="#94a3b8" font-size="10.5">  License DLL, Heartbeat, AI Vault, OTA</text>
+    <text x="304" y="152" fill="#f8fafc" font-size="11.5" font-weight="600">• theme_studio.html</text>
+    <text x="304" y="170" fill="#94a3b8" font-size="10.5">  Thiết kế &amp; xuất bộ theme thương hiệu</text>
+    <text x="304" y="191" fill="#f8fafc" font-size="11.5" font-weight="600">• i18n_studio.html</text>
+    <text x="304" y="209" fill="#94a3b8" font-size="10.5">  Quản trị locales/vi.json &amp; en.json</text>
+    <text x="304" y="231" fill="#e2e8f0" font-size="11.5">• web_integrity.json + app-tailwind.min.css</text>
+    <text x="304" y="256" fill="#60a5fa" font-size="10.5" font-weight="600">Uploads: uploads/tenant-logos/</text>
+
+    <rect x="566" y="54" width="265" height="220" rx="10" fill="#172554" fill-opacity="0.45" stroke="#3b82f6" stroke-opacity="0.5"/>
+    <text x="578" y="75" fill="#93c5fd" font-size="12.5" font-weight="700">SQLite DB (40 bảng) &amp; Kho OTA</text>
+    <text x="578" y="98" fill="#fde68a" font-size="11.5" font-weight="600">• cybernexus_master.db (40 bảng):</text>
+    <text x="578" y="115" fill="#cbd5e1" font-size="10">  saas_tenants, saas_plans, saas_invoices,</text>
+    <text x="578" y="129" fill="#cbd5e1" font-size="10">  saas_billing_orders, saas_resellers, ota_releases,</text>
+    <text x="578" y="143" fill="#cbd5e1" font-size="10">  ota_store_rollouts, master_ai_keys, ai_usage_logs,</text>
+    <text x="578" y="157" fill="#cbd5e1" font-size="10">  saas_audit_logs, saas_tenant_documents...</text>
+    <text x="578" y="176" fill="#94a3b8" font-size="10">(master_saas.db: 0 bảng — tệp rỗng dự phòng)</text>
+    <text x="578" y="198" fill="#34d399" font-size="11.5" font-weight="600">• updates/manifest.json + patch_latest.zip</text>
+    <text x="578" y="216" fill="#cbd5e1" font-size="10.5">  Archive từ 2026.11.16.1 → 2026.11.25.07</text>
+    <text x="578" y="236" fill="#e2e8f0" font-size="10.5">• scripts/generate_sample_packages.py</text>
+    <text x="578" y="256" fill="#60a5fa" font-size="10.5" font-weight="600">OTA Flow: DRAFT Pilot → Publish All</text>
+
+    <rect x="845" y="54" width="239" height="220" rx="10" fill="#172554" fill-opacity="0.45" stroke="#3b82f6" stroke-opacity="0.5"/>
+    <text x="857" y="75" fill="#93c5fd" font-size="12.5" font-weight="700">Hồ Sơ &amp; Templates (packages/)</text>
+    <text x="857" y="97" fill="#e2e8f0" font-size="11.5">• 8 Tenants đã tạo gói:</text>
+    <text x="857" y="114" fill="#cbd5e1" font-size="10.5">  GP001, TCH02, THD03, TCT04,</text>
+    <text x="857" y="129" fill="#cbd5e1" font-size="10.5">  ST780, PL006, SDL001, SDL002</text>
+    <text x="857" y="150" fill="#e2e8f0" font-size="11">• Cấu trúc: contracts/, invoices/,</text>
+    <text x="857" y="165" fill="#e2e8f0" font-size="11">  handover/, release/</text>
+    <text x="857" y="187" fill="#93c5fd" font-size="11.5" font-weight="600">• templates/ (5 mẫu HTML):</text>
+    <text x="857" y="204" fill="#94a3b8" font-size="10.5">  bao_gia_dich_vu, hop_dong_dich_vu,</text>
+    <text x="857" y="219" fill="#94a3b8" font-size="10.5">  dieu_khoan, bien_ban_ban_giao,</text>
+    <text x="857" y="234" fill="#94a3b8" font-size="10.5">  phieu_bao_hanh_ky_thuat</text>
+    <text x="857" y="256" fill="#60a5fa" font-size="10.5" font-weight="600">config.json • locales/</text>
+  </g>
+
+  <g transform="translate(1155, 115)" filter="url(#cardShadow)">
+    <rect width="615" height="290" rx="14" fill="#0f172a" stroke="#f59e0b" stroke-width="1.8"/>
+    <rect width="615" height="40" rx="14" fill="url(#sharedHdr)"/>
+    <rect y="26" width="615" height="14" fill="url(#sharedHdr)"/>
+    <text x="18" y="26" fill="#ffffff" font-size="15" font-weight="700">2. WINDOWS LAUNCHERS &amp; VAULT (launcher/) • 3 CPP (2,349 dòng) → 4 EXE</text>
+
+    <rect x="16" y="54" width="286" height="108" rx="10" fill="#451a03" fill-opacity="0.45" stroke="#f59e0b" stroke-opacity="0.5"/>
+    <text x="28" y="75" fill="#fcd34d" font-size="12" font-weight="700">Control Center (Store + Master)</text>
+    <text x="28" y="94" fill="#e2e8f0" font-size="11">• src: CyberNexusControlCenter.cpp</text>
+    <text x="28" y="112" fill="#94a3b8" font-size="10.5">• Build 2 target Win32 GUI:</text>
+    <text x="28" y="127" fill="#cbd5e1" font-size="10.5">  1. CyberNexus_Control_Center.exe</text>
+    <text x="28" y="142" fill="#cbd5e1" font-size="10.5">  2. CyberNexus_Control_Center_Master.exe</text>
+
+    <rect x="314" y="54" width="285" height="108" rx="10" fill="#451a03" fill-opacity="0.45" stroke="#f59e0b" stroke-opacity="0.5"/>
+    <text x="326" y="75" fill="#fcd34d" font-size="12" font-weight="700">CyberNexus_Vault_Admin.exe</text>
+    <text x="326" y="94" fill="#e2e8f0" font-size="11">• src: CyberNexusVaultAdmin.cpp</text>
+    <text x="326" y="112" fill="#94a3b8" font-size="10.5">• Quản trị vault_admin.key, khóa ECDSA,</text>
+    <text x="326" y="127" fill="#94a3b8" font-size="10.5">  PIN khôi phục khẩn cấp &amp; chữ ký bảo mật</text>
+    <text x="326" y="145" fill="#fbbf24" font-size="10.5">  icons: vault_cn_sparkle.ico, vault_fav.ico</text>
+
+    <rect x="16" y="174" width="583" height="100" rx="10" fill="#451a03" fill-opacity="0.35" stroke="#f59e0b" stroke-opacity="0.45"/>
+    <text x="28" y="195" fill="#fcd34d" font-size="12.5" font-weight="700">CyberNexus_Setup_Stub.exe &amp; CMake Targets</text>
+    <text x="28" y="214" fill="#e2e8f0" font-size="11">• src: CyberNexusSetupStub.cpp — Trình cài đặt tự giải nén tại máy quán</text>
+    <text x="28" y="233" fill="#e2e8f0" font-size="11">• CMakeLists.txt: 6 Host/GUI Executables + 3 Signed DLLs (tổng 9 build targets)</text>
+    <text x="28" y="252" fill="#94a3b8" font-size="10.5">• Tài nguyên nhúng (.rc / embedded_favicons.hpp) chạy độc lập không cần runtime ngoài</text>
+  </g>
+
+  <g transform="translate(30, 450)" filter="url(#cardShadow)">
+    <rect width="1740" height="395" rx="14" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+    <rect width="1740" height="42" rx="14" fill="url(#slaveHdr)"/>
+    <rect y="26" width="1740" height="16" fill="url(#slaveHdr)"/>
+    <text x="18" y="27" fill="#ffffff" font-size="15.5" font-weight="700">3. SLAVE STORE EDGE NODE (slave/) — Port :8501 • Tenant GP001 • 178 tệp (10 HTML + 29 JS + 12 C++ + vendor/locales)</text>
+    <rect x="1570" y="10" width="152" height="22" rx="11" fill="#064e3b" stroke="#6ee7b7"/>
+    <text x="1646" y="25" text-anchor="middle" fill="#d1fae5" font-size="11" font-weight="700">cybernexus_slave.exe</text>
+
+    <rect x="16" y="56" width="380" height="323" rx="10" fill="#064e3b" fill-opacity="0.3" stroke="#10b981" stroke-opacity="0.5"/>
+    <text x="28" y="78" fill="#6ee7b7" font-size="13" font-weight="700">C++ Edge Backend (slave/src/ — 12 tệp)</text>
+    <text x="28" y="100" fill="#f8fafc" font-size="11.5" font-weight="600">• main_slave.cpp</text>
+    <text x="28" y="117" fill="#94a3b8" font-size="10.5">  Khởi tạo SQLite, Static Mounts, PluginManager (3 DLL)</text>
+    <text x="28" y="138" fill="#f8fafc" font-size="11.5" font-weight="600">• slave_handlers.cpp / .hpp (10,961 dòng)</text>
+    <text x="28" y="155" fill="#94a3b8" font-size="10.5">  Auth/PIN, Orders/KDS, Kho FEFO &amp; BOM, Ca/Chấm công,</text>
+    <text x="28" y="170" fill="#94a3b8" font-size="10.5">  Tài chính/VietQR, CRM SĐT, Admin Alerts, WiFi VIP</text>
+    <text x="28" y="191" fill="#f8fafc" font-size="11.5" font-weight="600">• slave_license.cpp &amp; slave_license_handlers.cpp</text>
+    <text x="28" y="208" fill="#94a3b8" font-size="10.5">  Kiểm tra bản quyền offline &amp; local_license_cache</text>
+    <text x="28" y="229" fill="#f8fafc" font-size="11.5" font-weight="600">• slave_dot6_handlers.cpp / .hpp</text>
+    <text x="28" y="248" fill="#f8fafc" font-size="11.5" font-weight="600">• slave_updater.h &amp; slave_tunnel.h &amp; slave_net_info.h</text>
+    <text x="28" y="265" fill="#94a3b8" font-size="10.5">  Tự cập nhật OTA từ Master &amp; Tunnel kết nối từ xa</text>
+    <text x="28" y="286" fill="#f8fafc" font-size="11.5" font-weight="600">• printer_bridge.hpp &amp; hikvision_isapi.hpp</text>
+    <text x="28" y="303" fill="#94a3b8" font-size="10.5">  In hóa đơn nhiệt ESC/POS &amp; Camera Hikvision ISAPI</text>
+    <rect x="28" y="322" width="356" height="42" rx="7" fill="#022c22" stroke="#34d399" stroke-opacity="0.4"/>
+    <text x="38" y="339" fill="#34d399" font-size="11" font-weight="700">Static Mounts: /assets • /uploads • /img • /locales</text>
+    <text x="38" y="355" fill="#a7f3d0" font-size="10.5">API: /api/orders.php • /api/operations.php • /api/finance.php • /api/settings.php</text>
+
+    <rect x="410" y="56" width="525" height="323" rx="10" fill="#064e3b" fill-opacity="0.3" stroke="#10b981" stroke-opacity="0.5"/>
+    <text x="422" y="78" fill="#6ee7b7" font-size="13" font-weight="700">10 Giao Diện Web &amp; 29 JS Modules (slave/web/)</text>
+
+    <g font-size="11">
+      <rect x="422" y="90" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="432" y="108" fill="#38bdf8" font-weight="700">/pos — index.html + pos.js</text>
+      <text x="432" y="126" fill="#cbd5e1" font-size="10">Thu ngân, VietQR, Mở/Chốt ca 2 lớp, Tách/Gộp</text>
+
+      <rect x="677" y="90" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="687" y="108" fill="#38bdf8" font-weight="700">/admin — admin.html + admin_*.js</text>
+      <text x="687" y="126" fill="#cbd5e1" font-size="10">Kho FEFO, BOM, Nhân sự, DSP, Popup Alerts</text>
+
+      <rect x="422" y="146" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="432" y="164" fill="#34d399" font-weight="700">/order — order.html + order_waiter.js</text>
+      <text x="432" y="182" fill="#cbd5e1" font-size="10">Phục vụ duyệt bàn, Bưng món, Báo hủy, Mobile</text>
+
+      <rect x="677" y="146" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="687" y="164" fill="#34d399" font-weight="700">/kitchen — kitchen.html + kitchen_kds.js</text>
+      <text x="687" y="182" fill="#cbd5e1" font-size="10">KDS Bếp tick Xong từng món, Báo hết hàng</text>
+
+      <rect x="422" y="202" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="432" y="220" fill="#fbbf24" font-weight="700">/menu — customer.html + customer_app.js</text>
+      <text x="432" y="238" fill="#cbd5e1" font-size="10">QR Khách tại bàn/MV/Ship, WiFi VIP, Jukebox</text>
+
+      <rect x="677" y="202" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="687" y="220" fill="#fbbf24" font-weight="700">/wifi.html — WiFi Captive Portal</text>
+      <text x="687" y="238" fill="#cbd5e1" font-size="10">Free 10p (Leads) / VIP Mã hóa đơn / QR bàn</text>
+
+      <rect x="422" y="258" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="432" y="276" fill="#c084fc" font-weight="700">/attendance.html &amp; /login.html</text>
+      <text x="432" y="294" fill="#cbd5e1" font-size="10">Chấm công PIN, Check-in/out &amp; Phân quyền</text>
+
+      <rect x="677" y="258" width="245" height="48" rx="7" fill="#0f172a" stroke="#334155"/>
+      <text x="687" y="276" fill="#c084fc" font-weight="700">/online_orders.html &amp; /i18n_studio.html</text>
+      <text x="687" y="294" fill="#cbd5e1" font-size="10">Đơn Online/Delivery &amp; Ngôn ngữ VI/EN</text>
+    </g>
+    <text x="422" y="330" fill="#a7f3d0" font-size="11" font-weight="600">JS chính: admin.js (?v=44) • admin_inventory.js (?v=2) • admin_bom_studio.js • admin_ops_kpi.js • admin_media_dsp.js</text>
+    <text x="422" y="348" fill="#94a3b8" font-size="10.5">order_waiter.js (?v=20261126) • customer_app.js (?v=20261126) • pos_shift_reports.js • admin_finance_ecr.js</text>
+    <text x="422" y="366" fill="#94a3b8" font-size="10.5">CSS Build: app-tailwind.min.css (102,748 bytes) • security_utils.js • receipt_template.js • theme.js</text>
+
+    <rect x="949" y="56" width="405" height="323" rx="10" fill="#064e3b" fill-opacity="0.3" stroke="#10b981" stroke-opacity="0.5"/>
+    <text x="961" y="78" fill="#6ee7b7" font-size="13" font-weight="700">CSDL store_local.db — 48 Bảng SQLite Thực Tế</text>
+    <text x="961" y="100" fill="#fde68a" font-size="11" font-weight="700">• Bán hàng, KDS &amp; CRM (11 bảng):</text>
+    <text x="961" y="116" fill="#cbd5e1" font-size="10">  orders, order_items (item_stock_deducted), order_alerts,</text>
+    <text x="961" y="130" fill="#cbd5e1" font-size="10">  order_reviews, tables_areas, products, categories, promotions,</text>
+    <text x="961" y="144" fill="#cbd5e1" font-size="10">  customers (phone CRM), kitchen_service_logs, qr_blacklist</text>
+    <text x="961" y="165" fill="#fde68a" font-size="11" font-weight="700">• Kho FEFO, BOM &amp; NCC (9 bảng):</text>
+    <text x="961" y="181" fill="#cbd5e1" font-size="10">  materials (NVL*), material_batches (FEFO), material_transactions,</text>
+    <text x="961" y="195" fill="#cbd5e1" font-size="10">  material_uom_presets, product_recipes, suppliers,</text>
+    <text x="961" y="209" fill="#cbd5e1" font-size="10">  supplier_invoices, supplier_invoice_items, supplier_payments</text>
+    <text x="961" y="230" fill="#fde68a" font-size="11" font-weight="700">• Ca, Lương, Tài chính &amp; Audit (16 bảng):</text>
+    <text x="961" y="246" fill="#cbd5e1" font-size="10">  pos_shifts, shift_state_logs, attendances, attendance_devices,</text>
+    <text x="961" y="260" fill="#cbd5e1" font-size="10">  attendance_raw_logs, payroll_cycles, payroll_items, users,</text>
+    <text x="961" y="274" fill="#cbd5e1" font-size="10">  finance_expenses, cash_transactions, payment_transactions,</text>
+    <text x="961" y="288" fill="#cbd5e1" font-size="10">  card_transactions, card_terminal_*, app_notifications, audit_logs</text>
+    <text x="961" y="309" fill="#fde68a" font-size="11" font-weight="700">• Media, WiFi, KPI &amp; Hệ thống (12 bảng):</text>
+    <text x="961" y="325" fill="#cbd5e1" font-size="10">  media_tracks, media_jukebox_queue, media_jukebox_votes,</text>
+    <text x="961" y="339" fill="#cbd5e1" font-size="10">  media_eq_presets, media_time_schedules, wifi_marketing_leads,</text>
+    <text x="961" y="353" fill="#cbd5e1" font-size="10">  kpi_logs, kpi_sla_settings, sla_time_slots, i18n_catalog, store_settings, local_license_cache</text>
+
+    <rect x="1368" y="56" width="356" height="323" rx="10" fill="#064e3b" fill-opacity="0.22" stroke="#10b981" stroke-opacity="0.45"/>
+    <text x="1380" y="78" fill="#6ee7b7" font-size="13" font-weight="700">Tích Hợp Ngoại Vi &amp; Thanh Toán</text>
+    <rect x="1380" y="92" width="332" height="58" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="1392" y="112" fill="#38bdf8" font-size="11.5" font-weight="700">VietQR EMVCo &amp; Đối Soát CK</text>
+    <text x="1392" y="130" fill="#cbd5e1" font-size="10.5">shared/include/vietqr_emvco.hpp — Sinh QR động</text>
+    <text x="1392" y="143" fill="#94a3b8" font-size="10">hỗ trợ settle_delta khi gọi thêm món sau thanh toán</text>
+
+    <rect x="1380" y="160" width="332" height="58" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="1392" y="180" fill="#34d399" font-size="11.5" font-weight="700">Máy In Nhiệt LAN/USB &amp; Camera</text>
+    <text x="1392" y="198" fill="#cbd5e1" font-size="10.5">printer_bridge.hpp (In tạm, Phiếu bếp, Hóa đơn)</text>
+    <text x="1392" y="211" fill="#94a3b8" font-size="10">hikvision_isapi.hpp (Camera ISAPI quầy thu ngân/kho)</text>
+
+    <rect x="1380" y="228" width="332" height="58" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="1392" y="248" fill="#c084fc" font-size="11.5" font-weight="700">Gemini AI Studio &amp; OCR Hóa Đơn</text>
+    <text x="1392" y="266" fill="#cbd5e1" font-size="10.5">gemini_client.hpp — AI viết copy &amp; sinh ảnh slide,</text>
+    <text x="1392" y="279" fill="#94a3b8" font-size="10">đọc ảnh hóa đơn nhập kho (import_invoice)</text>
+
+    <rect x="1380" y="296" width="332" height="66" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="1392" y="316" fill="#fbbf24" font-size="11.5" font-weight="700">In-App Admin Notification Hub</text>
+    <text x="1392" y="334" fill="#cbd5e1" font-size="10.5">Polling /api/operations.php?action=admin_alerts</text>
+    <text x="1392" y="348" fill="#94a3b8" font-size="10">Toast Popup trên /admin (Kết ca, Xuất hủy, Lệch quỹ)</text>
+  </g>
+
+  <g transform="translate(30, 875)" filter="url(#cardShadow)">
+    <rect width="855" height="335" rx="14" fill="#0f172a" stroke="#8b5cf6" stroke-width="1.8"/>
+    <rect width="855" height="40" rx="14" fill="url(#dllHdr)"/>
+    <rect y="26" width="855" height="14" fill="url(#dllHdr)"/>
+    <text x="18" y="26" fill="#ffffff" font-size="15" font-weight="700">4. 3 DYNAMIC DLL KÝ SỐ ECDSA P-256 (modules/) — 8 tệp C++ (5,530 dòng)</text>
+
+    <rect x="16" y="54" width="265" height="195" rx="10" fill="#2e1065" fill-opacity="0.45" stroke="#a78bfa" stroke-opacity="0.6"/>
+    <text x="28" y="75" fill="#ddd6fe" font-size="12.5" font-weight="700">libmod_network_qos.dll</text>
+    <text x="28" y="92" fill="#34d399" font-size="10.5" font-weight="700">✓ .sig ECDSA P-256 Verified</text>
+    <text x="28" y="112" fill="#e2e8f0" font-size="11">• mod_network_qos.cpp (1,649 dòng)</text>
+    <text x="28" y="130" fill="#cbd5e1" font-size="10.5">• WiFi Free (10p, giới hạn IP/ngày)</text>
+    <text x="28" y="147" fill="#cbd5e1" font-size="10.5">• WiFi VIP: 1 món = 1 máy (180p)</text>
+    <text x="28" y="164" fill="#cbd5e1" font-size="10.5">  hoặc hết hạn khi giải phóng bàn</text>
+    <text x="28" y="181" fill="#cbd5e1" font-size="10.5">• Whitelist MAC Nội bộ ∞</text>
+    <text x="28" y="198" fill="#94a3b8" font-size="10">cfg: router_qos.json • embedded_web_assets</text>
+    <text x="28" y="224" fill="#a78bfa" font-size="10.5" font-weight="600">/api/wifi/* • /api/network/*</text>
+
+    <rect x="295" y="54" width="265" height="195" rx="10" fill="#2e1065" fill-opacity="0.45" stroke="#a78bfa" stroke-opacity="0.6"/>
+    <text x="307" y="75" fill="#ddd6fe" font-size="12.5" font-weight="700">libmod_media_stream.dll</text>
+    <text x="307" y="92" fill="#34d399" font-size="10.5" font-weight="700">✓ .sig ECDSA P-256 Verified</text>
+    <text x="307" y="112" fill="#e2e8f0" font-size="11">• mod_media_stream.cpp (873 dòng)</text>
+    <text x="307" y="130" fill="#cbd5e1" font-size="10.5">• 10-Band DSP Equalizer &amp; Auto-DJ</text>
+    <text x="307" y="147" fill="#cbd5e1" font-size="10.5">• Smart Jukebox Queue (device_id):</text>
+    <text x="307" y="164" fill="#cbd5e1" font-size="10.5">  &lt;5: tự do | 5-9: 2 bài/30p | ≥10: chặn</text>
+    <text x="307" y="181" fill="#cbd5e1" font-size="10.5">• yt_audio_helper.cpp (YouTube Audio)</text>
+    <text x="307" y="198" fill="#94a3b8" font-size="10">media_jukebox_votes (UNIQUE voter_key)</text>
+    <text x="307" y="224" fill="#a78bfa" font-size="10.5" font-weight="600">/api/media/* • /api/media/jukebox/*</text>
+
+    <rect x="574" y="54" width="265" height="195" rx="10" fill="#2e1065" fill-opacity="0.45" stroke="#a78bfa" stroke-opacity="0.6"/>
+    <text x="586" y="75" fill="#ddd6fe" font-size="12.5" font-weight="700">libmod_card_payment.dll</text>
+    <text x="586" y="92" fill="#34d399" font-size="10.5" font-weight="700">✓ .sig ECDSA P-256 Verified</text>
+    <text x="586" y="112" fill="#e2e8f0" font-size="11">• mod_card_payment.cpp (1,302 dòng)</text>
+    <text x="586" y="130" fill="#cbd5e1" font-size="10.5">• Cổng Cà Thẻ Tín Dụng / SmartPOS</text>
+    <text x="586" y="147" fill="#cbd5e1" font-size="10.5">• Hỗ trợ LAN TCP, Wi-Fi REST,</text>
+    <text x="586" y="164" fill="#cbd5e1" font-size="10.5">  USB-CDC COM &amp; Simulation Mode</text>
+    <text x="586" y="181" fill="#cbd5e1" font-size="10.5">• card_transactions &amp; card_terminal_*</text>
+    <text x="586" y="198" fill="#94a3b8" font-size="10">IModulePlugin ABI + License Gate</text>
+    <text x="586" y="224" fill="#a78bfa" font-size="10.5" font-weight="600">/api/card/* • /api/payment/ecr/*</text>
+
+    <rect x="16" y="261" width="823" height="58" rx="9" fill="#1e1b4b" stroke="#6366f1" stroke-opacity="0.5"/>
+    <text x="28" y="283" fill="#c7d2fe" font-size="12" font-weight="700">Trạng Thái Kiến Trúc Module (ARCH-01):</text>
+    <text x="28" y="303" fill="#94a3b8" font-size="11">• mod_pos_core &amp; mod_finance_admin đã TẮT / gộp vào Host Core từ ARCH-01 — chỉ còn 3 DLL động được ký số &amp; nạp qua PluginManager.</text>
+  </g>
+
+  <g transform="translate(910, 875)" filter="url(#cardShadow)">
+    <rect width="860" height="335" rx="14" fill="#0f172a" stroke="#64748b" stroke-width="1.8"/>
+    <rect width="860" height="40" rx="14" fill="url(#devopsHdr)"/>
+    <rect y="26" width="860" height="14" fill="url(#devopsHdr)"/>
+    <text x="18" y="26" fill="#ffffff" font-size="15" font-weight="700">5. SHARED C++ CORE (shared/ — 25 tệp) &amp; TOOLCHAIN / TESTS / DOCS (tools/, tests/, docs/)</text>
+
+    <rect x="16" y="54" width="405" height="265" rx="10" fill="#1e293b" fill-opacity="0.6" stroke="#64748b" stroke-opacity="0.5"/>
+    <text x="28" y="76" fill="#f8fafc" font-size="12.5" font-weight="700">Thư Viện Lõi Dùng Chung (shared/ — 19 .h/.hpp + 6 .c/.cpp)</text>
+    <text x="28" y="98" fill="#38bdf8" font-size="11.5" font-weight="600">• Database &amp; HTTP:</text>
+    <text x="28" y="115" fill="#cbd5e1" font-size="10.5">  sqlite3.c/.h, db.cpp/.hpp, httplib.h, nlohmann/json.hpp,</text>
+    <text x="28" y="130" fill="#cbd5e1" font-size="10.5">  body_parser.cpp/.hpp, ConfigManager.hpp</text>
+    <text x="28" y="152" fill="#34d399" font-size="11.5" font-weight="600">• Auth, License &amp; Security:</text>
+    <text x="28" y="169" fill="#cbd5e1" font-size="10.5">  auth.cpp/.hpp, pos_bcrypt.c/.h, pin_vault.hpp,</text>
+    <text x="28" y="184" fill="#cbd5e1" font-size="10.5">  license.hpp, license_crypto.hpp (ECDSA), rate_limiter.hpp,</text>
+    <text x="28" y="199" fill="#cbd5e1" font-size="10.5">  upload_guard.hpp (kiểm tra magic bytes &amp; kích thước file)</text>
+    <text x="28" y="221" fill="#c084fc" font-size="11.5" font-weight="600">• Plugin &amp; AI / Payment SDK:</text>
+    <text x="28" y="238" fill="#cbd5e1" font-size="10.5">  IModulePlugin.hpp, PluginManager.cpp/.hpp,</text>
+    <text x="28" y="253" fill="#cbd5e1" font-size="10.5">  gemini_client.hpp, vietqr_emvco.hpp, embedded_favicons.hpp</text>
+    <text x="28" y="280" fill="#fbbf24" font-size="10.5" font-weight="600">Build: CMakeLists.txt + Ninja (MinGW/MSYS2 UCRT64 C++17)</text>
+    <text x="28" y="298" fill="#94a3b8" font-size="10">CI/CD: .github/workflows/ (build-test.yml, release.yml, main.yml)</text>
+
+    <rect x="435" y="54" width="409" height="265" rx="10" fill="#1e293b" fill-opacity="0.6" stroke="#64748b" stroke-opacity="0.5"/>
+    <text x="447" y="76" fill="#f8fafc" font-size="12.5" font-weight="700">Toolchain (12), Tests (3) &amp; Docs (10)</text>
+    <text x="447" y="98" fill="#fbbf24" font-size="11.5" font-weight="600">• Build, Sign &amp; OTA (tools/ — 12 tệp, 2,299 dòng):</text>
+    <text x="447" y="115" fill="#cbd5e1" font-size="10.5">  sign_module.py / sign_modules.py (ký số .sig ECDSA),</text>
+    <text x="447" y="130" fill="#cbd5e1" font-size="10.5">  release_ota.py, generate_web_integrity.py,</text>
+    <text x="447" y="145" fill="#cbd5e1" font-size="10.5">  tailwind/build_tailwind.py, refresh_qa_arch_data.py</text>
+    <text x="447" y="167" fill="#34d399" font-size="11.5" font-weight="600">• Verification Suite (tests/ — 3 tệp, 531 dòng):</text>
+    <text x="447" y="184" fill="#cbd5e1" font-size="10.5">  verify_regression_v1.py (.sig + JS syntax + Tailwind + API),</text>
+    <text x="447" y="199" fill="#cbd5e1" font-size="10.5">  test_api_e2e.py, verify_live_smoke.py</text>
+    <text x="447" y="221" fill="#38bdf8" font-size="11.5" font-weight="600">• Dashboards &amp; Sổ Tay (docs/ — 10 tệp):</text>
+    <text x="447" y="238" fill="#cbd5e1" font-size="10.5">  13_BANG_THEO_DOI_KHUYET_TAT.html (214 items QA Tracker),</text>
+    <text x="447" y="253" fill="#cbd5e1" font-size="10.5">  19_SO_TAY_VAN_HANH_SLAVE.html, 20_SO_TAY_VAN_HANH_MASTER.html,</text>
+    <text x="447" y="268" fill="#cbd5e1" font-size="10.5">  16_QUAN_TRI_NGON_NGU_I18N_STUDIO.html, qa_arch_codebase_data.js</text>
+    <text x="447" y="298" fill="#34d399" font-size="10.5" font-weight="700">Verified: ALL_REGRESSION_CHECKS_PASSED • Chrome E2E</text>
+  </g>
+
+  <path d="M 480 405 L 480 447" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#arrowCyan)"/>
+  <rect x="335" y="412" width="290" height="24" rx="12" fill="#0f172a" stroke="#38bdf8"/>
+  <text x="480" y="428" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="700">OTA Patch + License DLL + AI Proxy + Audit Sync</text>
+
+  <path d="M 1310 405 L 1310 447" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arrowAmber)"/>
+  <rect x="1195" y="412" width="230" height="24" rx="12" fill="#0f172a" stroke="#fbbf24"/>
+  <text x="1310" y="428" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700">Control Center Launch &amp; Vault Key</text>
+
+  <path d="M 455 845 L 455 872" stroke="#a78bfa" stroke-width="2.5" marker-end="url(#arrowPurple)"/>
+  <rect x="295" y="846" width="320" height="22" rx="11" fill="#0f172a" stroke="#a78bfa"/>
+  <text x="455" y="861" text-anchor="middle" fill="#ddd6fe" font-size="10.5" font-weight="700">PluginManager Load + ECDSA .sig Check (IModulePlugin)</text>
+
+  <path d="M 1340 875 L 1340 848" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrowEmerald)"/>
+  <rect x="1185" y="846" width="310" height="22" rx="11" fill="#0f172a" stroke="#34d399"/>
+  <text x="1340" y="861" text-anchor="middle" fill="#a7f3d0" font-size="10.5" font-weight="700">C++17 Shared Core + Verification + Tailwind Build</text>
+</svg>

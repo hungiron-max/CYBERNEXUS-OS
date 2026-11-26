@@ -829,6 +829,19 @@ void MasterHandlers::handleSuperAdmin(const httplib::Request& req, httplib::Resp
                     return;
                 }
 
+                // SEC-TUN-01: Master chủ động đẩy lệnh CHECK_INTEGRITY xuống Slave qua Tunnel
+                if (action == "check_store_integrity") {
+                    int64_t tid = 0;
+                    try { tid = std::stoll(BodyParser::getParam(req, body, "tenant_id", "0")); } catch (...) {}
+                    if (tid <= 0) {
+                        sendError(res, "Missing tenant_id", 400);
+                        return;
+                    }
+                    bool queued = StoreTunnelManager::instance().enqueueCommand(tid, "CHECK_INTEGRITY", json::object());
+                    sendJson(res, {{"success", queued}, {"tenant_id", tid}, {"message", queued ? "Đã đẩy lệnh CHECK_INTEGRITY tới Slave qua Tunnel" : "Không thể xếp hàng lệnh CHECK_INTEGRITY"}});
+                    return;
+                }
+
                 // Check all active/non-deleted tenants
                 json rows = db.query("SELECT id, tenant_code, store_name, last_check_at, last_check_ip FROM saas_tenants WHERE COALESCE(subscription_status, 'active') != 'deleted' ORDER BY id ASC");
                 json results = json::array();
@@ -4009,6 +4022,12 @@ static void handleLicensePoll(const httplib::Request& req, httplib::Response& re
         if (curMid.empty() && !reqMid.empty() && resetPending == 0) {
             db.execute("UPDATE saas_tenants SET machine_id = :mid, last_check_at = datetime('now') WHERE id = :id",
                        {{":mid", reqMid}, {":id", tid}});
+            curMid = reqMid;
+        }
+        // SEC-TUN-01: Xac thuc machine_id bat buoc tren kenh /api/license/poll
+        if (!curMid.empty() && resetPending == 0 && (reqMid.empty() || reqMid != curMid)) {
+            replyTunnelJson(res, {{"success", false}, {"code", "MACHINE_ID_MISMATCH"}, {"message", "machine_id khong khop thiet bi da dang ky"}}, 403);
+            return;
         }
         std::string clientIp = extractClientWanIp(req);
         std::string appVersion = body.value("app_version", "2.1.8");
@@ -4085,6 +4104,7 @@ static void handleLicenseAck(const httplib::Request& req, httplib::Response& res
             try { body = json::parse(req.body); } catch (...) {}
         }
         std::string key = body.value("license_key", "");
+        std::string reqMid = body.value("machine_id", "");
         std::string cmdId = body.value("cmd_id", "");
         std::string reqCmdType = body.value("cmd_type", "");
         bool ok = body.value("ok", true);
@@ -4094,13 +4114,19 @@ static void handleLicenseAck(const httplib::Request& req, httplib::Response& res
         std::string clientIp = extractClientWanIp(req);
         int64_t tenantId = 0;
         if (!key.empty()) {
-            db.execute(
-                "UPDATE saas_tenants SET last_check_at = datetime('now'), last_check_ip = :ip WHERE license_key = :k",
-                {{":ip", clientIp}, {":k", key}}
-            );
-            auto tRow = db.queryRow("SELECT id FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
+            auto tRow = db.queryRow("SELECT id, machine_id, COALESCE(machine_reset_pending, 0) as machine_reset_pending FROM saas_tenants WHERE license_key = :k LIMIT 1", {{":k", key}});
             if (!tRow.is_null() && tRow.contains("id") && tRow["id"].is_number()) {
+                std::string curMid = (tRow.contains("machine_id") && tRow["machine_id"].is_string()) ? tRow["machine_id"].get<std::string>() : "";
+                int resetPending = tRow.value("machine_reset_pending", 0);
+                if (!curMid.empty() && resetPending == 0 && (reqMid.empty() || reqMid != curMid)) {
+                    replyTunnelJson(res, {{"success", false}, {"code", "MACHINE_ID_MISMATCH"}, {"message", "machine_id khong khop thiet bi da dang ky"}}, 403);
+                    return;
+                }
                 tenantId = tRow["id"].get<int64_t>();
+                db.execute(
+                    "UPDATE saas_tenants SET last_check_at = datetime('now'), last_check_ip = :ip WHERE id = :id",
+                    {{":ip", clientIp}, {":id", tenantId}}
+                );
                 saveTenantNetGeo(db, tenantId, clientIp, json::object(), runtime);
             }
         }

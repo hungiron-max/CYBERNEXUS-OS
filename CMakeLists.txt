@@ -109,7 +109,7 @@ if(WIN32)
         launcher/CyberNexusControlCenter.cpp
         launcher/icons/store_app.rc
     )
-    target_link_libraries(CyberNexus_Control_Center PRIVATE ws2_32 crypt32 wsock32 iphlpapi shell32 psapi)
+    target_link_libraries(CyberNexus_Control_Center PRIVATE ws2_32 crypt32 bcrypt wsock32 iphlpapi shell32 psapi)
     if(MINGW)
         target_link_options(CyberNexus_Control_Center PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
     endif()
@@ -126,7 +126,7 @@ if(WIN32)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/master_launcher"
         OUTPUT_NAME "CyberNexus_Control_Center"
     )
-    target_link_libraries(CyberNexus_Control_Center_Master PRIVATE ws2_32 crypt32 wsock32 iphlpapi shell32 psapi)
+    target_link_libraries(CyberNexus_Control_Center_Master PRIVATE ws2_32 crypt32 bcrypt wsock32 iphlpapi shell32 psapi)
     if(MINGW)
         target_link_options(CyberNexus_Control_Center_Master PRIVATE -municode -mwindows -static -static-libgcc -static-libstdc++)
     endif()

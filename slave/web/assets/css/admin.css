@@ -366,21 +366,25 @@ input.liquid-input:-webkit-autofill:focus {
    ============================================================================ */
 .cn-noc-shell {
     display: grid;
-    grid-template-columns: 330px minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 14px;
     align-items: start;
-}
-@media (max-width: 1120px) {
-    .cn-noc-shell { grid-template-columns: 1fr; }
 }
 .cn-noc-sidebar {
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.96));
     border: 1px solid rgba(56, 189, 248, 0.22);
     border-radius: 14px;
     padding: 12px;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
+    align-items: stretch;
+}
+.cn-noc-sidebar > :first-child {
+    grid-column: 1 / -1;
+}
+@media (max-width: 1120px) {
+    .cn-noc-sidebar { grid-template-columns: 1fr; }
 }
 .cn-noc-main {
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.94));
@@ -414,7 +418,7 @@ input.liquid-input:-webkit-autofill:focus {
     width: 100%;
     border-collapse: collapse;
     font-size: 11.5px;
-    min-width: 720px;
+    min-width: 0;
 }
 .cn-noc-table thead th {
     position: sticky;
@@ -456,4 +460,15 @@ input.liquid-input:-webkit-autofill:focus {
     border-color: #38bdf8;
     background: rgba(56, 189, 248, 0.18);
     color: #e0f2fe;
+}
+@media (max-width: 1023px) {
+    #admin-mobile-nav {
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)) !important;
+    }
+    .admin-main-scroll,
+    #tab-settings,
+    main {
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
 }

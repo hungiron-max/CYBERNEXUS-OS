@@ -138,6 +138,77 @@
     global.CyberSecurity = api;
     global.CyberNexusSec = api;
     global.cnxRenderVietQr = renderOfflineVietQr;
+
+    // UPG-ORD-02: Hàng đợi đơn hàng Offline (IndexedDB) tự đồng bộ khi có mạng LAN
+    const CnxOfflineQueue = {
+        _dbName: 'cybernexus_offline_v1',
+        _storeName: 'order_queue',
+        _open() {
+            return new Promise((resolve, reject) => {
+                if (!global.indexedDB) return reject(new Error('No IndexedDB'));
+                const req = global.indexedDB.open(this._dbName, 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(this._storeName)) {
+                        db.createObjectStore(this._storeName, { keyPath: 'client_offline_id' });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        },
+        async enqueue(payload) {
+            const item = Object.assign({}, payload, {
+                client_offline_id: payload.client_offline_id || ('OFF-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+                queued_at: new Date().toISOString()
+            });
+            const db = await this._open();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(this._storeName, 'readwrite');
+                tx.objectStore(this._storeName).put(item);
+                tx.oncomplete = () => resolve(item);
+                tx.onerror = () => reject(tx.error);
+            });
+        },
+        async list() {
+            const db = await this._open();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(this._storeName, 'readonly');
+                const req = tx.objectStore(this._storeName).getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        },
+        async flush() {
+            let items = [];
+            try { items = await this.list(); } catch (_) { return { synced: 0 }; }
+            let synced = 0;
+            for (const it of items) {
+                try {
+                    const res = await fetch('/api/orders.php?action=save_order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(it)
+                    });
+                    const data = await res.json();
+                    if (res.ok && data && data.success) {
+                        const db = await this._open();
+                        await new Promise((res2) => {
+                            const tx = db.transaction(this._storeName, 'readwrite');
+                            tx.objectStore(this._storeName).delete(it.client_offline_id);
+                            tx.oncomplete = res2;
+                        });
+                        synced++;
+                    }
+                } catch (_) { break; }
+            }
+            return { synced };
+        }
+    };
+    global.CnxOfflineQueue = CnxOfflineQueue;
+    if (global.addEventListener) {
+        global.addEventListener('online', () => { CnxOfflineQueue.flush().catch(() => {}); });
+    }
     if (typeof global.escapeHtml !== 'function') {
         global.escapeHtml = escapeHtml;
     }

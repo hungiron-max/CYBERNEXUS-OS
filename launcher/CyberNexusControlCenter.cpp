@@ -13,6 +13,7 @@
 #include "httplib.h"
 #include "nlohmann/json.hpp"
 #include "auth.hpp"
+#include "license_crypto.hpp"
 #include "pos_bcrypt.h"
 #include "embedded_favicons.hpp"
 #include "sqlite3.h"
@@ -325,10 +326,14 @@ json checkServiceIntegrity(const ServiceState& s) {
                 json sig = json::parse(ifs, nullptr, false);
                 std::string binName = sig.value("file", sig.value("binary", ""));
                 std::string expHash = sig.value("sha256", "");
+                std::string ecdsaSig = sig.value("ecdsa_sig", "");
                 fs::path binPath = modDir / binName;
                 std::string actHash = fs::exists(binPath) ? sha256FileHex(binPath) : "";
-                bool ok = !expHash.empty() && expHash == actHash;
-                dllChecks.push_back({{"file", binName}, {"ok", ok}});
+                bool hashOk = !expHash.empty() && expHash == actHash;
+                bool sigOk = !ecdsaSig.empty() && SaleApp::LicenseCrypto::verifyLicensePayload(
+                    SaleApp::LicenseCrypto::buildDllSigPayload(binName, actHash), ecdsaSig);
+                bool ok = hashOk && sigOk;
+                dllChecks.push_back({{"file", binName}, {"ok", ok}, {"hash_ok", hashOk}, {"ecdsa_ok", sigOk}});
             }
         }
     }

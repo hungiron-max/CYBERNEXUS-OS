@@ -32,6 +32,19 @@
     }
 
     apply(theme);
+    window.CNX_THEME = {
+        get: function () { return theme; },
+        set: function (val) {
+            apply(val);
+            try { localStorage.setItem(key, theme); } catch (_) {}
+            return theme;
+        },
+        toggle: function () {
+            apply(theme === 'dark' ? 'light' : 'dark');
+            try { localStorage.setItem(key, theme); } catch (_) {}
+            return theme;
+        }
+    };
     window.addEventListener('storage', function (event) {
         if (event.key === key) apply(event.newValue);
     });

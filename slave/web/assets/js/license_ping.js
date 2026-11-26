@@ -133,10 +133,10 @@
 
     let _pingInFlight = false;
     async function runPing() {
-        if (_pingInFlight) return;
+        if (document.hidden || _pingInFlight) return;
         _pingInFlight = true;
         try { await ping(); } finally { _pingInFlight = false; }
     }
-    runPing();
-    setInterval(runPing, 2 * 60 * 1000);
+    setTimeout(runPing, 1500);
+    setInterval(runPing, 5 * 60 * 1000);
 })();

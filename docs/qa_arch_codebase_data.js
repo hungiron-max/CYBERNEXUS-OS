@@ -1,9 +1,9 @@
 window.QA_ARCH_CODEBASE = {
- "generated": "24/11/2026 19:23",
+ "generated": "26/11/2026 14:48",
  "arch": {
   "overview": {
    "version": "v2.5.0",
-   "ota": "v2026.11.24.13",
+   "ota": "v2026.11.26.01",
    "summary": "CyberNexus OS là hệ sinh thái quản trị không gian số F&B theo kiến trúc Vi hạt nhân C++17 (Offline-First tại quán + điều hành tập trung từ Master SaaS), hợp nhất POS/KDS/Chấm công + WiFi Marketing & Router QoS + Media Server & Smart Jukebox.",
    "pillars": [
     {
@@ -396,8 +396,8 @@ window.QA_ARCH_CODEBASE = {
  },
  "codebase": {
   "stats": {
-   "files": 133,
-   "total_lines": 94340,
+   "files": 135,
+   "total_lines": 95431,
    "folders": 8,
    "targets": 9
   },
@@ -566,7 +566,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "(root)",
     "lang": "CMake",
     "lines": 155,
-    "bytes": 5431,
+    "bytes": 5445,
     "role": "Cấu hình build CMake trung tâm: biên dịch 2 Host Core (Master/Slave), 3 Plugin DLL động và 4 ứng dụng Windows Launcher/Admin.",
     "symbols": [
      "cybernexus_master",
@@ -590,11 +590,12 @@ window.QA_ARCH_CODEBASE = {
     "path": "launcher/CyberNexusControlCenter.cpp",
     "folder": "launcher/",
     "lang": "C++",
-    "lines": 1594,
-    "bytes": 78026,
+    "lines": 1599,
+    "bytes": 78401,
     "role": "Ứng dụng Desktop Windows GUI (System Tray): bật/tắt an toàn Master/Slave, kiểm tra Port/Code/DLL/SQLite, cập nhật OTA 6 bước, Live Console.",
     "symbols": [
      "array",
+     "buildDllSigPayload",
      "copy",
      "copy_file",
      "create_directories",
@@ -604,8 +605,7 @@ window.QA_ARCH_CODEBASE = {
      "getline",
      "is_regular_file",
      "now",
-     "parse",
-     "path"
+     "parse"
     ],
     "deps": [
      "auth.hpp",
@@ -750,8 +750,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "master/src/main_master.cpp",
     "folder": "master/",
     "lang": "C++",
-    "lines": 369,
-    "bytes": 17612,
+    "lines": 404,
+    "bytes": 19528,
     "role": "Điểm khởi chạy Master Server (:8500), chế độ ký số DLL ngoại tuyến (--sign-dll ECDSA P-256), khởi tạo CSDL & route tĩnh.",
     "symbols": [
      "ThreadPool",
@@ -762,10 +762,10 @@ window.QA_ARCH_CODEBASE = {
      "getPublicKeyFingerprint",
      "instance",
      "is_regular_file",
+     "object",
      "parse",
      "path",
-     "registerRoutes",
-     "sha256"
+     "registerRoutes"
     ],
     "deps": [
      "ConfigManager.hpp",
@@ -792,8 +792,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "master/src/master_handlers.cpp",
     "folder": "master/",
     "lang": "C++",
-    "lines": 5388,
-    "bytes": 319512,
+    "lines": 5414,
+    "bytes": 326833,
     "role": "Toàn bộ 33 HTTP route & 79 action quản trị Super Admin (Tenant, License, SOP-09, Đại lý, AI Vault, Billing, OTA, I18N, Backup).",
     "symbols": [
      "array",
@@ -1341,7 +1341,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "modules/",
     "lang": "C++ Header",
     "lines": 15,
-    "bytes": 1312431,
+    "bytes": 1312545,
     "role": "Mã nguồn C++ Header thuộc phân hệ modules/",
     "symbols": [
      "string"
@@ -1354,8 +1354,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "modules/mod_media_stream/mod_media_stream.cpp",
     "folder": "modules/",
     "lang": "C++",
-    "lines": 872,
-    "bytes": 47846,
+    "lines": 891,
+    "bytes": 50581,
     "role": "Plugin DLL #1: Streaming nhạc/video HTTP Range 206, HMAC-SHA256 Ticket, Jukebox Queue/Vote, 10-Band EQ & Lịch phát.",
     "symbols": [
      "array",
@@ -1379,6 +1379,7 @@ window.QA_ARCH_CODEBASE = {
      "/api/media/ducking",
      "/api/media/eq/apply",
      "/api/media/eq/presets",
+     "/api/media/jukebox/bar_display",
      "/api/media/jukebox/remove",
      "/api/media/jukebox/request",
      "/api/media/jukebox/skip",
@@ -1393,7 +1394,8 @@ window.QA_ARCH_CODEBASE = {
      "media_time_schedules",
      "media_tracks",
      "signed",
-     "store_settings"
+     "store_settings",
+     "tables_areas"
     ]
    },
    {
@@ -1468,8 +1470,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "modules/mod_network_qos/mod_network_qos.cpp",
     "folder": "modules/",
     "lang": "C++",
-    "lines": 1649,
-    "bytes": 87039,
+    "lines": 1658,
+    "bytes": 87696,
     "role": "Plugin DLL #2: WiFi Marketing Portal, thu thập Leads và điều khiển Router QoS (EdgeRouter SSH / MikroTik).",
     "symbols": [
      "absolute",
@@ -1750,7 +1752,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "shared/",
     "lang": "C++ Header",
     "lines": 169,
-    "bytes": 7200,
+    "bytes": 7241,
     "role": "Thư viện mật mã ECDSA P-256 SHA-256 (Windows CNG): ký & kiểm chứng chứng thư bản quyền và chữ ký .dll.sig v2.",
     "symbols": [
      "setfill",
@@ -2033,22 +2035,22 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/src/main_slave.cpp",
     "folder": "slave/",
     "lang": "C++",
-    "lines": 1171,
-    "bytes": 65764,
+    "lines": 1288,
+    "bytes": 72955,
     "role": "Điểm khởi chạy Slave Edge Server (:8501), kiểm tra toàn vẹn Web SHA-256, nạp 3 Plugin DLL, khởi chạy WAN Tunnel & Updater.",
     "symbols": [
      "array",
+     "buildCanonicalPayload",
+     "buildDllSigPayload",
      "create_directories",
+     "directory_iterator",
      "exists",
      "formatClearCookie",
      "getenv",
      "getline",
      "instance",
      "isValidPin6",
-     "json",
-     "localtime",
-     "max",
-     "milliseconds"
+     "json"
     ],
     "deps": [
      "ConfigManager.hpp",
@@ -2209,11 +2211,12 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/src/slave_handlers.cpp",
     "folder": "slave/",
     "lang": "C++",
-    "lines": 10465,
-    "bytes": 574102,
+    "lines": 10999,
+    "bytes": 609406,
     "role": "Các API nghiệp vụ cốt lõi Slave: Auth/Login/Owner QR, Đơn hàng, POS, Bàn, Thực đơn, Kho, Chấm công, Ca/Quỹ, Báo cáo, Cài đặt.",
     "symbols": [
      "abs",
+     "all_of",
      "array",
      "bankIdToBin",
      "base64Decode",
@@ -2223,8 +2226,7 @@ window.QA_ARCH_CODEBASE = {
      "copy_file",
      "create_directories",
      "directory_iterator",
-     "encode_url",
-     "ensureDot6Schema"
+     "encode_url"
     ],
     "deps": [
      "ConfigManager.hpp",
@@ -2271,8 +2273,8 @@ window.QA_ARCH_CODEBASE = {
      "audit_logs",
      "cash_transactions",
      "categories",
-     "dates",
-     "finance_expenses"
+     "customers",
+     "dates"
     ]
    },
    {
@@ -2296,8 +2298,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/src/slave_license.cpp",
     "folder": "slave/",
     "lang": "C++",
-    "lines": 908,
-    "bytes": 44188,
+    "lines": 1012,
+    "bytes": 49170,
     "role": "Xác thực chữ ký ECDSA P-256 cục bộ, khóa Hardware ID, chống sửa bảng local_license_cache và chống lùi đồng hồ.",
     "symbols": [
      "LicenseService",
@@ -2335,8 +2337,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/src/slave_license_handlers.cpp",
     "folder": "slave/",
     "lang": "C++",
-    "lines": 173,
-    "bytes": 7922,
+    "lines": 196,
+    "bytes": 9155,
     "role": "API kích hoạt/đồng bộ bản quyền, kiểm soát bật/chặn 18 modules và Self-Billing VietQR phía Slave.",
     "symbols": [
      "encode_url",
@@ -2344,9 +2346,11 @@ window.QA_ARCH_CODEBASE = {
      "handleLicense",
      "handleLicenseClient",
      "instance",
+     "now",
      "object",
      "parse",
      "string",
+     "thread",
      "time"
     ],
     "deps": [
@@ -2489,8 +2493,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/css/admin.css",
     "folder": "slave/",
     "lang": "CSS",
-    "lines": 459,
-    "bytes": 15568,
+    "lines": 474,
+    "bytes": 15933,
     "role": "Mã nguồn CSS thuộc phân hệ slave/",
     "symbols": [],
     "deps": [],
@@ -2515,8 +2519,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/css/liquid-glass.css",
     "folder": "slave/",
     "lang": "CSS",
-    "lines": 1240,
-    "bytes": 32590,
+    "lines": 1313,
+    "bytes": 34322,
     "role": "Mã nguồn CSS thuộc phân hệ slave/",
     "symbols": [],
     "deps": [],
@@ -2577,8 +2581,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/admin.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 2758,
-    "bytes": 147115,
+    "lines": 2787,
+    "bytes": 149017,
     "role": "Bộ máy điều hướng 11 tab Quản trị Chủ quán, Dashboard, Bàn QR, Hóa đơn, Sản phẩm & Danh mục.",
     "symbols": [
      "addRecipeRow",
@@ -2700,8 +2704,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/admin_inventory.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 2227,
-    "bytes": 136583,
+    "lines": 2231,
+    "bytes": 137201,
     "role": "Quản lý kho nguyên vật liệu, Nhập kho thông minh 3 cách (Camera/OCR/Tay) & Công nợ nhà cung cấp.",
     "symbols": [
      "_escInvHtml",
@@ -2772,7 +2776,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "JavaScript",
     "lines": 2358,
-    "bytes": 162095,
+    "bytes": 162149,
     "role": "Cấu hình SLA cao/thấp điểm, bảng điểm KPI, chấm công/lương & hiệu suất bếp-phục vụ.",
     "symbols": [
      "_applyReceiptStudioControls",
@@ -2844,12 +2848,14 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/cn_station_nav.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 128,
-    "bytes": 4544,
+    "lines": 240,
+    "bytes": 11708,
     "role": "Module điều hướng chuyển trạm dùng chung cho toàn bộ 6 trang Slave (UI-04): 1 thứ tự cố định, lọc tự động theo role & license.",
     "symbols": [
      "autoMountAll",
+     "ensureMobileNavControls",
      "getCurrentPath",
+     "openMobileDrawer",
      "renderStationNav"
     ],
     "deps": [],
@@ -2860,28 +2866,30 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/customer_app.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 1592,
-    "bytes": 88613,
+    "lines": 2047,
+    "bytes": 116978,
     "role": "Module JavaScript giao diện Slave (customer_app.js).",
     "symbols": [
+     "activateTableWifiVip",
      "addItem",
      "applyCatalogI18nDom",
      "applyCustomerPromo",
      "applyFilters",
      "bindSlides",
      "bounceCartButton",
+     "callService",
      "changeQty",
      "checkOrderStatus",
      "close",
-     "closeCart",
-     "closeQuickVietQr",
-     "copyCustomerDirectUrl"
+     "closeCart"
     ],
     "deps": [],
     "apis": [
      "/api/media/jukebox/request",
      "/api/media/jukebox/status",
-     "/api/media/jukebox/vote"
+     "/api/media/jukebox/vote",
+     "/api/wifi/unlock",
+     "/api/wifi/vip_status"
     ],
     "tables": [
      "API",
@@ -2893,8 +2901,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/date_format_ddmmyy.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 150,
-    "bytes": 5598,
+    "lines": 162,
+    "bytes": 6051,
     "role": "Module JavaScript giao diện Slave (date_format_ddmmyy.js).",
     "symbols": [
      "enhanceDateInput",
@@ -2912,8 +2920,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/i18n.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 485,
-    "bytes": 21565,
+    "lines": 494,
+    "bytes": 21966,
     "role": "Module JavaScript giao diện Slave (i18n.js).",
     "symbols": [
      "addEventListener",
@@ -2959,7 +2967,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "JavaScript",
     "lines": 784,
-    "bytes": 32575,
+    "bytes": 32594,
     "role": "Audio Engine đa tab Web Audio API + BroadcastChannel + Leader Election chống phát chồng 2 loa.",
     "symbols": [
      "_applyStatus",
@@ -2990,8 +2998,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/kitchen_kds.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 896,
-    "bytes": 58776,
+    "lines": 920,
+    "bytes": 60749,
     "role": "Module JavaScript giao diện Slave (kitchen_kds.js).",
     "symbols": [
      "archiveKitchenTicket",
@@ -3019,7 +3027,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "JavaScript",
     "lines": 142,
-    "bytes": 10152,
+    "bytes": 10187,
     "role": "Module JavaScript giao diện Slave (license_ping.js).",
     "symbols": [
      "addEventListener",
@@ -3079,8 +3087,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/order_waiter.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 1464,
-    "bytes": 82645,
+    "lines": 1513,
+    "bytes": 86529,
     "role": "Module JavaScript giao diện Slave (order_waiter.js).",
     "symbols": [
      "ackKitchenCancellation",
@@ -3143,8 +3151,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/pos.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 2651,
-    "bytes": 165848,
+    "lines": 2715,
+    "bytes": 169883,
     "role": "Bộ máy POS Thu ngân (giỏ hàng, tính tiền, thanh toán, chia/gộp bàn, giao ca, in bill 80mm).",
     "symbols": [
      "ackCancelAlert",
@@ -3173,8 +3181,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/pos_shift_reports.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 1059,
-    "bytes": 73367,
+    "lines": 1060,
+    "bytes": 73225,
     "role": "Module JavaScript giao diện Slave (pos_shift_reports.js).",
     "symbols": [
      "clearReprintSearch",
@@ -3225,13 +3233,17 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/security_utils.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 154,
-    "bytes": 5733,
+    "lines": 225,
+    "bytes": 8967,
     "role": "Module JavaScript giao diện Slave (security_utils.js).",
     "symbols": [
+     "_open",
      "addEventListener",
+     "enqueue",
      "escapeHtml",
      "escapeJsAttr",
+     "flush",
+     "list",
      "logSilentError",
      "renderOfflineVietQr",
      "replace",
@@ -3250,7 +3262,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "JavaScript",
     "lines": 279,
-    "bytes": 16314,
+    "bytes": 16350,
     "role": "Module JavaScript giao diện Slave (store_brand.js).",
     "symbols": [
      "applyStoreBrand",
@@ -3269,8 +3281,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/assets/js/theme.js",
     "folder": "slave/",
     "lang": "JavaScript",
-    "lines": 86,
-    "bytes": 3783,
+    "lines": 99,
+    "bytes": 4219,
     "role": "Module JavaScript giao diện Slave (theme.js).",
     "symbols": [
      "addEventListener",
@@ -3369,8 +3381,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/customer.html",
     "folder": "slave/",
     "lang": "HTML",
-    "lines": 1732,
-    "bytes": 168785,
+    "lines": 758,
+    "bytes": 67959,
     "role": "Màn hình Khách hàng quét QR: thực đơn điện tử, đặt món, VietQR động, theo dõi tiến độ, đánh giá sao, Jukebox chọn bài.",
     "symbols": [
      "tab-btn-juke-queue",
@@ -3423,7 +3435,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "HTML",
     "lines": 923,
-    "bytes": 65945,
+    "bytes": 66140,
     "role": "Màn hình POS Thu ngân: bán hàng, tách/gộp bàn, thanh toán 3 yếu tố, giao ca/sổ quỹ, Jukebox mini.",
     "symbols": [],
     "deps": [
@@ -3444,7 +3456,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "HTML",
     "lines": 292,
-    "bytes": 20844,
+    "bytes": 20950,
     "role": "Màn hình Bếp & Pha chế (KDS): phiếu chế biến real-time, báo xong, báo hết món (86), nhắc phục vụ.",
     "symbols": [
      "modal-manage-locked-dishes",
@@ -3466,8 +3478,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "slave/web/login.html",
     "folder": "slave/",
     "lang": "HTML",
-    "lines": 511,
-    "bytes": 31923,
+    "lines": 519,
+    "bytes": 32141,
     "role": "Cổng Đăng nhập duy nhất (Tài khoản/Mật khẩu, PIN, Owner QR) & Host Control.",
     "symbols": [
      "tab-btn-pass",
@@ -3544,7 +3556,7 @@ window.QA_ARCH_CODEBASE = {
     "folder": "slave/",
     "lang": "HTML",
     "lines": 196,
-    "bytes": 15064,
+    "bytes": 15094,
     "role": "Trang chào WiFi Marketing Captive Portal (tốc độ tối đa: Dùng thử giới hạn phiên & WiFi VIP theo mã hóa đơn).",
     "symbols": [
      "tab-free-min",
@@ -3560,11 +3572,33 @@ window.QA_ARCH_CODEBASE = {
     "tables": []
    },
    {
+    "path": "tests/run_full_scenario_matrix.py",
+    "folder": "tests/",
+    "lang": "Python",
+    "lines": 160,
+    "bytes": 8170,
+    "role": "Mã nguồn Python thuộc phân hệ tests/",
+    "symbols": [
+     "api",
+     "record"
+    ],
+    "deps": [],
+    "apis": [
+     "/api/media/jukebox/bar_display",
+     "/api/media/jukebox/status",
+     "/api/payment/vietqr_svg",
+     "/api/plugins/matrix",
+     "/api/products.php",
+     "/api/system/integrity"
+    ],
+    "tables": []
+   },
+   {
     "path": "tests/test_api_e2e.py",
     "folder": "tests/",
     "lang": "Python",
-    "lines": 248,
-    "bytes": 13436,
+    "lines": 263,
+    "bytes": 14193,
     "role": "Kiểm thử tích hợp End-to-End CI: khởi chạy cybernexus_slave thật trên DB sạch, test Login → Tables/SLA → Order → KDS → Review.",
     "symbols": [
      "find_slave_binary",
@@ -3596,6 +3630,7 @@ window.QA_ARCH_CODEBASE = {
      "app_notifications",
      "categories",
      "kitchen_service_logs",
+     "local_license_cache",
      "materials",
      "order_items",
      "orders",
@@ -3694,8 +3729,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "tools/generate_web_integrity.py",
     "folder": "tools/",
     "lang": "Python",
-    "lines": 37,
-    "bytes": 1240,
+    "lines": 46,
+    "bytes": 1697,
     "role": "Script Python công cụ hỗ trợ đóng gói / ký số / bảo trì.",
     "symbols": [
      "generate_for_web_dir"
@@ -3733,6 +3768,20 @@ window.QA_ARCH_CODEBASE = {
      "pathlib",
      "sqlite_master"
     ]
+   },
+   {
+    "path": "tools/qa_tracker_server.py",
+    "folder": "tools/",
+    "lang": "Python",
+    "lines": 86,
+    "bytes": 3396,
+    "role": "Mã nguồn Python thuộc phân hệ tools/",
+    "symbols": [],
+    "deps": [],
+    "apis": [
+     "/api/refresh_arch"
+    ],
+    "tables": []
    },
    {
     "path": "tools/refresh_qa_arch_data.py",
@@ -3779,8 +3828,8 @@ window.QA_ARCH_CODEBASE = {
     "path": "tools/sign_module.py",
     "folder": "tools/",
     "lang": "Python",
-    "lines": 56,
-    "bytes": 1932,
+    "lines": 40,
+    "bytes": 1392,
     "role": "Script Python công cụ hỗ trợ đóng gói / ký số / bảo trì.",
     "symbols": [
      "sign_file"

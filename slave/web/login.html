@@ -225,6 +225,7 @@
     <!-- Logic Script -->
     <script>
         let currentPin = '';
+        let _isLoggingIn = false;
 
         function switchLoginTab(tab) {
             const btnPin = document.getElementById('tab-btn-pin');
@@ -319,6 +320,7 @@
         async function submitPinLogin() {
             if (currentPin.length !== 6) return;
             hideError();
+            _isLoggingIn = true;
 
             try {
                 const res = await fetch('api/auth.php?action=pin_login', {
@@ -333,18 +335,20 @@
                     } else {
                         localStorage.removeItem('cnx_must_change_pin');
                     }
+                    localStorage.removeItem('cnx_session_ota_ver');
                     localStorage.setItem('pos_user', JSON.stringify(data.user));
                     if (data.token) {
                         localStorage.setItem('pos_token', data.token);
-                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; SameSite=Lax";
                     }
                     const target = getRedirectTarget(data.user);
                     window.location.replace(target);
                 } else {
+                    _isLoggingIn = false;
                     showError(data.message || 'Mã PIN không đúng!');
                     clearPin();
                 }
             } catch (e) {
+                _isLoggingIn = false;
                 console.error(e);
                 showError('Không thể kết nối máy chủ!');
                 clearPin();
@@ -363,6 +367,7 @@
                 return;
             }
 
+            _isLoggingIn = true;
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Đang đăng nhập...';
@@ -376,17 +381,19 @@
                 });
                 const data = await res.json();
                 if (data.success && data.user) {
+                    localStorage.removeItem('cnx_session_ota_ver');
                     localStorage.setItem('pos_user', JSON.stringify(data.user));
                     if (data.token) {
                         localStorage.setItem('pos_token', data.token);
-                        document.cookie = "pos_token=" + encodeURIComponent(data.token) + "; path=/; SameSite=Lax";
                     }
                     const target = getRedirectTarget(data.user);
                     window.location.replace(target);
                 } else {
+                    _isLoggingIn = false;
                     showError(data.message || 'Tên đăng nhập hoặc mật khẩu không chính xác!');
                 }
             } catch (e) {
+                _isLoggingIn = false;
                 console.error(e);
                 showError('Không thể kết nối máy chủ!');
             } finally {
@@ -413,6 +420,7 @@
                     headers: token ? { 'Authorization': 'Bearer ' + token } : {},
                     cache: 'no-store'
                 }).then(r => r.json()).then(res => {
+                    if (_isLoggingIn) return;
                     if (!res || res.authenticated !== true) {
                         localStorage.removeItem('pos_user');
                         localStorage.removeItem('pos_token');

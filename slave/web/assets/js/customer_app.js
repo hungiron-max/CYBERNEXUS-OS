@@ -290,51 +290,117 @@ const CustomerOrdering = {
     },
 
     _catalogProductsMap: {},
+    _catalogProductsList: [],
     _catalogCategoriesMap: {},
+    _catalogCategoriesList: [],
+    quickFilterMode: 'all',
 
     async loadCatalogI18n() {
         try {
             const [pRes, cRes] = await Promise.all([
-                fetch('api/products.php').then(r => r.json()).catch(() => null),
-                fetch('api/categories.php').then(r => r.json()).catch(() => null)
+                fetch('api/products.php', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+                fetch('api/categories.php', { cache: 'no-store' }).then(r => r.json()).catch(() => null)
             ]);
+            this._catalogProductsMap = {};
+            this._catalogProductsList = [];
+            this._catalogCategoriesMap = {};
+            this._catalogCategoriesList = [];
             if (pRes && pRes.success && Array.isArray(pRes.data)) {
-                pRes.data.forEach(p => { this._catalogProductsMap[String(p.id)] = p; });
+                pRes.data.forEach(p => {
+                    const st = String(p.status || 'active').toLowerCase();
+                    if (st === 'inactive' || st === 'hidden' || st === 'deleted') return;
+                    this._catalogProductsMap[String(p.id)] = p;
+                    this._catalogProductsList.push(p);
+                });
             }
             if (cRes && cRes.success && Array.isArray(cRes.data)) {
-                cRes.data.forEach(c => { this._catalogCategoriesMap[String(c.id)] = c; });
+                cRes.data.forEach(c => {
+                    this._catalogCategoriesMap[String(c.id)] = c;
+                    this._catalogCategoriesList.push(c);
+                });
             }
-            this.applyCatalogI18nDom();
+            this.renderDynamicCategories();
+            this.renderDynamicProducts();
+            this.applyFilters();
+            this.renderCart();
         } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.loadCatalogI18n', e) : null); }
     },
 
+    renderDynamicCategories() {
+        const wrap = document.getElementById('category-filter-pills');
+        if (!wrap) return;
+        const counts = {};
+        let bestCount = 0;
+        this._catalogProductsList.forEach(p => {
+            const cid = String(p.category_id || 0);
+            counts[cid] = (counts[cid] || 0) + 1;
+            if (Number(p.is_bestseller || p.featured || 0) > 0 || Number(p.sold_count || 0) > 0) bestCount++;
+        });
+        const total = this._catalogProductsList.length;
+        const activeCls = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0';
+        const idleCls = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0';
+        const esc = (s) => (window.escapeHtml ? escapeHtml(s) : String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+        let html = `<button type="button" onclick="CustomerOrdering.filterCategory(0, 'all')" class="${(this.activeCategory === 0 && this.quickFilterMode === 'all') ? activeCls : idleCls}">Tất Cả (${total})</button>`;
+        if (bestCount > 0 || total > 0) {
+            html += `<button type="button" onclick="CustomerOrdering.filterCategory(0, 'bestseller')" class="${this.quickFilterMode === 'bestseller' ? activeCls : idleCls}">🔥 Bán chạy</button>`;
+        }
+        this._catalogCategoriesList.forEach(c => {
+            const cnt = counts[String(c.id)] || 0;
+            if (cnt <= 0) return;
+            const cName = (typeof window.cnxDbText === 'function') ? window.cnxDbText(c, 'name', c.name) : (c.name || '');
+            const isAct = (this.quickFilterMode === 'all' && Number(this.activeCategory) === Number(c.id));
+            html += `<button type="button" onclick="CustomerOrdering.filterCategory(${Number(c.id)}, 'all')" class="${isAct ? activeCls : idleCls}">${esc(cName)} (${cnt})</button>`;
+        });
+        wrap.innerHTML = html;
+    },
+
+    renderDynamicProducts() {
+        const grid = document.getElementById('products-grid');
+        if (!grid) return;
+        const esc = (s) => (window.escapeHtml ? escapeHtml(s) : String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+        if (!this._catalogProductsList.length) {
+            grid.innerHTML = `<div class="col-span-full py-12 text-center text-xs text-slate-400">Quán hiện chưa có món nào đang mở bán.</div>`;
+            return;
+        }
+        grid.innerHTML = this._catalogProductsList.map(p => {
+            const pid = Number(p.id);
+            const cid = Number(p.category_id || 0);
+            const rawName = p.name || '';
+            const trName = (typeof window.cnxDbText === 'function') ? window.cnxDbText(p, 'name', rawName) : rawName;
+            const trUnit = (typeof window.cnxDbText === 'function') ? window.cnxDbText(p, 'unit', p.unit || 'phần') : (p.unit || 'phần');
+            const price = Number(p.sale_price ?? p.price ?? 0);
+            const imgSrc = p.image_path || p.image || 'assets/images/dishes/default_dish.jpg';
+            const code = p.code || '';
+            const isOos = String(p.status || '').toLowerCase() === 'out_of_stock';
+            const isBest = (Number(p.is_bestseller || p.featured || 0) > 0 || Number(p.sold_count || 0) > 0) ? '1' : '0';
+            return `
+                <div class="product-item liquid-card rounded-2xl p-3 flex flex-col justify-between group transition-all" data-product-id="${pid}" data-category-id="${cid}" data-product-name="${esc(trName)}" data-product-price="${price}" data-bestseller="${isBest}">
+                    <div class="space-y-2">
+                        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-white/10 flex items-center justify-center">
+                            <img src="${esc(imgSrc)}" alt="${esc(trName)}" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.src='assets/images/dishes/default_dish.jpg';" loading="lazy" />
+                            ${code ? `<div class="absolute top-1.5 left-1.5"><span class="text-[10px] font-mono text-sky-400 font-bold bg-slate-950/85 backdrop-blur-md px-1.5 py-0.5 rounded border border-sky-500/30 shadow">${esc(code)}</span></div>` : ''}
+                            ${isOos ? `<div class="absolute inset-0 bg-slate-950/75 flex items-center justify-center"><span class="px-2 py-0.5 rounded-full bg-rose-500/30 border border-rose-400 text-rose-200 text-[10px] font-black uppercase">Hết hàng</span></div>` : ''}
+                        </div>
+                        <h4 class="text-xs sm:text-sm font-bold text-white leading-snug line-clamp-2 min-h-[2.25rem]">${esc(trName)}</h4>
+                    </div>
+                    <div class="pt-2 mt-2 border-t border-white/10 space-y-2">
+                        <div class="flex items-baseline justify-between gap-1">
+                            <span class="text-xs text-slate-400">/ ${esc(trUnit)}</span>
+                            <span class="text-sm sm:text-base font-black font-mono text-emerald-400">${this.formatMoney(price)} đ</span>
+                        </div>
+                        <button type="button" ${isOos ? 'disabled' : `onclick="CustomerOrdering.addItem(${pid})"`} class="w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${isOos ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-md shadow-sky-500/20 active:scale-95'}">
+                            <i class="fas ${isOos ? 'fa-ban' : 'fa-plus'}"></i> <span>${isOos ? 'Tạm hết' : 'Thêm vào giỏ'}</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
     applyCatalogI18nDom() {
-        if (typeof window.cnxDbText !== 'function') return;
-        document.querySelectorAll('.product-item[data-product-id]').forEach(card => {
-            const pid = String(card.dataset.productId || '');
-            const pObj = this._catalogProductsMap[pid];
-            if (!pObj) return;
-            if (!card.dataset.productOriginName) card.dataset.productOriginName = pObj.name || card.dataset.productName || '';
-            const trName = window.cnxDbText(pObj, 'name', card.dataset.productOriginName);
-            const trUnit = window.cnxDbText(pObj, 'unit', pObj.unit || (window.cnxT?window.cnxT('js.s_cust.9fbdb238','cái'):'cái'));
-            card.dataset.productName = trName;
-            const h4 = card.querySelector('h4');
-            if (h4) h4.textContent = trName;
-            const unitSpan = card.querySelector('.pt-2.mt-2 span.text-xs.text-slate-400');
-            if (unitSpan && trUnit) unitSpan.textContent = '/ ' + trUnit;
-        });
-        document.querySelectorAll('#category-filter-pills .cat-pill').forEach(btn => {
-            const oc = btn.getAttribute('onclick') || '';
-            const m = oc.match(/filterCategory\((\d+)\)/);
-            if (!m) return;
-            const cid = m[1];
-            if (cid === '0') return;
-            const cObj = this._catalogCategoriesMap[cid];
-            if (!cObj) return;
-            const trCat = window.cnxDbText(cObj, 'name', cObj.name);
-            const cntMatch = (btn.textContent || '').match(/\(\d+\)/);
-            btn.textContent = trCat + (cntMatch ? (' ' + cntMatch[0]) : '');
-        });
+        this.renderDynamicCategories();
+        this.renderDynamicProducts();
+        this.applyFilters();
     },
 
     setOrderMode(mode) {
@@ -426,7 +492,25 @@ const CustomerOrdering = {
         } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     },
 
+    toggleQuickNote(pid, chip) {
+        const cur = String(this.itemNotes[pid] || '').split(',').map(s => s.trim()).filter(Boolean);
+        const idx = cur.indexOf(chip);
+        if (idx >= 0) cur.splice(idx, 1);
+        else cur.push(chip);
+        this.itemNotes[pid] = cur.join(', ');
+        this.saveCart();
+        this.renderCart();
+    },
+
     getProductInfo(pid) {
+        const pObj = this._catalogProductsMap[String(pid)];
+        if (pObj) {
+            return {
+                id: Number(pObj.id),
+                name: (typeof window.cnxDbText === 'function') ? window.cnxDbText(pObj, 'name', pObj.name || '') : (pObj.name || ''),
+                price: Number(pObj.sale_price ?? pObj.price ?? 0)
+            };
+        }
         const card = document.querySelector(`.product-item[data-product-id="${pid}"]`);
         if (!card) return null;
         return {
@@ -547,6 +631,12 @@ const CustomerOrdering = {
                     </div>
                 </div>
                 ${itemNote ? `<div class="text-[10px] text-amber-300/90 italic bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 break-words">Ghi chú: ${itemNote}</div>` : ''}
+                <div class="flex flex-wrap gap-1 pt-0.5">
+                    ${['Ít đá', 'Không đá', 'Ít ngọt', 'Mang về riêng'].map(chip => {
+                        const active = itemNote.split(',').map(s => s.trim()).includes(chip);
+                        return `<button type="button" onclick="CustomerOrdering.toggleQuickNote(${id}, '${chip}')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${active ? 'bg-amber-500/30 border-amber-400 text-amber-200' : 'bg-slate-800/70 border-white/10 text-slate-400 hover:text-white'}">${chip}</button>`;
+                    }).join('')}
+                </div>
             `;
             list.appendChild(row);
         });
@@ -720,11 +810,13 @@ const CustomerOrdering = {
 
         try {
             const urlSig = new URLSearchParams(window.location.search).get('sig') || '';
+            const isTableAppend = (this.orderMode === 'dine_in' && window.CustomerTableLive && window.CustomerTableLive.hasActiveOrder && Number(window.CustomerTableLive.tableId || 0) === Number(selectedTableId || 0));
             const response = await fetch('api/orders?action=customer_order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     order_mode: this.orderMode,
+                    append: isTableAppend,
                     customer_name: name,
                     customer_phone: phone,
                     note: fullNote,
@@ -755,7 +847,22 @@ const CustomerOrdering = {
             this.renderCart();
 
             this.currentOrder = data;
-            this.showPaymentScreen(data);
+            if (isTableAppend && window.CustomerTableLive) {
+                this.closeCart();
+                await window.CustomerTableLive.refresh();
+                window.CustomerTableLive.openSheet();
+                this.showToast?.('Đã gửi thêm món vào đơn bàn ' + selectedTableCode + '!');
+            } else {
+                try {
+                    localStorage.setItem('cbnx_last_customer_order', JSON.stringify({ order_code: data.order_code, access_token: data.access_token || '', total_amount: data.total_amount || 0, table_code: data.table_code || '', ts: Date.now() }));
+                    const lastBtn = document.getElementById('btn-my-last-order');
+                    if (lastBtn && !window.CustomerTableLive?.tableCode) { lastBtn.classList.remove('hidden'); lastBtn.classList.add('flex'); }
+                } catch (_) {}
+                this.showPaymentScreen(data);
+                if (this.orderMode === 'dine_in' && window.CustomerTableLive) {
+                    window.CustomerTableLive.refresh();
+                }
+            }
         } catch (err) {
             if (errorBox) {
                 errorBox.textContent = err.message || (window.cnxT?window.cnxT('js.s_cust.03481144','Lỗi gửi đơn.'):'Lỗi gửi đơn.');
@@ -772,10 +879,18 @@ const CustomerOrdering = {
     },
 
     async showPaymentScreen(order) {
+        const emptyEl = document.getElementById('customer-cart-empty');
         const activeEl = document.getElementById('customer-cart-active');
         const payment = document.getElementById('customer-order-payment');
+        const titleEl = document.getElementById('customer-cart-title');
+        const qrSection = document.getElementById('customer-vietqr-section');
+        if (emptyEl) emptyEl.classList.add('hidden');
         if (activeEl) activeEl.classList.add('hidden');
         if (payment) payment.classList.remove('hidden');
+        if (qrSection) qrSection.classList.remove('hidden');
+        if (titleEl && order && order.order_code) {
+            titleEl.textContent = `Theo Dõi Đơn ${order.order_code}`;
+        }
 
         document.getElementById('customer-payment-order-code').textContent = order.order_code;
         document.getElementById('customer-payment-total').textContent = `${this.formatMoney(order.total_amount)} ${window.cnxT?window.cnxT('ui.adm_html.span_e53c1767','đ'):'đ'}`;
@@ -837,6 +952,7 @@ const CustomerOrdering = {
         }
         if (this._payPollTimer) clearInterval(this._payPollTimer);
         this._payPollInFlight = false;
+        this.checkOrderStatus(true);
         this._payPollTimer = setInterval(async () => {
             if (this._payPollInFlight) return;
             this._payPollInFlight = true;
@@ -887,8 +1003,27 @@ const CustomerOrdering = {
             ]);
             const d = (payRes && payRes.success && payRes.data) ? payRes.data : null;
             const o = (custRes && custRes.success && custRes.order) ? custRes.order : d;
+            const items = (custRes && custRes.success && Array.isArray(custRes.items)) ? custRes.items : null;
+            if (items) {
+                this.renderLiveItemsTracking(items, o);
+            }
             if (d && d.payment_status === 'paid') {
                 if (btnMark) btnMark.classList.add('hidden');
+                const qrSec = document.getElementById('customer-vietqr-section');
+                if (qrSec) qrSec.classList.add('hidden');
+            }
+            if (o && (o.status === 'completed' || o.status === 'cancelled')) {
+                try {
+                    const saved = JSON.parse(localStorage.getItem('cbnx_last_customer_order') || 'null');
+                    if (saved && saved.order_code === code) {
+                        localStorage.removeItem('cbnx_last_customer_order');
+                    }
+                } catch (_) {}
+                const btnLast = document.getElementById('btn-my-last-order');
+                if (btnLast) {
+                    btnLast.classList.add('hidden');
+                    btnLast.classList.remove('flex');
+                }
             }
             if (stEl) {
                 if (d && d.payment_status === 'partial') {
@@ -992,21 +1127,86 @@ const CustomerOrdering = {
         this.currentOrder = null;
         const activeEl = document.getElementById('customer-cart-active');
         const payment = document.getElementById('customer-order-payment');
+        const titleEl = document.getElementById('customer-cart-title');
+        const liveItemsEl = document.getElementById('customer-order-live-items');
         if (payment) payment.classList.add('hidden');
         if (activeEl) activeEl.classList.remove('hidden');
+        if (titleEl) titleEl.textContent = (window.cnxT ? window.cnxT('customer.cart_title', 'Danh Sách Món Tại Bàn') : 'Danh Sách Món Tại Bàn');
+        if (liveItemsEl) liveItemsEl.innerHTML = '';
         this.renderCart();
         this.closeCart();
     },
 
-    filterCategory(catId) {
+    renderLiveItemsTracking(items, orderObj) {
+        const container = document.getElementById('customer-order-live-items');
+        if (!container) return;
+        if (!Array.isArray(items) || items.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        const esc = (s) => (window.escapeHtml ? escapeHtml(s) : String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+        const fmt = (n) => this.formatMoney(n) + 'đ';
+        const orderKStatus = (orderObj && orderObj.kitchen_status) ? String(orderObj.kitchen_status) : '';
+        const statusMeta = (st) => {
+            const s = st || (orderKStatus === 'awaiting_payment' ? 'awaiting_payment' : 'pending');
+            if (s === 'served') return { cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40', icon: 'fa-check-circle', text: 'Đã giao' };
+            if (s === 'ready') return { cls: 'bg-sky-500/20 text-sky-300 border-sky-400/40', icon: 'fa-bell-concierge', text: 'Sắp xong / Sắp ra' };
+            if (s === 'preparing') return { cls: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/40', icon: 'fa-fire-burner', text: 'Đang pha/nấu' };
+            if (s === 'awaiting_payment') return { cls: 'bg-amber-500/20 text-amber-300 border-amber-400/40', icon: 'fa-clock', text: 'Chờ xác nhận TT' };
+            return { cls: 'bg-amber-500/15 text-amber-200 border-amber-400/30', icon: 'fa-hourglass-half', text: 'Đang chờ bếp' };
+        };
+        const totalQty = items.reduce((s, it) => s + Number(it.quantity || 1), 0);
+        const doneQty = items.filter(it => it.item_status === 'served' || it.item_status === 'ready').reduce((s, it) => s + Number(it.quantity || 1), 0);
+        const servedQty = items.filter(it => it.item_status === 'served').reduce((s, it) => s + Number(it.quantity || 1), 0);
+        const pct = totalQty > 0 ? Math.round(((servedQty > 0 ? servedQty : doneQty * 0.5) / totalQty) * 100) : 0;
+        const readyItems = items.filter(it => it.item_status === 'ready');
+        const waitItems = items.filter(it => it.item_status !== 'ready' && it.item_status !== 'served');
+        const servedItems = items.filter(it => it.item_status === 'served');
+        const renderGroup = (title, colorCls, arr) => {
+            if (!arr.length) return '';
+            return `
+                <div class="space-y-1.5">
+                    <div class="text-[10px] font-black uppercase tracking-wider ${colorCls}">${title} (${arr.length})</div>
+                    ${arr.map(it => {
+                        const m = statusMeta(it.item_status);
+                        return `
+                            <div class="p-2.5 rounded-xl bg-slate-800/70 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-white truncate">${Number(it.quantity || 1)}x ${esc(it.product_name)}</div>
+                                    ${it.note ? `<div class="text-[10px] text-amber-300 truncate">${esc(it.note)}</div>` : ''}
+                                    <div class="text-[10px] font-mono text-slate-400">${fmt(it.subtotal || (Number(it.price || it.unit_price || 0) * Number(it.quantity || 1)))}</div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 ${m.cls}">
+                                    <i class="fas ${m.icon}"></i> ${m.text}
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        };
+        container.innerHTML = `
+            <div class="p-3 rounded-2xl bg-slate-900/80 border border-white/10 space-y-2.5">
+                <div>
+                    <div class="flex justify-between text-[11px] font-bold text-slate-300 mb-1">
+                        <span>Tiến độ món: ${servedQty}/${totalQty} đã giao</span>
+                        <span class="text-emerald-300">${pct}%</span>
+                    </div>
+                    <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all" style="width:${pct}%"></div>
+                    </div>
+                </div>
+                ${renderGroup('🔔 Sắp xong / Chờ nhận', 'text-sky-300', readyItems)}
+                ${renderGroup('⏳ Đang chờ / Chế biến', 'text-amber-300', waitItems)}
+                ${renderGroup('✅ Đã hoàn tất', 'text-emerald-300', servedItems)}
+            </div>
+        `;
+    },
+
+    filterCategory(catId, mode = 'all') {
         this.activeCategory = Number(catId) || 0;
-        document.querySelectorAll('.cat-pill').forEach((btn, idx) => {
-            if ((catId === 0 && idx === 0) || btn.getAttribute('onclick')?.includes(`(${catId})`)) {
-                btn.className = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-white shadow-md transition-all shrink-0';
-            } else {
-                btn.className = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white border border-white/10 transition-all shrink-0';
-            }
-        });
+        this.quickFilterMode = mode || 'all';
+        this.renderDynamicCategories();
         this.applyFilters();
     },
 
@@ -1020,10 +1220,25 @@ const CustomerOrdering = {
         document.querySelectorAll('.product-item').forEach(el => {
             const itemCat = Number(el.dataset.categoryId);
             const itemName = (el.dataset.productName || '').toLocaleLowerCase('vi');
+            const isBest = el.dataset.bestseller === '1';
+            const matchMode = (this.quickFilterMode !== 'bestseller' || isBest);
             const matchCat = (this.activeCategory === 0 || itemCat === this.activeCategory);
             const matchSearch = (!kw || itemName.includes(kw));
-            el.style.display = (matchCat && matchSearch) ? 'flex' : 'none';
+            el.style.display = (matchMode && matchCat && matchSearch) ? 'flex' : 'none';
         });
+    },
+
+    reopenLastOrder() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('cbnx_last_customer_order') || 'null');
+            if (!raw || !raw.order_code || (Date.now() - Number(raw.ts || 0)) > 4 * 3600 * 1000) {
+                localStorage.removeItem('cbnx_last_customer_order');
+                return;
+            }
+            this.currentOrder = raw;
+            this.openCart();
+            this.showPaymentScreen(raw);
+        } catch (_) {}
     },
 
     formatMoney(val) {
@@ -1204,14 +1419,27 @@ const CustomerJukebox = {
     timer: null,
 
     async init() {
-        // Khách vãng lai (chưa đăng nhập): ẩn hoàn toàn Jukebox, không gọi API kho nhạc
-        if (!window.currentUser || !window.currentUser.id) {
-            ['customer-jukebox-bar', 'customer-jukebox-modal'].forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.remove();
-            });
+        // UPG-MED-01: Chỉ hiện Jukebox cho khách đã vào WiFi VIP (hoặc nhân viên đang đăng nhập)
+        let isVipOrStaff = Boolean(window.currentUser && window.currentUser.id);
+        if (!isVipOrStaff) {
+            try {
+                const vRes = await fetch('/api/wifi/vip_status', { cache: 'no-store' });
+                const vJson = await vRes.json();
+                isVipOrStaff = Boolean(vJson && vJson.vip_active);
+            } catch (_) {}
+        }
+        const barEl = document.getElementById('customer-jukebox-bar');
+        if (!isVipOrStaff) {
+            if (barEl) barEl.classList.add('hidden');
             return;
         }
+        if (barEl) barEl.classList.remove('hidden');
+        await this.unlockAndShow();
+    },
+
+    async unlockAndShow() {
+        const barEl = document.getElementById('customer-jukebox-bar');
+        if (barEl) barEl.classList.remove('hidden');
         await this.loadStatus();
         await this.loadTracks(true);
         if (this.timer) clearInterval(this.timer);
@@ -1515,6 +1743,219 @@ const CustomerJukebox = {
 
 window.CustomerJukebox = CustomerJukebox;
 
+const CustomerTableLive = {
+    tableCode: '',
+    tableSig: '',
+    tableId: 0,
+    hasActiveOrder: false,
+
+    async activateTableWifiVip(orderCode) {
+        if (!orderCode) return;
+        let devId = localStorage.getItem('cbnx_device_id');
+        if (!devId) {
+            devId = 'DEV-' + Math.random().toString(36).slice(2, 10);
+            localStorage.setItem('cbnx_device_id', devId);
+        }
+        try {
+            const res = await fetch('/api/wifi/unlock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'vip', order_code: orderCode, device_id: devId })
+            });
+            const d = await res.json();
+            if (d && d.success) {
+                alert(`✅ ${d.message || 'Đã kích hoạt WiFi VIP thành công!'}`);
+                if (typeof CustomerJukebox !== 'undefined' && typeof CustomerJukebox.unlockAndShow === 'function') {
+                    await CustomerJukebox.unlockAndShow();
+                }
+            } else {
+                alert((d && d.message) || 'Không thể kích hoạt WiFi VIP!');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối khi kích hoạt WiFi VIP!');
+        }
+    },
+    lastData: null,
+    pollTimer: null,
+
+    init(code, sig) {
+        if (!code || /^MV/i.test(code)) return;
+        this.tableCode = code;
+        this.tableSig = sig || '';
+        const btnLive = document.getElementById('btn-table-live-tracker');
+        const btnCall = document.getElementById('btn-call-staff-quick');
+        if (btnLive) { btnLive.classList.remove('hidden'); btnLive.classList.add('flex'); }
+        if (btnCall) { btnCall.classList.remove('hidden'); btnCall.classList.add('flex'); }
+        this.refresh();
+        if (this.pollTimer) clearInterval(this.pollTimer);
+        this.pollTimer = setInterval(() => {
+            if (document.hidden) return;
+            const sheet = document.getElementById('customer-table-sheet');
+            const isOpen = sheet && !sheet.classList.contains('hidden');
+            if (this.hasActiveOrder || isOpen) this.refresh();
+        }, 5000);
+    },
+
+    async refresh() {
+        if (!this.tableCode) return;
+        try {
+            const url = `api/orders?action=table_live_order&table_code=${encodeURIComponent(this.tableCode)}&table_sig=${encodeURIComponent(this.tableSig)}`;
+            const res = await fetch(url, { cache: 'no-store' });
+            const d = await res.json();
+            if (!d || !d.success) return;
+            const prevItems = (this.lastData && this.lastData.items) || [];
+            if (prevItems.length && d.items) {
+                const prevMap = {};
+                prevItems.forEach(x => { prevMap[x.id] = x.item_status; });
+                const newlyReady = d.items.find(x => (x.item_status === 'ready' || x.item_status === 'served') && prevMap[x.id] && prevMap[x.id] !== 'ready' && prevMap[x.id] !== 'served');
+                if (newlyReady && window.CustomerOrdering && CustomerOrdering.showToast) {
+                    CustomerOrdering.showToast(newlyReady.item_status === 'served' ? `✅ ${newlyReady.product_name} đã phục vụ!` : `🍳 ${newlyReady.product_name} đã xong, sắp mang ra!`);
+                }
+            }
+            this.tableId = Number(d.table_id || 0);
+            this.hasActiveOrder = Boolean(d.has_order && d.order);
+            this.lastData = d;
+            this.renderBadge(d);
+            this.renderSheet(d);
+        } catch (_) {}
+    },
+
+    renderBadge(d) {
+        const lbl = document.getElementById('btn-table-live-label');
+        if (!lbl) return;
+        if (!d.has_order || !d.items || !d.items.length) {
+            lbl.textContent = `Bàn ${this.tableCode}`;
+            return;
+        }
+        const totalQty = d.items.reduce((s, it) => s + Number(it.quantity || 1), 0);
+        const servedQty = d.items.filter(it => it.item_status === 'served').reduce((s, it) => s + Number(it.quantity || 1), 0);
+        lbl.textContent = `${this.tableCode} (${servedQty}/${totalQty})`;
+    },
+
+    renderSheet(d) {
+        const titleEl = document.getElementById('cust-table-sheet-title');
+        const subEl = document.getElementById('cust-table-sheet-sub');
+        const bodyEl = document.getElementById('customer-table-sheet-body');
+        if (!bodyEl) return;
+        if (titleEl) titleEl.innerHTML = `<i class="fas fa-chair"></i> <span>Bàn ${this.tableCode} • Đơn Đang Phục Vụ</span>`;
+        if (!d || !d.has_order || !d.order) {
+            if (subEl) subEl.textContent = 'Bàn chưa có món nào được gửi bếp';
+            bodyEl.innerHTML = `<div class="py-8 text-center text-slate-400">Chưa có hóa đơn đang mở tại bàn <b>${this.tableCode}</b>. Hãy chọn món từ thực đơn nhé!</div>`;
+            return;
+        }
+        const ord = d.order;
+        const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+        if (subEl) subEl.textContent = `Mã đơn: ${ord.order_code} • Tạm tính: ${fmt(ord.total_amount)}`;
+        const statusMeta = (st) => {
+            if (st === 'served') return { cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40', icon: 'fa-check-circle', text: 'Đã đem ra' };
+            if (st === 'ready') return { cls: 'bg-sky-500/20 text-sky-300 border-sky-400/40', icon: 'fa-bell-concierge', text: 'Sắp mang ra' };
+            if (st === 'preparing') return { cls: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/40', icon: 'fa-fire-burner', text: 'Đang pha/nấu' };
+            if (st === 'awaiting_waiter') return { cls: 'bg-amber-500/20 text-amber-300 border-amber-400/40', icon: 'fa-clock', text: 'Chờ duyệt' };
+            return { cls: 'bg-amber-500/15 text-amber-200 border-amber-400/30', icon: 'fa-hourglass-half', text: 'Đang chờ bếp' };
+        };
+        const totalQty = (d.items || []).reduce((s, it) => s + Number(it.quantity || 1), 0);
+        const servedQty = (d.items || []).filter(it => it.item_status === 'served').reduce((s, it) => s + Number(it.quantity || 1), 0);
+        const pct = totalQty > 0 ? Math.round((servedQty / totalQty) * 100) : 0;
+        const readyItems = (d.items || []).filter(it => it.item_status === 'ready');
+        const waitItems = (d.items || []).filter(it => it.item_status !== 'ready' && it.item_status !== 'served');
+        const servedItems = (d.items || []).filter(it => it.item_status === 'served');
+        const renderGroup = (title, colorCls, arr) => {
+            if (!arr.length) return '';
+            return `
+                <div class="space-y-1.5">
+                    <div class="text-[10px] font-black uppercase tracking-wider ${colorCls}">${title} (${arr.length})</div>
+                    ${arr.map(it => {
+                        const m = statusMeta(it.item_status);
+                        return `
+                            <div class="p-2.5 rounded-xl bg-slate-800/70 border border-white/10 flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-white truncate">${it.quantity}x ${it.product_name}</div>
+                                    ${it.note ? `<div class="text-[10px] text-amber-300 truncate">${it.note}</div>` : ''}
+                                    <div class="text-[10px] font-mono text-slate-400">${fmt(it.subtotal)}</div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 ${m.cls}">
+                                    <i class="fas ${m.icon}"></i> ${m.text}
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        };
+        bodyEl.innerHTML = `
+            <div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 space-y-2">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-[11px] text-emerald-300 font-bold uppercase">Tổng Tạm Tính Bàn ${this.tableCode}</div>
+                        <div class="text-[11px] text-slate-400">${ord.payment_status === 'paid' ? 'Đã thanh toán' : 'Thanh toán tại quầy hoặc VietQR'}</div>
+                    </div>
+                    <div class="text-lg font-black font-mono text-emerald-300">${fmt(ord.total_amount)}</div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] font-bold text-slate-300 mb-1">
+                        <span>Tiến độ phục vụ: ${servedQty}/${totalQty} món</span>
+                        <span class="text-emerald-300">${pct}%</span>
+                    </div>
+                    <div class="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all" style="width:${pct}%"></div>
+                    </div>
+                </div>
+                ${(ord.kitchen_status !== 'awaiting_waiter' && totalQty > 0) ? `
+                    <button type="button" onclick="window.CustomerTableLive && CustomerTableLive.activateTableWifiVip('${ord.order_code}')" class="w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                        <i class="fas fa-wifi"></i> <span>Kích hoạt WiFi VIP Bàn (${totalQty} món = ${totalQty} máy)</span>
+                    </button>
+                ` : ''}
+            </div>
+            ${renderGroup('🔔 Sắp mang ra bàn', 'text-sky-300', readyItems)}
+            ${renderGroup('⏳ Đang chờ / Chế biến', 'text-amber-300', waitItems)}
+            ${renderGroup('✅ Đã phục vụ tại bàn', 'text-emerald-300', servedItems)}
+        `;
+    },
+
+    openSheet() {
+        this.refresh();
+        const el = document.getElementById('customer-table-sheet');
+        if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+    },
+    closeSheet() {
+        const el = document.getElementById('customer-table-sheet');
+        if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+    },
+    orderMore() {
+        this.closeSheet();
+        const p = document.getElementById('category-filter-pills');
+        if (p) p.scrollIntoView({ behavior: 'smooth' });
+    },
+    openServiceModal() {
+        this.closeSheet();
+        const m = document.getElementById('customer-service-modal');
+        if (m) { m.classList.remove('hidden'); m.classList.add('flex'); }
+    },
+    closeServiceModal() {
+        const m = document.getElementById('customer-service-modal');
+        if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+    },
+    async callService(serviceType) {
+        try {
+            const res = await fetch('api/orders?action=customer_call_service', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ table_code: this.tableCode, table_sig: this.tableSig, service_type: serviceType })
+            });
+            const d = await res.json();
+            this.closeServiceModal();
+            if (window.CustomerOrdering && CustomerOrdering.showToast) {
+                CustomerOrdering.showToast(d.message || 'Đã gửi yêu cầu hỗ trợ!');
+            } else {
+                alert(d.message || 'Đã gửi yêu cầu hỗ trợ!');
+            }
+        } catch (e) {
+            alert('Không gửi được yêu cầu, vui lòng thử lại!');
+        }
+    }
+};
+window.CustomerTableLive = CustomerTableLive;
+
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
     CustomerAdCarousel.init();
@@ -1527,6 +1968,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams(window.location.search);
         const tableCode = params.get('table') || params.get('table_code') || params.get('t');
         const tableName = params.get('name') || params.get('table_name') || tableCode;
+        const tableSig = params.get('sig') || '';
+        if (tableCode) {
+            CustomerTableLive.init(tableCode, tableSig);
+        } else {
+            try {
+                const raw = JSON.parse(localStorage.getItem('cbnx_last_customer_order') || 'null');
+                if (raw && raw.order_code && (Date.now() - Number(raw.ts || 0)) <= 4 * 3600 * 1000) {
+                    const lastBtn = document.getElementById('btn-my-last-order');
+                    if (lastBtn) { lastBtn.classList.remove('hidden'); lastBtn.classList.add('flex'); }
+                }
+            } catch (_) {}
+        }
         if (tableCode) {
             if (window.CustomerOrdering) {
                 window.CustomerOrdering.setOrderMode('table');
@@ -1590,3 +2043,5 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { (window.CyberSecurity ? CyberSecurity.logSilentError('customer_app.js', e) : console.debug('customer_app.js', e)); }
     }
 });
+
+window.CustomerOrdering = CustomerOrdering;

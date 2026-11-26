@@ -157,24 +157,24 @@
         </div>
     </header>
 
-    <!-- Filter Tabs (Uniform 4-column segmented bar) -->
-    <div class="bg-slate-900/95 border-b border-white/10 px-3 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0 z-20 text-xs">
-        <button type="button" id="tab-filter-active" onclick="switchFilter('active')" class="flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+    <!-- Filter Tabs (2x2 on mobile, 4-column bar on desktop) -->
+    <div class="bg-slate-900/95 border-b border-white/10 px-2.5 sm:px-3 py-2 grid grid-cols-2 sm:flex items-center gap-1.5 sm:gap-2 shrink-0 z-20 text-xs">
+        <button type="button" id="tab-filter-active" onclick="switchFilter('active')" class="sm:flex-1 py-2 px-2.5 sm:px-3 rounded-xl font-bold transition-all bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
             <i class="fas fa-fire text-amber-400"></i>
             <span data-i18n="ui.kds_html.span_aa580d86">Chờ Làm</span>
             <span id="count-tab-active" class="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
-        <button type="button" id="tab-filter-served" onclick="switchFilter('served')" class="flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+        <button type="button" id="tab-filter-served" onclick="switchFilter('served')" class="sm:flex-1 py-2 px-2.5 sm:px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
             <i class="fas fa-check-circle text-emerald-400"></i>
             <span data-i18n="ui.kds_html.span_3c8f64d8">Đã Bưng</span>
             <span id="count-tab-served" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
-        <button type="button" id="tab-filter-history" onclick="switchFilter('history')" class="flex-1 min-w-[120px] py-2 px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+        <button type="button" id="tab-filter-history" onclick="switchFilter('history')" class="sm:flex-1 py-2 px-2.5 sm:px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
             <i class="fas fa-history text-purple-400"></i>
             <span data-i18n="ui.adm_html.span_c4ddfa06">Lịch Sử</span>
             <span id="count-tab-history" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-purple-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
         </button>
-        <button type="button" id="tab-filter-all" onclick="switchFilter('all')" class="flex-1 min-w-[135px] py-2 px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+        <button type="button" id="tab-filter-all" onclick="switchFilter('all')" class="sm:flex-1 py-2 px-2.5 sm:px-3 rounded-xl font-bold transition-all bg-slate-800/40 text-slate-300 border border-white/5 hover:bg-slate-800/70 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
             <i class="fas fa-list text-sky-400"></i>
             <span data-i18n="ui.kds_html.span_ead835af">Tất Cả Đang Mở</span>
             <span id="count-tab-all" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-sky-400 font-mono text-[10px] font-black whitespace-nowrap shrink-0">0</span>
@@ -182,7 +182,7 @@
     </div>
 
     <!-- Orders Grid -->
-    <main class="flex-1 overflow-y-auto p-4 z-10">
+    <main class="flex-1 overflow-y-auto p-3 sm:p-4 pb-24 sm:pb-4 z-10" style="padding-bottom: max(5.5rem, env(safe-area-inset-bottom, 0px));">
         <div id="kitchen-tickets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <!-- Rendered dynamically -->
         </div>

@@ -1070,27 +1070,56 @@ function switchArchSub(sub) {
     renderArch();
 }
 
-function refreshArchCodebase() {
+async function refreshArchCodebase() {
     const btn = document.getElementById('btn-refresh-arch');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang nạp...'; }
-    const old = document.getElementById('qa-arch-reload-script');
-    if (old) old.remove();
-    const s = document.createElement('script');
-    s.id = 'qa-arch-reload-script';
-    s.src = 'qa_arch_codebase_data.js?v=' + Date.now();
-    s.onload = () => {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quét lại mã nguồn...'; }
+
+    let backendOk = false;
+    let backendErr = '';
+    const apiBase = (location.protocol === 'http:' || location.protocol === 'https:') ? '' : 'http://127.0.0.1:8599';
+    try {
+        const res = await fetch(apiBase + '/api/refresh_arch', { method: 'POST' });
+        const j = await res.json();
+        if (res.ok && j && j.success) {
+            backendOk = true;
+        } else {
+            backendErr = (j && j.error) || ('HTTP ' + res.status);
+        }
+    } catch (_) {
+        backendErr = 'Chưa bật QA Tracker Server (docs/start_qa_tracker.bat)';
+    }
+
+    const ts = Date.now();
+    const reloadScript = (id, src) => new Promise((resolve, reject) => {
+        const old = document.getElementById(id);
+        if (old) old.remove();
+        const s = document.createElement('script');
+        s.id = id;
+        s.src = src + '?v=' + ts;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.body.appendChild(s);
+    });
+
+    try {
+        await Promise.all([
+            reloadScript('qa-arch-reload-script', 'qa_arch_codebase_data.js'),
+            reloadScript('qa-tracker-reload-script', 'qa_tracker_data.js').catch(() => {})
+        ]);
+        if (typeof renderAll === 'function') { try { renderAll(); } catch (_) {} }
         renderArch();
         const b = document.getElementById('btn-refresh-arch');
+        const curStats = (window.QA_ARCH_CODEBASE && window.QA_ARCH_CODEBASE.codebase && window.QA_ARCH_CODEBASE.codebase.stats) || {};
         if (b) {
-            b.textContent = '✅ Đã cập nhật';
-            setTimeout(() => { b.disabled = false; b.textContent = '🔄 Cập nhật / Refresh'; }, 2000);
+            b.textContent = backendOk
+                ? `✅ Đã quét lại (${curStats.files || 0} file · ${(curStats.total_lines || 0).toLocaleString('vi-VN')} dòng)`
+                : `⚠️ ${backendErr}`;
+            setTimeout(() => { b.disabled = false; b.textContent = '🔄 Cập nhật / Refresh'; }, 3500);
         }
-    };
-    s.onerror = () => {
+    } catch (_) {
         const b = document.getElementById('btn-refresh-arch');
         if (b) { b.disabled = false; b.textContent = '🔄 Cập nhật / Refresh'; }
-    };
-    document.body.appendChild(s);
+    }
 }
 
 function renderArch() {
@@ -1637,9 +1666,9 @@ function renderCodebase() {
         root.innerHTML = `<div class="arch-scroll">
             <div class="arch-card" style="margin-bottom:12px">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-                    <h3 style="margin:0">📁 Cây Thư Mục Tương Tác Toàn Dự Án (${C.stats.files} file · ${C.stats.total_lines.toLocaleString('vi-VN')} dòng code)</h3>
+                    <h3 style="margin:0">📁 Cây Thư Mục Tương Tác Toàn Dự Án (${C.stats.files} file · ${C.stats.total_lines.toLocaleString('vi-VN')} dòng code) <span style="font-size:11px;font-weight:500;color:#94a3b8">• Quét lúc: ${window.QA_ARCH_CODEBASE.generated || '—'}</span></h3>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
-                        <button type="button" id="btn-refresh-arch" class="btn-primary" style="padding:4px 10px;font-size:11.5px;background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);color:#6ee7b7" onclick="refreshArchCodebase()">🔄 Cập nhật / Refresh</button>
+                        <button type="button" id="btn-refresh-arch" class="btn-primary" title="Nạp lại qa_arch_codebase_data.js & qa_tracker_data.js mới nhất từ ổ đĩa (chạy python tools/refresh_qa_arch_data.py để quét lại mã nguồn)" style="padding:4px 10px;font-size:11.5px;background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);color:#6ee7b7" onclick="refreshArchCodebase()">🔄 Cập nhật / Refresh</button>
                         <button type="button" class="btn-primary" style="padding:4px 10px;font-size:11.5px" onclick="setAllTreeDirs(true)">▾ Mở hết cây</button>
                         <button type="button" style="padding:4px 10px;font-size:11.5px" onclick="setAllTreeDirs(false)">▸ Thu gọn</button>
                     </div>
